@@ -1,0 +1,25 @@
+0. Checkout Github repo
+https://github.com/nameskyteam/state-cleanup
+
+1. Compile the state-cleanup contract
+make all
+
+2. Deploy the state-cleanup contract to the account which wants to be deleted (e.g. example.near)
+near deploy atlas.yeowlin.testnet ./res/state_cleanup.wasm --network-id testnet
+
+3. View the contact state and you can find the state keys with base64 encoding
+near storage atlas.yeowlin.testnet --finality optimistic --network-id testnet
+
+4. Store the results into keys.json:
+	4.1 replace all single quotes ' to double quotes "
+	4.2 replace key to "key"
+	4.3 replace value to "value"
+
+5. Generate all_keys.json
+node prepare_keys.js
+
+6. Clean the state keys based on all_keys.json
+near call atlas.yeowlin.testnet clean "$(cat ./src/all_keys.json)" --network-id testnet --account-id yeowlin.testnet --gas 300000000000000
+
+7. Delete the account
+near delete-account atlas.yeowlin.testnet yeowlin.testnet
