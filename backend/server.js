@@ -7,6 +7,13 @@ const { UpdateAtlasBtcDeposits } = require("./utils/updateAtlasBtcDeposits");
 const {
   MintaBtcToReceivingChain,
 } = require("./utils/mintaBtcToReceivingChain");
+const {
+  UpdateAtlasBtcRedemptions,
+} = require("./utils/updateAtlasBtcRedemptions");
+const { SendBtcBackToUser } = require("./utils/sendBtcBackToUser");
+const {
+  UpdateAtlasBtcBackToUser,
+} = require("./utils/updateAtlasBtcBackToUser");
 const { UpdateAtlasAbtcMinted } = require("./utils/updateAtlasAbtcMinted");
 
 const {
@@ -27,12 +34,14 @@ const app = express();
 
 const { Bitcoin } = require("./services/bitcoin");
 const { Near } = require("./services/near");
-//const { Ethereum } = require("./services/ethereum");
 
 // Configuration for BTC connection
 const btcConfig = {
   //btcAtlasDepositAddress: process.env.BTC_ATLAS_DEPOSIT_ADDRESS,
-  btcAtlasDepositAddress: process.env.USE_COBO === 'true' ? process.env.COBO_DEPOSIT_ADDRESS : process.env.BTC_ATLAS_DEPOSIT_ADDRESS,
+  btcAtlasDepositAddress:
+    process.env.USE_COBO === "true"
+      ? process.env.COBO_DEPOSIT_ADDRESS
+      : process.env.BTC_ATLAS_DEPOSIT_ADDRESS,
   btcAPI: process.env.BTC_MEMPOOL_API_URL,
   btcNetwork: process.env.BTC_NETWORK,
   btcDerivationPath: process.env.BTC_DERIVATION_PATH,
@@ -72,7 +81,6 @@ let deposits = [];
 let redemptions = [];
 let btcMempool = [];
 
-
 const computeStats = () => {
   atlasStats = getTransactionsAndComputeStats(
     deposits,
@@ -89,6 +97,16 @@ const getAllDepositHistory = async () => {
     deposits = await near.getAllDeposits();
   } catch (error) {
     console.error(`Failed to fetch staking history: ${error.message}`);
+  }
+};
+
+// Function to poll Near Atlas redemption records
+const getAllRedemptionHistory = async () => {
+  try {
+    //console.log("Fetching redemptions history");
+    redemptions = await near.getAllRedemptions();
+  } catch (error) {
+    console.error(`Failed to fetch redemption history: ${error.message}`);
   }
 };
 
@@ -123,6 +141,35 @@ app.get("/api/v1/stats", async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "ERR_INTERNAL_SERVER_ERROR" });
+  }
+});
+
+app.get("/api/v1/atlas/redemptionFees", async (req, res) => {
+  try {
+    const { sender, amount, redemptionTxnHash } = req.query;
+
+    const { estimatedFee, receiveAmount, taxAmount } =
+      await bitcoin.getMockPayload(
+        btcConfig.btcAtlasDepositAddress,
+        sender,
+        amount,
+        redemptionTxnHash,
+        globalParams.atlasRedemptionFeePercentage,
+        globalParams.atlasTreasuryAddress,
+      );
+
+    const data = {
+      estimatedGasFee: estimatedFee,
+      estimatedReceiveAmount: receiveAmount,
+      atlasRedemptionFee: taxAmount,
+    };
+
+    //console.log(data);
+
+    res.json({ data });
+  } catch (error) {
+    console.log("Error getting gas fee: " + error);
+    res.status(500).json({ error: "Error getting gas fee. " + error });
   }
 });
 
@@ -180,6 +227,39 @@ app.get("/api/v1/staker/stakingHistories", async (req, res) => {
   }
 });
 
+app.get("/api/v1/staker/redemptionHistories", async (req, res) => {
+  try {
+    const { btc_address } = req.query;
+
+    if (!btc_address) {
+      return res.status(400).json({ error: "ERR_MISSING_WALLET_ADDRESS" });
+    }
+
+    const data = redemptions
+      .filter((record) => record.btc_receiving_address === btc_address)
+      .map((record) => ({
+        txn_hash: record.txn_hash,
+        abtc_redemption_address: record.abtc_redemption_address,
+        abtc_redemption_chain_id: record.abtc_redemption_chain_id,
+        btc_receiving_address: record.btc_receiving_address,
+        abtc_amount: record.abtc_amount,
+        timestamp: record.timestamp,
+        status: record.status,
+        remarks: record.remarks,
+        btc_txn_hash: record.btc_txn_hash,
+      }));
+
+    const pagination = {
+      next_key: null, // Assuming there is no pagination support for this example
+    };
+
+    res.json({ data, pagination });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "ERR_INTERNAL_SERVER_ERROR" });
+  }
+});
+
 // Define the /api/v1/chainConfigs endpoint
 app.get("/api/v1/chainConfigs", (req, res) => {
   try {
@@ -193,6 +273,7 @@ app.get("/api/v1/chainConfigs", (req, res) => {
 
 async function runBatch() {
   await getAllDepositHistory();
+  await getAllRedemptionHistory();
   await getBtcMempoolRecords();
   await computeStats();
 
@@ -206,6 +287,18 @@ async function runBatch() {
 
   await UpdateAtlasAbtcMinted(deposits, near);
 
+  await UpdateAtlasBtcRedemptions(near);
+
+  await SendBtcBackToUser(redemptions, near, bitcoin);
+
+  await UpdateAtlasBtcBackToUser(
+    redemptions,
+    btcMempool,
+    btcAtlasDepositAddress,
+    near,
+    bitcoin,
+  );
+
   // Delay for 5 seconds before running the batch again
   await new Promise((resolve) => setTimeout(resolve, 5000));
   return runBatch();
@@ -215,34 +308,10 @@ const PORT = process.env.PORT || 3001;
 app.listen(PORT, async () => {
   await near.init();
   await updateGlobalParams(near);
+  // Fetch and set chain configs before running the batch processes
   await fetchAndSetChainConfigs(near);
   await fetchAndSetConstants(near); // Load constants
-
-  //const { NETWORK_TYPE } = getConstants();
-
-  // const ethereum = new Ethereum(
-  //   "421614",
-  //   "https://sepolia-rollup.arbitrum.io/rpc",
-  //   5000000,
-  //   "0x278A2A1fdBD6be9D1776ADfc6EFa4272EaffAcB0",
-  //   "../../contract/artifacts/atBTC.abi",
-  // );
-
-  // const emvAddress = await ethereum.deriveEthAddress(
-  //   await near.nearMPCContract.public_key(),
-  //   near.contract_id,
-  //   NETWORK_TYPE.EVM,
-  // );
-
-  // const { address } = await bitcoin.deriveBTCAddress(
-  //   await near.nearMPCContract.public_key(),
-  //   near.contract_id,
-  //   NETWORK_TYPE.BITCOIN,
-  // );
-
-  // console.log(`Derieved EVM Address: ${emvAddress}`);
-  // console.log(`Derieved BTC Address: ${address}`);
-
   console.log(`Server is running on port ${PORT}`);
+
   runBatch().catch(console.error);
 });

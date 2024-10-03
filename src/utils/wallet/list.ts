@@ -1,5 +1,4 @@
 import { network } from "@/config/network.config";
-
 import metamaskIcon from "./icons/metamask.png";
 import okxIcon from "./icons/okx.svg";
 import rabbyIcon from "./icons/rabby.png";

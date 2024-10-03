@@ -1,5 +1,7 @@
 const { Web3 } = require("web3");
 const { bytesToHex } = require("@ethereumjs/util");
+const { FeeMarketEIP1559Transaction } = require("@ethereumjs/tx");
+const { Common } = require("@ethereumjs/common");
 const fs = require("fs");
 const path = require("path");
 
@@ -41,10 +43,31 @@ class Ethereum {
     return Number((balance * 100n) / ONE_ETH) / 100;
   }
 
+  async createMintaBtcSignedTx(near, sender, btcTxnHash) {
+    // Get the nonce & gas price
+    // console.log(`Getting nonce...`);
+    const nonce = await this.web3.eth.getTransactionCount(sender);
+
+    const { maxFeePerGas, maxPriorityFeePerGas } = await this.queryGasPrice();
+
+    const payloadHeader = {
+      btc_txn_hash: btcTxnHash,
+      nonce: Number(nonce), // Convert BigInt to Number
+      gas: Math.min(this.gasLimit, Number(maxFeePerGas)), // assuming gasLimit is a number
+      max_fee_per_gas: Number(maxFeePerGas), // Convert BigInt to Number
+      max_priority_fee_per_gas: Number(maxPriorityFeePerGas), // Convert BigInt to Number
+    };
+
+    const result = await near.createMintaBtcSignedTx(payloadHeader);
+
+    const signedTransaction = new Uint8Array(result);
+
+    return signedTransaction;
+  }
+
   // This code can be used to actually relay the transaction to the Ethereum network
   async relayTransaction(signedTransaction) {
     const serializedTx = bytesToHex(signedTransaction);
-    console.log(serializedTx);
     const relayed = await this.web3.eth.sendSignedTransaction(serializedTx);
     const txnHash = relayed.transactionHash;
     const status = relayed.status;
@@ -82,6 +105,19 @@ class Ethereum {
   // Function to get block by number
   async getBlock(blockNumber) {
     return await this.web3.eth.getBlock(blockNumber);
+  }
+
+  // Function to get past events in batches
+  // TO-DO: Create indexer so do not need to fetch all Burn Events for every run
+  async getPastBurnEventsInBatches(startBlock, endBlock, batchSize) {
+    console.log(`Fetching Events in batches... ${startBlock} -> ${endBlock}`);
+
+    return this._scanEvents(
+      EVENT_NAME.BURN_REDEEM,
+      startBlock,
+      endBlock,
+      batchSize,
+    );
   }
 
   async getPastMintEventsInBatches(startBlock, endBlock, batchSize) {
@@ -157,28 +193,6 @@ class Ethereum {
     );
 
     return await uncompressedHexPointToEvmAddress(publicKey);
-  }
-
-  async createMintaBtcSignedTx(near, sender, btcTxnHash) {
-    // Get the nonce & gas price
-    // console.log(`Getting nonce...`);
-    const nonce = await this.web3.eth.getTransactionCount(sender);
-
-    const { maxFeePerGas, maxPriorityFeePerGas } = await this.queryGasPrice();
-
-    const payloadHeader = {
-      btc_txn_hash: btcTxnHash,
-      nonce: Number(nonce), // Convert BigInt to Number
-      gas: Math.min(this.gasLimit, Number(maxFeePerGas)), // assuming gasLimit is a number
-      max_fee_per_gas: Number(maxFeePerGas), // Convert BigInt to Number
-      max_priority_fee_per_gas: Number(maxPriorityFeePerGas), // Convert BigInt to Number
-    };
-
-    const result = await near.createMintaBtcSignedTx(payloadHeader);
-
-    const signedTransaction = new Uint8Array(result);
-
-    return signedTransaction;
   }
 }
 module.exports = { Ethereum };

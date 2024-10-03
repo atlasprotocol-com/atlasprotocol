@@ -220,8 +220,26 @@ near deploy atlas_audit.velar.testnet res/atlas_protocol.wasm
 near call atlas_audit.velar.testnet new '{"atlas_owner_id": "velar.testnet", "atlas_admin_id": "velar.testnet", "global_params_owner_id": "velar.testnet", "chain_configs_owner_id": "velar.testnet", "treasury_address": "tb1pa4xwtgs3672h38rqdveyk5w9jqczfhjxh89j8erdlr59yj92qs8szyvw53"}' --accountId velar.testnet
 
 near call atlas_audit.velar.testnet add_validator '{"account_id": "velar.testnet", "chain_id": "SIGNET"}' --accountId velar.testnet
+near call atlas_audit.velar.testnet add_validator '{"account_id": "velar1.testnet", "chain_id": "SIGNET"}' --accountId velar.testnet
+near call atlas_audit.velar.testnet add_validator '{"account_id": "velar2.testnet", "chain_id": "SIGNET"}' --accountId velar.testnet
+near call atlas_audit.velar.testnet add_validator '{"account_id": "velar3.testnet", "chain_id": "SIGNET"}' --accountId velar.testnet
+near call atlas_audit.velar.testnet add_validator '{"account_id": "velar4.testnet", "chain_id": "SIGNET"}' --accountId velar.testnet
+near call atlas_audit.velar.testnet add_validator '{"account_id": "velar5.testnet", "chain_id": "SIGNET"}' --accountId velar.testnet
 near call atlas_audit.velar.testnet add_validator '{"account_id": "yeowlin.testnet", "chain_id": "SIGNET"}' --accountId velar.testnet
 near call atlas_audit.velar.testnet add_validator '{"account_id": "velar.testnet", "chain_id": "421614"}' --accountId velar.testnet
+near call atlas_audit.velar.testnet add_validator '{"account_id": "velar1.testnet", "chain_id": "421614"}' --accountId velar.testnet
+near call atlas_audit.velar.testnet add_validator '{"account_id": "velar2.rtestnet", "chain_id": "421614"}' --accountId velar.testnet
+near call atlas_audit.velar.testnet add_validator '{"account_id": "velar3.testnet", "chain_id": "421614"}' --accountId velar.testnet
+near call atlas_audit.velar.testnet add_validator '{"account_id": "velar4.testnet", "chain_id": "421614"}' --accountId velar.testnet
+near call atlas_audit.velar.testnet add_validator '{"account_id": "velar5.testnet", "chain_id": "421614"}' --accountId velar.testnet
 near call atlas_audit.velar.testnet add_validator '{"account_id": "yeowlin.testnet", "chain_id": "421614"}' --accountId velar.testnet
 near call atlas_audit.velar.testnet add_validator '{"account_id": "velar.testnet", "chain_id": "11155420"}' --accountId velar.testnet
+near call atlas_audit.velar.testnet add_validator '{"account_id": "velar1.testnet", "chain_id": "11155420"}' --accountId velar.testnet
+near call atlas_audit.velar.testnet add_validator '{"account_id": "velar2.testnet", "chain_id": "11155420"}' --accountId velar.testnet
+near call atlas_audit.velar.testnet add_validator '{"account_id": "velar3.testnet", "chain_id": "11155420"}' --accountId velar.testnet
+near call atlas_audit.velar.testnet add_validator '{"account_id": "velar4.testnet", "chain_id": "11155420"}' --accountId velar.testnet
+near call atlas_audit.velar.testnet add_validator '{"account_id": "velar5.testnet", "chain_id": "11155420"}' --accountId velar.testnet
 near call atlas_audit.velar.testnet add_validator '{"account_id": "yeowlin.testnet", "chain_id": "11155420"}' --accountId velar.testnet
+near view atlas_audit.velar.testnet get_all_deposits
+near view atlas_audit.velar.testnet get_all_chain_configs
+near call atlas_audit.velar.testnet set_chain_configs_from_json '{"new_json_data": '"$(jq -Rs '.' < chain_chains.json)"'}' --accountId velar.testnet

@@ -3,4 +3,6 @@ pub mod structs;
 pub mod validation;
 pub mod utils;
 pub mod deposits;
+pub mod redemptions;
 pub mod admin;
+pub mod fees;

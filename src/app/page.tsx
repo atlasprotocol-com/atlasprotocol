@@ -6,7 +6,9 @@ import { useEffect, useState } from "react";
 import { useLocalStorage } from "usehooks-ts";
 
 import { network } from "@/config/network.config";
+import { calculateRedemptionHistoriesDiff } from "@/utils/local_storage/calculateRedemptionHistoriesDiff";
 import { calculateStakingHistoriesDiff } from "@/utils/local_storage/calculateStakingHistoriesDiff";
+import { getRedemptionHistoriesLocalStorageKey } from "@/utils/local_storage/getRedemptionHistoriesLocalStorageKey";
 import { getStakingHistoriesLocalStorageKey } from "@/utils/local_storage/getStakingHistoriesLocalStorageKey";
 import { WalletError, WalletErrorType } from "@/utils/wallet/errors";
 import {
@@ -17,6 +19,10 @@ import {
 import { Network, WalletProvider } from "@/utils/wallet/wallet_provider";
 
 import {
+  PaginatedRedemptionHistories,
+  getRedemptionHistories,
+} from "./api/getRedemptionHistories";
+import {
   PaginatedStakingHistories,
   getStakingHistories,
 } from "./api/getStakingHistories";
@@ -25,6 +31,8 @@ import { Header } from "./components/Header/Header";
 import { ConnectModal } from "./components/Modals/ConnectModal";
 import { ErrorModal } from "./components/Modals/ErrorModal";
 import { TermsModal } from "./components/Modals/Terms/TermsModal";
+import { Redemption } from "./components/Redemption/Redemption";
+import { RedemptionHistories } from "./components/RedemptionHistory/RedemptionHistories";
 import { Staking } from "./components/Staking/Staking";
 import { StakingHistories } from "./components/StakingHistory/StakingHistories";
 import { Stats } from "./components/Stats/Stats";
@@ -33,6 +41,7 @@ import Tabs from "./components/Tabs/Tabs";
 import { useError } from "./context/Error/ErrorContext";
 import { useTerms } from "./context/Terms/TermsContext";
 import { ErrorHandlerParam, ErrorState } from "./types/errors";
+import { Redemptions } from "./types/redemptions";
 import { Stakes } from "./types/stakes";
 
 interface HomeProps {}
@@ -91,6 +100,47 @@ const Home: React.FC<HomeProps> = () => {
 
   const [stakingHistoriesLocalStorage, setStakingHistoriesLocalStorage] =
     useLocalStorage<Stakes[]>(stakingHistoriesLocalStorageKey, []);
+
+  const {
+    data: redemptionHistories,
+    fetchNextPage: fetchNextRedemptionHistoriesPage,
+    hasNextPage: hasNextRedemptionHistoriesPage,
+    isFetchingNextPage: isFetchingNextRedemptionHistoriesPage,
+    error: redemptionHistoriesError,
+    isError: hasRedemptionHistoriesError,
+    refetch: refetchRedemptionHistoriesData,
+  } = useInfiniteQuery({
+    queryKey: ["redemptionHistories", address, publicKeyNoCoord],
+    queryFn: ({ pageParam = "" }) => getRedemptionHistories(pageParam, address),
+    getNextPageParam: (lastPage) =>
+      lastPage?.pagination?.next_key !== ""
+        ? lastPage?.pagination?.next_key
+        : null,
+    initialPageParam: "",
+    refetchInterval: 2000,
+    enabled: !!(btcWallet && publicKeyNoCoord && address),
+    select: (data) => {
+      const flattenedData = data.pages.reduce<PaginatedRedemptionHistories>(
+        (acc, page) => {
+          acc.redemptionHistories.push(...page.redemptionHistories);
+          acc.pagination = page.pagination;
+          return acc;
+        },
+        { redemptionHistories: [], pagination: { next_key: "" } },
+      );
+
+      return flattenedData;
+    },
+    retry: (failureCount, error) => {
+      return !isErrorOpen && failureCount <= 3;
+    },
+  });
+
+  const redemptionHistoriesLocalStorageKey =
+    getRedemptionHistoriesLocalStorageKey(publicKeyNoCoord);
+
+  const [redemptionHistoriesLocalStorage, setRedemptionHistoriesLocalStorage] =
+    useLocalStorage<Redemptions[]>(redemptionHistoriesLocalStorageKey, []);
 
   useEffect(() => {
     const handleError = ({
@@ -207,13 +257,45 @@ const Home: React.FC<HomeProps> = () => {
     stakingHistoriesLocalStorage,
   ]);
 
-  
+  // Clean up the local storage redmeption
+  useEffect(() => {
+    if (!redemptionHistories?.redemptionHistories) {
+      return;
+    }
+
+    const updateRedemptionHistoriesLocalStorage = async () => {
+      const {
+        areRedemptionHistoriesDifferent,
+        redemptionHistories: newRedemptionHistories,
+      } = await calculateRedemptionHistoriesDiff(
+        redemptionHistories.redemptionHistories,
+        redemptionHistoriesLocalStorage,
+      );
+      if (areRedemptionHistoriesDifferent) {
+        setRedemptionHistoriesLocalStorage(newRedemptionHistories);
+      }
+    };
+
+    updateRedemptionHistoriesLocalStorage();
+  }, [
+    redemptionHistories,
+    setRedemptionHistoriesLocalStorage,
+    redemptionHistoriesLocalStorage,
+  ]);
+
   let totalStakedSat = 0;
   let totalRedeemedSat = 0;
 
   if (stakingHistories) {
     totalStakedSat = stakingHistories.stakingHistories.reduce(
       (accumulator: number, item) => accumulator + item?.btcAmount,
+      0,
+    );
+  }
+
+  if (redemptionHistories) {
+    totalRedeemedSat = redemptionHistories.redemptionHistories.reduce(
+      (accumulator: number, item) => accumulator + item?.abtcAmount,
       0,
     );
   }
@@ -241,7 +323,7 @@ const Home: React.FC<HomeProps> = () => {
             />
           )}
 
-   
+          <Tabs labels={["Stake", "Redeem"]}>
             <div>
               <Staking
                 isWalletConnected={!!btcWallet}
@@ -267,6 +349,32 @@ const Home: React.FC<HomeProps> = () => {
                 </div>
               )}
             </div>
+            <div>
+              <Redemption
+                isWalletConnected={!!btcWallet}
+                onConnect={handleConnectModal}
+                isLoading={isLoadingCurrentParams}
+                address={address}
+              />
+              {btcWallet && redemptionHistories && btcWalletNetwork && (
+                <div className="mt-6">
+                  <RedemptionHistories
+                    redemptionHistoriesAPI={
+                      redemptionHistories.redemptionHistories
+                    }
+                    redemptionHistoriesLocalStorage={
+                      redemptionHistoriesLocalStorage
+                    }
+                    queryMeta={{
+                      next: fetchNextRedemptionHistoriesPage,
+                      hasMore: hasNextRedemptionHistoriesPage,
+                      isFetchingMore: isFetchingNextRedemptionHistoriesPage,
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+          </Tabs>
           
         </div>
       </div>

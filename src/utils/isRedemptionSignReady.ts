@@ -1,5 +1,5 @@
 // Check if the staking transaction is ready to be signed
-export const isBridgingSignReady = (
+export const isRedemptionSignReady = (
     // Parameter min and max values
     minAmount: number,
     maxAmount: number,
@@ -16,7 +16,7 @@ export const isBridgingSignReady = (
     if (!amountIsReady) {
       return {
         isReady: false,
-        reason: "Please enter a valid bridging amount",
+        reason: "Please enter a valid redemption amount",
       };
     }
     return {

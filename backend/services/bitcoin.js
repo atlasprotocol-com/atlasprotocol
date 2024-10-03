@@ -1,6 +1,11 @@
 const axios = require("axios");
+const ethers = require("ethers");
 const bitcoin = require("bitcoinjs-lib");
 const ecc = require("@bitcoinerlab/secp256k1");
+const { base_decode } = require("near-api-js/lib/utils/serialize");
+const hash = require("hash.js");
+const bs58check = require("bs58check");
+const { send } = require("process");
 
 const {
   derivep2wpkhChildPublicKey,
@@ -31,6 +36,120 @@ class Bitcoin {
     const balance = response.data.reduce((acc, utxo) => acc + utxo.value, 0);
 
     return balance;
+  }
+
+  async getMockPayload(
+    sender,
+    receiver,
+    satoshis,
+    redemptionTxnHash,
+    taxPercentage,
+    treasury,
+  ) {
+    const utxos = await this.fetchUTXOs(sender);
+    const feeRate = await this.fetchFeeRate();
+    const psbt = new bitcoin.Psbt({ network: this.network });
+
+    let totalInput = 0;
+    let selectedUtxos = [];
+
+    // Sort UTXOs by value in ascending order (smallest to largest)
+    utxos.sort((a, b) => a.value - b.value);
+
+    // Select UTXOs until the totalInput is enough to cover the satoshis + estimated fee + tax
+    for (let i = 0; i < utxos.length; i++) {
+      const utxo = utxos[i];
+      selectedUtxos.push(utxo);
+      totalInput += utxo.value;
+
+      const estimatedSize = selectedUtxos.length * 148 + 34 + 100; // Approximate calculation
+      const estimatedFee = Math.round(feeRate * estimatedSize);
+      const taxAmount =
+        taxPercentage > 0 ? Math.round(satoshis * taxPercentage) : 0;
+      const requiredAmount = Number(satoshis) + estimatedFee + taxAmount;
+
+      if (totalInput >= requiredAmount) {
+        break;
+      }
+    }
+
+    if (totalInput < Number(satoshis)) {
+      throw new Error("Not enough funds to cover the transaction.");
+    }
+
+    await Promise.all(
+      selectedUtxos.map(async (utxo) => {
+        const transaction = await this.fetchTransaction(utxo.txid);
+        let inputOptions;
+
+        if (transaction.outs[utxo.vout].script.includes("0014")) {
+          inputOptions = {
+            hash: utxo.txid,
+            index: utxo.vout,
+            witnessUtxo: {
+              script: transaction.outs[utxo.vout].script,
+              value: utxo.value,
+            },
+          };
+        } else {
+          inputOptions = {
+            hash: utxo.txid,
+            index: utxo.vout,
+            nonWitnessUtxo: Buffer.from(transaction.toHex(), "hex"),
+          };
+        }
+
+        psbt.addInput(inputOptions);
+      }),
+    );
+
+    let data = redemptionTxnHash;
+
+    psbt.addOutput({
+      script: bitcoin.script.compile([
+        bitcoin.opcodes.OP_RETURN,
+        Buffer.from(data),
+      ]),
+      value: 0,
+    });
+
+    const estimatedSize = selectedUtxos.length * 148 + 34 + 100; // Approximate calculation
+    const estimatedFee = Math.round(feeRate * estimatedSize);
+    const taxAmount =
+      taxPercentage > 0 ? Math.round(satoshis * taxPercentage) : 0;
+
+    let receiveAmount = Number(satoshis) - estimatedFee - taxAmount;
+    let change = totalInput - Number(satoshis);
+
+    if (receiveAmount > 0) {
+      psbt.addOutput({
+        address: receiver,
+        value: receiveAmount,
+      });
+    }
+
+    if (change > 0) {
+      psbt.addOutput({
+        address: sender,
+        value: change,
+      });
+    }
+
+    if (taxAmount > 0) {
+      psbt.addOutput({
+        address: treasury,
+        value: taxAmount,
+      });
+    }
+
+    return {
+      psbt,
+      utxos: selectedUtxos,
+      estimatedFee,
+      taxAmount,
+      receiveAmount,
+      change,
+    };
   }
 
   // This code can be used to actually relay the transaction to the Ethereum network
@@ -297,6 +416,40 @@ class Bitcoin {
     );
 
     return { publicKey: Buffer.from(publicKey, "hex"), address };
+  }
+
+  async addUtxosToPsbt(psbt, selectedUtxos) {
+    await Promise.all(
+      selectedUtxos.map(async (utxo) => {
+        // Fetch the transaction details using the txid
+        const transaction = await this.fetchTransaction(utxo.txid);
+
+        let inputOptions;
+
+        // Check if the UTXO is a SegWit transaction
+        if (transaction.outs[utxo.vout].script.includes("0014")) {
+          // SegWit input (witnessUtxo)
+          inputOptions = {
+            hash: utxo.txid,
+            index: utxo.vout,
+            witnessUtxo: {
+              script: transaction.outs[utxo.vout].script, // Script for the specific output
+              value: utxo.value, // Value of the UTXO in satoshis
+            },
+          };
+        } else {
+          // Non-SegWit input (nonWitnessUtxo)
+          inputOptions = {
+            hash: utxo.txid,
+            index: utxo.vout,
+            nonWitnessUtxo: Buffer.from(transaction.toHex(), "hex"), // Full transaction hex for non-SegWit inputs
+          };
+        }
+
+        // Add the input to the PSBT
+        psbt.addInput(inputOptions);
+      }),
+    );
   }
 }
 

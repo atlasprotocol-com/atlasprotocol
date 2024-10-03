@@ -16,6 +16,7 @@ class Near {
     network_id,
     gas,
     mpcContractId,
+    aBTCAddress,
   ) {
     this.chain_rpc = chain_rpc;
     this.atlas_account_id = atlas_account_id;
@@ -27,6 +28,7 @@ class Near {
     this.nearContract = null;
     this.gas = gas;
     this.mpcContractId = mpcContractId;
+    this.aBTCAddress = aBTCAddress;
   }
 
   async init() {
@@ -43,6 +45,9 @@ class Near {
         networkId: this.network_id,
         keyStore: this.keyStore,
         nodeUrl: this.chain_rpc,
+        // walletUrl: `https://wallet.${this.network_id}.near.org`,
+        // helperUrl: `https://helper.${this.network_id}.near.org`,
+        // explorerUrl: `https://explorer.${this.network_id}.near.org`,
       });
 
       this.account = await nearConnection.account(this.atlas_account_id);
@@ -51,21 +56,35 @@ class Near {
         viewMethods: [
           "get_deposit_by_btc_txn_hash",
           "get_all_deposits",
+          "get_redemption_by_txn_hash",
+          "get_all_redemptions",
           "get_all_global_params",
           "get_all_chain_configs",
           "get_all_constants",
           "get_chain_config_by_chain_id",
           "get_first_valid_deposit_chain_config",
-          "get_chain_ids_by_validator_and_network_type"
+          "get_chain_ids_by_validator_and_network_type",
+          "get_first_valid_redemption",
         ],
         changeMethods: [
           "insert_deposit_btc",
           "update_deposit_timestamp",
           "update_deposit_status",
           "update_deposit_remarks",
+          "insert_redemption_abtc",
+          "update_redemption_timestamp",
+          "update_redemption_status",
+          "update_redemption_remarks",
+          "update_redemption_btc_txn_hash",
+          "increment_deposit_verified_count",
+          "increment_redemption_verified_count",
           "create_mint_abtc_signed_tx",
           "update_deposit_minted",
           "update_deposit_btc_deposited",
+          "update_redemption_start",
+          "update_redemption_pending_btc_mempool",
+          "update_redemption_redeemed",
+          "update_redemption_custody_txn_id",
         ],
       });
 
@@ -118,6 +137,16 @@ class Near {
     });
   }
 
+  // Function to get redemption by BTC sender address from NEAR contract
+  async getRedemptionsByBtcAddress(btcWalletAddress) {
+    return this.makeNearRpcViewCall(
+      "get_redemptions_by_btc_receiving_address",
+      {
+        btc_receiving_address: btcWalletAddress,
+      },
+    );
+  }
+
   // Function to get all deposits from NEAR contract
   async getAllDeposits() {
     return this.makeNearRpcViewCall("get_all_deposits", {});
@@ -126,6 +155,17 @@ class Near {
   // Function to get all deposits from NEAR contract
   async getGlobalParams() {
     return this.makeNearRpcViewCall("get_all_global_params", {});
+  }
+
+  // Function to get all redemptions from NEAR contract
+  async getAllRedemptions() {
+    return this.makeNearRpcViewCall("get_all_redemptions", {});
+  }
+
+  async getRedemptionByTxnHash(transactionHash) {
+    return this.makeNearRpcViewCall("get_redemption_by_txn_hash", {
+      txn_hash: transactionHash,
+    });
   }
 
   async getDepositByBtcTxnHash(transactionHash) {
@@ -156,6 +196,10 @@ class Near {
 
   async getFirstValidDepositChainConfig() {
     return this.makeNearRpcViewCall("get_first_valid_deposit_chain_config", {});
+  }
+
+  async getFirstValidRedemption() {
+    return this.makeNearRpcViewCall("get_first_valid_redemption", {});
   }
 
   async getChainIdsByValidatorAndNetworkType(accountId, networkType) {
@@ -227,6 +271,88 @@ class Near {
     });
   }
 
+  async insertRedemptionAbtc(
+    transactionHash,
+    aBtcRedemptionAddress,
+    aBtcRedemptionChainId,
+    btcAddress,
+    amount,
+    timestamp,
+    date_created,
+    custody_txn_id,
+  ) {
+    return this.makeNearRpcChangeCall("insert_redemption_abtc", {
+      txn_hash: transactionHash,
+      abtc_redemption_address: aBtcRedemptionAddress,
+      abtc_redemption_chain_id: aBtcRedemptionChainId,
+      btc_receiving_address: btcAddress,
+      abtc_amount: amount,
+      timestamp: timestamp,
+      date_created: date_created,
+      custody_txn_id: custody_txn_id,
+    });
+  }
+
+  async updateRedemptionTimestamp(txnHash, timestamp) {
+    return this.makeNearRpcChangeCall("update_redemption_timestamp", {
+      txn_hash: txnHash,
+      timestamp: timestamp,
+    });
+  }
+
+  async updateRedemptionStatus(txnHash, redemptionStatus) {
+    return this.makeNearRpcChangeCall("update_redemption_status", {
+      txn_hash: txnHash,
+      status: redemptionStatus,
+    });
+  }
+
+  async updateRedemptionStart(txnHash) {
+    return this.makeNearRpcChangeCall("update_redemption_start", {
+      txn_hash: txnHash,
+    });
+  }
+
+  async updateRedemptionPendingBtcMempool(redemptionTxnHash, btcTxnHash) {
+    console.log(redemptionTxnHash);
+    console.log(btcTxnHash);
+    return this.makeNearRpcChangeCall("update_redemption_pending_btc_mempool", {
+      txn_hash: redemptionTxnHash,
+      btc_txn_hash: btcTxnHash,
+    });
+  }
+
+  async updateRedemptionRedeemed(redemptionTxnHash, btcTxnHash, timestamp) {
+    return this.makeNearRpcChangeCall("update_redemption_redeemed", {
+      txn_hash: redemptionTxnHash,
+      btc_txn_hash: btcTxnHash,
+      timestamp: timestamp,
+    });
+  }
+
+  async updateRedemptionCustodyTxnId(txnHash, custody_txn_id ) {
+    console.log(txnHash);
+    console.log(custody_txn_id);
+    return this.makeNearRpcChangeCall("update_redemption_custody_txn_id", {
+      txn_hash: txnHash,
+      custody_txn_id: custody_txn_id
+    });
+  }
+  
+  async updateRedemptionRemarks(txnHash, remarks) {
+    return this.makeNearRpcChangeCall("update_redemption_remarks", {
+      txn_hash: txnHash,
+      remarks: remarks,
+    });
+  }
+
+  async updateRedemptionBtcTxnHash(txnHash, btcTxnHash) {
+    return this.makeNearRpcChangeCall("update_redemption_btc_txn_hash", {
+      txn_hash: txnHash,
+      btc_txn_hash: btcTxnHash,
+    });
+  }
+
   async createMintaBtcSignedTx(payloadHeader) {
     return this.makeNearRpcChangeCall("create_mint_abtc_signed_tx", {
       btc_txn_hash: payloadHeader.btc_txn_hash,
@@ -234,6 +360,28 @@ class Near {
       gas: payloadHeader.gas,
       max_fee_per_gas: payloadHeader.max_fee_per_gas,
       max_priority_fee_per_gas: payloadHeader.max_priority_fee_per_gas,
+    });
+  }
+
+  async createRedeemAbtcTransaction(payloadHeader) {
+    return this.makeNearRpcChangeCall("create_redeem_abtc_transaction", {
+      sender: payloadHeader.sender,
+      txn_hash: payloadHeader.txn_hash,
+      utxos: payloadHeader.utxos,
+      fee_rate: payloadHeader.fee_rate,
+    });
+  }
+
+  async createRedeemAbtcSignedPayload(txn_hash, payload, psbt) {
+    console.log("entered createRedeemAbtcSignedPayload");
+    console.log(txn_hash);
+    console.log(payload);
+    console.log(psbt);
+
+    return this.makeNearRpcChangeCall("create_redeem_abtc_signed_payload", {
+      txn_hash: txn_hash,
+      payload: payload,
+      psbt_data: psbt,
     });
   }
 
@@ -337,7 +485,7 @@ class Near {
 
   // Fetch mint events in batches by parsing the memo field, but only from a specific contract address
   async getPastMintEventsInBatches(startBlock, endBlock) {
-    const mintEvents = [];
+    const events = [];
     const targetContractId = this.contract_id;
 
     for (let blockHeight = startBlock; blockHeight <= endBlock; blockHeight++) {
@@ -405,12 +553,9 @@ class Near {
                 const btcTxnHash = memo.btc_txn_hash; // Extract btc_txn_hash
                 const transactionHash = txResult.transaction.hash;
 
-                mintEvents.push({ btcTxnHash, transactionHash });
+                events.push({ btcTxnHash, transactionHash });
 
-                console.log(
-                  `Found mint event with btcTxnHash: ${btcTxnHash} and transactionHash: ${transactionHash}`,
-                );
-                return mintEvents;
+                return events;
               }
             }
           }
@@ -419,9 +564,8 @@ class Near {
         continue;
       }
     }
-    return mintEvents;
+    return events;
   }
-
 }
 
 module.exports = { Near };

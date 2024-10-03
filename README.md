@@ -44,3 +44,9 @@ Then, to start a development server:
 npm install
 node server.js
 ```
+
+
+## Wallet Integration
+
+Instructions for wallet integration can be found in this
+[document](./docs/WalletIntegration.md).

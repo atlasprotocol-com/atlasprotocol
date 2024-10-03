@@ -62,7 +62,6 @@ impl GlobalParams {
     }
 
     pub fn get_fee_deposit_bps(&self) -> u16 {
-        env::log_str("Calling get_fee_deposit_bps");
         self.fee_deposit_bps
     }
 

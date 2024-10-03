@@ -1,6 +1,7 @@
 use crate::atlas::Atlas;
 use crate::chain_configs::ChainConfigRecord;
 use crate::constants::near_gas::*;
+use crate::constants::network_type::SIGNET;
 use crate::constants::status::*;
 use crate::modules::signer::*;
 use crate::modules::structs::DepositRecord;
@@ -484,5 +485,65 @@ impl Atlas {
         function_call_data.append(&mut encoded); // Add the encoded parameters
 
         function_call_data
+    }
+
+    // Increments deposit record's verified_count by 1 based on the mempool_deposit record passed in
+    // Caller of this function has to be an authorised validator for the particular chain_id of the redemption record
+    // Caller of this function has to be a new validator of this btc_txn_hash
+    // Checks all fields of mempool_record equal to deposit record
+    // Returns true if verified_count incremented successfully and returns false if not incremented
+    pub fn increment_deposit_verified_count(&mut self, mempool_deposit: DepositRecord) -> bool {
+        let caller = env::predecessor_account_id();
+    
+        // Retrieve the deposit record using the btc_txn_hash
+        if let Some(mut deposit) = self.deposits.get(&mempool_deposit.btc_txn_hash).cloned() {
+            let chain_id = SIGNET.to_string();
+            
+            // Use the is_validator function to check if the caller is authorized for the bitcoin deposit
+            if self.is_validator(&caller, &chain_id) {
+                // Retrieve the list of validators for this btc_txn_hash using the getter method
+                let mut validators_list = self.get_validators_by_txn_hash(deposit.btc_txn_hash.clone());
+                
+                // Check if the caller has already verified this btc_txn_hash
+                if validators_list.contains(&caller) {
+                    log!("Caller {} has already verified the transaction with btc_txn_hash: {}.", &caller, &deposit.btc_txn_hash);
+                    return false;
+                }
+    
+                // Verify that all fields of deposit and mempool_deposit are equal
+                if deposit.btc_txn_hash != mempool_deposit.btc_txn_hash ||
+                    deposit.btc_sender_address != mempool_deposit.btc_sender_address ||
+                    deposit.receiving_chain_id != mempool_deposit.receiving_chain_id ||
+                    deposit.receiving_address != mempool_deposit.receiving_address ||
+                    deposit.btc_amount != mempool_deposit.btc_amount ||
+                    deposit.timestamp != mempool_deposit.timestamp ||
+                    deposit.status != DEP_BTC_DEPOSITED_INTO_ATLAS ||
+                    deposit.remarks != mempool_deposit.remarks {
+                    log!("Mismatch between near_deposit and mempool_deposit records. Verification failed.");
+                    return false;
+                }
+    
+                // Increment the verified count
+                deposit.verified_count += 1;
+    
+                // Clone deposit before inserting it to avoid moving it
+                let cloned_deposit = deposit.clone();
+
+                // Update the deposit record in the map
+                self.deposits.insert(deposit.btc_txn_hash.clone(), cloned_deposit);
+        
+                // Add the caller to the list of validators for this btc_txn_hash
+                validators_list.push(caller);
+                self.verifications.insert(deposit.btc_txn_hash.clone(), validators_list);
+    
+                true // success case returns true
+            } else {
+                log!("Caller {} is not an authorized validator for the chain ID: {}", &caller, &chain_id);
+                return false;
+            }
+        } else {
+            log!("Deposit record not found for btc_txn_hash: {}.", &mempool_deposit.btc_txn_hash);
+            return false;
+        }
     }
 }

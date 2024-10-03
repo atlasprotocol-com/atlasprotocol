@@ -15,8 +15,7 @@ impl Atlas {
         env::log_str("Initializing Atlas");
         Self {
             deposits: IterableMap::new(b"d"),
-            redemptions: IterableMap::new(b"r"),
-            bridgings: IterableMap::new(b"b"),            
+            redemptions: IterableMap::new(b"r"),        
             owner_id: atlas_owner_id,
             admin_id: atlas_admin_id,
             global_params: GlobalParams::init_global_params(global_params_owner_id, treasury_address),

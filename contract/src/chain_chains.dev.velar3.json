@@ -14,7 +14,7 @@
       "batch_size": 0,
       "gas_limit": 0,
       "abi_path": "",
-      "validators_threshold": 7
+      "validators_threshold": 2
     },
     {
       "chain_id": "NEAR_TESTNET",
@@ -22,7 +22,7 @@
       "network_name": "NEAR testnet",
       "chain_rpc_url": "https://rpc.testnet.near.org",
       "explorer_url": "https://testnet.nearblocks.io/",
-      "abtc_address": "atbtc_audit.velar.testnet",
+      "abtc_address": "atbtc_10.velar.testnet",
       "native_currency_name": "NEAR",
       "native_currency_decimals": 18,
       "native_currency_symbol": "NEAR",
@@ -30,7 +30,7 @@
       "batch_size": 10000,
       "gas_limit": 0,
       "abi_path": "",
-      "validators_threshold": 7
+      "validators_threshold": 2
     },
     {
       "chain_id": "421614",
@@ -38,7 +38,7 @@
       "network_name": "Arbitrum Sepolia",
       "chain_rpc_url": "https://sepolia-rollup.arbitrum.io/rpc",
       "explorer_url": "https://sepolia.arbiscan.io/",
-      "abtc_address": "0xa50065eF94348eE8492B4480DF7dB92E307ed543",
+      "abtc_address": "0x278A2A1fdBD6be9D1776ADfc6EFa4272EaffAcB0",
       "native_currency_name": "ETH",
       "native_currency_decimals": 18,
       "native_currency_symbol": "ETH",
@@ -46,7 +46,7 @@
       "batch_size": 50000,
       "gas_limit": 5000000,
       "abi_path": "../../contract/artifacts/atBTC.abi",
-      "validators_threshold": 7
+      "validators_threshold": 2
     },
     {
       "chain_id": "11155420",
@@ -54,7 +54,7 @@
       "network_name": "Optimism Sepolia",
       "chain_rpc_url": "https://sepolia.optimism.io",
       "explorer_url": "https://sepolia-optimism.etherscan.io/",
-      "abtc_address": "0xf188B121C1A41CeC23862A4E248feE408F19E750",
+      "abtc_address": "0x6Bd879A0aDaF9b5669e16852e8fC40c596D55275",
       "native_currency_name": "ETH",
       "native_currency_decimals": 18,
       "native_currency_symbol": "ETH",
@@ -62,7 +62,7 @@
       "batch_size": 10000,
       "gas_limit": 5000000,
       "abi_path": "../../contract/artifacts/atBTC.abi",
-      "validators_threshold": 7
+      "validators_threshold": 2
     }
   ]
 }
