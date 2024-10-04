@@ -76,47 +76,104 @@ impl Atlas {
         self.deposits.len() as u64
     }
 
-    pub fn update_deposit_timestamp(&mut self, btc_txn_hash: String, timestamp: u64) {
-        self.assert_admin();
-        if let Some(mut deposit) = self.deposits.get(&btc_txn_hash).cloned() {
-            deposit.timestamp = timestamp;
-            self.deposits.insert(btc_txn_hash, deposit);
-        } else {
-            env::panic_str("Deposit record not found");
-        }
-    }
-
     pub fn update_deposit_btc_deposited(&mut self, btc_txn_hash: String, timestamp: u64) {
         self.assert_admin();
+    
+        // Check if the deposit exists for the given btc_txn_hash
         if let Some(mut deposit) = self.deposits.get(&btc_txn_hash).cloned() {
-            deposit.status = DEP_BTC_DEPOSITED_INTO_ATLAS;
-            deposit.timestamp = timestamp;
-            self.deposits.insert(btc_txn_hash, deposit);
+            // Check all specified conditions
+            if deposit.status == DEP_BTC_PENDING_MEMPOOL
+                && deposit.remarks.is_empty()
+                && deposit.minted_txn_hash.is_empty()
+            {
+                // All conditions are met, proceed to update the deposit status
+                deposit.status = DEP_BTC_DEPOSITED_INTO_ATLAS;
+                deposit.timestamp = timestamp;
+                self.deposits.insert(btc_txn_hash.clone(), deposit);
+                log!("Deposit status updated to DEP_BTC_DEPOSITED_INTO_ATLAS for btc_txn_hash: {}", btc_txn_hash);
+            } else {
+                // Log a message if conditions are not met
+                log!("Conditions not met for updating deposit status for btc_txn_hash: {}. 
+                      Status: {}, Remarks: {}, Minted txn hash: {}",
+                      btc_txn_hash,
+                      deposit.status,
+                      deposit.remarks,
+                      deposit.minted_txn_hash);
+            }
         } else {
             env::panic_str("Deposit record not found");
         }
     }
+    
 
     pub fn update_deposit_minted(&mut self, btc_txn_hash: String, minted_txn_hash: String) {
         self.assert_admin();
+    
+        // Check if the deposit exists for the given btc_txn_hash
         if let Some(mut deposit) = self.deposits.get(&btc_txn_hash).cloned() {
-            deposit.status = DEP_BTC_MINTED_INTO_ABTC;
-            deposit.minted_txn_hash = minted_txn_hash;
-            self.deposits.insert(btc_txn_hash, deposit);
+            // Fetch chain configuration for the deposit's receiving_chain_id
+            if let Some(chain_config) = self
+                .chain_configs
+                .get_chain_config(deposit.receiving_chain_id.clone())
+            {
+                // Check all specified conditions
+                if (deposit.status == DEP_BTC_PENDING_MINTED_INTO_ABTC || 
+                    deposit.status == DEP_BTC_DEPOSITED_INTO_ATLAS) 
+                    && deposit.verified_count >= chain_config.validators_threshold
+                    && deposit.remarks.is_empty()
+                    && deposit.minted_txn_hash.is_empty()
+                {
+                    // All conditions are met, proceed to update the deposit status and minted transaction hash
+                    deposit.status = DEP_BTC_MINTED_INTO_ABTC;
+                    deposit.minted_txn_hash = minted_txn_hash.clone();
+                    self.deposits.insert(btc_txn_hash.clone(), deposit);
+                    log!("Deposit status updated to DEP_BTC_MINTED_INTO_ABTC for btc_txn_hash: {}", btc_txn_hash);
+                } else {
+                    // Log a message if conditions are not met
+                    log!(
+                        "Conditions not met for updating deposit minted status for btc_txn_hash: {}. 
+                         Status: {}, Verified count: {}, Remarks: {}, Minted txn hash: {}",
+                        btc_txn_hash,
+                        deposit.status,
+                        deposit.verified_count,
+                        deposit.remarks,
+                        deposit.minted_txn_hash
+                    );
+                }
+            } else {
+                env::panic_str("Chain configuration not found for receiving chain ID");
+            }
         } else {
             env::panic_str("Deposit record not found");
         }
     }
+    
 
     pub fn update_deposit_remarks(&mut self, btc_txn_hash: String, remarks: String) {
         self.assert_admin();
+    
+        // Check if the remarks passed in is not blank
+        if remarks.trim().is_empty() {
+            env::panic_str("Remarks cannot be blank");
+        }
+    
+        // Retrieve the deposit record based on btc_txn_hash
         if let Some(mut deposit) = self.deposits.get(&btc_txn_hash).cloned() {
-            deposit.remarks = remarks;
-            self.deposits.insert(btc_txn_hash, deposit);
+            // Check if the status is not equal to DEP_BTC_MINTED_INTO_ABTC
+            if deposit.status != DEP_BTC_MINTED_INTO_ABTC {
+                // All conditions are met, proceed to update the remarks
+                deposit.remarks = remarks;
+                self.deposits.insert(btc_txn_hash.clone(), deposit);
+                log!("Remarks updated for btc_txn_hash: {}", btc_txn_hash);
+            } else {
+                // Log a message if the status condition is not met
+                log!("Cannot update remarks for btc_txn_hash: {} as the status is DEP_BTC_MINTED_INTO_ABTC", btc_txn_hash);
+            }
         } else {
             env::panic_str("Deposit record not found");
         }
     }
+    
 
     pub fn get_first_valid_deposit_chain_config(&self) -> Option<(String, ChainConfigRecord)> {
         for (key, deposit) in self.deposits.iter() {

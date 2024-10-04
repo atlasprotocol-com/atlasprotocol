@@ -8,6 +8,8 @@ const {
 const { InMemoryKeyStore } = keyStores;
 
 class Near {
+  static TRANSACTION_ROOT = "11111111111111111111111111111111";
+
   constructor(
     chain_rpc,
     atlas_account_id,
@@ -63,24 +65,18 @@ class Near {
           "get_all_constants",
           "get_chain_config_by_chain_id",
           "get_first_valid_deposit_chain_config",
-          "get_chain_ids_by_validator_and_network_type",
           "get_first_valid_redemption",
         ],
         changeMethods: [
           "insert_deposit_btc",
-          "update_deposit_timestamp",
-          "update_deposit_status",
           "update_deposit_remarks",
           "insert_redemption_abtc",
-          "update_redemption_timestamp",
-          "update_redemption_status",
           "update_redemption_remarks",
-          "update_redemption_btc_txn_hash",
-          "increment_deposit_verified_count",
-          "increment_redemption_verified_count",
           "create_mint_abtc_signed_tx",
           "update_deposit_minted",
           "update_deposit_btc_deposited",
+          "create_redeem_abtc_signed_payload",
+          "create_redeem_abtc_transaction",
           "update_redemption_start",
           "update_redemption_pending_btc_mempool",
           "update_redemption_redeemed",
@@ -188,42 +184,12 @@ class Near {
     });
   }
 
-  async getChainConfig(chainId) {
-    return this.makeNearRpcViewCall("get_chain_config_by_chain_id", {
-      chain_id: chainId,
-    });
-  }
-
   async getFirstValidDepositChainConfig() {
     return this.makeNearRpcViewCall("get_first_valid_deposit_chain_config", {});
   }
 
   async getFirstValidRedemption() {
     return this.makeNearRpcViewCall("get_first_valid_redemption", {});
-  }
-
-  async getChainIdsByValidatorAndNetworkType(accountId, networkType) {
-    return this.makeNearRpcViewCall(
-      "get_chain_ids_by_validator_and_network_type",
-      {
-        account_id: accountId,
-        network_type: networkType,
-      },
-    );
-  }
-
-  async updateDepositTimestamp(btcTxnHash, timestamp) {
-    return this.makeNearRpcChangeCall("update_deposit_timestamp", {
-      btc_txn_hash: btcTxnHash,
-      timestamp: timestamp,
-    });
-  }
-
-  async updateDepositStatus(btcTxnHash, depositStatus) {
-    return this.makeNearRpcChangeCall("update_deposit_status", {
-      btc_txn_hash: btcTxnHash,
-      status: depositStatus,
-    });
   }
 
   async updateDepositBtcDeposited(btcTxnHash, timestamp) {
@@ -293,20 +259,6 @@ class Near {
     });
   }
 
-  async updateRedemptionTimestamp(txnHash, timestamp) {
-    return this.makeNearRpcChangeCall("update_redemption_timestamp", {
-      txn_hash: txnHash,
-      timestamp: timestamp,
-    });
-  }
-
-  async updateRedemptionStatus(txnHash, redemptionStatus) {
-    return this.makeNearRpcChangeCall("update_redemption_status", {
-      txn_hash: txnHash,
-      status: redemptionStatus,
-    });
-  }
-
   async updateRedemptionStart(txnHash) {
     return this.makeNearRpcChangeCall("update_redemption_start", {
       txn_hash: txnHash,
@@ -330,29 +282,22 @@ class Near {
     });
   }
 
-  async updateRedemptionCustodyTxnId(txnHash, custody_txn_id ) {
+  async updateRedemptionCustodyTxnId(txnHash, custody_txn_id) {
     console.log(txnHash);
     console.log(custody_txn_id);
     return this.makeNearRpcChangeCall("update_redemption_custody_txn_id", {
       txn_hash: txnHash,
-      custody_txn_id: custody_txn_id
+      custody_txn_id: custody_txn_id,
     });
   }
-  
+
   async updateRedemptionRemarks(txnHash, remarks) {
     return this.makeNearRpcChangeCall("update_redemption_remarks", {
       txn_hash: txnHash,
       remarks: remarks,
     });
   }
-
-  async updateRedemptionBtcTxnHash(txnHash, btcTxnHash) {
-    return this.makeNearRpcChangeCall("update_redemption_btc_txn_hash", {
-      txn_hash: txnHash,
-      btc_txn_hash: btcTxnHash,
-    });
-  }
-
+  
   async createMintaBtcSignedTx(payloadHeader) {
     return this.makeNearRpcChangeCall("create_mint_abtc_signed_tx", {
       btc_txn_hash: payloadHeader.btc_txn_hash,
@@ -383,6 +328,22 @@ class Near {
       payload: payload,
       psbt_data: psbt,
     });
+  }
+
+  async createMintAbtcTransaction(payloadHeader) {
+    return this.makeNearRpcChangeCall("create_mint_abtc_transaction", {
+      btc_txn_hash: payloadHeader.btc_txn_hash,
+      nonce: payloadHeader.nonce,
+      gas: payloadHeader.gas,
+      max_fee_per_gas: payloadHeader.max_fee_per_gas,
+      max_priority_fee_per_gas: payloadHeader.max_priority_fee_per_gas,
+    });
+  }
+
+  // Function to get actual txn_hash when given a <abtc_redemption_chain_id>,<abtc_txn_hash> value
+  async getRedemptionaBtcTxnHash(txnHash) {
+    let [chainId, abtc_txn_hash] = txnHash.split(",");
+    return abtc_txn_hash;
   }
 
   // Get the current block number
@@ -492,7 +453,7 @@ class Near {
       try {
         const block = await this.provider.block({ blockId: blockHeight });
         for (const chunk of block.chunks) {
-          if (chunk.tx_root === "11111111111111111111111111111111") {
+          if (chunk.tx_root === Near.TRANSACTION_ROOT) {
             //console.log(`No transactions in chunk ${chunk.chunk_hash}`);
             continue;
           }
@@ -561,6 +522,110 @@ class Near {
           }
         }
       } catch {
+        continue;
+      }
+    }
+    return events;
+  }
+
+  async getPastBurnRedemptionEventsInBatches(
+    startBlock,
+    endBlock,
+    aBTCAddress,
+  ) {
+    const events = [];
+    const targetContractId = aBTCAddress;
+
+    for (let blockHeight = startBlock; blockHeight <= endBlock; blockHeight++) {
+      try {
+        const block = await this.provider.block({ blockId: blockHeight });
+        for (const chunk of block.chunks) {
+          if (chunk.tx_root === Near.TRANSACTION_ROOT) {
+            //console.log(`No transactions in chunk ${chunk.chunk_hash}`);
+            continue;
+          }
+
+          // Fetch the chunk using the chunk_hash
+          const chunkData = await this.provider.chunk(chunk.chunk_hash);
+          const transactions = chunkData.transactions;
+
+          const txnCount = (transactions && transactions.length) || 0;
+
+          if (txnCount === 0) {
+            //console.warn(`No transactions found in chunk ${chunk.chunk_hash}`);
+            continue;
+          }
+
+          for (const tx of transactions) {
+            // console.log(`Processing transaction ${tx.hash} in block ${blockHeight}`);
+            // Skip transactions that are not from the target contract address
+            if (tx.receiver_id !== targetContractId) {
+              // console.log(tx.receiver_id);
+              // console.log(targetContractId);
+              continue;
+            }
+
+            const txResult = await this.provider.txStatus(
+              tx.hash,
+              tx.signer_id,
+            );
+
+            // Loop through the receipts_outcome array to find logs with 'ft_burn_redeem' event
+            const receipt = txResult.receipts_outcome.find((outcome) =>
+              outcome.outcome.logs.some((log) => {
+                try {
+                  console.log("log: ");
+                  console.log(log);
+                  // Parse the log and check if it contains the "ft_burn_redeem" event
+                  const event = JSON.parse(log.replace("EVENT_JSON:", ""));
+                  return event.event === "ft_burn_redeem";
+                } catch (e) {
+                  return false; // In case log is not a JSON string
+                }
+              }),
+            );
+            
+            if (receipt && receipt.outcome.status.SuccessValue === "") {
+              // Extract the log containing the JSON event
+              const logEntry = receipt.outcome.logs.find((log) => {
+                try {
+                  const event = JSON.parse(log.replace("EVENT_JSON:", ""));
+                  return event.event === "ft_burn_redeem";
+                } catch (e) {
+                  return false;
+                }
+              });
+
+              if (logEntry) {
+                // Parse the JSON from the log entry
+                const event = JSON.parse(logEntry.replace("EVENT_JSON:", ""));
+
+                // Extract the memo field from the event data and parse it
+                const memo = JSON.parse(event.data[0].memo);
+                const amount = event.data[0].amount;
+                const wallet = memo.address;
+                const btcAddress = memo.btcAddress;
+                const transactionHash = txResult.transaction.hash;
+
+                events.push({
+                  returnValues: {
+                    amount,
+                    wallet,
+                    btcAddress,
+                  },
+                  transactionHash,
+                  blockNumber: blockHeight,
+                  timestamp: Math.floor(block.header.timestamp / 1000000000),
+                  status: true,
+                });
+
+                return events;
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.error(`${blockHeight} - ${err}`);
         continue;
       }
     }

@@ -5,6 +5,7 @@ use crate::AtlasExt;
 use near_sdk::near_bindgen;
 use serde_json::json;
 use serde_json::Value;
+use near_sdk::AccountId;
 
 use crate::constants::delimiter::COMMA;
 use crate::constants::network_type::*;
@@ -110,6 +111,10 @@ impl Atlas {
     
     pub fn set_chain_configs_from_json(&mut self, new_json_data: String) {
         self.chain_configs.set_chain_configs_from_json(new_json_data);
+    }
+
+    pub fn set_mpc_contract(&mut self, new_mpc_contract: AccountId) {
+        self.global_params.set_mpc_contract(new_mpc_contract);
     }
 
 }

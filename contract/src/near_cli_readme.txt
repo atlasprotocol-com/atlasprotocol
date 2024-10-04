@@ -240,6 +240,14 @@ near call atlas_audit.velar.testnet add_validator '{"account_id": "velar3.testne
 near call atlas_audit.velar.testnet add_validator '{"account_id": "velar4.testnet", "chain_id": "11155420"}' --accountId velar.testnet
 near call atlas_audit.velar.testnet add_validator '{"account_id": "velar5.testnet", "chain_id": "11155420"}' --accountId velar.testnet
 near call atlas_audit.velar.testnet add_validator '{"account_id": "yeowlin.testnet", "chain_id": "11155420"}' --accountId velar.testnet
+near call atlas_audit.velar.testnet add_validator '{"account_id": "yeowlin.testnet", "chain_id": "NEAR_TESTNET"}' --accountId velar.testnet
+near call atlas_audit.velar.testnet add_validator '{"account_id": "velar.testnet", "chain_id": "NEAR_TESTNET"}' --accountId velar.testnet
+near call atlas_audit.velar.testnet add_validator '{"account_id": "velar1.testnet", "chain_id": "NEAR_TESTNET"}' --accountId velar.testnet
+near call atlas_audit.velar.testnet add_validator '{"account_id": "velar2.testnet", "chain_id": "NEAR_TESTNET"}' --accountId velar.testnet
+near call atlas_audit.velar.testnet add_validator '{"account_id": "velar3.testnet", "chain_id": "NEAR_TESTNET"}' --accountId velar.testnet
+near call atlas_audit.velar.testnet add_validator '{"account_id": "velar4.testnet", "chain_id": "NEAR_TESTNET"}' --accountId velar.testnet
+near call atlas_audit.velar.testnet add_validator '{"account_id": "velar5.testnet", "chain_id": "NEAR_TESTNET"}' --accountId velar.testnet
 near view atlas_audit.velar.testnet get_all_deposits
 near view atlas_audit.velar.testnet get_all_chain_configs
 near call atlas_audit.velar.testnet set_chain_configs_from_json '{"new_json_data": '"$(jq -Rs '.' < chain_chains.json)"'}' --accountId velar.testnet
+near call atlas_audit.velar.testnet rollback_deposit_status_by_btc_txn_hash '{"btc_txn_hash": "aa580a38218aa5b59752882d523bc0cf661de25d4b9bdd9800f06cfc41635818"}' --accountId velar.testnet

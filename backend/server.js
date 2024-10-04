@@ -312,6 +312,12 @@ app.listen(PORT, async () => {
   await fetchAndSetChainConfigs(near);
   await fetchAndSetConstants(near); // Load constants
   console.log(`Server is running on port ${PORT}`);
-
+  // const derivationPath = "BITCOIN";
+  //   const { address, publicKey } = await bitcoin.deriveBTCAddress(
+  //     await near.nearMPCContract.public_key(),
+  //     near.contract_id,
+  //     derivationPath,
+  //   );
+  // console.log("Bitcoin address: " + address);
   runBatch().catch(console.error);
 });

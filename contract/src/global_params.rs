@@ -25,7 +25,7 @@ impl GlobalParams {
         // Create the new instance of the struct
         env::log_str("Initializing GlobalParams");
         Self {
-            mpc_contract: "v1.signer-dev.testnet".to_string().parse().unwrap(),
+            mpc_contract: "v1.signer-prod.testnet".to_string().parse().unwrap(),
             fee_deposit_bps: 0,
             fee_redemption_bps: 0,
             fee_bridging_bps: 0,

@@ -1,10 +1,13 @@
 use near_sdk::{
-    near_bindgen, env, log
+    near_bindgen, env, log, Promise, Gas, NearToken
 };
+use std::str::FromStr;
 use crate::modules::structs::RedemptionRecord;
 use crate::constants::status::*;
 use crate::atlas::Atlas;
 use crate::AtlasExt;
+
+use serde_json::json;
 
 #[near_bindgen]
 impl Atlas {
@@ -74,44 +77,125 @@ impl Atlas {
         self.redemptions.len() as u64
     }
 
-    pub fn update_redemption_timestamp(&mut self, txn_hash: String, timestamp: u64) {
-        self.assert_admin();
-        if let Some(mut redemption) = self.redemptions.get(&txn_hash).cloned() {
-            redemption.timestamp = timestamp;
-            self.redemptions.insert(txn_hash, redemption);
-        } else {
-            env::panic_str("Redemption record not found");
-        }
-    }
-
     pub fn update_redemption_start(&mut self, txn_hash: String) {
         self.assert_admin();
+    
+        // Retrieve the redemption record based on txn_hash
         if let Some(mut redemption) = self.redemptions.get(&txn_hash).cloned() {
-            redemption.status = RED_BTC_PENDING_REDEMPTION_FROM_ATLAS_TO_USER;
-            self.redemptions.insert(txn_hash, redemption);
+            // Fetch chain configuration for the redemption's chain_id
+            if let Some(chain_config) = self
+                .chain_configs
+                .get_chain_config(redemption.abtc_redemption_chain_id.clone())
+            {
+                // Check all specified conditions
+                if redemption.status == RED_ABTC_BURNT
+                    && redemption.verified_count >= chain_config.validators_threshold
+                    && redemption.remarks.is_empty()
+                    && redemption.btc_txn_hash.is_empty()
+                {
+                    // All conditions are met, proceed to update the redemption status
+                    redemption.status = RED_BTC_PENDING_REDEMPTION_FROM_ATLAS_TO_USER;
+                    self.redemptions.insert(txn_hash.clone(), redemption);
+                    log!("Redemption status updated to RED_BTC_PENDING_REDEMPTION_FROM_ATLAS_TO_USER for txn_hash: {}", txn_hash);
+                } else {
+                    // Log a message if conditions are not met
+                    log!(
+                        "Conditions not met for updating redemption start for txn_hash: {}. 
+                         Status: {}, Verified count: {}, Remarks: {}, BTC txn hash: {}",
+                        txn_hash,
+                        redemption.status,
+                        redemption.verified_count,
+                        redemption.remarks,
+                        redemption.btc_txn_hash
+                    );
+                }
+            } else {
+                env::panic_str("Chain configuration not found for redemption chain ID");
+            }
         } else {
             env::panic_str("Redemption record not found");
         }
     }
+    
 
     pub fn update_redemption_pending_btc_mempool(&mut self, txn_hash: String, btc_txn_hash: String) {
         self.assert_admin();
+    
+        // Retrieve the redemption record based on txn_hash
         if let Some(mut redemption) = self.redemptions.get(&txn_hash).cloned() {
-            redemption.status = RED_BTC_PENDING_MEMPOOL_CONFIRMATION;
-            redemption.btc_txn_hash = btc_txn_hash;
-            self.redemptions.insert(txn_hash, redemption);
+            // Fetch chain configuration for the redemption's chain_id
+            if let Some(chain_config) = self
+                .chain_configs
+                .get_chain_config(redemption.abtc_redemption_chain_id.clone())
+            {
+                // Check all specified conditions
+                if redemption.status == RED_BTC_PENDING_REDEMPTION_FROM_ATLAS_TO_USER
+                    && redemption.verified_count >= chain_config.validators_threshold
+                    && redemption.remarks.is_empty()
+                    && redemption.btc_txn_hash.is_empty()
+                {
+                    // All conditions are met, proceed to update the redemption status and btc_txn_hash
+                    redemption.status = RED_BTC_PENDING_MEMPOOL_CONFIRMATION;
+                    redemption.btc_txn_hash = btc_txn_hash.clone();
+                    self.redemptions.insert(txn_hash.clone(), redemption);
+                    log!("Redemption status updated to RED_BTC_PENDING_MEMPOOL_CONFIRMATION for txn_hash: {}", txn_hash);
+                } else {
+                    // Log a message if conditions are not met
+                    log!(
+                        "Conditions not met for updating redemption pending btc mempool for txn_hash: {}. 
+                         Status: {}, Verified count: {}, Remarks: {}, BTC txn hash: {}",
+                        txn_hash,
+                        redemption.status,
+                        redemption.verified_count,
+                        redemption.remarks,
+                        redemption.btc_txn_hash
+                    );
+                }
+            } else {
+                env::panic_str("Chain configuration not found for redemption chain ID");
+            }
         } else {
             env::panic_str("Redemption record not found");
         }
     }
+    
 
     pub fn update_redemption_redeemed(&mut self, txn_hash: String, btc_txn_hash: String, timestamp: u64) {
         self.assert_admin();
+    
+        // Retrieve the redemption record based on txn_hash
         if let Some(mut redemption) = self.redemptions.get(&txn_hash).cloned() {
-            redemption.status = RED_BTC_REDEEMED_BACK_TO_USER;
-            redemption.btc_txn_hash = btc_txn_hash;
-            redemption.timestamp = timestamp;
-            self.redemptions.insert(txn_hash, redemption);
+            // Fetch chain configuration for the redemption's chain ID
+            if let Some(chain_config) = self
+                .chain_configs
+                .get_chain_config(redemption.abtc_redemption_chain_id.clone())
+            {
+                // Check all specified conditions
+                if (redemption.status == RED_BTC_PENDING_REDEMPTION_FROM_ATLAS_TO_USER
+                    || redemption.status == RED_BTC_PENDING_MEMPOOL_CONFIRMATION)
+                    && redemption.verified_count >= chain_config.validators_threshold
+                    && redemption.remarks.is_empty()
+                {
+                    // All conditions are met, proceed to update the redemption status
+                    redemption.status = RED_BTC_REDEEMED_BACK_TO_USER;
+                    redemption.btc_txn_hash = btc_txn_hash;
+                    redemption.timestamp = timestamp;
+                    self.redemptions.insert(txn_hash.clone(), redemption);
+                    log!("Redemption status updated to RED_BTC_REDEEMED_BACK_TO_USER for txn_hash: {}", txn_hash);
+                } else {
+                    // Log a message if conditions are not met
+                    log!(
+                        "Conditions not met for updating redemption status for txn_hash: {}. 
+                         Status: {}, Verified count: {}, Remarks: {}",
+                        txn_hash,
+                        redemption.status,
+                        redemption.verified_count,
+                        redemption.remarks
+                    );
+                }
+            } else {
+                env::panic_str("Chain configuration not found for redemption chain ID");
+            }
         } else {
             env::panic_str("Redemption record not found");
         }
@@ -119,33 +203,86 @@ impl Atlas {
 
     pub fn update_redemption_remarks(&mut self, txn_hash: String, remarks: String) {
         self.assert_admin();
+    
+        // Check if the remarks passed in is not blank
+        if remarks.trim().is_empty() {
+            env::panic_str("Remarks cannot be blank");
+        }
+    
+        // Retrieve the redemption record based on txn_hash
         if let Some(mut redemption) = self.redemptions.get(&txn_hash).cloned() {
-            redemption.remarks = remarks;
-            self.redemptions.insert(txn_hash, redemption);
+            // Fetch chain configuration for the redemption's chain ID
+            if let Some(chain_config) = self
+                .chain_configs
+                .get_chain_config(redemption.abtc_redemption_chain_id.clone())
+            {
+                // Check all specified conditions
+                if redemption.status != RED_BTC_REDEEMED_BACK_TO_USER
+                    && redemption.verified_count >= chain_config.validators_threshold
+                {
+                    // All conditions are met, proceed to update the remarks
+                    redemption.remarks = remarks;
+                    self.redemptions.insert(txn_hash.clone(), redemption);
+                    log!("Remarks updated for txn_hash: {}", txn_hash);
+                } else {
+                    // Log a message if conditions are not met
+                    log!(
+                        "Conditions not met for updating remarks for txn_hash: {}. 
+                         Status: {}, Verified count: {}, Remarks: {}",
+                        txn_hash,
+                        redemption.status,
+                        redemption.verified_count,
+                        redemption.remarks
+                    );
+                }
+            } else {
+                env::panic_str("Chain configuration not found for redemption chain ID");
+            }
         } else {
             env::panic_str("Redemption record not found");
         }
     }
+    
 
     pub fn update_redemption_custody_txn_id(&mut self, txn_hash: String, custody_txn_id: String) {
         self.assert_admin();
+    
+        // Retrieve the redemption record based on txn_hash
         if let Some(mut redemption) = self.redemptions.get(&txn_hash).cloned() {
-            redemption.custody_txn_id = custody_txn_id;
-            self.redemptions.insert(txn_hash, redemption);
+            // Fetch chain configuration for the redemption's chain ID
+            if let Some(chain_config) = self
+                .chain_configs
+                .get_chain_config(redemption.abtc_redemption_chain_id.clone())
+            {
+                // Check all specified conditions
+                if redemption.status == RED_BTC_PENDING_REDEMPTION_FROM_ATLAS_TO_USER
+                    && redemption.remarks.is_empty()
+                    && redemption.verified_count >= chain_config.validators_threshold
+                    && redemption.btc_txn_hash.is_empty()
+                {
+                    // All conditions are met, proceed to update the custody_txn_id
+                    redemption.custody_txn_id = custody_txn_id;
+                    self.redemptions.insert(txn_hash.clone(), redemption);
+                    log!("Custody transaction ID updated for txn_hash: {}", txn_hash);
+                } else {
+                    // Log a message if conditions are not met
+                    log!(
+                        "Conditions not met for updating custody transaction ID for txn_hash: {}. 
+                         Status: {}, Verified count: {}, Remarks: {}, BTC txn hash: {}",
+                        txn_hash,
+                        redemption.status,
+                        redemption.verified_count,
+                        redemption.remarks,
+                        redemption.btc_txn_hash
+                    );
+                }
+            } else {
+                env::panic_str("Chain configuration not found for redemption chain ID");
+            }
         } else {
             env::panic_str("Redemption record not found");
         }
-    }
-
-    pub fn update_redemption_btc_txn_hash(&mut self, txn_hash: String, btc_txn_hash: String) {
-        self.assert_admin();
-        if let Some(mut redemption) = self.redemptions.get(&txn_hash).cloned() {
-            redemption.btc_txn_hash = btc_txn_hash;
-            self.redemptions.insert(txn_hash, redemption);
-        } else {
-            env::panic_str("Redemption record not found");
-        }
-    }
+    }    
 
     pub fn rollback_redemption_status_by_txn_hash(&mut self, txn_hash: String) {
         // Retrieve the redemption record based on txn_hash

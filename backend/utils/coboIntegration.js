@@ -6,7 +6,6 @@ async function runCoboIntegration(transactionHash, near) {
     console.log(transactionHash);
     const redemptionRecords =
       await near.getRedemptionByTxnHash(transactionHash);
-    console.log("Redemption records:", redemptionRecords);
 
     // Initial default API client
     const apiClient = CoboWaas2.ApiClient.instance;
@@ -154,12 +153,19 @@ async function handleCoboTransaction(custodyTxnId) {
       (status) => status.status === "Completed",
     );
 
-    console.log(broadcastingStatus);
+    const rejectedStatus = data.timeline.find(
+      (status) => status.status === "Rejected",
+    );
+
+    // Throw an error if the transaction status is "Rejected"
+    if (rejectedStatus && rejectedStatus.finished) {
+      throw new Error(`Transaction ${custodyTxnId} was rejected.`);
+    }
 
     // Logic for setting btcTxnHash and hasConfirmed based on statuses
     if (broadcastingStatus && broadcastingStatus.finished) {
       btcTxnHash = data.transaction_hash; // Set the btcTxnHash if Broadcasting is true
-      timestamp = broadcastingStatus.finished_timestamp / 1000 ; // Set timestamp from Broadcasting event
+      timestamp = broadcastingStatus.finished_timestamp / 1000; // Set timestamp from Broadcasting event
 
       // If Broadcasting is true and Completed is true, hasConfirmed is true
       if (completedStatus && completedStatus.finished) {
