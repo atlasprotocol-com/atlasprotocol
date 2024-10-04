@@ -4,7 +4,7 @@ const { flagsBatch } = require("./batchFlags");
 const {
   getLastProcessedConfirmedTime,
   setLastProcessedConfirmedTime,
-} = require("./btcLastProcessedConfirmedTime"); // Import helper functions
+} = require("./batchTime/btcLastProcessedConfirmedTime"); // Import helper functions
 
 async function UpdateAtlasBtcDeposits(
   btcMempool,

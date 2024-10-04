@@ -79,16 +79,22 @@ async function UpdateAtlasBtcBackToUser(
           );
         }
       } catch (error) {
+        
+        const errorMessage = error.body && error.body.error_message 
+            ? error.body.error_message 
+            : error.toString();
+
         console.error(
           `Error processing record ${i + 1} for txn hash ${redemptionTxnHash}: `,
-          error.body.error_message,
+          errorMessage,
         );
         await near.updateRedemptionRemarks(
           redemptionTxnHash,
-          `Error processing txn: ${error.body.error_message}`,
+          `Error processing txn: ${errorMessage}`,
         );
 
         // Skip to the next iteration if an error occurs
+        continue;
       }
     }
 
