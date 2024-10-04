@@ -3,10 +3,6 @@ const { getConstants } = require("../constants");
 const { flagsBatch } = require("./batchFlags");
 const { handleCoboTransaction } = require('./coboIntegration');
 
-// BATCH I: Retrieve redemption records, find corresponding record in BTC mempool and updates NEAR redemption.status, timestamp and btc_txn_hash based on OP_RETURN
-// TO FIND OUT AND DISCUSS FOR BATCH I
-// 1. When we poll Btc mempool, the number of records might be limited? Redemption records might not be updated if mempool records return a limited size
-
 // BATCH I: Retrieve redemption records, find corresponding record in BTC mempool and updates NEAR redemption.status, timestamp, and btc_txn_hash based on OP_RETURN
 async function UpdateAtlasBtcBackToUser(
   redemptions,
