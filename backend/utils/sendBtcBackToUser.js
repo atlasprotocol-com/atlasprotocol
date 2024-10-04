@@ -5,8 +5,6 @@ const { getConstants } = require("../constants");
 const { flagsBatch } = require("./batchFlags");
 const { runCoboIntegration } = require('./coboIntegration');
 
-// TO FIND OUT AND DISCUSS FOR BATCH H (read redemption records from near smart contract and send BTC from atlas.btc_address to user's native btc address via chain signatures):
-// 1. Do we want to check if BTC mempool already exists a record where OP_RETURN exists which tally with the BurnRedeem event before processing anything?
 // Main function to process sending BTC back to users
 async function SendBtcBackToUser(redemptions, near, bitcoin) {
   const batchName = `Batch H SendBtcBackToUser`;
