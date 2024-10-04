@@ -6,10 +6,6 @@ const { Ethereum } = require("../services/ethereum");
 const { getAllChainConfig } = require("./network.chain.config");
 const { flagsBatch } = require("./batchFlags");
 
-// TO FIND OUT AND DISCUSS FOR BATCH E (Fetch all EVM Burn Events and insert Redemption records in NEAR contract):
-// 1. We need to have an indexer for Events to improve performance with a timestamp instead of always reading from blockchain
-// 2. This current batch retrieves all Burn Events from pre-defined first block until latest block for every run
-
 // Function to process Burn events from EVM and insert Redemption records in NEAR
 async function UpdateAtlasBtcRedemptions(near) {
   const batchName = `Batch E UpdateAtlasBtcRedemptions`;
