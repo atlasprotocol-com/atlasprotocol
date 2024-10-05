@@ -358,11 +358,6 @@ impl Atlas {
         }
     }
 
-    pub fn clear_all_redemptions(&mut self) {
-        self.assert_owner();        
-        self.redemptions.clear();
-    }
-
     pub fn get_first_valid_redemption(&self) -> Option<String> {
         for (txn_hash, redemption) in self.redemptions.iter() {
             // Ensure basic redemption criteria
