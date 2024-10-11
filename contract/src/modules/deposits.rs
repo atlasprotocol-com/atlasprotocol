@@ -39,6 +39,20 @@ impl Atlas {
     ) {
         self.assert_admin();
 
+        // Validate mandatory input fields
+        assert!(!btc_txn_hash.is_empty(), "BTC transaction hash cannot be empty");
+        assert!(!btc_sender_address.is_empty(), "Sender address cannot be empty");
+        assert!(!receiving_chain_id.is_empty(), "Receiving chain ID cannot be empty");
+        assert!(!receiving_address.is_empty(), "Receiving address cannot be empty");
+        assert!(btc_amount > 0, "BTC amount must be greater than zero");
+        assert!(timestamp > 0, "Timestamp must be greater than zero");
+        assert!(date_created > 0, "Date created must be greater than zero");
+
+        // Check for duplicate transaction hash
+        if self.deposits.contains_key(&btc_txn_hash) {
+            env::panic_str("Deposit with this transaction hash already exists");
+        }
+
         let record = DepositRecord {
             btc_txn_hash: btc_txn_hash.clone(),
             btc_sender_address,
@@ -57,10 +71,18 @@ impl Atlas {
     }
 
     pub fn get_deposit_by_btc_txn_hash(&self, btc_txn_hash: String) -> Option<DepositRecord> {
+        // Validate that the btc_txn_hash is not empty
+        assert!(!btc_txn_hash.is_empty(), "BTC transaction hash cannot be empty");
+
         self.deposits.get(&btc_txn_hash).cloned()
     }
 
     pub fn get_deposits_by_timestamp(&self, start_time: u64, end_time: u64) -> Vec<DepositRecord> {
+        // Validate input parameters
+        assert!(start_time > 0, "Start time must be greater than zero");
+        assert!(end_time > 0, "End time must be greater than zero");
+        assert!(start_time <= end_time, "Start time must be less than or equal to end time");
+
         self.deposits
             .values()
             .filter(|record| record.timestamp >= start_time && record.timestamp <= end_time)
@@ -77,8 +99,13 @@ impl Atlas {
     }
 
     pub fn update_deposit_btc_deposited(&mut self, btc_txn_hash: String, timestamp: u64) {
+        
         self.assert_admin();
-    
+
+        // Validate input parameters
+        assert!(!btc_txn_hash.is_empty(), "BTC transaction hash cannot be empty");
+        assert!(timestamp > 0, "Timestamp must be greater than zero");
+
         // Check if the deposit exists for the given btc_txn_hash
         if let Some(mut deposit) = self.deposits.get(&btc_txn_hash).cloned() {
             // Check all specified conditions
@@ -108,7 +135,11 @@ impl Atlas {
 
     pub fn update_deposit_minted(&mut self, btc_txn_hash: String, minted_txn_hash: String) {
         self.assert_admin();
-    
+
+        // Validate input parameters
+        assert!(!btc_txn_hash.is_empty(), "BTC transaction hash cannot be empty");
+        assert!(!minted_txn_hash.is_empty(), "Minted transaction hash cannot be empty");
+        
         // Check if the deposit exists for the given btc_txn_hash
         if let Some(mut deposit) = self.deposits.get(&btc_txn_hash).cloned() {
             // Fetch chain configuration for the deposit's receiving_chain_id
@@ -152,10 +183,9 @@ impl Atlas {
     pub fn update_deposit_remarks(&mut self, btc_txn_hash: String, remarks: String) {
         self.assert_admin();
     
-        // Check if the remarks passed in is not blank
-        if remarks.trim().is_empty() {
-            env::panic_str("Remarks cannot be blank");
-        }
+        // Validate input parameters
+        assert!(!btc_txn_hash.is_empty(), "BTC transaction hash cannot be empty");
+        assert!(!remarks.trim().is_empty(), "Remarks cannot be blank");
     
         // Retrieve the deposit record based on btc_txn_hash
         if let Some(mut deposit) = self.deposits.get(&btc_txn_hash).cloned() {
@@ -174,7 +204,6 @@ impl Atlas {
         }
     }
     
-
     pub fn get_first_valid_deposit_chain_config(&self) -> Option<(String, ChainConfigRecord)> {
         for (key, deposit) in self.deposits.iter() {
             if deposit.btc_sender_address != ""
@@ -183,6 +212,8 @@ impl Atlas {
                 && deposit.status == DEP_BTC_DEPOSITED_INTO_ATLAS
                 && deposit.remarks == ""
                 && deposit.minted_txn_hash == ""
+                && deposit.btc_amount > 0  // Add btc amount check
+                && deposit.date_created > 0  // Add date created check
             // This will stop re-minting as no one can update this once minted
             {
                 // Get the chain config using deposit.receiving_chain_id
@@ -245,6 +276,10 @@ impl Atlas {
 
     // to create functions to rollback status for records with error messages
     pub fn rollback_deposit_status_by_btc_txn_hash(&mut self, btc_txn_hash: String) {
+        if btc_txn_hash.is_empty() {
+            env::panic_str("BTC transaction hash cannot be empty");
+        }
+        
         // Retrieve the deposit record based on btc_txn_hash
         if let Some(mut deposit) = self.deposits.get(&btc_txn_hash).cloned() {
             if !deposit.btc_sender_address.is_empty()
@@ -283,6 +318,10 @@ impl Atlas {
         max_priority_fee_per_gas: u128,
     ) -> PromiseOrValue<String> {
         self.assert_admin();
+
+        // Validate input parameters
+        assert!(!btc_txn_hash.is_empty(), "BTC transaction hash cannot be empty");
+        assert!(gas != 0, "Gas cannot be zero");
 
         // Check if the deposit exists for the given btc_txn_hash
         if let Some(mut deposit) = self.deposits.get(&btc_txn_hash).cloned() {
@@ -550,7 +589,14 @@ impl Atlas {
     // Checks all fields of mempool_record equal to deposit record
     // Returns true if verified_count incremented successfully and returns false if not incremented
     pub fn increment_deposit_verified_count(&mut self, mempool_deposit: DepositRecord) -> bool {
-        let caller = env::predecessor_account_id();
+        
+        let caller: AccountId = env::predecessor_account_id();
+
+        // Validate the mempool_deposit
+        if mempool_deposit.btc_txn_hash.is_empty() {
+            log!("Invalid mempool_deposit: btc_txn_hash is empty");
+            return false;
+        }
     
         // Retrieve the deposit record using the btc_txn_hash
         if let Some(mut deposit) = self.deposits.get(&mempool_deposit.btc_txn_hash).cloned() {

@@ -1,5 +1,5 @@
 use near_sdk::{
-    AccountId, near_bindgen
+    AccountId, near_bindgen, env
 };
 use crate::atlas::Atlas;
 use crate::AtlasExt;
@@ -9,6 +9,10 @@ impl Atlas {
 
     // Getter for validators: Return all chain_ids associated with the account_id that match the given network_type
     pub fn get_chain_ids_by_validator_and_network_type(&self, account_id: AccountId, network_type: String) -> Vec<String> {
+        // Validate input parameters
+        assert!(!account_id.to_string().is_empty(), "Account ID cannot be empty");
+        assert!(!network_type.is_empty(), "Network type cannot be empty");
+
         if let Some(chain_ids) = self.validators.get(&account_id) {
             chain_ids
                 .iter()
@@ -31,6 +35,10 @@ impl Atlas {
     // Getter for validators: Check if a specific chain_id is associated with the account_id
     // Returns true if is an authorised validator, returns false if not a validator for this chain_id
     pub fn is_validator(&self, account_id: &AccountId, chain_id: &String) -> bool {
+        // Validate input parameters
+        assert!(!account_id.to_string().is_empty(), "Account ID cannot be empty");
+        assert!(!chain_id.is_empty(), "Chain ID cannot be empty");
+
         if let Some(chains) = self.validators.get(account_id) {
             chains.contains(chain_id)
         } else {
@@ -40,7 +48,13 @@ impl Atlas {
 
     // Setter for validators: Add chain_id to the account_id in validators map
     pub fn add_validator(&mut self, account_id: AccountId, chain_id: String) {
+     
         self.assert_owner();
+     
+        // Validate input parameters
+        assert!(!account_id.to_string().is_empty(), "Account ID cannot be empty");
+        assert!(!chain_id.is_empty(), "Chain ID cannot be empty");
+        
         let mut chains = self.validators.get(&account_id).cloned().unwrap_or_default();
         if !chains.contains(&chain_id) {
             chains.push(chain_id);
@@ -51,6 +65,11 @@ impl Atlas {
     // Setter for validators: Remove chain_id from the account_id in validators map
     pub fn remove_validator(&mut self, account_id: AccountId, chain_id: String) {
         self.assert_owner();
+
+        // Validate input parameters
+        assert!(!account_id.to_string().is_empty(), "Account ID cannot be empty");
+        assert!(!chain_id.is_empty(), "Chain ID cannot be empty");
+
         if let Some(mut chains) = self.validators.get(&account_id).cloned() {
             if let Some(index) = chains.iter().position(|x| *x == chain_id) {
                 chains.remove(index);
@@ -59,12 +78,19 @@ impl Atlas {
                 } else {
                     self.validators.insert(account_id, chains);
                 }
+            } else {
+                env::log_str(&format!("Chain ID {} not found for account {}", chain_id, account_id));
             }
+        } else {
+            env::log_str(&format!("Account {} is not a validator", account_id));
         }
     }
 
     // Getter method to return the list of validators (AccountId) for a given txn_hash
     pub fn get_validators_by_txn_hash(&self, txn_hash: String) -> Vec<AccountId> {
+        // Validate input parameter
+        assert!(!txn_hash.is_empty(), "Transaction hash cannot be empty");
+
         self.verifications.get(&txn_hash).cloned().unwrap_or_else(|| vec![])
     }
 

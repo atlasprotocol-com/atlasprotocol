@@ -121,6 +121,7 @@ async function runCoboIntegration(transactionHash, near) {
 
 async function handleCoboTransaction(custodyTxnId) {
   try {
+    console.log("custodyTxnId: ");
     console.log(custodyTxnId);
     // Initialize the Cobo API client
     const apiClient = CoboWaas2.ApiClient.instance;

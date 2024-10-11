@@ -41,18 +41,18 @@ async function UpdateAtlasBtcBackToUser(
       try {
         console.log(`\nProcessing ${i + 1} of ${filteredTxns.length} txns...`);
 
-        if (process.env.USE_COBO === 'true') {
+        if (process.env.USE_COBO === 'true' && txn.custody_txn_id !== "") {
           const custodyTxnId = txn.custody_txn_id;
           // Example COBO logic placeholder, populate this block
           ({ btcTxnHash, timestamp, hasConfirmed } = await handleCoboTransaction(custodyTxnId));
         } else {
-          ({ btcTxnHash, timestamp, hasConfirmed } =
-            await bitcoin.getTxnHashAndTimestampFromOpReturnCode(
-              btcMempool,
-              btcAtlasDepositAddress,
-              txn.timestamp,
-              redemptionTxnHash,
-            ));
+          // ({ btcTxnHash, timestamp, hasConfirmed } =
+          //   await bitcoin.getTxnHashAndTimestampFromOpReturnCode(
+          //     btcMempool,
+          //     btcAtlasDepositAddress,
+          //     txn.timestamp,
+          //     redemptionTxnHash,
+          //   ));
         }
 
 

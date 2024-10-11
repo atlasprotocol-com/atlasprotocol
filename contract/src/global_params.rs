@@ -21,6 +21,11 @@ pub struct GlobalParams {
 impl GlobalParams {
 
     pub fn init_global_params(owner_id: AccountId, treasury_address: String) -> Self {        
+        // Validate owner_id
+        assert!(!owner_id.to_string().is_empty(), "Owner ID cannot be empty");
+        
+        // Validate treasury_address
+        assert!(!treasury_address.is_empty(), "Treasury address cannot be empty");
         
         // Create the new instance of the struct
         env::log_str("Initializing GlobalParams");
@@ -48,7 +53,14 @@ impl GlobalParams {
     
     pub fn change_global_param_owner_id(&mut self, new_owner_id: AccountId) {
         self.assert_owner();
-        self.owner_id = new_owner_id;
+        
+        assert!(!new_owner_id.to_string().is_empty(), "New owner ID cannot be empty");
+        assert_ne!(new_owner_id, self.owner_id, "New owner ID must be different from the current owner ID");
+        
+        let old_owner_id = self.owner_id.clone();
+        self.owner_id = new_owner_id.clone();
+        
+        env::log_str(&format!("Global params owner changed from {} to {}", old_owner_id, new_owner_id));
     }
 
     // Getter and Setter methods
@@ -58,7 +70,13 @@ impl GlobalParams {
     
     pub fn set_mpc_contract(&mut self, new_mpc_contract: AccountId) {
         self.assert_owner();
-        self.mpc_contract = new_mpc_contract;
+        assert!(!new_mpc_contract.to_string().is_empty(), "Invalid MPC contract ID");
+        assert_ne!(new_mpc_contract, self.mpc_contract, "New MPC contract must be different from the current one");
+        
+        let old_mpc_contract = self.mpc_contract.clone();
+        self.mpc_contract = new_mpc_contract.clone();
+        
+        env::log_str(&format!("MPC contract changed from {} to {}", old_mpc_contract, new_mpc_contract));
     }
 
     pub fn get_fee_deposit_bps(&self) -> u16 {
@@ -95,25 +113,25 @@ impl GlobalParams {
 
     pub fn update_fee_deposit_bps(&mut self, fee_deposit_bps: u16) {
         self.assert_owner();
-        assert!(fee_deposit_bps <= 10000, "Deposit fee bps must be between 0 and 10000");
+        assert!(fee_deposit_bps <= 10000, "Invalid fee: must be between 0 and 10000 basis points");
         self.fee_deposit_bps = fee_deposit_bps;
     }
 
     pub fn update_fee_redemption_bps(&mut self, fee_redemption_bps: u16) {
         self.assert_owner();
-        assert!(fee_redemption_bps <= 10000, "Redemption fee bps must be between 0 and 10000");
+        assert!(fee_redemption_bps <= 10000, "Invalid fee: must be between 0 and 10000 basis points");
         self.fee_redemption_bps = fee_redemption_bps;
     }
 
     pub fn update_fee_bridging_bps(&mut self, fee_bridging_bps: u16) {
         self.assert_owner();
-        assert!(fee_bridging_bps <= 10000, "Bridging fee bps must be between 0 and 10000");
+        assert!(fee_bridging_bps <= 10000, "Invalid fee: must be between 0 and 10000 basis points");
         self.fee_bridging_bps = fee_bridging_bps;
     }
 
     pub fn update_fee_babylon_rewards_bps(&mut self, fee_babylon_rewards_bps: u16) {
         self.assert_owner();
-        assert!(fee_babylon_rewards_bps <= 10000, "Babylon Rewards fee bps must be between 0 and 10000");
+        assert!(fee_babylon_rewards_bps <= 10000, "Invalid fee: must be between 0 and 10000 basis points");
         self.fee_babylon_rewards_bps = fee_babylon_rewards_bps;
     }
 
@@ -134,7 +152,11 @@ impl GlobalParams {
 
     pub fn update_treasury_address(&mut self, treasury_address: String) {
         self.assert_owner();
-        assert!(!treasury_address.is_empty(), "Treasury address cannot be empty");
+        assert!(!treasury_address.is_empty(), "Invalid treasury address");
         self.treasury_address = treasury_address;
+    }
+
+    pub fn owner_id(&self) -> &AccountId {
+        &self.owner_id
     }
 }
