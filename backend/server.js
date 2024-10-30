@@ -74,6 +74,7 @@ const near = new Near(
 );
 
 app.use(cors());
+app.use(helmet());
 
 const btcAtlasDepositAddress = btcConfig.btcAtlasDepositAddress;
 let atlasStats = {};
