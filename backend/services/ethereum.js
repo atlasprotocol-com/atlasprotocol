@@ -1,9 +1,8 @@
 const { Web3 } = require("web3");
 const { bytesToHex } = require("@ethereumjs/util");
-const { FeeMarketEIP1559Transaction } = require("@ethereumjs/tx");
-const { Common } = require("@ethereumjs/common");
 const fs = require("fs");
 const path = require("path");
+const _ = require("lodash");
 
 const { getConstants } = require("../constants");
 
