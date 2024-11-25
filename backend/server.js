@@ -28,9 +28,11 @@ dotenv.config({ path: envFile });
 
 const express = require("express");
 const cors = require("cors");
-const cron = require("node-cron");
+const helmet = require("helmet");
 
 const app = express();
+app.use(cors());
+app.use(helmet());
 
 const { Bitcoin } = require("./services/bitcoin");
 const { Near } = require("./services/near");

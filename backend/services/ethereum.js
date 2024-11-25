@@ -131,56 +131,53 @@ class Ethereum {
     );
   }
 
-  async _scanEvents(eventName, startBlock, endBlock, batchSize, wallet) {
-    let fromBlock = BigInt(startBlock);
-    let toBlock;
-    let allEvents = [];
+  async _scanEvents(
+    eventName,
+    startBlock,
+    endBlock,
+    batchSize,
+    wallet,
+    concurrency = 2,
+  ) {
+    const ranges = _.range(Number(startBlock), Number(endBlock), batchSize);
 
-    //console.log(`getPastEventsInBatches: Start block ${startBlock}`);
-    //console.log(`getPastEventsInBatches: End block ${endBlock}`);
-    while (fromBlock < endBlock) {
-      toBlock = fromBlock + BigInt(batchSize) - 1n;
-      if (toBlock > endBlock) {
-        toBlock = endBlock; // Ensure toBlock does not exceed endBlock
-      }
-
-      console.log(
-        `${eventName} ------------ ${fromBlock} -> ${toBlock} | ${batchSize}`,
-      );
-
-      try {
-        const filters = {
-          fromBlock: fromBlock,
-          toBlock: toBlock,
-        };
-        // wallet is indexed so we can filter by wallet
-        if (wallet) filters.wallet = wallet;
-
-        const events = await this.abtcContract.getPastEvents(
-          eventName,
-          filters,
-        );
-
-        allEvents = allEvents.concat(events);
-        //console.log(`Fetched events from blocks ${fromBlock} to ${toBlock}`);
-      } catch (error) {
-        if (error.message.includes("Block range is too large")) {
-          console.log(
-            `[${eventName}] Block range is too large | toBlock:${toBlock} -> toBlock:${Math.round(Number(toBlock) / 2)}`,
-          );
-          toBlock = BigInt(Math.round(Number(toBlock) / 2));
-          continue;
-        }
-
-        throw new Error(
-          `[${eventName}] Error: fetching events from blocks ${fromBlock} to ${toBlock}: ${error}`,
-        );
-      }
-
-      fromBlock = toBlock + 1n;
+    const items = [];
+    for (let i = 0; i < ranges.length; i += 1) {
+      items.push({
+        from: ranges[i],
+        to: Math.min(ranges[i] + batchSize - 1, Number(endBlock)),
+      });
     }
-    //console.log(`allEvents.length: ${allEvents.length}`);
-    return allEvents;
+
+    const events = [];
+
+    const chunk = _.chunk(items, concurrency);
+    for (let i = 0; i < chunk.length; i++) {
+      const found = await Promise.all(
+        chunk[i].map(async (x) => {
+          console.log(`---------- ${eventName}: ${x.from} -> ${x.to}`);
+          const filters = { fromBlock: BigInt(x.from), toBlock: BigInt(x.to) };
+          // wallet is indexed so we can filter by wallet
+          if (wallet) filters.wallet = wallet;
+
+          const items = await this.abtcContract.getPastEvents(
+            eventName,
+            filters,
+          );
+
+          return items;
+        }),
+      );
+      events.push(..._.flatten(found));
+    }
+
+    return events.filter(
+      (e) =>
+        address.isValidEthereumAddress(
+          e.returnValues && e.returnValues.wallet,
+        ) ||
+        address.isValidNearAddress(e.returnValues && e.returnValues.wallet),
+    );
   }
 
   async deriveEthAddress(rootPublicKey, accountId, derivationPath) {

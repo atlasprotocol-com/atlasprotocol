@@ -297,7 +297,7 @@ class Near {
       remarks: remarks,
     });
   }
-  
+
   async createMintaBtcSignedTx(payloadHeader) {
     return this.makeNearRpcChangeCall("create_mint_abtc_signed_tx", {
       btc_txn_hash: payloadHeader.btc_txn_hash,
@@ -584,7 +584,7 @@ class Near {
                 }
               }),
             );
-            
+
             if (receipt && receipt.outcome.status.SuccessValue === "") {
               // Extract the log containing the JSON event
               const logEntry = receipt.outcome.logs.find((log) => {
@@ -606,6 +606,14 @@ class Near {
                 const wallet = memo.address;
                 const btcAddress = memo.btcAddress;
                 const transactionHash = txResult.transaction.hash;
+
+                var isValidAddress = address.isValidBTCAddress(btcAddress);
+                if (!isValidAddress) {
+                  console.error(
+                    `[${transactionHash}] Invalid address: ${btcAddress} in block ${blockHeight}`,
+                  );
+                  continue;
+                }
 
                 events.push({
                   returnValues: {
