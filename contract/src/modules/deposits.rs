@@ -363,7 +363,7 @@ impl Atlas {
                             if !Self::is_valid_eth_address(deposit.receiving_address.clone()) {
                                 // Set remarks if the address is not a valid EVM address
                                 let error_msg =
-                                    "Receiving adress is not a valid EVM address".to_string();
+                                    "Receiving address is not a valid EVM address".to_string();
 
                                 deposit.remarks = error_msg.clone();
 
