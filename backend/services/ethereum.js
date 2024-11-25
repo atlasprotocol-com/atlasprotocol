@@ -5,6 +5,7 @@ const path = require("path");
 const _ = require("lodash");
 
 const { getConstants } = require("../constants");
+const address = require("./address");
 
 const {
   deriveChildPublicKey,

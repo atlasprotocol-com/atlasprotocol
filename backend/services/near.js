@@ -6,6 +6,7 @@ const {
   providers,
 } = require("near-api-js");
 const { InMemoryKeyStore } = keyStores;
+const address = require("./address");
 
 class Near {
   static TRANSACTION_ROOT = "11111111111111111111111111111111";
