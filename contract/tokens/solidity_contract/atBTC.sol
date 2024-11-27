@@ -7,6 +7,10 @@ import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Pausable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract atBTC is ERC20, ERC20Burnable, ERC20Pausable, Ownable {
+
+    // Declare the custom error
+    error RenounceOwnershipBlocked();
+
     constructor() ERC20("Atlas Bitcoin", "atBTC") Ownable(msg.sender) {}
 
     // Event to log mints and burns details
@@ -32,7 +36,7 @@ contract atBTC is ERC20, ERC20Burnable, ERC20Pausable, Ownable {
 
     // Prevents renouncing ownership to ensure the contract always has an owner
     function renounceOwnership() public view override onlyOwner {
-        revert("Renouncing ownership is blocked");
+        revert RenounceOwnershipBlocked(); // Use the custom error
     }
 
     // Mint function for deposit bitcoin, only accessible to the owner when the contract is not paused
