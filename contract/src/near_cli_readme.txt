@@ -15,22 +15,22 @@ near call atlas_revamp.velar.testnet clear_all_validators --accountId velar.test
 near call atlas_revamp.velar.testnet clear_all_verifications --accountId velar.testnet
 near call atlas_revamp.velar.testnet clear_all_chain_configs --accountId velar.testnet
 
-near delete-account atlas_dev.velar.testnet velar.testnet
+near delete-account atlas_dev_1.velar.testnet velar.testnet
 near delete-account atlas_revamp.velar.testnet velar.testnet
 
 Create NEAR Subaccount (CLI)
-near create-account atlas_dev.velar.testnet --masterAccount velar.testnet --initialBalance 5
-near create-account atlas_revamp.velar.testnet --masterAccount velar.testnet --initialBalance 5
+near create-account atlas_dev_1.velar.testnet --masterAccount velar.testnet --initialBalance 10
+near create-account atlas_revamp.velar.testnet --masterAccount velar.testnet --initialBalance 10
 
 Check State of the NEAR Account - No need to run for delete of smart contract (CLI)
-near state atlas_dev.velar.testnet
+near state atlas_dev_1.velar.testnet
 
 Deploy NEAR contract (CLI)
-near deploy atlas_dev.velar.testnet res/atlas_protocol.wasm
+near deploy atlas_dev_1.velar.testnet res/atlas_protocol.wasm
 near deploy atlas_revamp.velar.testnet res/atlas_protocol.wasm
 
 Initialise NEAR contract (CLI)
-near call atlas_dev.velar.testnet new '{"owner_id": "velar.testnet", "treasury_address": "tb1pa4xwtgs3672h38rqdveyk5w9jqczfhjxh89j8erdlr59yj92qs8szyvw53"}' --accountId velar.testnet
+near call atlas_dev_1.velar.testnet new '{"atlas_owner_id": "velar.testnet", "atlas_admin_id": "yeowlin.testnet", "global_params_owner_id": "velar.testnet", "chain_configs_owner_id": "velar.testnet", "treasury_address": "tb1pa4xwtgs3672h38rqdveyk5w9jqczfhjxh89j8erdlr59yj92qs8szyvw53"}' --accountId velar.testnet
 near call atlas_revamp.velar.testnet new '{"atlas_owner_id": "velar.testnet", "atlas_admin_id": "velar.testnet", "global_params_owner_id": "velar.testnet", "chain_configs_owner_id": "velar.testnet", "treasury_address": "tb1pa4xwtgs3672h38rqdveyk5w9jqczfhjxh89j8erdlr59yj92qs8szyvw53"}' --accountId velar.testnet
 
 Call NEAR contract methods (CLI)
@@ -50,6 +50,17 @@ near view atlas_dev.velar.testnet get_bridgings_count
 near view atlas_dev.velar.testnet get_deposits_by_btc_sender_address '{"btc_sender_address": "tb1pn3axvlfpuzna9skzzmqw26k97xj0gkettk4vz290phdd46a5d2rqj8xsj2"}'
 
 near call atlas_dev.velar.testnet change_owner '{"new_owner_id": "velar.testnet"}' --accountId velar.testnet
+near call atlas_dev_1.velar.testnet propose_new_atlas_owner '{"proposed_owner_id": "yeowlin2.testnet"}' --accountId velar.testnet
+near call atlas_dev_1.velar.testnet accept_atlas_owner --accountId yeowlin2.testnet
+near call atlas_dev_1.velar.testnet propose_new_atlas_admin '{"proposed_admin_id": "velar.testnet"}' --accountId yeowlin2.testnet
+near call atlas_dev_1.velar.testnet accept_atlas_admin --accountId velar.testnet
+near view atlas_dev_1.velar.testnet get_atlas_owner_id
+near view atlas_dev_1.velar.testnet get_atlas_admin_id
+near view atlas_dev_1.velar.testnet get_chain_configs_owner_id
+near call atlas_dev_1.velar.testnet propose_new_global_params_owner '{"proposed_owner_id": "yeowlin.testnet"}' --accountId velar.testnet
+near call atlas_dev_1.velar.testnet accept_global_params_owner --accountId yeowlin.testnet
+near call atlas_dev_1.velar.testnet propose_new_chain_configs_owner '{"proposed_owner_id": "yeowlin.testnet"}' --accountId velar.testnet
+near call atlas_dev_1.velar.testnet accept_chain_configs_owner --accountId yeowlin.testnet
 
 near call atlas_dev.velar.testnet get_deposit_by_btc_txn_hash '{"btc_txn_hash": "698fdaf6b008cddfbfcad2eca12af40f70145d2d3f32950e4dc7b46e1875c007"}' --accountId velar.testnet
 

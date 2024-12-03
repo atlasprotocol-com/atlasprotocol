@@ -15,7 +15,9 @@ pub struct Atlas {
     pub validators: IterableMap<AccountId, Vec<String>>,       // list of validators: <AccountId -> Vector of authorised chains (chain_id)>
     pub verifications: IterableMap<String, Vec<AccountId>>,    // list of verifications: <Txn Hash of deposit/redemption/bridging -> Vector of validators (AccountId)>
     pub owner_id: AccountId,
+    pub proposed_owner_id: Option<AccountId>,
     pub admin_id: AccountId,
+    pub proposed_admin_id: Option<AccountId>,
     pub global_params: GlobalParams,
     pub chain_configs: ChainConfigs,
     pub last_evm_tx: Option<Vec<u8>>,  // Option<Vec<u8>> type 
