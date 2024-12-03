@@ -97,6 +97,10 @@ impl Atlas {
         self.global_params.update_treasury_address(treasury_address);
     }
 
+    pub fn get_chain_configs_owner_id(&self) -> AccountId {
+        self.chain_configs.get_chain_configs_owner_id()
+    }
+
     pub fn get_all_chain_configs(&self) -> Vec<ChainConfigRecord> {
         self.chain_configs.get_chain_configs()
     }
@@ -115,6 +119,22 @@ impl Atlas {
 
     pub fn set_mpc_contract(&mut self, new_mpc_contract: AccountId) {
         self.global_params.set_mpc_contract(new_mpc_contract);
+    }
+
+    pub fn propose_new_global_params_owner(&mut self, proposed_owner_id: AccountId) {
+        self.global_params.propose_new_global_params_owner(proposed_owner_id);
+    }
+
+    pub fn accept_global_params_owner(&mut self) {
+        self.global_params.accept_global_params_owner();
+    }
+
+    pub fn propose_new_chain_configs_owner(&mut self, proposed_owner_id: AccountId) {
+        self.chain_configs.propose_new_chain_configs_owner(proposed_owner_id);
+    }
+
+    pub fn accept_chain_configs_owner(&mut self) {
+        self.chain_configs.accept_chain_configs_owner();
     }
 
 }
