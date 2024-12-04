@@ -145,36 +145,40 @@ impl GlobalParams {
 
     pub fn update_fee_deposit_bps(&mut self, fee_deposit_bps: u16) {
         self.assert_owner();
+        // setting max fee to 3%
         assert!(
-            fee_deposit_bps <= 10000,
-            "Invalid fee: must be between 0 and 10000 basis points"
+            fee_deposit_bps <= 300,
+            "Invalid fee: must be between 0 and 300 basis points"
         );
         self.fee_deposit_bps = fee_deposit_bps;
     }
 
     pub fn update_fee_redemption_bps(&mut self, fee_redemption_bps: u16) {
         self.assert_owner();
+        // setting max fee to 3%
         assert!(
-            fee_redemption_bps <= 10000,
-            "Invalid fee: must be between 0 and 10000 basis points"
+            fee_redemption_bps <= 300,
+            "Invalid fee: must be between 0 and 300 basis points"
         );
         self.fee_redemption_bps = fee_redemption_bps;
     }
 
     pub fn update_fee_bridging_bps(&mut self, fee_bridging_bps: u16) {
         self.assert_owner();
+        // setting max fee to 3%
         assert!(
-            fee_bridging_bps <= 10000,
-            "Invalid fee: must be between 0 and 10000 basis points"
+            fee_bridging_bps <= 300,
+            "Invalid fee: must be between 0 and 300 basis points"
         );
         self.fee_bridging_bps = fee_bridging_bps;
     }
 
     pub fn update_fee_babylon_rewards_bps(&mut self, fee_babylon_rewards_bps: u16) {
         self.assert_owner();
+        // setting max fee to 10%
         assert!(
-            fee_babylon_rewards_bps <= 10000,
-            "Invalid fee: must be between 0 and 10000 basis points"
+            fee_babylon_rewards_bps <= 1000,
+            "Invalid fee: must be between 0 and 1000 basis points"
         );
         self.fee_babylon_rewards_bps = fee_babylon_rewards_bps;
     }
