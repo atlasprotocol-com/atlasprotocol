@@ -13,6 +13,7 @@ impl Atlas {
         global_params_owner_id: AccountId,
         chain_configs_owner_id: AccountId,
         treasury_address: String,
+        production_mode: bool,
     ) -> Self {
         env::log_str("Initializing Atlas");
 
@@ -38,6 +39,7 @@ impl Atlas {
             verifications: IterableMap::new(b"f"),
             last_evm_tx: None, // Initialize with None
             paused: false,
+            production_mode: production_mode,
         }
     }
 
@@ -156,5 +158,10 @@ impl Atlas {
     // Function to check if the contract is paused
     pub fn is_paused(&self) -> bool {
         self.paused
+    }
+
+    // Function to check if the contract is in production mode or testnet mode
+    pub fn is_production_mode(&self) -> bool {
+        self.production_mode
     }
 }

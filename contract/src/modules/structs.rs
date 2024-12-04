@@ -22,6 +22,7 @@ pub struct Atlas {
     pub chain_configs: ChainConfigs,
     pub last_evm_tx: Option<Vec<u8>>,
     pub paused: bool,
+    pub production_mode: bool,
 }
 
 #[derive(BorshDeserialize, BorshSerialize, Deserialize, Serialize, Clone)]

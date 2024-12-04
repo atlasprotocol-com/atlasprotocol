@@ -30,7 +30,7 @@ near deploy atlas_dev_1.velar.testnet res/atlas_protocol.wasm
 near deploy atlas_revamp.velar.testnet res/atlas_protocol.wasm
 
 Initialise NEAR contract (CLI)
-near call atlas_dev_1.velar.testnet new '{"atlas_owner_id": "velar.testnet", "atlas_admin_id": "yeowlin.testnet", "global_params_owner_id": "velar.testnet", "chain_configs_owner_id": "velar.testnet", "treasury_address": "tb1pa4xwtgs3672h38rqdveyk5w9jqczfhjxh89j8erdlr59yj92qs8szyvw53"}' --accountId velar.testnet
+near call atlas_dev_1.velar.testnet new '{"atlas_owner_id": "velar.testnet", "atlas_admin_id": "yeowlin.testnet", "global_params_owner_id": "velar.testnet", "chain_configs_owner_id": "velar.testnet", "treasury_address": "tb1pa4xwtgs3672h38rqdveyk5w9jqczfhjxh89j8erdlr59yj92qs8szyvw53", "production_mode": false}' --accountId velar.testnet
 near call atlas_revamp.velar.testnet new '{"atlas_owner_id": "velar.testnet", "atlas_admin_id": "velar.testnet", "global_params_owner_id": "velar.testnet", "chain_configs_owner_id": "velar.testnet", "treasury_address": "tb1pa4xwtgs3672h38rqdveyk5w9jqczfhjxh89j8erdlr59yj92qs8szyvw53"}' --accountId velar.testnet
 
 Call NEAR contract methods (CLI)
@@ -64,6 +64,7 @@ near call atlas_dev_1.velar.testnet accept_chain_configs_owner --accountId yeowl
 near call atlas_dev_1.velar.testnet pause --accountId velar.testnet
 near call atlas_dev_1.velar.testnet unpause --accountId velar.testnet
 near view atlas_dev_1.velar.testnet is_paused
+near view atlas_dev_1.velar.testnet is_production_mode
 
 near call atlas_dev.velar.testnet get_deposit_by_btc_txn_hash '{"btc_txn_hash": "698fdaf6b008cddfbfcad2eca12af40f70145d2d3f32950e4dc7b46e1875c007"}' --accountId velar.testnet
 

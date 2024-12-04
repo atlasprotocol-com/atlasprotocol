@@ -1,7 +1,7 @@
 use crate::atlas::Atlas;
 use crate::chain_configs::ChainConfigRecord;
 use crate::constants::near_gas::*;
-use crate::constants::network_type::SIGNET;
+use crate::constants::network_type::*;
 use crate::constants::status::*;
 use crate::modules::signer::*;
 use crate::modules::structs::DepositRecord;
@@ -593,7 +593,7 @@ impl Atlas {
     }
 
     // Increments deposit record's verified_count by 1 based on the mempool_deposit record passed in
-    // Caller of this function has to be an authorised validator for the particular chain_id of the redemption record
+    // Caller of this function has to be an authorised validator for the particular chain_id of the deposit record (BITCOIN or SIGNET depending on production mode)
     // Caller of this function has to be a new validator of this btc_txn_hash
     // Checks all fields of mempool_record equal to deposit record
     // Returns true if verified_count incremented successfully and returns false if not incremented
@@ -610,7 +610,11 @@ impl Atlas {
     
         // Retrieve the deposit record using the btc_txn_hash
         if let Some(mut deposit) = self.deposits.get(&mempool_deposit.btc_txn_hash).cloned() {
-            let chain_id = SIGNET.to_string();
+            let chain_id = if self.is_production_mode() {
+                BITCOIN.to_string()                
+            } else {
+                SIGNET.to_string()
+            };
             
             // Use the is_validator function to check if the caller is authorized for the bitcoin deposit
             if self.is_validator(&caller, &chain_id) {
