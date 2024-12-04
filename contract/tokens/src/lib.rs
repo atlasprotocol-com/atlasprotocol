@@ -22,8 +22,7 @@ pub struct Contract {
 impl Contract {
     /// Initializes the contract with the given `owner_id` and metadata, with zero initial supply.
     #[init]
-    pub fn new(owner_id: AccountId, metadata: FungibleTokenMetadata) -> Self {
-        assert!(!env::state_exists(), "Already initialized");
+    pub fn new(owner_id: AccountId, metadata: FungibleTokenMetadata) -> Self {        
         metadata.assert_valid();
         let mut this = Self {
             token: FungibleToken::new(b"a".to_vec()),
