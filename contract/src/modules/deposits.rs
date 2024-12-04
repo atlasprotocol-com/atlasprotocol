@@ -46,6 +46,7 @@ impl Atlas {
         assert!(!receiving_chain_id.is_empty(), "Receiving chain ID cannot be empty");
         assert!(!receiving_address.is_empty(), "Receiving address cannot be empty");
         assert!(btc_amount > 0, "BTC amount must be greater than zero");
+        assert!(minted_txn_hash.is_empty(), "Minted transaction hash must be empty");
         assert!(timestamp > 0, "Timestamp must be greater than zero");
         assert!(date_created > 0, "Date created must be greater than zero");
 
