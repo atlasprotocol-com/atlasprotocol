@@ -24,6 +24,7 @@ impl Contract {
     #[init]
     pub fn new(owner_id: AccountId, metadata: FungibleTokenMetadata) -> Self {        
         metadata.assert_valid();
+        assert_eq!(metadata.decimals, 8, "Decimals must be set to 8 for atBTC");
         let mut this = Self {
             token: FungibleToken::new(b"a".to_vec()),
             metadata: LazyOption::new(b"m".to_vec(), Some(&metadata)),
