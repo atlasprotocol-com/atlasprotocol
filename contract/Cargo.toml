@@ -5,7 +5,7 @@ authors = ["Atlas Protocol"]
 edition = "2021"
 
 [lib]
-crate-type = ["cdylib", "rlib"]
+crate-type = ["cdylib"]
 
 [dependencies]
 ethers-core = { version = "2.0.14", default-features = false }
