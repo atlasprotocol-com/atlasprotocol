@@ -474,15 +474,12 @@ impl Atlas {
                 // Increment the verified count
                 redemption.verified_count += 1;
 
-                // Clone redemption before inserting it to avoid moving it
-                let cloned_redemption = redemption.clone();
-
                 // Update the redemption record in the map
-                self.redemptions.insert(redemption.txn_hash.clone(), cloned_redemption);
+                self.redemptions.insert(mempool_redemption.txn_hash.clone(), redemption);
 
                 // Add the caller to the list of validators for this txn_hash
                 validators_list.push(caller);
-                self.verifications.insert(redemption.txn_hash.clone(), validators_list);
+                self.verifications.insert(mempool_redemption.txn_hash, validators_list);
 
                 true // success case returns true
             } else {

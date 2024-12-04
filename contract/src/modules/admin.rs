@@ -22,10 +22,8 @@ impl Atlas {
             "Atlas owner and Atlas admin cannot be the same user"
         );
         assert!(!atlas_owner_id.to_string().is_empty(), "Atlas owner ID cannot be empty");
-        assert!(!atlas_admin_id.to_string().is_empty(), "Atlas admin ID cannot be empty");
-        assert!(!global_params_owner_id.to_string().is_empty(), "Global params owner ID cannot be empty");
-        assert!(!chain_configs_owner_id.to_string().is_empty(), "Chain configs owner ID cannot be empty");
-        assert!(!treasury_address.is_empty(), "Treasury address cannot be empty");
+        assert!(!atlas_admin_id.to_string().is_empty(), "Atlas admin ID cannot be empty");        
+        assert!(!chain_configs_owner_id.to_string().is_empty(), "Chain configs owner ID cannot be empty");        
 
         Self {
             deposits: IterableMap::new(b"d"),

@@ -638,16 +638,13 @@ impl Atlas {
     
                 // Increment the verified count
                 deposit.verified_count += 1;
-    
-                // Clone deposit before inserting it to avoid moving it
-                let cloned_deposit = deposit.clone();
 
                 // Update the deposit record in the map
-                self.deposits.insert(deposit.btc_txn_hash.clone(), cloned_deposit);
+                self.deposits.insert(mempool_deposit.btc_txn_hash.clone(), deposit);
         
                 // Add the caller to the list of validators for this btc_txn_hash
                 validators_list.push(caller);
-                self.verifications.insert(deposit.btc_txn_hash.clone(), validators_list);
+                self.verifications.insert(mempool_deposit.btc_txn_hash, validators_list);
     
                 true // success case returns true
             } else {
