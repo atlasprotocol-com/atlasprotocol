@@ -61,6 +61,9 @@ near call atlas_dev_1.velar.testnet propose_new_global_params_owner '{"proposed_
 near call atlas_dev_1.velar.testnet accept_global_params_owner --accountId yeowlin.testnet
 near call atlas_dev_1.velar.testnet propose_new_chain_configs_owner '{"proposed_owner_id": "yeowlin.testnet"}' --accountId velar.testnet
 near call atlas_dev_1.velar.testnet accept_chain_configs_owner --accountId yeowlin.testnet
+near call atlas_dev_1.velar.testnet pause --accountId velar.testnet
+near call atlas_dev_1.velar.testnet unpause --accountId velar.testnet
+near view atlas_dev_1.velar.testnet is_paused
 
 near call atlas_dev.velar.testnet get_deposit_by_btc_txn_hash '{"btc_txn_hash": "698fdaf6b008cddfbfcad2eca12af40f70145d2d3f32950e4dc7b46e1875c007"}' --accountId velar.testnet
 

@@ -20,7 +20,8 @@ pub struct Atlas {
     pub proposed_admin_id: Option<AccountId>,
     pub global_params: GlobalParams,
     pub chain_configs: ChainConfigs,
-    pub last_evm_tx: Option<Vec<u8>>,  // Option<Vec<u8>> type 
+    pub last_evm_tx: Option<Vec<u8>>,
+    pub paused: bool,
 }
 
 #[derive(BorshDeserialize, BorshSerialize, Deserialize, Serialize, Clone)]

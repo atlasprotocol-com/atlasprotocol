@@ -66,34 +66,42 @@ impl Atlas {
     }
 
     pub fn update_fee_deposit_bps(&mut self, fee_deposit_bps: u16) {
+        self.assert_not_paused();
         self.global_params.update_fee_deposit_bps(fee_deposit_bps);
     }
 
     pub fn update_fee_redemption_bps(&mut self, fee_redemption_bps: u16) {
+        self.assert_not_paused();
         self.global_params.update_fee_redemption_bps(fee_redemption_bps);
     }
 
     pub fn update_fee_bridging_bps(&mut self, fee_bridging_bps: u16) {
+        self.assert_not_paused();
         self.global_params.update_fee_bridging_bps(fee_bridging_bps);
     }
 
     pub fn update_fee_babylon_rewards_bps(&mut self, fee_babylon_rewards_bps: u16) {
+        self.assert_not_paused();
         self.global_params.update_fee_babylon_rewards_bps(fee_babylon_rewards_bps);
     }
 
     pub fn update_btc_staking_cap(&mut self, btc_staking_cap: u64) {
+        self.assert_not_paused();
         self.global_params.update_btc_staking_cap(btc_staking_cap);
     }
 
     pub fn update_btc_max_staking_amount(&mut self, btc_max_staking_amount: u64) {
+        self.assert_not_paused();
         self.global_params.update_btc_max_staking_amount(btc_max_staking_amount);
     }
 
     pub fn update_btc_min_staking_amount(&mut self, btc_min_staking_amount: u64) {
+        self.assert_not_paused();
         self.global_params.update_btc_min_staking_amount(btc_min_staking_amount);
     }
 
     pub fn update_treasury_address(&mut self, treasury_address: String) {
+        self.assert_not_paused();
         self.global_params.update_treasury_address(treasury_address);
     }
 
@@ -114,26 +122,32 @@ impl Atlas {
     }
     
     pub fn set_chain_configs_from_json(&mut self, new_json_data: String) {
+        self.assert_not_paused();
         self.chain_configs.set_chain_configs_from_json(new_json_data);
     }
 
     pub fn set_mpc_contract(&mut self, new_mpc_contract: AccountId) {
+        self.assert_not_paused();
         self.global_params.set_mpc_contract(new_mpc_contract);
     }
 
     pub fn propose_new_global_params_owner(&mut self, proposed_owner_id: AccountId) {
+        self.assert_not_paused();
         self.global_params.propose_new_global_params_owner(proposed_owner_id);
     }
 
     pub fn accept_global_params_owner(&mut self) {
+        self.assert_not_paused();
         self.global_params.accept_global_params_owner();
     }
 
     pub fn propose_new_chain_configs_owner(&mut self, proposed_owner_id: AccountId) {
+        self.assert_not_paused();
         self.chain_configs.propose_new_chain_configs_owner(proposed_owner_id);
     }
 
     pub fn accept_chain_configs_owner(&mut self) {
+        self.assert_not_paused();
         self.chain_configs.accept_chain_configs_owner();
     }
 

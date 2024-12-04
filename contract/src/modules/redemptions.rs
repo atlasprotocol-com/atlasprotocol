@@ -99,7 +99,8 @@ impl Atlas {
     }
 
     pub fn update_redemption_start(&mut self, txn_hash: String) {
-        self.assert_admin();  // Changed from self.assert_owner()
+        self.assert_not_paused();
+        self.assert_admin();
 
         // Validate input
         assert!(!txn_hash.is_empty(), "Transaction hash cannot be empty");
@@ -143,7 +144,8 @@ impl Atlas {
     
 
     pub fn update_redemption_pending_btc_mempool(&mut self, txn_hash: String, btc_txn_hash: String) {
-        self.assert_admin();  // Changed from self.assert_owner()
+        self.assert_not_paused();
+        self.assert_admin();
 
         // Validate input parameters
         assert!(!txn_hash.is_empty(), "Transaction hash cannot be empty");
@@ -189,6 +191,7 @@ impl Atlas {
     
 
     pub fn update_redemption_redeemed(&mut self, txn_hash: String, btc_txn_hash: String, timestamp: u64) {
+        self.assert_not_paused();
         self.assert_admin();
 
         // Validate input parameters
@@ -228,7 +231,8 @@ impl Atlas {
     }
 
     pub fn update_redemption_remarks(&mut self, txn_hash: String, remarks: String) {
-        self.assert_admin();  // Changed from self.assert_owner()
+        self.assert_not_paused();
+        self.assert_admin();
     
         // Validate input parameters
         assert!(!txn_hash.is_empty(), "Transaction hash cannot be empty");
@@ -271,7 +275,8 @@ impl Atlas {
     
 
     pub fn update_redemption_custody_txn_id(&mut self, txn_hash: String, custody_txn_id: String) {
-        self.assert_admin();  // Changed from self.assert_owner()
+        self.assert_not_paused();
+        self.assert_admin();
 
         // Validate input parameters
         assert!(!txn_hash.is_empty(), "Transaction hash cannot be empty");
@@ -315,6 +320,7 @@ impl Atlas {
     }
 
     pub fn rollback_redemption_status_by_txn_hash(&mut self, txn_hash: String) {
+        self.assert_not_paused();
 
         // Validate input parameters
         assert!(!txn_hash.is_empty(), "Transaction hash cannot be empty");
@@ -353,6 +359,8 @@ impl Atlas {
     }
 
     pub fn rollback_all_redemption_status(&mut self) {
+        self.assert_not_paused();
+
         // Collect the keys and redemptions that need to be updated
         let updates: Vec<(String, RedemptionRecord)> = self.redemptions.iter()
         .filter_map(|(key, redemption)| {
@@ -425,6 +433,8 @@ impl Atlas {
     // Checks all fields of mempool_record equal to redemption record
     // Returns true if verified_count incremented successfully and returns false if not incremented
     pub fn increment_redemption_verified_count(&mut self, mempool_redemption: RedemptionRecord) -> bool {
+        self.assert_not_paused();
+
         let caller: AccountId = env::predecessor_account_id();
 
         // Validate the mempool_redemption

@@ -39,6 +39,7 @@ impl Atlas {
             validators: IterableMap::new(b"v"),
             verifications: IterableMap::new(b"f"),
             last_evm_tx: None, // Initialize with None
+            paused: false,
         }
     }
 
@@ -133,5 +134,29 @@ impl Atlas {
             env::predecessor_account_id(),
             "Only the admin can call this method"
         );
+    }
+
+    // Function to pause the contract
+    pub fn pause(&mut self) {
+        self.assert_owner(); // Only the owner can pause the contract
+        self.paused = true;
+        env::log_str("Contract is paused");
+    }
+
+    // Function to unpause the contract
+    pub fn unpause(&mut self) {
+        self.assert_owner(); // Only the owner can unpause the contract
+        self.paused = false;
+        env::log_str("Contract is unpaused");
+    }
+
+    // Function to check if the contract is paused
+    pub fn assert_not_paused(&self) {
+        assert!(!self.paused, "Contract is paused");
+    }
+
+    // Function to check if the contract is paused
+    pub fn is_paused(&self) -> bool {
+        self.paused
     }
 }

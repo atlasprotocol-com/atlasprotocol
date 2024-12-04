@@ -37,6 +37,7 @@ impl Atlas {
         remarks: String,
         date_created: u64,
     ) {
+        self.assert_not_paused();
         self.assert_admin();
 
         // Validate mandatory input fields
@@ -99,7 +100,7 @@ impl Atlas {
     }
 
     pub fn update_deposit_btc_deposited(&mut self, btc_txn_hash: String, timestamp: u64) {
-        
+        self.assert_not_paused();
         self.assert_admin();
 
         // Validate input parameters
@@ -134,6 +135,7 @@ impl Atlas {
     
 
     pub fn update_deposit_minted(&mut self, btc_txn_hash: String, minted_txn_hash: String) {
+        self.assert_not_paused();
         self.assert_admin();
 
         // Validate input parameters
@@ -181,6 +183,7 @@ impl Atlas {
     
 
     pub fn update_deposit_remarks(&mut self, btc_txn_hash: String, remarks: String) {
+        self.assert_not_paused();
         self.assert_admin();
     
         // Validate input parameters
@@ -238,6 +241,8 @@ impl Atlas {
     }
 
     pub fn rollback_all_deposit_status(&mut self) {
+        self.assert_not_paused();
+
         // Collect the keys and deposits that need to be updated
         let updates: Vec<(String, DepositRecord)> = self
             .deposits
@@ -276,6 +281,8 @@ impl Atlas {
 
     // to create functions to rollback status for records with error messages
     pub fn rollback_deposit_status_by_btc_txn_hash(&mut self, btc_txn_hash: String) {
+        self.assert_not_paused();
+
         if btc_txn_hash.is_empty() {
             env::panic_str("BTC transaction hash cannot be empty");
         }
@@ -317,6 +324,7 @@ impl Atlas {
         max_fee_per_gas: u128,
         max_priority_fee_per_gas: u128,
     ) -> PromiseOrValue<String> {
+        self.assert_not_paused();
         self.assert_admin();
 
         // Validate input parameters
@@ -589,7 +597,8 @@ impl Atlas {
     // Checks all fields of mempool_record equal to deposit record
     // Returns true if verified_count incremented successfully and returns false if not incremented
     pub fn increment_deposit_verified_count(&mut self, mempool_deposit: DepositRecord) -> bool {
-        
+        self.assert_not_paused();
+
         let caller: AccountId = env::predecessor_account_id();
 
         // Validate the mempool_deposit
