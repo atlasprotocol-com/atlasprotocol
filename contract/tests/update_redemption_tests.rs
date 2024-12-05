@@ -14,6 +14,7 @@ fn setup_atlas() -> Atlas {
         accounts(2),  // global_params_owner
         accounts(3),  // chain_configs_owner
         "treasury_address".to_string(),
+        false,
     );
 
     // Add two validators for the test chain

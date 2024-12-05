@@ -19,6 +19,7 @@ mod tests {
             global_params_owner.clone(),
             accounts(3),
             "treasury_address".to_string(),
+            false,
         );
 
         (atlas, global_params_owner)
@@ -349,7 +350,7 @@ mod tests {
     // New negative test cases
 
     #[tokio::test]
-    #[should_panic(expected = "Invalid fee: must be between 0 and 10000 basis points")]
+    #[should_panic(expected = "Invalid fee: must be between 0 and 300 basis points")]
     async fn test_update_fee_deposit_bps_invalid() {
         let (mut atlas, owner_account) = setup_atlas();
         let invalid_fee = 10001; // 100.01%, which is invalid
@@ -359,7 +360,7 @@ mod tests {
     }
 
     #[tokio::test]
-    #[should_panic(expected = "Invalid fee: must be between 0 and 10000 basis points")]
+    #[should_panic(expected = "Invalid fee: must be between 0 and 300 basis points")]
     async fn test_update_fee_redemption_bps_invalid() {
         let (mut atlas, owner_account) = setup_atlas();
         let invalid_fee = 10001; // 100.01%, which is invalid
@@ -369,7 +370,7 @@ mod tests {
     }
 
     #[tokio::test]
-    #[should_panic(expected = "Invalid fee: must be between 0 and 10000 basis points")]
+    #[should_panic(expected = "Invalid fee: must be between 0 and 300 basis points")]
     async fn test_update_fee_bridging_bps_invalid() {
         let (mut atlas, owner_account) = setup_atlas();
         let invalid_fee = 10001; // 100.01%, which is invalid
@@ -379,7 +380,7 @@ mod tests {
     }
 
     #[tokio::test]
-    #[should_panic(expected = "Invalid fee: must be between 0 and 10000 basis points")]
+    #[should_panic(expected = "Invalid fee: must be between 0 and 1000 basis points")]
     async fn test_update_fee_babylon_rewards_bps_invalid() {
         let (mut atlas, owner_account) = setup_atlas();
         let invalid_fee = 10001; // 100.01%, which is invalid

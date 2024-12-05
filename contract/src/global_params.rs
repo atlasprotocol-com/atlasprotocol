@@ -22,7 +22,7 @@ pub struct GlobalParams {
 impl GlobalParams {
     pub fn init_global_params(owner_id: AccountId, treasury_address: String) -> Self {
         // Validate inputs
-        assert!(!owner_id.to_string().is_empty(), "Owner ID cannot be empty");
+        assert!(!owner_id.to_string().is_empty(), "Global params owner ID cannot be empty");
         assert!(!treasury_address.is_empty(), "Treasury address cannot be empty");
 
         env::log_str("Initializing GlobalParams");

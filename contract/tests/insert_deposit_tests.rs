@@ -15,6 +15,7 @@ fn setup_atlas() -> Atlas {
         accounts(2),
         accounts(3),
         "treasury_address".to_string(),
+        false,
     )
 }
 
@@ -30,6 +31,7 @@ async fn test_insert_deposit_btc() {
         accounts(2),
         accounts(3),
         "treasury_address".to_string(),
+        false,
     );
 
 
@@ -83,6 +85,7 @@ async fn test_insert_duplicate_deposit() {
         accounts(2),
         accounts(3),
         "treasury_address".to_string(),
+        false,
     );
 
 
@@ -131,6 +134,7 @@ async fn test_insert_invalid_deposit() {
         accounts(2),
         accounts(3),
         "treasury_address".to_string(),
+        false,
     );
 
 
@@ -173,6 +177,7 @@ async fn test_insert_maximum_deposit() {
         accounts(2),
         accounts(3),
         "treasury_address".to_string(),
+        false,
     );
 
 
@@ -216,6 +221,7 @@ async fn test_insert_deposit_with_empty_fields() {
         accounts(2),
         accounts(3),
         "treasury_address".to_string(),
+        false,
     );
 
 
@@ -258,6 +264,7 @@ async fn test_insert_deposit_with_invalid_btc_amount() {
         accounts(2),
         accounts(3),
         "treasury_address".to_string(),
+        false,
     );
 
 
@@ -290,6 +297,7 @@ async fn test_insert_deposit_with_invalid_timestamp() {
         accounts(2),
         accounts(3),
         "treasury_address".to_string(),
+        false,
     );
 
 
@@ -322,6 +330,7 @@ async fn test_insert_duplicate_btc_txn_hash() {
         accounts(2),
         accounts(3),
         "treasury_address".to_string(),
+        false,
     );
 
 
@@ -370,6 +379,7 @@ async fn test_insert_deposit_with_missing_fields() {
         accounts(2),
         accounts(3),
         "treasury_address".to_string(),
+        false,
     );
 
 
@@ -492,6 +502,7 @@ async fn test_insert_deposit_with_invalid_chain_id() {
         accounts(2),
         accounts(3),
         "treasury_address".to_string(),
+        false,
     );
 
 
@@ -524,6 +535,7 @@ async fn test_insert_deposit_with_invalid_receiving_address() {
         accounts(2),
         accounts(3),
         "treasury_address".to_string(),
+        false,
     );
 
 
@@ -558,6 +570,7 @@ async fn test_concurrent_deposits() {
         accounts(2), // global_params_owner_id
         accounts(3), // chain_configs_owner_id
         "treasury_address".to_string(),
+        false,
     );
 
     // Define deposit details
@@ -777,6 +790,7 @@ async fn test_insert_deposit_by_non_admin() {
         accounts(2),
         accounts(3),
         "treasury_address".to_string(),
+        false,
     );
 
     atlas.insert_deposit_btc(

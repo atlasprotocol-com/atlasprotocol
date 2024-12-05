@@ -197,13 +197,12 @@ mod tests {
                 reference: None,
                 reference_hash: None,
                 decimals: 24,
-            },
-            near_sdk::json_types::U128(10000000),
+            },            
         );
 
         // Mint some tokens with a dummy BTC transaction hash
         let btc_txn_hash = "dummy_btc_txn_hash".to_string();
-        contract.mint(accounts(1).into(), U128(1000), btc_txn_hash);
+        contract.mint_deposit(accounts(1).into(), U128(1000), btc_txn_hash);
         testing_env!(context.is_view(true).build());
         assert_eq!(contract.ft_total_supply().0, 1000);
         assert_eq!(contract.ft_balance_of(accounts(1)).0, 1000);

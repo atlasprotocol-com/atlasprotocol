@@ -17,6 +17,7 @@ fn setup_atlas() -> (Atlas, AccountId) {
         accounts(2),
         accounts(3),
         "treasury_address".to_string(),
+        false,
     );
 
     (atlas, owner_account)

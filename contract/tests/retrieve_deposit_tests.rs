@@ -14,6 +14,7 @@ fn setup_atlas() -> Atlas {
         accounts(2),
         accounts(3),
         "treasury_address".to_string(),
+        false,
     )
 }
 

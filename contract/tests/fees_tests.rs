@@ -14,6 +14,7 @@ async fn test_deposit_fee_calculation() {
         accounts(2), // global_params_owner_id
         accounts(3),
         "treasury_address".to_string(),
+        false,
     );
 
     atlas.update_fee_deposit_bps(100); // Set deposit fee to 1%
@@ -35,6 +36,7 @@ async fn test_redemption_fee_calculation() {
         accounts(2), // global_params_owner_id
         accounts(3),
         "treasury_address".to_string(),
+        false,
     );
 
     atlas.update_fee_redemption_bps(200); // Set redemption fee to 2%
@@ -56,6 +58,7 @@ async fn test_bridging_fee_calculation() {
         accounts(2), // global_params_owner_id
         accounts(3),
         "treasury_address".to_string(),
+        false,
     );
 
     atlas.update_fee_bridging_bps(50); // Set bridging fee to 0.5%
@@ -77,6 +80,7 @@ async fn test_fee_calculation_with_zero_amount() {
         accounts(2), // global_params_owner_id
         accounts(3),
         "treasury_address".to_string(),
+        false,
     );
 
     let amount = 0;
@@ -98,6 +102,7 @@ async fn test_fee_calculation_with_large_amount() {
         accounts(2), // global_params_owner_id
         accounts(3),
         "treasury_address".to_string(),
+        false,
     );
 
     atlas.update_fee_deposit_bps(100); // Set deposit fee to 1%

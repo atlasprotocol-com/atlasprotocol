@@ -32,7 +32,7 @@ getrandom = {version = "0.2", features = ["custom"]}
 
 [profile.release]
 codegen-units = 1
-# Tell `rustc` to optimize for small code size.
+# Tell rustc to optimize for small code size.
 debug = false
 lto = true
 opt-level = "z"

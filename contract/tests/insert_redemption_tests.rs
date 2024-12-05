@@ -14,6 +14,7 @@ fn setup_atlas() -> Atlas {
         accounts(2),
         accounts(3),
         "treasury_address".to_string(),
+        false,
     )
 }
 
@@ -29,6 +30,7 @@ async fn test_insert_redemption_abtc() {
         accounts(2),
         accounts(3),
         "treasury_address".to_string(),
+        false,
     );
 
     let txn_hash = "421614,0x1234567890abcdef".to_string();
@@ -76,6 +78,7 @@ async fn test_insert_duplicate_redemption() {
         accounts(2),
         accounts(3),
         "treasury_address".to_string(),
+        false,
     );
 
     let txn_hash = "421614,0x1234567890abcdef".to_string();
@@ -117,6 +120,7 @@ async fn test_insert_redemption_with_invalid_data() {
         accounts(2),
         accounts(3),
         "treasury_address".to_string(),
+        false,
     );
 
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
@@ -174,6 +178,7 @@ async fn test_insert_redemption_unauthorized() {
         accounts(2),
         accounts(3),
         "treasury_address".to_string(),
+        false,
     );
 
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
@@ -203,6 +208,7 @@ async fn test_insert_multiple_redemptions() {
         accounts(2),
         accounts(3),
         "treasury_address".to_string(),
+        false,
     );
 
     let txn_hash1 = "421614,0x1234567890abcdef".to_string();
