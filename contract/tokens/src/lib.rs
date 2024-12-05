@@ -5,7 +5,7 @@ use near_contract_standards::fungible_token::FungibleToken;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::LazyOption;
 use near_sdk::json_types::U128;
-use near_sdk::{env, log, near_bindgen, AccountId, Balance, PanicOnDefault, PromiseOrValue};
+use near_sdk::{env, log, near_bindgen, AccountId, Balance, PanicOnDefault, PromiseOrValue, assert_one_yocto};
 use serde_json::json;
 
 const DATA_IMAGE_SVG_NEAR_ICON: &str = "data:image/svg+xml,%3Csvg%20xmlns=%27http://www.w3.org/2000/svg%27%20width=%27100%27%20height=%27100%27%20viewBox=%270%200%20100%20100%27%3E%3Crect%20width=%27100%25%27%20height=%27100%25%27%20fill=%27black%27/%3E%3Ctext%20x=%2750%27%20y=%2750%27%20font-size=%2760%27%20font-family=%27Arial%27%20font-weight=%27bold%27%20fill=%27red%27%20text-anchor=%27middle%27%20dominant-baseline=%27middle%27%3EV%3C/text%3E%3C/svg%3E";
@@ -84,7 +84,9 @@ impl Contract {
     }
 
     /// Custom burn function that logs the btcAddress for the redemption process
+    #[payable]
     pub fn burn_redeem(&mut self, amount: U128, btc_address: String) {
+        assert_one_yocto();
         let predecessor = env::predecessor_account_id();
         self.token.internal_withdraw(&predecessor, amount.into());
         let event_log = json!({
@@ -102,7 +104,9 @@ impl Contract {
     }
 
     /// Custom burn function that logs the destination chainId and address for the bridging process
+    #[payable]
     pub fn burn_bridge(&mut self, amount: U128, dest_chain_id: String, dest_chain_address: String) {
+        assert_one_yocto();
         let predecessor = env::predecessor_account_id();
         self.token.internal_withdraw(&predecessor, amount.into());
         let event_log = json!({
