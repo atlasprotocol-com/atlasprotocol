@@ -375,7 +375,6 @@ const Home: React.FC<HomeProps> = () => {
               )}
             </div>
           </Tabs>
-          
         </div>
       </div>
       <Footer />
@@ -399,3 +398,5 @@ const Home: React.FC<HomeProps> = () => {
 };
 
 export default Home;
+
+export const dynamic = "force-dynamic";

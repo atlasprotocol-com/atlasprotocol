@@ -43,10 +43,7 @@ export const Hash: React.FC<HashProps> = ({
       onClick={handleCopy}
     >
       <p
-        style={{
-          minWidth: small ? "3.5rem" : "5.5rem",
-        }}
-        className={`${fullWidth ? "w-full" : ""}`}
+        className={`${fullWidth ? "w-full" : ""} ${small ? "min-w-[3.5rem]" : "min-w-[5.5rem]"}`}
       >
         {copiedText || (
           <>

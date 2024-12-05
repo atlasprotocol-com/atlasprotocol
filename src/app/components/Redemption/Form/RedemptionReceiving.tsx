@@ -1,5 +1,3 @@
-import { ChangeEvent, FocusEvent, useEffect, useState } from "react";
-
 interface RedemptionReceivingProps {
   redemptionAddress: string;
 }
@@ -7,7 +5,6 @@ interface RedemptionReceivingProps {
 export const RedemptionReceiving: React.FC<RedemptionReceivingProps> = ({
   redemptionAddress,
 }) => {
- 
   return (
     <label className="form-control w-full flex-1">
       <div>
@@ -17,11 +14,10 @@ export const RedemptionReceiving: React.FC<RedemptionReceivingProps> = ({
           </span>
         </div>
         <textarea
-          className="no-focus input  w-full cursor-not-allowed"
+          className="no-focus input  w-full cursor-not-allowed h-[100px]"
           value={redemptionAddress}
           readOnly
           rows={2}
-          style={{ height: '100px' }}
         />
       </div>
     </label>

@@ -5,7 +5,7 @@ const nextConfig = {
   experimental: {
     forceSwcTransforms: true,
   },
-  poweredByHeader: false,
+  // poweredByHeader: false,
 };
 
 export default nextConfig;

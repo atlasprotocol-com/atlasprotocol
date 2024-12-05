@@ -1,6 +1,6 @@
 import { ChangeEvent, FocusEvent, useEffect, useState } from "react";
 
-import { useChainConfig } from "@/app/context/api/ChainConfigProvider"; 
+import { useChainConfig } from "@/app/context/api/ChainConfigProvider";
 import { btcToSatoshi, satoshiToBtc } from "@/utils/btcConversions";
 import { maxDecimals } from "@/utils/maxDecimals";
 
@@ -32,7 +32,7 @@ export const RedemptionAmount: React.FC<RedemptionAmountProps> = ({
   selectedChain,
 }) => {
   const { chainConfigs } = useChainConfig(); // Get the chain configurations from context
-  
+
   const [value, setValue] = useState("");
   const [error, setError] = useState("");
   const [touched, setTouched] = useState(false);
@@ -141,21 +141,20 @@ export const RedemptionAmount: React.FC<RedemptionAmountProps> = ({
         {Object.values(chainConfigs || {})
           .filter((chainConfig) => chainConfig.chainID !== "SIGNET") // Filter out Signet
           .map((chainConfig) => (
-          <option
-            key={chainConfig.chainID}
-            value={chainConfig.chainID}
-            data-key={chainConfig.chainID}
-            
-          >
-            {chainConfig.networkName}
-          </option>
-        ))}
+            <option
+              key={chainConfig.chainID}
+              value={chainConfig.chainID}
+              data-key={chainConfig.chainID}
+            >
+              {chainConfig.networkName}
+            </option>
+          ))}
       </select>
 
       {evmAddress && (
         <>
           <div className="mt-2 label-text-alt opacity-50">
-          <div className="flex justify-between">
+            <div className="flex justify-between">
               <span className="label-text-alt text-base">EVM Address:</span>
               <button
                 onClick={() => {
@@ -166,7 +165,7 @@ export const RedemptionAmount: React.FC<RedemptionAmountProps> = ({
                 Disconnect
               </button>
             </div>
-            <p>{evmAddress }</p>
+            <p>{evmAddress}</p>
           </div>
         </>
       )}
@@ -174,9 +173,8 @@ export const RedemptionAmount: React.FC<RedemptionAmountProps> = ({
       <div className="label pt-0 mt-4">
         <span className="label-text-alt text-base">Amount</span>
         <span
-          className="label-text-alt opacity-50"
+          className="label-text-alt opacity-50 cursor-pointer"
           onClick={handleMaxClick}
-          style={{ cursor: "pointer" }}
         >
           min/max: {minStakeAmount}/{maxStakeAmount} aBTC
         </span>
