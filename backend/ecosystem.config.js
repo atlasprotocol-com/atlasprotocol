@@ -1,7 +1,7 @@
 module.exports = {
   apps: [
     {
-      name: "app",
+      name: "atlasprotocol-backend",
       script: "./server.js",
     },
   ],
