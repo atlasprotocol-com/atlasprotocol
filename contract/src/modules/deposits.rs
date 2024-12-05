@@ -255,6 +255,21 @@ impl Atlas {
                     && !deposit.receiving_address.is_empty()
                     && !deposit.remarks.is_empty()
                 {
+
+                    // If receiving chain ID is EVM and receiving address is not a valid EVM address, do not rollback
+                    if let Some(chain_config) = self
+                        .chain_configs
+                        .get_chain_config(deposit.receiving_chain_id.clone())
+                    {
+                        let path = chain_config.network_type.clone();                    
+                        if path == EVM.to_string() {
+                            if !Self::is_valid_eth_address(deposit.receiving_address.clone()) {
+                                env::log_str("Receiving address is not a valid EVM address");
+                                return None;
+                            }
+                        }
+                    }
+
                     match deposit.status {
                         DEP_BTC_PENDING_DEPOSIT_INTO_BABYLON => {
                             deposit.status = DEP_BTC_DEPOSITED_INTO_ATLAS;
@@ -295,6 +310,21 @@ impl Atlas {
                 && !deposit.receiving_address.is_empty()
                 && !deposit.remarks.is_empty()
             {
+
+                // If receiving chain ID is EVM and receiving address is not a valid EVM address, do not rollback
+                if let Some(chain_config) = self
+                    .chain_configs
+                    .get_chain_config(deposit.receiving_chain_id.clone())
+                {
+                    let path = chain_config.network_type.clone();                    
+                    if path == EVM.to_string() {
+                        if !Self::is_valid_eth_address(deposit.receiving_address.clone()) {
+                            env::log_str("Receiving address is not a valid EVM address");
+                            return;
+                        }
+                    }
+                }
+
                 match deposit.status {
                     DEP_BTC_PENDING_DEPOSIT_INTO_BABYLON => {
                         deposit.status = DEP_BTC_DEPOSITED_INTO_ATLAS;
@@ -367,7 +397,7 @@ impl Atlas {
                         // Update the deposit in the map
                         self.deposits.insert(btc_txn_hash.clone(), deposit.clone());
 
-                        if path == "EVM" {
+                        if path == EVM.to_string() {
                             // Check if the receiving address is a valid EVM address
                             if !Self::is_valid_eth_address(deposit.receiving_address.clone()) {
                                 // Set remarks if the address is not a valid EVM address
