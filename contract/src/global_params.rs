@@ -49,10 +49,6 @@ impl GlobalParams {
         );
     }
 
-    pub fn get_global_params_owner_id(&self) -> AccountId {
-        self.owner_id.clone()
-    }
-
     pub fn propose_new_global_params_owner(&mut self, proposed_owner_id: AccountId) {
         self.assert_owner();
 
@@ -109,39 +105,7 @@ impl GlobalParams {
         self.mpc_contract = new_mpc_contract.clone();
 
         env::log_str(&format!("MPC contract changed from {} to {}", old_mpc_contract, new_mpc_contract));
-    }
-
-    pub fn get_fee_deposit_bps(&self) -> u16 {
-        self.fee_deposit_bps
-    }
-
-    pub fn get_fee_redemption_bps(&self) -> u16 {
-        self.fee_redemption_bps
-    }
-
-    pub fn get_fee_bridging_bps(&self) -> u16 {
-        self.fee_bridging_bps
-    }
-
-    pub fn get_fee_babylon_rewards_bps(&self) -> u16 {
-        self.fee_babylon_rewards_bps
-    }
-
-    pub fn get_btc_staking_cap(&self) -> u64 {
-        self.btc_staking_cap
-    }
-
-    pub fn get_btc_max_staking_amount(&self) -> u64 {
-        self.btc_max_staking_amount
-    }
-
-    pub fn get_btc_min_staking_amount(&self) -> u64 {
-        self.btc_min_staking_amount
-    }
-
-    pub fn get_treasury_address(&self) -> String {
-        self.treasury_address.clone()
-    }
+    }    
 
     pub fn update_fee_deposit_bps(&mut self, fee_deposit_bps: u16) {
         self.assert_owner();

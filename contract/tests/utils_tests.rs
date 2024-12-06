@@ -33,7 +33,9 @@ mod tests {
         testing_env!(VMContextBuilder::new().predecessor_account_id(owner_account).build());
         atlas.update_fee_deposit_bps(new_fee);
 
-        assert_eq!(atlas.global_params.get_fee_deposit_bps(), new_fee);
+        let global_params = atlas.get_all_global_params();
+        let global_params_json = serde_json::to_value(&global_params).unwrap();
+        assert_eq!(global_params_json["fee_deposit_bps"].as_u64().unwrap() as u16, new_fee as u16);
     }
 
     #[tokio::test]
@@ -54,7 +56,9 @@ mod tests {
         testing_env!(VMContextBuilder::new().predecessor_account_id(owner_account).build());
         atlas.update_fee_redemption_bps(new_fee);
 
-        assert_eq!(atlas.global_params.get_fee_redemption_bps(), new_fee);
+        let global_params = atlas.get_all_global_params();
+        let global_params_json = serde_json::to_value(&global_params).unwrap();
+        assert_eq!(global_params_json["fee_redemption_bps"].as_u64().unwrap() as u16, new_fee as u16);
     }
 
     #[tokio::test]
@@ -102,7 +106,9 @@ mod tests {
         testing_env!(VMContextBuilder::new().predecessor_account_id(owner_account).build());
         atlas.update_fee_bridging_bps(new_fee);
 
-        assert_eq!(atlas.global_params.get_fee_bridging_bps(), new_fee);
+        let global_params = atlas.get_all_global_params();
+        let global_params_json = serde_json::to_value(&global_params).unwrap();
+        assert_eq!(global_params_json["fee_bridging_bps"].as_u64().unwrap() as u16, new_fee as u16);
     }
 
     #[tokio::test]
@@ -123,7 +129,9 @@ mod tests {
         testing_env!(VMContextBuilder::new().predecessor_account_id(owner_account).build());
         atlas.update_fee_babylon_rewards_bps(new_fee);
 
-        assert_eq!(atlas.global_params.get_fee_babylon_rewards_bps(), new_fee);
+        let global_params = atlas.get_all_global_params();
+        let global_params_json = serde_json::to_value(&global_params).unwrap();
+        assert_eq!(global_params_json["fee_babylon_rewards_bps"].as_u64().unwrap() as u16, new_fee as u16);
     }
 
     #[tokio::test]
@@ -144,7 +152,9 @@ mod tests {
         testing_env!(VMContextBuilder::new().predecessor_account_id(owner_account).build());
         atlas.update_btc_staking_cap(new_cap);
 
-        assert_eq!(atlas.global_params.get_btc_staking_cap(), new_cap);
+        let global_params = atlas.get_all_global_params();
+        let global_params_json = serde_json::to_value(&global_params).unwrap();
+        assert_eq!(global_params_json["btc_staking_cap"].as_u64().unwrap(), new_cap);
     }
 
     #[tokio::test]
@@ -165,7 +175,9 @@ mod tests {
         testing_env!(VMContextBuilder::new().predecessor_account_id(owner_account).build());
         atlas.update_btc_max_staking_amount(new_max);
 
-        assert_eq!(atlas.global_params.get_btc_max_staking_amount(), new_max);
+        let global_params = atlas.get_all_global_params();
+        let global_params_json = serde_json::to_value(&global_params).unwrap();
+        assert_eq!(global_params_json["btc_max_staking_amount"].as_u64().unwrap(), new_max);
     }
 
     #[tokio::test]
@@ -186,7 +198,9 @@ mod tests {
         testing_env!(VMContextBuilder::new().predecessor_account_id(owner_account).build());
         atlas.update_btc_min_staking_amount(new_min);
 
-        assert_eq!(atlas.global_params.get_btc_min_staking_amount(), new_min);
+        let global_params = atlas.get_all_global_params();
+        let global_params_json = serde_json::to_value(&global_params).unwrap();
+        assert_eq!(global_params_json["btc_min_staking_amount"].as_u64().unwrap(), new_min);
     }
 
     #[tokio::test]
@@ -207,7 +221,9 @@ mod tests {
         testing_env!(VMContextBuilder::new().predecessor_account_id(owner_account).build());
         atlas.update_treasury_address(new_address.clone());
 
-        assert_eq!(atlas.global_params.get_treasury_address(), new_address);
+        let global_params = atlas.get_all_global_params();
+        let global_params_json = serde_json::to_value(&global_params).unwrap();
+        assert_eq!(global_params_json["treasury_address"].as_str().unwrap(), new_address);
     }
 
     #[tokio::test]
@@ -333,16 +349,19 @@ mod tests {
         atlas.update_btc_max_staking_amount(100000);
         atlas.update_btc_min_staking_amount(1000);
 
-        assert!(atlas.global_params.get_mpc_contract().to_string().len() > 0);
-        assert!(atlas.global_params.get_fee_deposit_bps() > 0);
-        assert!(atlas.global_params.get_fee_redemption_bps() > 0);
-        assert!(atlas.global_params.get_fee_bridging_bps() > 0);
-        assert!(atlas.global_params.get_fee_babylon_rewards_bps() > 0);
-        assert!(atlas.global_params.get_btc_staking_cap() > 0);
-        assert!(atlas.global_params.get_btc_max_staking_amount() > 0);
-        assert!(atlas.global_params.get_btc_min_staking_amount() > 0);
-        assert!(atlas.global_params.get_treasury_address().len() > 0);
+        let global_params = atlas.get_all_global_params();
+        let global_params_json = serde_json::to_value(&global_params).unwrap();
+        
+        assert!(global_params_json["fee_deposit_bps"].as_u64().unwrap() > 0);
+        assert!(global_params_json["fee_redemption_bps"].as_u64().unwrap() > 0);
+        assert!(global_params_json["fee_bridging_bps"].as_u64().unwrap() > 0);
+        assert!(global_params_json["fee_babylon_rewards_bps"].as_u64().unwrap() > 0);
+        assert!(global_params_json["btc_staking_cap"].as_u64().unwrap() > 0);
+        assert!(global_params_json["btc_max_staking_amount"].as_u64().unwrap() > 0);
+        assert!(global_params_json["btc_min_staking_amount"].as_u64().unwrap() > 0);
+        assert!(global_params_json["treasury_address"].as_str().unwrap().len() > 0);
         assert!(atlas.global_params.owner_id().to_string().len() > 0);
+        assert!(atlas.global_params.get_mpc_contract().to_string().len() > 0);
     }
 
     // Add more tests for other utility functions as needed
