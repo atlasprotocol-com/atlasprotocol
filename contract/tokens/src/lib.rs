@@ -174,9 +174,8 @@ mod tests {
                 icon: Some(DATA_IMAGE_SVG_NEAR_ICON.to_string()),
                 reference: None,
                 reference_hash: None,
-                decimals: 24,
-            },
-            near_sdk::json_types::U128(10000000),
+                decimals: 8,
+            },            
         );
         testing_env!(context.is_view(true).build());
         assert_eq!(contract.ft_total_supply().0, 0); // Initially, total supply should be 0
@@ -196,7 +195,7 @@ mod tests {
                 icon: Some(DATA_IMAGE_SVG_NEAR_ICON.to_string()),
                 reference: None,
                 reference_hash: None,
-                decimals: 24,
+                decimals: 8,
             },            
         );
 
@@ -229,12 +228,11 @@ mod tests {
                 icon: Some(DATA_IMAGE_SVG_NEAR_ICON.to_string()),
                 reference: None,
                 reference_hash: None,
-                decimals: 24,
+                decimals: 8,
             },
-            near_sdk::json_types::U128(10000000),
         );
         let btc_txn_hash = "dummy_btc_txn_hash".to_string();
-        contract.mint(accounts(2).into(), U128(1000), btc_txn_hash);
+        contract.mint_deposit(accounts(2).into(), U128(1000), btc_txn_hash);
         testing_env!(context
             .storage_usage(env::storage_usage())
             .attached_deposit(contract.storage_balance_bounds().min.into())
