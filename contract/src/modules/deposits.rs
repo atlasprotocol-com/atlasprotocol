@@ -151,8 +151,7 @@ impl Atlas {
                 .get_chain_config(deposit.receiving_chain_id.clone())
             {
                 // Check all specified conditions
-                if (deposit.status == DEP_BTC_PENDING_MINTED_INTO_ABTC || 
-                    deposit.status == DEP_BTC_DEPOSITED_INTO_ATLAS) 
+                if (deposit.status == DEP_BTC_PENDING_MINTED_INTO_ABTC) 
                     && deposit.verified_count >= chain_config.validators_threshold
                     && deposit.remarks.is_empty()
                     && deposit.minted_txn_hash.is_empty()
