@@ -17,7 +17,7 @@ redeploy:
 	near state $(CONTRACT_ID).velar.testnet;
 
 	near deploy $(CONTRACT_ID).velar.testnet res/atlas_protocol.wasm;
-	near call $(CONTRACT_ID).velar.testnet new '{"atlas_owner_id": "velar.testnet", "atlas_admin_id": "velar.testnet", "global_params_owner_id": "velar.testnet", "chain_configs_owner_id": "velar.testnet", "treasury_address": "tb1pa4xwtgs3672h38rqdveyk5w9jqczfhjxh89j8erdlr59yj92qs8szyvw53"}' --accountId velar.testnet;
+	near call $(CONTRACT_ID).velar.testnet new '{"atlas_owner_id": "velar.testnet", "atlas_admin_id": "velar_admin.testnet", "global_params_owner_id": "velar.testnet", "chain_configs_owner_id": "velar.testnet", "treasury_address": "tb1pa4xwtgs3672h38rqdveyk5w9jqczfhjxh89j8erdlr59yj92qs8szyvw53", "production_mode": false}' --accountId velar.testnet;
 
 	near call $(CONTRACT_ID).velar.testnet add_validator '{"account_id": "velar.testnet", "chain_id": "SIGNET"}' --accountId velar.testnet;
 	near call $(CONTRACT_ID).velar.testnet add_validator '{"account_id": "velar.testnet", "chain_id": "421614"}' --accountId velar.testnet;
