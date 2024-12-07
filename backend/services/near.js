@@ -5,8 +5,10 @@ const {
   Contract,
   providers,
 } = require("near-api-js");
-const { InMemoryKeyStore } = keyStores;
+const pRetry = require("p-retry");
 const address = require("./address");
+
+const { InMemoryKeyStore } = keyStores;
 
 class Near {
   static TRANSACTION_ROOT = "11111111111111111111111111111111";
@@ -82,6 +84,7 @@ class Near {
           "update_redemption_pending_btc_mempool",
           "update_redemption_redeemed",
           "update_redemption_custody_txn_id",
+          "create_abtc_accept_ownership_tx",
         ],
       });
 
@@ -114,17 +117,12 @@ class Near {
       throw new Error("NEAR contract is not initialized. Call init() first.");
     }
 
-    try {
-      const result = await this.nearContract[methodName]({
-        args,
-        gas: this.gas,
-        amount: this.amount,
-      });
-
-      return result;
-    } catch (error) {
-      throw new Error(`Failed to call method ${methodName}: ${error.message}`);
-    }
+    // MUST return original error to retrieve error context
+    return this.nearContract[methodName]({
+      args,
+      gas: this.gas,
+      amount: this.amount,
+    });
   }
 
   // Function to get deposit by BTC sender address from NEAR contract
@@ -319,16 +317,39 @@ class Near {
   }
 
   async createRedeemAbtcSignedPayload(txn_hash, payload, psbt) {
-    console.log("entered createRedeemAbtcSignedPayload");
-    console.log(txn_hash);
-    console.log(payload);
-    console.log(psbt);
+    try {
+      const r = await this.makeNearRpcChangeCall(
+        "create_redeem_abtc_signed_payload",
+        {
+          txn_hash: txn_hash,
+          payload: payload,
+          psbt_data: psbt,
+        },
+      );
 
-    return this.makeNearRpcChangeCall("create_redeem_abtc_signed_payload", {
-      txn_hash: txn_hash,
-      payload: payload,
-      psbt_data: psbt,
-    });
+      return r;
+    } catch (err) {
+      const txnhash = err.context?.transactionHash;
+      if (!txnhash) throw err;
+
+      // if we have a transaction hash, we can wait until the transaction is confirmed
+      const tx = await pRetry(
+        async (count) => {
+          const txnhash = err.context?.transactionHash;
+          console.log(
+            `NEAR createRedeemAbtcSignedPayload - retries: ${count} | ${txnhash}`,
+          );
+          return this.provider.txStatus(txnhash, this.contract_id, "FINAL");
+        },
+        { retries: 10 },
+      );
+      if (!tx || !tx.status || !tx.status.SuccessValue) throw err;
+
+      const value = Buffer.from(tx.status.SuccessValue, "base64").toString(
+        "utf-8",
+      );
+      return JSON.parse(value);
+    }
   }
 
   async createMintAbtcTransaction(payloadHeader) {
@@ -639,6 +660,13 @@ class Near {
       }
     }
     return events;
+  }
+
+  async createAcceptOwnershipTx(params) {
+    return this.makeNearRpcChangeCall(
+      "create_abtc_accept_ownership_tx",
+      params,
+    );
   }
 }
 

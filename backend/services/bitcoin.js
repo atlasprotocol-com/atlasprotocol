@@ -320,7 +320,9 @@ class Bitcoin {
         );
 
         // Check if the transaction's block time is greater than the redemption time
-        const hasValidBlockTime = txn.status.block_time >= redemptionTimestamp || !txn.status.block_time;
+        const hasValidBlockTime =
+          txn.status.block_time >= redemptionTimestamp ||
+          !txn.status.block_time;
 
         // Check if the transaction has any output with the OP_RETURN data matching the provided opReturnCode
         const hasOpReturnData = txn.vout.some((vout) => {
@@ -330,7 +332,7 @@ class Bitcoin {
 
         return hasMatchingInput && hasValidBlockTime && hasOpReturnData;
       });
-      
+
       // Check if any records were found
       if (filteredTxns.length > 0) {
         const txn = filteredTxns[0];
