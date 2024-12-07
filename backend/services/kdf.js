@@ -13,9 +13,9 @@ const secp256k1 = new EC("secp256k1");
 const ec = new EC("secp256k1");
 
 async function najPublicKeyStrToUncompressedHexPoint(rootPublicKey) {
-  
-  const res = '04' + Buffer.from(base_decode(rootPublicKey.split(':')[1])).toString('hex');
-  console.log(res);
+  const res =
+    "04" +
+    Buffer.from(base_decode(rootPublicKey.split(":")[1])).toString("hex");
   return res;
 }
 
@@ -24,8 +24,6 @@ async function deriveChildPublicKey(
   signerId,
   path = "",
 ) {
- ;
-
   const scalarHex = deriveEpsilon(signerId, path);
 
   const x = parentUncompressedPublicKeyHex.substring(2, 66);
@@ -98,7 +96,7 @@ async function uncompressedHexPointToBtcAddress(publicKeyHex, network) {
 async function derivep2wpkhChildPublicKey(
   parentUncompressedPublicKeyHex,
   signerId,
-  path = ''
+  path = "",
 ) {
   const scalar = deriveEpsilon(signerId, path);
 
@@ -115,20 +113,26 @@ async function derivep2wpkhChildPublicKey(
   const newPublicKeyPoint = oldPublicKeyPoint.add(scalarTimesG);
 
   // Get the compressed public key
-  const compressedPublicKey = newPublicKeyPoint.encode('hex', true);
-  
+  const compressedPublicKey = newPublicKeyPoint.encode("hex", true);
+
   return compressedPublicKey;
 }
 
 async function uncompressedHexPointToSegwitAddress(publicKeyHex, network) {
-  const publicKeyBuffer = Buffer.from(publicKeyHex, 'hex');
-  const sha256HashOutput = crypto.createHash('sha256').update(publicKeyBuffer).digest();
-  const ripemd160HashOutput = crypto.createHash('ripemd160').update(sha256HashOutput).digest();
+  const publicKeyBuffer = Buffer.from(publicKeyHex, "hex");
+  const sha256HashOutput = crypto
+    .createHash("sha256")
+    .update(publicKeyBuffer)
+    .digest();
+  const ripemd160HashOutput = crypto
+    .createHash("ripemd160")
+    .update(sha256HashOutput)
+    .digest();
 
   const words = bech32.toWords(ripemd160HashOutput);
   words.unshift(0x00); // Add the witness version (0x00 for P2WPKH)
 
-  const prefix = network === 'bitcoin' ? 'bc' : 'tb';
+  const prefix = network === "bitcoin" ? "bc" : "tb";
   const segwitAddress = bech32.encode(prefix, words);
 
   return segwitAddress;

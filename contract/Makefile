@@ -1,5 +1,5 @@
-CONTRACT_ID ?= atlas_revamp_4
-FT_CONTRACT_ID ?= atbtc_revamp_4
+CONTRACT_ID ?= atlas_audit_v2
+FT_CONTRACT_ID ?= atbtc_audit_v2
 
 redeploy-all: redeploy redeploy-near-ft
 
@@ -24,6 +24,16 @@ redeploy:
 	near call $(CONTRACT_ID).velar.testnet add_validator '{"account_id": "velar.testnet", "chain_id": "11155420"}' --accountId velar.testnet;
 	near call $(CONTRACT_ID).velar.testnet add_validator '{"account_id": "velar.testnet", "chain_id": "NEAR_TESTNET"}' --accountId velar.testnet;
 
+	near call $(CONTRACT_ID).velar.testnet add_validator '{"account_id": "yeowlin.testnet", "chain_id": "SIGNET"}' --accountId velar.testnet;
+	near call $(CONTRACT_ID).velar.testnet add_validator '{"account_id": "yeowlin.testnet", "chain_id": "421614"}' --accountId velar.testnet;
+	near call $(CONTRACT_ID).velar.testnet add_validator '{"account_id": "yeowlin.testnet", "chain_id": "11155420"}' --accountId velar.testnet;
+	near call $(CONTRACT_ID).velar.testnet add_validator '{"account_id": "yeowlin.testnet", "chain_id": "NEAR_TESTNET"}' --accountId velar.testnet;
+
+	near call $(CONTRACT_ID).velar.testnet add_validator '{"account_id": "buglungtung.testnet", "chain_id": "SIGNET"}' --accountId velar.testnet;
+	near call $(CONTRACT_ID).velar.testnet add_validator '{"account_id": "buglungtung.testnet", "chain_id": "421614"}' --accountId velar.testnet;
+	near call $(CONTRACT_ID).velar.testnet add_validator '{"account_id": "buglungtung.testnet", "chain_id": "11155420"}' --accountId velar.testnet;
+	near call $(CONTRACT_ID).velar.testnet add_validator '{"account_id": "buglungtung.testnet", "chain_id": "NEAR_TESTNET"}' --accountId velar.testnet;
+
 redeploy-near-ft:
 	cd tokens && ./build.sh
 	cd tokens && near delete-account $(FT_CONTRACT_ID).velar.testnet velar.testnet;
@@ -38,5 +48,5 @@ redeploy-near-ft:
 	sleep 10;
 	near view $(FT_CONTRACT_ID).velar.testnet ft_metadata
 	
-	# near tokens buglungtung.testnet view-ft-balance atbtc_revamp_4.velar.testnet network-config testnet now
+	# near tokens buglungtung.testnet view-ft-balance atbtc_audit_v2.velar.testnet network-config testnet now
 	

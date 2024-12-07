@@ -90,7 +90,12 @@ async function UpdateAtlasBtcDeposits(
               txn,
               btcAtlasDepositAddress,
             );
-            timestamp = await bitcoin.fetchUnconfirmedTransactionTime(txn);
+
+            // Use confirmed timestamp if available, otherwise fetch unconfirmed time
+            timestamp = blnStatusConfirmed
+              ? txn.status.block_time
+              : await bitcoin.fetchUnconfirmedTransactionTime(txn);
+
             const mintedTxnHash = "";
 
             await near.insertDepositBtc(

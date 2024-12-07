@@ -44,7 +44,7 @@
       "native_currency_symbol": "ETH",
       "first_block": 67300000,
       "batch_size": 50000,
-      "gas_limit": 5000000,
+      "gas_limit": 10000000,
       "abi_path": "../../contract/artifacts/atBTC.abi",
       "validators_threshold": 2
     },
@@ -60,7 +60,7 @@
       "native_currency_symbol": "ETH",
       "first_block": 15210000,
       "batch_size": 10000,
-      "gas_limit": 5000000,
+      "gas_limit": 10000000,
       "abi_path": "../../contract/artifacts/atBTC.abi",
       "validators_threshold": 2
     }

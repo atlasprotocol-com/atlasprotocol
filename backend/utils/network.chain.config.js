@@ -48,8 +48,27 @@ function getAllChainConfig() {
   return chainConfig;
 }
 
+function convert(chainConfig) {
+  return {
+    chain_id: chainConfig.chain_id || chainConfig.chainID,
+    network_type: chainConfig.network_type || chainConfig.networkType,
+    network_name: chainConfig.network_name || chainConfig.networkName,
+    chain_rpc_url: chainConfig.chain_rpc_url || chainConfig.chainRpcUrl,
+    explorer_url: chainConfig.explorer_url || chainConfig.explorerURL,
+    abtc_address: chainConfig.abtc_address || chainConfig.aBTCAddress,
+    native_currency: chainConfig.native_currency || chainConfig.nativeCurrency,
+    first_block: chainConfig.first_block || chainConfig.firstBlock,
+    batch_size: chainConfig.batch_size || chainConfig.batchSize,
+    gas_limit: chainConfig.gas_limit || chainConfig.gasLimit,
+    abi_path: chainConfig.abi_path || chainConfig.abiPath,
+    validators_threshold:
+      chainConfig.validators_threshold || chainConfig.validators_threshold,
+  };
+}
+
 module.exports = {
   fetchAndSetChainConfigs,
   getChainConfig,
-  getAllChainConfig
+  getAllChainConfig,
+  convert,
 };
