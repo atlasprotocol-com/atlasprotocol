@@ -1,6 +1,6 @@
+use atlas_protocol::modules::structs::Atlas;
 use near_sdk::test_utils::{accounts, VMContextBuilder};
 use near_sdk::testing_env;
-use atlas_protocol::modules::structs::Atlas;
 use near_sdk::AccountId;
 
 #[tokio::test]
@@ -85,7 +85,10 @@ async fn test_unauthorized_change_owner() {
         atlas.propose_new_atlas_owner(accounts(4));
     }));
 
-    assert!(result.is_err(), "Expected panic due to unauthorized owner change");
+    assert!(
+        result.is_err(),
+        "Expected panic due to unauthorized owner change"
+    );
 }
 
 #[tokio::test]
@@ -107,7 +110,10 @@ async fn test_unauthorized_change_admin() {
         atlas.propose_new_atlas_admin(accounts(5));
     }));
 
-    assert!(result.is_err(), "Expected panic due to unauthorized admin change");
+    assert!(
+        result.is_err(),
+        "Expected panic due to unauthorized admin change"
+    );
 }
 
 #[tokio::test]
@@ -338,4 +344,24 @@ async fn test_assert_admin_with_non_admin() {
     );
 
     atlas.assert_admin();
+}
+
+#[tokio::test]
+#[should_panic(expected = "Proposed admin ID cannot be the same as the proposed owner ID")]
+async fn test_proposed_admin_same_as_proposed_owner() {
+    let mut context = VMContextBuilder::new();
+    context.predecessor_account_id(accounts(0));
+    testing_env!(context.build());
+
+    let mut atlas = Atlas::new(
+        accounts(0),
+        accounts(1),
+        accounts(2),
+        accounts(3),
+        "treasury_address".to_string(),
+        false,
+    );
+
+    atlas.propose_new_atlas_owner(accounts(4));
+    atlas.propose_new_atlas_admin(accounts(4));
 }

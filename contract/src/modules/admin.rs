@@ -131,6 +131,11 @@ impl Atlas {
             proposed_admin_id, self.owner_id,
             "Proposed admin ID cannot be the same as the current owner ID"
         );
+        assert_ne!(
+            Some(proposed_admin_id.clone()),
+            self.proposed_owner_id,
+            "Proposed admin ID cannot be the same as the proposed owner ID"
+        );
         assert!(
             !proposed_admin_id.to_string().is_empty(),
             "Proposed admin ID cannot be blank"
