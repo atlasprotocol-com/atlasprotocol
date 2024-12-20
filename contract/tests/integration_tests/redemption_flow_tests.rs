@@ -20,6 +20,7 @@ async fn test_redemption_flow() {
         1625097600,
         1625097600,
     );
+    
 
     // 2. Verify redemption by validators
     let redemption = atlas.get_redemption_by_txn_hash(txn_hash.clone()).unwrap();
