@@ -41,12 +41,27 @@ impl Atlas {
         self.assert_admin();
 
         // Validate mandatory input fields
-        assert!(!btc_txn_hash.is_empty(), "BTC transaction hash cannot be empty");
-        assert!(!btc_sender_address.is_empty(), "Sender address cannot be empty");
-        assert!(!receiving_chain_id.is_empty(), "Receiving chain ID cannot be empty");
-        assert!(!receiving_address.is_empty(), "Receiving address cannot be empty");
+        assert!(
+            !btc_txn_hash.is_empty(),
+            "BTC transaction hash cannot be empty"
+        );
+        assert!(
+            !btc_sender_address.is_empty(),
+            "Sender address cannot be empty"
+        );
+        assert!(
+            !receiving_chain_id.is_empty(),
+            "Receiving chain ID cannot be empty"
+        );
+        assert!(
+            !receiving_address.is_empty(),
+            "Receiving address cannot be empty"
+        );
         assert!(btc_amount > 0, "BTC amount must be greater than zero");
-        assert!(minted_txn_hash.is_empty(), "Minted transaction hash must be empty");
+        assert!(
+            minted_txn_hash.is_empty(),
+            "Minted transaction hash must be empty"
+        );
         assert!(timestamp > 0, "Timestamp must be greater than zero");
         assert!(date_created > 0, "Date created must be greater than zero");
 
@@ -74,7 +89,10 @@ impl Atlas {
 
     pub fn get_deposit_by_btc_txn_hash(&self, btc_txn_hash: String) -> Option<DepositRecord> {
         // Validate that the btc_txn_hash is not empty
-        assert!(!btc_txn_hash.is_empty(), "BTC transaction hash cannot be empty");
+        assert!(
+            !btc_txn_hash.is_empty(),
+            "BTC transaction hash cannot be empty"
+        );
 
         self.deposits.get(&btc_txn_hash).cloned()
     }
@@ -83,7 +101,10 @@ impl Atlas {
         // Validate input parameters
         assert!(start_time > 0, "Start time must be greater than zero");
         assert!(end_time > 0, "End time must be greater than zero");
-        assert!(start_time <= end_time, "Start time must be less than or equal to end time");
+        assert!(
+            start_time <= end_time,
+            "Start time must be less than or equal to end time"
+        );
 
         self.deposits
             .values()
@@ -105,7 +126,10 @@ impl Atlas {
         self.assert_admin();
 
         // Validate input parameters
-        assert!(!btc_txn_hash.is_empty(), "BTC transaction hash cannot be empty");
+        assert!(
+            !btc_txn_hash.is_empty(),
+            "BTC transaction hash cannot be empty"
+        );
         assert!(timestamp > 0, "Timestamp must be greater than zero");
 
         // Check if the deposit exists for the given btc_txn_hash
@@ -119,30 +143,40 @@ impl Atlas {
                 deposit.status = DEP_BTC_DEPOSITED_INTO_ATLAS;
                 deposit.timestamp = timestamp;
                 self.deposits.insert(btc_txn_hash.clone(), deposit);
-                log!("Deposit status updated to DEP_BTC_DEPOSITED_INTO_ATLAS for btc_txn_hash: {}", btc_txn_hash);
+                log!(
+                    "Deposit status updated to DEP_BTC_DEPOSITED_INTO_ATLAS for btc_txn_hash: {}",
+                    btc_txn_hash
+                );
             } else {
                 // Log a message if conditions are not met
-                log!("Conditions not met for updating deposit status for btc_txn_hash: {}. 
+                log!(
+                    "Conditions not met for updating deposit status for btc_txn_hash: {}. 
                       Status: {}, Remarks: {}, Minted txn hash: {}",
-                      btc_txn_hash,
-                      deposit.status,
-                      deposit.remarks,
-                      deposit.minted_txn_hash);
+                    btc_txn_hash,
+                    deposit.status,
+                    deposit.remarks,
+                    deposit.minted_txn_hash
+                );
             }
         } else {
             env::panic_str("Deposit record not found");
         }
     }
-    
 
     pub fn update_deposit_minted(&mut self, btc_txn_hash: String, minted_txn_hash: String) {
         self.assert_not_paused();
         self.assert_admin();
 
         // Validate input parameters
-        assert!(!btc_txn_hash.is_empty(), "BTC transaction hash cannot be empty");
-        assert!(!minted_txn_hash.is_empty(), "Minted transaction hash cannot be empty");
-        
+        assert!(
+            !btc_txn_hash.is_empty(),
+            "BTC transaction hash cannot be empty"
+        );
+        assert!(
+            !minted_txn_hash.is_empty(),
+            "Minted transaction hash cannot be empty"
+        );
+
         // Check if the deposit exists for the given btc_txn_hash
         if let Some(mut deposit) = self.deposits.get(&btc_txn_hash).cloned() {
             // Fetch chain configuration for the deposit's receiving_chain_id
@@ -151,7 +185,7 @@ impl Atlas {
                 .get_chain_config(deposit.receiving_chain_id.clone())
             {
                 // Check all specified conditions
-                if (deposit.status == DEP_BTC_PENDING_MINTED_INTO_ABTC) 
+                if (deposit.status == DEP_BTC_PENDING_MINTED_INTO_ABTC)
                     && deposit.verified_count >= chain_config.validators_threshold
                     && deposit.remarks.is_empty()
                     && deposit.minted_txn_hash.is_empty()
@@ -160,7 +194,10 @@ impl Atlas {
                     deposit.status = DEP_BTC_MINTED_INTO_ABTC;
                     deposit.minted_txn_hash = minted_txn_hash.clone();
                     self.deposits.insert(btc_txn_hash.clone(), deposit);
-                    log!("Deposit status updated to DEP_BTC_MINTED_INTO_ABTC for btc_txn_hash: {}", btc_txn_hash);
+                    log!(
+                        "Deposit status updated to DEP_BTC_MINTED_INTO_ABTC for btc_txn_hash: {}",
+                        btc_txn_hash
+                    );
                 } else {
                     // Log a message if conditions are not met
                     log!(
@@ -180,16 +217,18 @@ impl Atlas {
             env::panic_str("Deposit record not found");
         }
     }
-    
 
     pub fn update_deposit_remarks(&mut self, btc_txn_hash: String, remarks: String) {
         self.assert_not_paused();
         self.assert_admin();
-    
+
         // Validate input parameters
-        assert!(!btc_txn_hash.is_empty(), "BTC transaction hash cannot be empty");
+        assert!(
+            !btc_txn_hash.is_empty(),
+            "BTC transaction hash cannot be empty"
+        );
         assert!(!remarks.trim().is_empty(), "Remarks cannot be blank");
-    
+
         // Retrieve the deposit record based on btc_txn_hash
         if let Some(mut deposit) = self.deposits.get(&btc_txn_hash).cloned() {
             // Check if the status is not equal to DEP_BTC_MINTED_INTO_ABTC
@@ -206,7 +245,7 @@ impl Atlas {
             env::panic_str("Deposit record not found");
         }
     }
-    
+
     pub fn get_first_valid_deposit_chain_config(&self) -> Option<(String, ChainConfigRecord)> {
         for (key, deposit) in self.deposits.iter() {
             if deposit.btc_sender_address != ""
@@ -216,7 +255,8 @@ impl Atlas {
                 && deposit.remarks == ""
                 && deposit.minted_txn_hash == ""
                 && deposit.btc_amount > 0  // Add btc amount check
-                && deposit.date_created > 0  // Add date created check
+                && deposit.date_created > 0
+            // Add date created check
             // This will stop re-minting as no one can update this once minted
             {
                 // Get the chain config using deposit.receiving_chain_id
@@ -254,13 +294,12 @@ impl Atlas {
                     && !deposit.receiving_address.is_empty()
                     && !deposit.remarks.is_empty()
                 {
-
                     // If receiving chain ID is EVM and receiving address is not a valid EVM address, do not rollback
                     if let Some(chain_config) = self
                         .chain_configs
                         .get_chain_config(deposit.receiving_chain_id.clone())
                     {
-                        let path = chain_config.network_type.clone();                    
+                        let path = chain_config.network_type.clone();
                         if path == EVM.to_string() {
                             if !Self::is_valid_eth_address(deposit.receiving_address.clone()) {
                                 env::log_str("Receiving address is not a valid EVM address");
@@ -301,7 +340,7 @@ impl Atlas {
         if btc_txn_hash.is_empty() {
             env::panic_str("BTC transaction hash cannot be empty");
         }
-        
+
         // Retrieve the deposit record based on btc_txn_hash
         if let Some(mut deposit) = self.deposits.get(&btc_txn_hash).cloned() {
             if !deposit.btc_sender_address.is_empty()
@@ -309,13 +348,12 @@ impl Atlas {
                 && !deposit.receiving_address.is_empty()
                 && !deposit.remarks.is_empty()
             {
-
                 // If receiving chain ID is EVM and receiving address is not a valid EVM address, do not rollback
                 if let Some(chain_config) = self
                     .chain_configs
                     .get_chain_config(deposit.receiving_chain_id.clone())
                 {
-                    let path = chain_config.network_type.clone();                    
+                    let path = chain_config.network_type.clone();
                     if path == EVM.to_string() {
                         if !Self::is_valid_eth_address(deposit.receiving_address.clone()) {
                             env::log_str("Receiving address is not a valid EVM address");
@@ -358,7 +396,10 @@ impl Atlas {
         self.assert_admin();
 
         // Validate input parameters
-        assert!(!btc_txn_hash.is_empty(), "BTC transaction hash cannot be empty");
+        assert!(
+            !btc_txn_hash.is_empty(),
+            "BTC transaction hash cannot be empty"
+        );
         assert!(gas != 0, "Gas cannot be zero");
 
         // Check if the deposit exists for the given btc_txn_hash
@@ -481,7 +522,7 @@ impl Atlas {
                                             .sign_callback(),
                                     ),
                             );
-                        } else if path == "NEAR" {
+                        } else if path == NEAR.to_string() {
                             log!(
                                 "Minting aBTC on NEAR chain for deposit with btc_txn_hash: {}",
                                 btc_txn_hash
@@ -636,56 +677,71 @@ impl Atlas {
             log!("Invalid mempool_deposit: btc_txn_hash is empty");
             return false;
         }
-    
+
         // Retrieve the deposit record using the btc_txn_hash
         if let Some(mut deposit) = self.deposits.get(&mempool_deposit.btc_txn_hash).cloned() {
             let chain_id = if self.is_production_mode() {
-                BITCOIN.to_string()                
+                BITCOIN.to_string()
             } else {
                 SIGNET.to_string()
             };
-            
+
             // Use the is_validator function to check if the caller is authorized for the bitcoin deposit
             if self.is_validator(&caller, &chain_id) {
                 // Retrieve the list of validators for this btc_txn_hash using the getter method
-                let mut validators_list = self.get_validators_by_txn_hash(deposit.btc_txn_hash.clone());
-                
+                let mut validators_list =
+                    self.get_validators_by_txn_hash(deposit.btc_txn_hash.clone());
+
                 // Check if the caller has already verified this btc_txn_hash
                 if validators_list.contains(&caller) {
-                    log!("Caller {} has already verified the transaction with btc_txn_hash: {}.", &caller, &deposit.btc_txn_hash);
+                    log!(
+                        "Caller {} has already verified the transaction with btc_txn_hash: {}.",
+                        &caller,
+                        &deposit.btc_txn_hash
+                    );
                     return false;
                 }
-    
+
                 // Verify that all fields of deposit and mempool_deposit are equal
-                if deposit.btc_txn_hash != mempool_deposit.btc_txn_hash ||
-                    deposit.btc_sender_address != mempool_deposit.btc_sender_address ||
-                    deposit.receiving_chain_id != mempool_deposit.receiving_chain_id ||
-                    deposit.receiving_address != mempool_deposit.receiving_address ||
-                    deposit.btc_amount != mempool_deposit.btc_amount ||
-                    deposit.timestamp != mempool_deposit.timestamp ||
-                    deposit.status != DEP_BTC_DEPOSITED_INTO_ATLAS ||
-                    deposit.remarks != mempool_deposit.remarks {
+                if deposit.btc_txn_hash != mempool_deposit.btc_txn_hash
+                    || deposit.btc_sender_address != mempool_deposit.btc_sender_address
+                    || deposit.receiving_chain_id != mempool_deposit.receiving_chain_id
+                    || deposit.receiving_address != mempool_deposit.receiving_address
+                    || deposit.btc_amount != mempool_deposit.btc_amount
+                    || deposit.timestamp != mempool_deposit.timestamp
+                    || deposit.status != DEP_BTC_DEPOSITED_INTO_ATLAS
+                    || deposit.remarks != mempool_deposit.remarks
+                {
                     log!("Mismatch between near_deposit and mempool_deposit records. Verification failed.");
                     return false;
                 }
-    
+
                 // Increment the verified count
                 deposit.verified_count += 1;
 
                 // Update the deposit record in the map
-                self.deposits.insert(mempool_deposit.btc_txn_hash.clone(), deposit);
-        
+                self.deposits
+                    .insert(mempool_deposit.btc_txn_hash.clone(), deposit);
+
                 // Add the caller to the list of validators for this btc_txn_hash
                 validators_list.push(caller);
-                self.verifications.insert(mempool_deposit.btc_txn_hash, validators_list);
-    
+                self.verifications
+                    .insert(mempool_deposit.btc_txn_hash, validators_list);
+
                 true // success case returns true
             } else {
-                log!("Caller {} is not an authorized validator for the chain ID: {}", &caller, &chain_id);
+                log!(
+                    "Caller {} is not an authorized validator for the chain ID: {}",
+                    &caller,
+                    &chain_id
+                );
                 return false;
             }
         } else {
-            log!("Deposit record not found for btc_txn_hash: {}.", &mempool_deposit.btc_txn_hash);
+            log!(
+                "Deposit record not found for btc_txn_hash: {}.",
+                &mempool_deposit.btc_txn_hash
+            );
             return false;
         }
     }

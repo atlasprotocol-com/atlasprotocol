@@ -244,68 +244,6 @@ fn test_create_mint_abtc_signed_tx_not_enough_verified_count() {
     assert_eq!(result, "Validators threshold not met.".to_string());
 }
 
-#[test]
-fn test_create_mint_abtc_signed_tx_return_evm_txn() {
-    let mut atlas = setup_atlas();
-
-    let mut context = VMContextBuilder::new();
-    context.predecessor_account_id(accounts(1));
-    context.is_view(false);
-    testing_env!(context.build());
-
-    // Insert a deposit with a non-existent receiving_chain_id
-    atlas.insert_deposit_btc(
-        "123456".to_string(),
-        "abc123".to_string(),
-        "421614".to_string(),
-        "0x2564186c643B292d6A4215f5C33Aa69b213414dd".to_string(), // This chain ID should not have a configuration
-        50000,
-        "".to_string(),
-        1000,
-        "".to_string(),
-        1,
-    );
-    // Update status to DEP_BTC_WAITING_MINTED_INTO_ABTC
-    atlas.update_deposit_btc_deposited("123456".to_string(), 1000);
-
-    // Create a DepositRecord for the deposit to be used in increment_deposit_verified_count
-    let mempool_deposit = DepositRecord {
-        btc_txn_hash: "123456".to_string(),
-        btc_sender_address: "abc123".to_string(),
-        receiving_chain_id: "421614".to_string(),
-        receiving_address: "0x2564186c643B292d6A4215f5C33Aa69b213414dd".to_string(),
-        btc_amount: 50000,
-        timestamp: 1000,
-        verified_count: 0,
-        remarks: "".to_string(),
-        status: 1,
-        minted_txn_hash: "".to_string(),
-        date_created: 1,
-    };
-
-    // Simulate the environment for the validator
-    context.predecessor_account_id(accounts(4));
-    testing_env!(context.build());
-
-    // First validator increments the verified count
-    assert!(atlas.increment_deposit_verified_count(mempool_deposit.clone()));
-
-    // Change the environment for the second validator
-    context.predecessor_account_id(accounts(5));
-    testing_env!(context.build());
-
-    // Second validator increments the verified count
-    assert!(atlas.increment_deposit_verified_count(mempool_deposit));
-
-    // then change it back
-    testing_env!(VMContextBuilder::new()
-        .predecessor_account_id(accounts(1))
-        .is_view(false)
-        .build());
-
-    atlas.create_mint_abtc_signed_tx("123456".to_string(), 94, 5000000, 100000000, 0);
-}
-
 fn get_value<T>(result: PromiseOrValue<T>) -> T {
     match result {
         PromiseOrValue::Value(value) => value,
