@@ -40,6 +40,7 @@ fn test_create_mint_abtc_signed_tx_paused() {
     let mut context = VMContextBuilder::new();
     context.predecessor_account_id(accounts(0));
     context.is_view(false);
+    context.block_timestamp(1234567890);
     testing_env!(context.build());
 
     atlas.pause();
@@ -60,6 +61,7 @@ fn test_create_mint_abtc_signed_tx_not_admin() {
     let mut context = VMContextBuilder::new();
     context.predecessor_account_id(accounts(4));
     context.is_view(false);
+    context.block_timestamp(1234567890);
     testing_env!(context.build());
 
     atlas.create_mint_abtc_signed_tx(
@@ -79,6 +81,7 @@ fn test_create_mint_abtc_signed_tx_empty_btc_txn_hash() {
     let mut context = VMContextBuilder::new();
     context.predecessor_account_id(accounts(1));
     context.is_view(false);
+    context.block_timestamp(1234567890);
     testing_env!(context.build());
 
     atlas.create_mint_abtc_signed_tx("".to_string(), 94, 5000000, 100000000, 0);
@@ -92,6 +95,7 @@ fn test_create_mint_abtc_signed_tx_zero_gas() {
     let mut context = VMContextBuilder::new();
     context.predecessor_account_id(accounts(1));
     context.is_view(false);
+    context.block_timestamp(1234567890);
     testing_env!(context.build());
 
     atlas.create_mint_abtc_signed_tx(
@@ -110,6 +114,7 @@ fn test_create_mint_abtc_signed_tx_not_found_deposit() {
     let mut context = VMContextBuilder::new();
     context.predecessor_account_id(accounts(1));
     context.is_view(false);
+    context.block_timestamp(1234567890);
     testing_env!(context.build());
 
     let result: String = get_value(atlas.create_mint_abtc_signed_tx(
@@ -132,6 +137,7 @@ fn test_create_mint_abtc_signed_tx_existing_deposit_status_not_waiting_mint() {
     let mut context = VMContextBuilder::new();
     context.predecessor_account_id(accounts(1));
     context.is_view(false);
+    context.block_timestamp(1234567890);
     testing_env!(context.build());
 
     // Create deposit with status DEP_BTC_WAITING_MINTED_INTO_ABTC
@@ -194,6 +200,7 @@ fn test_create_mint_abtc_signed_tx_no_chain_config() {
     testing_env!(VMContextBuilder::new()
         .predecessor_account_id(accounts(1))
         .is_view(false)
+        .block_timestamp(1234567890)
         .build());
 
     // Attempt to create mint transaction, which should panic due to missing chain config
@@ -215,6 +222,7 @@ fn test_create_mint_abtc_signed_tx_not_enough_verified_count() {
     let mut context = VMContextBuilder::new();
     context.predecessor_account_id(accounts(1));
     context.is_view(false);
+    context.block_timestamp(1234567890);
     testing_env!(context.build());
 
     // Insert a deposit with a non-existent receiving_chain_id

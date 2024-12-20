@@ -52,6 +52,7 @@ async fn test_deposit_flow_evm() {
 
     testing_env!(VMContextBuilder::new()
         .predecessor_account_id(accounts(1))
+        .block_timestamp(1234567890)
         .build());
     atlas.create_mint_abtc_signed_tx(deposit.btc_txn_hash.clone(), 94, 5000000, 100000000, 0);
 
@@ -122,6 +123,7 @@ async fn test_deposit_flow_near() {
 
     testing_env!(VMContextBuilder::new()
         .predecessor_account_id(accounts(1))
+        .block_timestamp(1234567890)
         .build());
     atlas.create_mint_abtc_signed_tx(deposit.btc_txn_hash.clone(), 94, 5000000, 100000000, 0);
 

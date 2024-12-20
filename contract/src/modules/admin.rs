@@ -168,6 +168,7 @@ impl Atlas {
     }
 
     // Assertions for ownership and admin
+    #[private]
     pub fn assert_owner(&self) {
         assert_eq!(
             self.owner_id,
@@ -176,6 +177,7 @@ impl Atlas {
         );
     }
 
+    #[private]
     pub fn assert_admin(&self) {
         assert_eq!(
             self.admin_id,
