@@ -438,21 +438,6 @@ impl Atlas {
                         self.deposits.insert(btc_txn_hash.clone(), deposit.clone());
 
                         if path == EVM.to_string() {
-                            // Check if the receiving address is a valid EVM address
-                            if !Self::is_valid_eth_address(deposit.receiving_address.clone()) {
-                                // Set remarks if the address is not a valid EVM address
-                                let error_msg =
-                                    "Receiving address is not a valid EVM address".to_string();
-
-                                deposit.remarks = error_msg.clone();
-
-                                // Update the deposit in the map
-                                self.deposits.insert(btc_txn_hash.clone(), deposit.clone());
-
-                                // Panic with the error message
-                                env::panic_str(&error_msg);
-                            }
-
                             // Ensure the BTC amount is properly converted to U256 (Ethereum uint256)
                             let amount = U256::from(deposit.btc_amount);
 

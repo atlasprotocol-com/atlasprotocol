@@ -1,5 +1,6 @@
 const { getConstants } = require("../constants");
 const { Ethereum } = require("../services/ethereum");
+const address = require("../services/address");
 
 const { flagsBatch } = require("./batchFlags");
 const GAS_FOR_MINT_CALL = 100; // Gas for minting call
@@ -30,8 +31,18 @@ async function MintaBtcToReceivingChain(near) {
       // console.log(`BTC Transaction Hash: ${btcTxnHash}`);
       // console.log(`Chain Config:`, chainConfig);
 
+      const depositRecord = await near.getDepositByBtcTxnHash(btcTxnHash);
+
       try {
         if (chainConfig.network_type === NETWORK_TYPE.EVM) {
+          if (
+            !address.isValidEthereumAddress(depositRecord.receiving_address)
+          ) {
+            throw new Error(
+              `Invalid receiving address: ${depositRecord.receiving_address}`,
+            );
+          }
+
           const ethereum = new Ethereum(
             chainConfig.chain_id,
             chainConfig.chain_rpc_url,
@@ -83,6 +94,11 @@ async function MintaBtcToReceivingChain(near) {
             await near.updateDepositRemarks(btcTxnHash, remarks);
           }
         } else if (chainConfig.network_type === "NEAR") {
+          if (!address.isValidNearAddress(depositRecord.receiving_address)) {
+            throw new Error(
+              `Invalid receiving address: ${depositRecord.receiving_address}`,
+            );
+          }
           const payloadHeader = {
             btc_txn_hash: btcTxnHash,
             nonce: 0,
