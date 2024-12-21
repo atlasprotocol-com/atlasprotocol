@@ -1,7 +1,7 @@
+use atlas_protocol::constants::status::*;
+use atlas_protocol::modules::structs::Atlas;
 use near_sdk::test_utils::{accounts, VMContextBuilder};
 use near_sdk::testing_env;
-use atlas_protocol::modules::structs::Atlas;
-use atlas_protocol::constants::status::*;
 
 // Add this function at the beginning of your test file
 fn setup_atlas() -> Atlas {
@@ -34,7 +34,6 @@ async fn test_insert_deposit_btc() {
         false,
     );
 
-
     let btc_txn_hash = "btc_txn_hash".to_string();
     let btc_sender_address = "btc_sender_address".to_string();
     let receiving_chain_id = "receiving_chain_id".to_string();
@@ -57,8 +56,9 @@ async fn test_insert_deposit_btc() {
         date_created,
     );
 
-
-    let deposit = atlas.get_deposit_by_btc_txn_hash(btc_txn_hash.clone()).unwrap();
+    let deposit = atlas
+        .get_deposit_by_btc_txn_hash(btc_txn_hash.clone())
+        .unwrap();
     assert_eq!(deposit.btc_txn_hash, btc_txn_hash);
     assert_eq!(deposit.btc_sender_address, btc_sender_address);
     assert_eq!(deposit.receiving_chain_id, receiving_chain_id);
@@ -71,7 +71,6 @@ async fn test_insert_deposit_btc() {
     assert_eq!(deposit.date_created, date_created);
     assert_eq!(deposit.verified_count, 0);
 }
-
 
 #[tokio::test]
 async fn test_insert_duplicate_deposit() {
@@ -88,7 +87,6 @@ async fn test_insert_duplicate_deposit() {
         false,
     );
 
-
     let btc_txn_hash = "btc_txn_hash".to_string();
 
     atlas.insert_deposit_btc(
@@ -102,7 +100,6 @@ async fn test_insert_duplicate_deposit() {
         "".to_string(),
         1234567890,
     );
-
 
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         atlas.insert_deposit_btc(
@@ -118,9 +115,11 @@ async fn test_insert_duplicate_deposit() {
         );
     }));
 
-    assert!(result.is_err(), "Expected panic due to duplicate BTC transaction hash");
+    assert!(
+        result.is_err(),
+        "Expected panic due to duplicate BTC transaction hash"
+    );
 }
-
 
 #[tokio::test]
 async fn test_insert_invalid_deposit() {
@@ -136,7 +135,6 @@ async fn test_insert_invalid_deposit() {
         "treasury_address".to_string(),
         false,
     );
-
 
     let btc_txn_hash = "".to_string();
     let btc_sender_address = "btc_sender_address".to_string();
@@ -180,7 +178,6 @@ async fn test_insert_maximum_deposit() {
         false,
     );
 
-
     let btc_txn_hash = "max_btc_txn_hash".to_string();
     let btc_sender_address = "btc_sender_address".to_string();
     let receiving_chain_id = "receiving_chain_id".to_string();
@@ -203,11 +200,11 @@ async fn test_insert_maximum_deposit() {
         date_created,
     );
 
-
-    let deposit = atlas.get_deposit_by_btc_txn_hash(btc_txn_hash.clone()).unwrap();
+    let deposit = atlas
+        .get_deposit_by_btc_txn_hash(btc_txn_hash.clone())
+        .unwrap();
     assert_eq!(deposit.btc_amount, btc_amount);
 }
-
 
 #[tokio::test]
 async fn test_insert_deposit_with_empty_fields() {
@@ -223,7 +220,6 @@ async fn test_insert_deposit_with_empty_fields() {
         "treasury_address".to_string(),
         false,
     );
-
 
     let btc_txn_hash = "".to_string();
     let btc_sender_address = "".to_string();
@@ -267,7 +263,6 @@ async fn test_insert_deposit_with_invalid_btc_amount() {
         false,
     );
 
-
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         atlas.insert_deposit_btc(
             "btc_txn_hash".to_string(),
@@ -299,7 +294,6 @@ async fn test_insert_deposit_with_invalid_timestamp() {
         "treasury_address".to_string(),
         false,
     );
-
 
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         atlas.insert_deposit_btc(
@@ -333,7 +327,6 @@ async fn test_insert_duplicate_btc_txn_hash() {
         false,
     );
 
-
     let btc_txn_hash = "btc_txn_hash".to_string();
 
     atlas.insert_deposit_btc(
@@ -347,7 +340,6 @@ async fn test_insert_duplicate_btc_txn_hash() {
         "".to_string(),
         1234567890,
     );
-
 
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         atlas.insert_deposit_btc(
@@ -363,9 +355,11 @@ async fn test_insert_duplicate_btc_txn_hash() {
         );
     }));
 
-    assert!(result.is_err(), "Expected panic due to duplicate BTC transaction hash");
+    assert!(
+        result.is_err(),
+        "Expected panic due to duplicate BTC transaction hash"
+    );
 }
-
 
 #[tokio::test]
 async fn test_insert_deposit_with_missing_fields() {
@@ -382,7 +376,6 @@ async fn test_insert_deposit_with_missing_fields() {
         false,
     );
 
-
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         atlas.insert_deposit_btc(
             "".to_string(),
@@ -396,7 +389,10 @@ async fn test_insert_deposit_with_missing_fields() {
             1234567890,
         );
     }));
-    assert!(result.is_err(), "Expected panic due to missing transaction hash");
+    assert!(
+        result.is_err(),
+        "Expected panic due to missing transaction hash"
+    );
 
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         atlas.insert_deposit_btc(
@@ -411,7 +407,10 @@ async fn test_insert_deposit_with_missing_fields() {
             1234567890,
         );
     }));
-    assert!(result.is_err(), "Expected panic due to missing sender address");
+    assert!(
+        result.is_err(),
+        "Expected panic due to missing sender address"
+    );
 
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         atlas.insert_deposit_btc(
@@ -426,7 +425,10 @@ async fn test_insert_deposit_with_missing_fields() {
             1234567890,
         );
     }));
-    assert!(result.is_err(), "Expected panic due to missing receiving chain ID");
+    assert!(
+        result.is_err(),
+        "Expected panic due to missing receiving chain ID"
+    );
 
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         atlas.insert_deposit_btc(
@@ -441,7 +443,10 @@ async fn test_insert_deposit_with_missing_fields() {
             1234567890,
         );
     }));
-    assert!(result.is_err(), "Expected panic due to missing receiving address");
+    assert!(
+        result.is_err(),
+        "Expected panic due to missing receiving address"
+    );
 
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         atlas.insert_deposit_btc(
@@ -486,9 +491,11 @@ async fn test_insert_deposit_with_missing_fields() {
             0,
         );
     }));
-    assert!(result.is_err(), "Expected panic due to missing date created");
+    assert!(
+        result.is_err(),
+        "Expected panic due to missing date created"
+    );
 }
-
 
 #[tokio::test]
 async fn test_insert_deposit_with_invalid_chain_id() {
@@ -504,7 +511,6 @@ async fn test_insert_deposit_with_invalid_chain_id() {
         "treasury_address".to_string(),
         false,
     );
-
 
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         atlas.insert_deposit_btc(
@@ -538,7 +544,6 @@ async fn test_insert_deposit_with_invalid_receiving_address() {
         false,
     );
 
-
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         atlas.insert_deposit_btc(
             "btc_txn_hash".to_string(),
@@ -553,7 +558,10 @@ async fn test_insert_deposit_with_invalid_receiving_address() {
         );
     }));
 
-    assert!(result.is_err(), "Expected panic due to invalid receiving address");
+    assert!(
+        result.is_err(),
+        "Expected panic due to invalid receiving address"
+    );
 }
 
 #[tokio::test] // Add this line to make it a test
@@ -598,7 +606,6 @@ async fn test_concurrent_deposits() {
         date_created,
     );
 
-
     atlas.insert_deposit_btc(
         btc_txn_hash2.clone(),
         btc_sender_address.clone(),
@@ -612,8 +619,12 @@ async fn test_concurrent_deposits() {
     );
 
     // Retrieve deposits and assert their properties
-    let deposit1 = atlas.get_deposit_by_btc_txn_hash(btc_txn_hash1.clone()).unwrap();
-    let deposit2 = atlas.get_deposit_by_btc_txn_hash(btc_txn_hash2.clone()).unwrap();
+    let deposit1 = atlas
+        .get_deposit_by_btc_txn_hash(btc_txn_hash1.clone())
+        .unwrap();
+    let deposit2 = atlas
+        .get_deposit_by_btc_txn_hash(btc_txn_hash2.clone())
+        .unwrap();
     assert_eq!(deposit1.btc_txn_hash, btc_txn_hash1);
     assert_eq!(deposit2.btc_txn_hash, btc_txn_hash2);
 }
@@ -753,8 +764,10 @@ async fn test_insert_deposit_with_very_large_btc_amount() {
         "".to_string(),
         1234567890,
     );
-    
-    let deposit = atlas.get_deposit_by_btc_txn_hash("btc_txn_hash".to_string()).unwrap();
+
+    let deposit = atlas
+        .get_deposit_by_btc_txn_hash("btc_txn_hash".to_string())
+        .unwrap();
     assert_eq!(deposit.btc_amount, u64::MAX);
 }
 
@@ -772,8 +785,10 @@ async fn test_insert_deposit_with_very_large_timestamp() {
         "".to_string(),
         1234567890,
     );
-    
-    let deposit = atlas.get_deposit_by_btc_txn_hash("btc_txn_hash".to_string()).unwrap();
+
+    let deposit = atlas
+        .get_deposit_by_btc_txn_hash("btc_txn_hash".to_string())
+        .unwrap();
     assert_eq!(deposit.timestamp, u64::MAX);
 }
 
@@ -804,4 +819,64 @@ async fn test_insert_deposit_by_non_admin() {
         "".to_string(),
         1234567890,
     );
+}
+
+#[tokio::test]
+async fn test_insert_deposit_btc_with_fee_dps() {
+    let mut atlas = setup_atlas();
+
+    testing_env!(VMContextBuilder::new()
+        .predecessor_account_id(accounts(2))
+        .build());
+
+    let fee_deposit_bps = 100 as u16;
+    atlas.update_fee_deposit_bps(fee_deposit_bps);
+
+    testing_env!(VMContextBuilder::new()
+        .predecessor_account_id(accounts(1))
+        .build());
+
+    let btc_txn_hash = "btc_txn_hash".to_string();
+    let btc_sender_address = "btc_sender_address".to_string();
+    let receiving_chain_id = "receiving_chain_id".to_string();
+    let receiving_address = "receiving_address".to_string();
+    let btc_amount = 1000;
+    let minted_txn_hash = "".to_string();
+    let timestamp = 1234567890;
+    let remarks = "".to_string();
+    let date_created = 1234567890;
+
+    atlas.insert_deposit_btc(
+        btc_txn_hash.clone(),
+        btc_sender_address.clone(),
+        receiving_chain_id.clone(),
+        receiving_address.clone(),
+        btc_amount,
+        minted_txn_hash.clone(),
+        timestamp,
+        remarks.clone(),
+        date_created,
+    );
+
+    let deposit = atlas
+        .get_deposit_by_btc_txn_hash(btc_txn_hash.clone())
+        .unwrap();
+    assert_eq!(deposit.btc_txn_hash, btc_txn_hash);
+    assert_eq!(deposit.btc_sender_address, btc_sender_address);
+    assert_eq!(deposit.receiving_chain_id, receiving_chain_id);
+    assert_eq!(deposit.receiving_address, receiving_address);
+    assert_eq!(
+        deposit.btc_amount,
+        btc_amount * (10000 - fee_deposit_bps as u64) / 10000
+    );
+    assert_eq!(
+        deposit.fee_amount,
+        btc_amount * fee_deposit_bps as u64 / 10000
+    );
+    assert_eq!(deposit.minted_txn_hash, minted_txn_hash);
+    assert_eq!(deposit.timestamp, timestamp);
+    assert_eq!(deposit.status, DEP_BTC_PENDING_MEMPOOL);
+    assert_eq!(deposit.remarks, remarks);
+    assert_eq!(deposit.date_created, date_created);
+    assert_eq!(deposit.verified_count, 0);
 }

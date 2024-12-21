@@ -1,19 +1,19 @@
-use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use serde::{Deserialize, Serialize};
-use near_sdk::near_bindgen;
-use near_sdk::PanicOnDefault;
-use near_sdk::AccountId;
-use near_sdk::store::IterableMap;
 use crate::chain_configs::ChainConfigs;
 use crate::global_params::GlobalParams;
+use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+use near_sdk::near_bindgen;
+use near_sdk::store::IterableMap;
+use near_sdk::AccountId;
+use near_sdk::PanicOnDefault;
+use serde::{Deserialize, Serialize};
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 pub struct Atlas {
     pub deposits: IterableMap<String, DepositRecord>,
     pub redemptions: IterableMap<String, RedemptionRecord>,
-    pub validators: IterableMap<AccountId, Vec<String>>,       // list of validators: <AccountId -> Vector of authorised chains (chain_id)>
-    pub verifications: IterableMap<String, Vec<AccountId>>,    // list of verifications: <Txn Hash of deposit/redemption/bridging -> Vector of validators (AccountId)>
+    pub validators: IterableMap<AccountId, Vec<String>>, // list of validators: <AccountId -> Vector of authorised chains (chain_id)>
+    pub verifications: IterableMap<String, Vec<AccountId>>, // list of verifications: <Txn Hash of deposit/redemption/bridging -> Vector of validators (AccountId)>
     pub owner_id: AccountId,
     pub proposed_owner_id: Option<AccountId>,
     pub admin_id: AccountId,
@@ -33,6 +33,7 @@ pub struct DepositRecord {
     pub receiving_chain_id: String,
     pub receiving_address: String,
     pub btc_amount: u64,
+    pub fee_amount: u64,
     pub minted_txn_hash: String,
     pub timestamp: u64,
     pub status: u8,
@@ -57,4 +58,3 @@ pub struct RedemptionRecord {
     pub verified_count: u8,
     pub custody_txn_id: String,
 }
-
