@@ -7,7 +7,8 @@ use crate::AtlasExt;
 use hex::FromHex;
 use near_sdk::env::keccak256;
 use near_sdk::{
-    env, log, near_bindgen, store::IterableMap, AccountId, NearToken, PromiseError, PromiseOrValue,
+    env, log, near_bindgen, store::IterableMap, AccountId, Gas, NearToken, Promise, PromiseError,
+    PromiseOrValue,
 };
 use omni_transaction::evm::evm_transaction::EVMTransaction;
 use omni_transaction::evm::types::Signature as OmniSignature;
@@ -16,6 +17,9 @@ use omni_transaction::transaction_builder::{
     TransactionBuilder as OmniTransactionBuilder, TxBuilder,
 };
 use omni_transaction::types::EVM;
+
+const NO_ARGS: Vec<u8> = vec![];
+const CALL_GAS: Gas = Gas::from_tgas(200); // 200 TGAS
 
 #[near_bindgen]
 impl Atlas {
@@ -257,7 +261,7 @@ impl Atlas {
             .max_priority_fee_per_gas(max_priority_fee_per_gas)
             .max_fee_per_gas(max_fee_per_gas)
             .gas_limit(gas)
-            .chain_id(chain_id.clone().parse::<u64>().unwrap_or_else(|_| {
+            .chain_id(chain_id.parse::<u64>().unwrap_or_else(|_| {
                 // Handle the error case, e.g., log an error and provide a default value
                 env::panic_str("Invalid chain ID format.");
             }))
@@ -335,6 +339,48 @@ impl Atlas {
             return near_tx_signed;
         } else {
             panic!("Callback failed");
+        }
+    }
+
+    pub fn update_contract(&self) -> Promise {
+        self.assert_owner();
+
+        // Receive the code directly from the input to avoid the
+        // GAS overhead of deserializing parameters
+        let code = env::input().expect("Error: No input").to_vec();
+
+        // Deploy the contract on self
+        Promise::new(env::current_account_id())
+            .deploy_contract(code)
+            .function_call(
+                "migrate".to_string(),
+                NO_ARGS,
+                NearToken::from_near(0),
+                CALL_GAS,
+            )
+            .as_return()
+    }
+
+    #[private]
+    #[init(ignore_state)]
+    pub fn migrate() -> Self {
+        let old_state: Atlas = env::state_read().expect("failed");
+        // add migration code here if we need it
+
+        Self {
+            deposits: old_state.deposits,
+            redemptions: old_state.redemptions,
+            owner_id: old_state.owner_id,
+            proposed_owner_id: old_state.proposed_owner_id,
+            admin_id: old_state.admin_id,
+            proposed_admin_id: old_state.proposed_admin_id,
+            global_params: old_state.global_params,
+            chain_configs: old_state.chain_configs,
+            validators: old_state.validators,
+            verifications: old_state.verifications,
+            last_evm_tx: old_state.last_evm_tx,
+            paused: old_state.paused,
+            production_mode: old_state.production_mode,
         }
     }
 }

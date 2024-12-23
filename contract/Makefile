@@ -1,5 +1,8 @@
-CONTRACT_ID ?= atlas_audit_v2
-FT_CONTRACT_ID ?= atbtc_audit_v2
+CONTRACT_ID ?= atlas_audit_v20241223
+FT_CONTRACT_ID ?= atbtc_audit_v20241223
+
+# CONTRACT_ID ?= atlas_audit_v2
+# FT_CONTRACT_ID ?= atbtc_audit_v2
 
 redeploy-all: redeploy redeploy-near-ft
 
@@ -48,5 +51,5 @@ redeploy-near-ft:
 	sleep 10;
 	near view $(FT_CONTRACT_ID).velar.testnet ft_metadata
 	
-	# near tokens buglungtung.testnet view-ft-balance atbtc_audit_v2.velar.testnet network-config testnet now
+	# near tokens buglungtung.testnet view-ft-balance atbtc_audit_v20241223.velar.testnet network-config testnet now
 	
