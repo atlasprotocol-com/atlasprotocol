@@ -367,10 +367,31 @@ async fn test_proposed_admin_same_as_proposed_owner() {
 
 #[tokio::test]
 #[should_panic(expected = "Code must not be empty")]
-async fn test_update_contract() {
+async fn test_update_contract_with_no_input() {
     let mut context = VMContextBuilder::new();
     context.predecessor_account_id(accounts(0)); // Owner account
     testing_env!(context.build());
+
+    let atlas = Atlas::new(
+        accounts(0),
+        accounts(1),
+        accounts(2),
+        accounts(3),
+        "treasury_address".to_string(),
+        false,
+    );
+
+    // Call the update_contract function
+    atlas.update_contract();
+}
+
+#[tokio::test]
+async fn test_update_contract() {
+    let mut context = VMContextBuilder::new();
+    context.predecessor_account_id(accounts(0)); // Owner account
+    let mut ctx = context.build();
+    ctx.input = vec![0u8; 1024]; // mock code input
+    testing_env!(ctx);
 
     let atlas = Atlas::new(
         accounts(0),
