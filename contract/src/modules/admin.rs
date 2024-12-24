@@ -347,7 +347,8 @@ impl Atlas {
 
         // Receive the code directly from the input to avoid the
         // GAS overhead of deserializing parameters
-        let code = env::input().expect("Error: No input").to_vec();
+        let code = env::input().expect("Code must be provide").to_vec();
+        assert_ne!(code.len(), 0, "Code must not be empty");
 
         // Deploy the contract on self
         Promise::new(env::current_account_id())

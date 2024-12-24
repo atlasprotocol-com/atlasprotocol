@@ -1,7 +1,6 @@
 use atlas_protocol::modules::structs::Atlas;
 use near_sdk::test_utils::{accounts, VMContextBuilder};
-use near_sdk::testing_env;
-use near_sdk::AccountId;
+use near_sdk::{env, testing_env, AccountId, Promise};
 
 #[tokio::test]
 async fn test_initialization() {
@@ -364,4 +363,24 @@ async fn test_proposed_admin_same_as_proposed_owner() {
 
     atlas.propose_new_atlas_owner(accounts(4));
     atlas.propose_new_atlas_admin(accounts(4));
+}
+
+#[tokio::test]
+#[should_panic(expected = "Code must not be empty")]
+async fn test_update_contract() {
+    let mut context = VMContextBuilder::new();
+    context.predecessor_account_id(accounts(0)); // Owner account
+    testing_env!(context.build());
+
+    let atlas = Atlas::new(
+        accounts(0),
+        accounts(1),
+        accounts(2),
+        accounts(3),
+        "treasury_address".to_string(),
+        false,
+    );
+
+    // Call the update_contract function
+    atlas.update_contract();
 }
