@@ -40,6 +40,7 @@ pub struct DepositRecord {
     pub remarks: String,
     pub date_created: u64,
     pub verified_count: u8,
+    pub retry_count: u8,
 }
 
 #[derive(BorshDeserialize, BorshSerialize, Deserialize, Serialize, Clone)]

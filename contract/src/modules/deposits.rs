@@ -88,6 +88,7 @@ impl Atlas {
             remarks,
             date_created,
             verified_count: 0,
+            retry_count: 0,
         };
 
         self.deposits.insert(btc_txn_hash, record);

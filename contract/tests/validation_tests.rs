@@ -76,6 +76,7 @@ async fn test_deposit_verification() {
         remarks: remarks.clone(),
         date_created,
         verified_count: 0,
+        retry_count: 0,
     };
 
     let verified = atlas.increment_deposit_verified_count(mempool_deposit);
@@ -138,6 +139,7 @@ async fn test_deposit_verification_with_invalid_data() {
         remarks: remarks.clone(),
         date_created,
         verified_count: 0,
+        retry_count: 0,
     };
 
     let verified = atlas.increment_deposit_verified_count(invalid_mempool_deposit);
@@ -253,6 +255,7 @@ async fn test_deposit_verification_with_multiple_validators() {
         remarks: remarks.clone(),
         date_created,
         verified_count: 0,
+        retry_count: 0,
     };
 
     let verified = atlas.increment_deposit_verified_count(mempool_deposit.clone());
