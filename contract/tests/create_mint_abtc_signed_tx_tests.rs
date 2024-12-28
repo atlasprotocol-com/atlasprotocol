@@ -1,6 +1,4 @@
-use atlas_protocol::constants::network_type::SIGNET;
 use atlas_protocol::modules::structs::Atlas;
-use atlas_protocol::DepositRecord;
 use near_sdk::test_utils::{accounts, VMContextBuilder};
 use near_sdk::testing_env;
 use near_sdk::PromiseOrValue;
