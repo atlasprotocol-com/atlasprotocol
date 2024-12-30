@@ -94,6 +94,7 @@ impl Atlas {
             date_created,
             verified_count: 0,
             retry_count: 0,
+            custody_txn_id: "".to_string(),
         };
 
         self.deposits.insert(btc_txn_hash, record);
@@ -778,6 +779,7 @@ impl Atlas {
 
         if let Some(mut deposit) = self.deposits.get(&btc_txn_hash).cloned() {
             if deposit.status == DEP_BTC_DEPOSITED_INTO_ATLAS
+                && deposit.remarks.is_empty()
                 && deposit.retry_count >= max_retry_count
             {
                 deposit.status = DEP_BTC_REFUNDING;
@@ -858,6 +860,7 @@ impl Atlas {
 
                 // Return the results as the custom struct
                 return WithDrawFailDepositResult {
+                    btc_txn_hash: deposit.btc_txn_hash.clone(), // Return the BTC transaction hash
                     psbt: base64::encode(&serialized_psbt), // Return the PSBT as base64-encoded binary
                     utxos: selected_utxos,                  // Return the selected UTXOs
                     estimated_fee,                          // Return the estimated fee
@@ -870,5 +873,32 @@ impl Atlas {
         }
 
         env::panic_str("Deposit is not found.")
+    }
+
+    pub fn update_deposit_custody_txn_id(&mut self, btc_txn_hash: String, custody_txn_id: String) {
+        self.assert_not_paused();
+        self.assert_admin();
+
+        // Validate input parameters
+        assert!(!btc_txn_hash.is_empty(), "Transaction hash cannot be empty");
+        assert!(
+            !custody_txn_id.is_empty(),
+            "Custody transaction ID cannot be empty"
+        );
+
+        // Retrieve the redemption record based on txn_hash
+        if let Some(mut deposit) = self.deposits.get(&btc_txn_hash.clone()).cloned() {
+            if deposit.status == DEP_BTC_REFUNDING
+                && deposit.remarks.is_empty()
+                && deposit.custody_txn_id.is_empty()
+            {
+                deposit.custody_txn_id = custody_txn_id.clone();
+                self.deposits.insert(btc_txn_hash.clone(), deposit);
+            } else {
+                env::panic_str("Deposit is not in invalid conditions.");
+            }
+        } else {
+            env::panic_str("Deposit record not found");
+        }
     }
 }

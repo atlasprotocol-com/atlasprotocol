@@ -2,7 +2,7 @@ use atlas_protocol::constants::status::DEP_BTC_DEPOSITED_INTO_ATLAS;
 use atlas_protocol::modules::structs::Atlas;
 use atlas_protocol::{UtxoInput, WithDrawFailDepositResult};
 use near_sdk::test_utils::{accounts, VMContextBuilder};
-use near_sdk::{testing_env, PromiseOrValue};
+use near_sdk::testing_env;
 
 fn setup_atlas() -> Atlas {
     let mut context = VMContextBuilder::new();
@@ -125,6 +125,78 @@ fn test_withdraw_fail_deposit_by_btc_tx_hash_not_valid_conditions() {
 
 #[test]
 fn test_withdraw_fail_deposit_by_btc_tx_hash() {
+    let btc_amount = 50000;
+    let (mut atlas, result) = setup_withdraw_fail_deposit(btc_amount);
+
+    assert!(!result.psbt.is_empty());
+
+    assert!(result.utxos.iter().any(|utxo| utxo.txid == "tx_hash_5"));
+    assert!(result.utxos.iter().any(|utxo| utxo.txid == "tx_hash_4"));
+    assert!(result.utxos.iter().any(|utxo| utxo.txid == "tx_hash_3"));
+    assert!(result.utxos.iter().any(|utxo| utxo.txid == "tx_hash_2"));
+    assert!(!result.utxos.iter().any(|utxo| utxo.txid == "tx_hash_1"));
+
+    assert_eq!(result.estimated_fee, 0);
+    assert_eq!(result.receive_amount, btc_amount);
+    assert_eq!(result.change, 11000);
+}
+
+#[test]
+#[should_panic(expected = "Transaction hash cannot be empty")]
+fn test_update_deposit_custody_txn_id_empty_btc_txn_hash() {
+    let mut atlas = setup_atlas();
+
+    testing_env!(VMContextBuilder::new()
+        .predecessor_account_id(accounts(1))
+        .build());
+    atlas.update_deposit_custody_txn_id("".to_string(), "custody_txn_id".to_string());
+}
+
+#[test]
+#[should_panic(expected = "Custody transaction ID cannot be empty")]
+fn test_update_deposit_custody_txn_id_empty_custody_txn_id() {
+    let mut atlas = setup_atlas();
+
+    testing_env!(VMContextBuilder::new()
+        .predecessor_account_id(accounts(1))
+        .build());
+    atlas.update_deposit_custody_txn_id("btc_txn_hash".to_string(), "".to_string());
+}
+
+#[test]
+#[should_panic(expected = "Deposit record not found")]
+fn test_update_deposit_custody_txn_id_deposit_not_found() {
+    let mut atlas = setup_atlas();
+
+    testing_env!(VMContextBuilder::new()
+        .predecessor_account_id(accounts(1))
+        .build());
+    atlas.update_deposit_custody_txn_id("btc_txn_hash".to_string(), "custody_txn_id".to_string());
+}
+
+#[test]
+#[should_panic(expected = "Deposit is not in invalid conditions")]
+fn test_update_deposit_custody_txn_id_not_valid_conditions() {
+    let btc_amount = 50000;
+    let (mut atlas, result) = setup_withdraw_fail_deposit(btc_amount);
+
+    atlas.update_deposit_remarks(
+        result.btc_txn_hash.clone(),
+        "oops, something went wrong".to_string(),
+    );
+
+    atlas.update_deposit_custody_txn_id(result.btc_txn_hash.clone(), "custody_txn_id".to_string());
+}
+
+#[test]
+fn test_update_deposit_custody_txn_id() {
+    let btc_amount = 50000;
+    let (mut atlas, result) = setup_withdraw_fail_deposit(btc_amount);
+
+    atlas.update_deposit_custody_txn_id(result.btc_txn_hash.clone(), "custody_txn_id".to_string());
+}
+
+fn setup_withdraw_fail_deposit(btc_amount: u64) -> (Atlas, WithDrawFailDepositResult) {
     let mut atlas = setup_atlas();
 
     testing_env!(VMContextBuilder::new()
@@ -135,7 +207,6 @@ fn test_withdraw_fail_deposit_by_btc_tx_hash() {
     // 1. Insert a deposit
     let btc_txn_hash =
         "cd5760b19bf4684388f738917514d170145c839916b7dcc675c6da36bb81c979".to_string();
-    let btc_amount = 50000;
     testing_env!(VMContextBuilder::new()
         .predecessor_account_id(accounts(1))
         .build());
@@ -230,15 +301,5 @@ fn test_withdraw_fail_deposit_by_btc_tx_hash() {
     let result: WithDrawFailDepositResult =
         atlas.withdraw_fail_deposit_by_btc_tx_hash(btc_txn_hash.clone(), utxos, 0);
 
-    assert!(!result.psbt.is_empty());
-
-    assert!(result.utxos.iter().any(|utxo| utxo.txid == "tx_hash_5"));
-    assert!(result.utxos.iter().any(|utxo| utxo.txid == "tx_hash_4"));
-    assert!(result.utxos.iter().any(|utxo| utxo.txid == "tx_hash_3"));
-    assert!(result.utxos.iter().any(|utxo| utxo.txid == "tx_hash_2"));
-    assert!(!result.utxos.iter().any(|utxo| utxo.txid == "tx_hash_1"));
-
-    assert_eq!(result.estimated_fee, 0);
-    assert_eq!(result.receive_amount, btc_amount);
-    assert_eq!(result.change, 11000);
+    (atlas, result)
 }
