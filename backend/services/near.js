@@ -85,6 +85,8 @@ class Near {
           "update_redemption_redeemed",
           "update_redemption_custody_txn_id",
           "create_abtc_accept_ownership_tx",
+          "withdraw_fail_deposit_by_btc_tx_hash",
+          "update_deposit_custody_txn_id",
         ],
       });
 
@@ -667,6 +669,20 @@ class Near {
       "create_abtc_accept_ownership_tx",
       params,
     );
+  }
+
+  async withdrawFailDepositByBtcTxHash(params) {
+    return this.makeNearRpcChangeCall(
+      "withdraw_fail_deposit_by_btc_tx_hash",
+      params,
+    );
+  }
+
+  async updateDepositCustodyTxnId(btc_txn_hash, custody_txn_id) {
+    return this.makeNearRpcChangeCall("update_deposit_custody_txn_id", {
+      btc_txn_hash,
+      custody_txn_id,
+    });
   }
 }
 

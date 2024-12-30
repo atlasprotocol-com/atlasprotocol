@@ -8,6 +8,7 @@ const flagsBatch = {
   ValidateAtlasBtcRedemptionsRunning: false,
   SendBtcBackToUserRunning: false,
   UpdateAtlasBtcBackToUserRunning: false,
+  WithdrawFailDepoistsRunning: false,
 };
 
 module.exports = { flagsBatch };
