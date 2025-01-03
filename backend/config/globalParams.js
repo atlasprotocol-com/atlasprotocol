@@ -31,7 +31,7 @@ async function updateGlobalParams(near) {
     globalParams.atlasBridgingFeePercentage =
       fetchedParams.fee_bridging_bps / 10000;
     globalParams.atlasTreasuryAddress = fetchedParams.treasury_address;
-    maxRetryCount = fetchedParams.max_retry_count || 1;
+    globalParams.maxRetryCount = fetchedParams.max_retry_count || 1;
 
     console.log("Global parameters loaded successfully:", globalParams);
   } catch (error) {

@@ -778,8 +778,8 @@ impl Atlas {
         let max_retry_count = global_params_json["max_retry_count"].as_u64().unwrap() as u8;
 
         if let Some(mut deposit) = self.deposits.get(&btc_txn_hash).cloned() {
-            if deposit.status == DEP_BTC_DEPOSITED_INTO_ATLAS
-                && deposit.remarks.is_empty()
+            if deposit.status == DEP_BTC_PENDING_MINTED_INTO_ABTC
+                && !deposit.remarks.is_empty()
                 && deposit.retry_count >= max_retry_count
             {
                 deposit.status = DEP_BTC_REFUNDING;

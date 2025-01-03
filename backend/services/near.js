@@ -87,6 +87,7 @@ class Near {
           "create_abtc_accept_ownership_tx",
           "withdraw_fail_deposit_by_btc_tx_hash",
           "update_deposit_custody_txn_id",
+          "rollback_deposit_status_by_btc_txn_hash",
         ],
       });
 
@@ -674,6 +675,13 @@ class Near {
   async withdrawFailDepositByBtcTxHash(params) {
     return this.makeNearRpcChangeCall(
       "withdraw_fail_deposit_by_btc_tx_hash",
+      params,
+    );
+  }
+
+  async rollbackDepositStatusByBtcTxnHash(params) {
+    return this.makeNearRpcChangeCall(
+      "rollback_deposit_status_by_btc_txn_hash",
       params,
     );
   }

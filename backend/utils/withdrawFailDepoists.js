@@ -28,8 +28,8 @@ async function WithdrawFailDepoists(allDeposits, near, bitcoin) {
   try {
     const toBeRefund = allDeposits.filter(
       (d) =>
-        d.status === DEPOSIT_STATUS.DEP_BTC_DEPOSITED_INTO_ATLAS &&
-        !d.remarks &&
+        d.status === DEPOSIT_STATUS.BTC_PENDING_MINTED_INTO_ABTC &&
+        d.remarks &&
         d.retry_count >= globalParams.maxRetryCount,
     );
 

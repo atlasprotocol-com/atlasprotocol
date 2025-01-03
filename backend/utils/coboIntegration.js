@@ -198,6 +198,7 @@ async function runWithdrawFailDepositCoboIntegration(btcTransactionHash, near) {
     apiClient.setEnv(CoboWaas2.Env.PROD);
   }
 
+  console.log(process.env.COBO_PK);
   // Set your private key for signing requests (be sure to keep this secure)
   apiClient.setPrivateKey(process.env.COBO_PK);
 
