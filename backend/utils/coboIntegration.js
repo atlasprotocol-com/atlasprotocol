@@ -34,10 +34,12 @@ async function runCoboIntegration(transactionHash, near) {
         },
         destination: {
           destination_type: "Address",
-          account_output: {
-            address: redemptionRecords.btc_receiving_address,
-            amount: (redemptionRecords.abtc_amount / 100000000).toString(), // Amount in BTC for estimation
-          },
+          uxto_outputs: [
+            {
+              address: redemptionRecords.btc_receiving_address,
+              amount: (redemptionRecords.abtc_amount / 100000000).toString(), // Amount in BTC for estimation
+            },
+          ],
         },
         token_id: "SIGNET_BTC",
       }),
@@ -188,6 +190,9 @@ async function handleCoboTransaction(custodyTxnId) {
 
 async function runWithdrawFailDepositCoboIntegration(btcTransactionHash, near) {
   const deposit = await near.getDepositByBtcTxnHash(btcTransactionHash);
+  if (!deposit) {
+    throw new Error("Deposit not found");
+  }
 
   // Initial default API client
   const apiClient = CoboWaas2.ApiClient.instance;
@@ -217,10 +222,12 @@ async function runWithdrawFailDepositCoboIntegration(btcTransactionHash, near) {
       },
       destination: {
         destination_type: "Address",
-        account_output: {
-          address: deposit.btc_receiving_address,
-          amount: (deposit.abtc_amount / 100000000).toString(), // Amount in BTC for estimation
-        },
+        uxto_outputs: [
+          {
+            address: deposit.btc_sender_address,
+            amount: (deposit.btc_amount / 100000000).toString(), // Amount in BTC for estimation
+          },
+        ],
       },
       token_id: "SIGNET_BTC",
     }),
@@ -234,9 +241,8 @@ async function runWithdrawFailDepositCoboIntegration(btcTransactionHash, near) {
   // Convert the fee amount to satoshis
   const feeInSatoshis = Math.round(feeAmount * 100000000); // Convert BTC to Satoshis
   console.log(`Estimated fee in satoshis: ${feeInSatoshis}`);
-
   // Step 2: Subtract the Fee from the Redemption Amount
-  const transferAmount = deposit.abtc_amount - feeInSatoshis; // Final amount after fee deduction
+  const transferAmount = deposit.btc_amount - feeInSatoshis; // Final amount after fee deduction
   if (transferAmount <= 0) {
     throw new Error("Transfer amount is too low after deducting the fee.");
   }

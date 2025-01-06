@@ -4,9 +4,9 @@ const { runWithdrawFailDepositCoboIntegration } = require("./coboIntegration");
 
 const { flagsBatch } = require("./batchFlags");
 
-async function WithdrawFailDepoists(allDeposits, near, bitcoin) {
-  const batchName = `Batch F WithdrawFailDepoists`;
+const batchName = `-------------- Batch E WithdrawFailDepoists`;
 
+async function WithdrawFailDepoists(allDeposits, near, bitcoin) {
   if (flagsBatch.WithdrawFailDepoistsRunning) {
     return;
   }
@@ -34,6 +34,9 @@ async function WithdrawFailDepoists(allDeposits, near, bitcoin) {
     );
 
     for (const deposit of toBeRefund) {
+      console.log(
+        `${batchName}: ${deposit.btc_txn_hash} ${deposit.retry_count}`,
+      );
       const utxos = await bitcoin.fetchUTXOs(depositAddress);
       const result = await near.withdrawFailDepositByBtcTxHash({
         btc_txn_hash: deposit.btc_txn_hash,
