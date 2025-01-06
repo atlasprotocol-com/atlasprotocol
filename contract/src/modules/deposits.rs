@@ -904,7 +904,10 @@ impl Atlas {
         self.assert_admin();
 
         // Validate input parameters
-        assert!(!btc_txn_hash.is_empty(), "Transaction hash cannot be empty");
+        assert!(
+            !btc_txn_hash.is_empty(),
+            "BTC transaction hash cannot be empty"
+        );
         assert!(timestamp > 0, "Timestamp must be greater than zero");
 
         // Retrieve the redemption record based on txn_hash
@@ -916,7 +919,7 @@ impl Atlas {
                 env::panic_str("Deposit is not in invalid conditions.");
             }
         } else {
-            env::panic_str("Deposit record not found");
+            env::panic_str("Deposit is not found.");
         }
     }
 }
