@@ -34,6 +34,8 @@ impl Atlas {
                 "DEP_BTC_DEPOSITED_INTO_BABYLON": DEP_BTC_DEPOSITED_INTO_BABYLON,
                 "DEP_BTC_PENDING_MINTED_INTO_ABTC": DEP_BTC_PENDING_MINTED_INTO_ABTC,
                 "DEP_BTC_MINTED_INTO_ABTC": DEP_BTC_MINTED_INTO_ABTC,
+                "DEP_BTC_REFUNDING": DEP_BTC_REFUNDING,
+                "DEP_BTC_REFUNDED": DEP_BTC_REFUNDED,
             },
             "redemption_status": {
                 "RED_ABTC_BURNT": RED_ABTC_BURNT,

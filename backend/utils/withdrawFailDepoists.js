@@ -10,6 +10,7 @@ async function WithdrawFailDepoists(allDeposits, near, bitcoin) {
   if (flagsBatch.WithdrawFailDepoistsRunning) {
     return;
   }
+  console.log(`${batchName}. Start run ...`);
 
   const { DEPOSIT_STATUS } = getConstants();
   const depositAddress =
@@ -35,16 +36,16 @@ async function WithdrawFailDepoists(allDeposits, near, bitcoin) {
 
     for (const deposit of toBeRefund) {
       console.log(
-        `${batchName}: ${deposit.btc_txn_hash} ${deposit.retry_count}`,
+        `${batchName}: ${deposit.btc_txn_hash} retry_count:${deposit.retry_count}`,
       );
-      const utxos = await bitcoin.fetchUTXOs(depositAddress);
-      const result = await near.withdrawFailDepositByBtcTxHash({
-        btc_txn_hash: deposit.btc_txn_hash,
-        utxos: utxos,
-        fee_rate: 0,
-      });
 
       if (process.env.USE_COBO === "true") {
+        const utxos = await bitcoin.fetchUTXOs(depositAddress);
+        const result = await near.withdrawFailDepositByBtcTxHash({
+          btc_txn_hash: deposit.btc_txn_hash,
+          utxos: utxos,
+          fee_rate: 0,
+        });
         // If USE_COBO is true, run the Cobo integration logic
         await runWithdrawFailDepositCoboIntegration(result.btc_txn_hash, near);
       } else {

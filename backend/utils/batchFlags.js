@@ -9,6 +9,7 @@ const flagsBatch = {
   SendBtcBackToUserRunning: false,
   UpdateAtlasBtcBackToUserRunning: false,
   WithdrawFailDepoistsRunning: false,
+  UpdateWithdrawFailDepoistsRunning: false,
 };
 
 module.exports = { flagsBatch };

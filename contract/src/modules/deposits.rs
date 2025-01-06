@@ -888,11 +888,29 @@ impl Atlas {
 
         // Retrieve the redemption record based on txn_hash
         if let Some(mut deposit) = self.deposits.get(&btc_txn_hash.clone()).cloned() {
-            if deposit.status == DEP_BTC_REFUNDING
-                && deposit.remarks.is_empty()
-                && deposit.custody_txn_id.is_empty()
-            {
+            if deposit.status == DEP_BTC_REFUNDING && deposit.custody_txn_id.is_empty() {
                 deposit.custody_txn_id = custody_txn_id.clone();
+                self.deposits.insert(btc_txn_hash.clone(), deposit);
+            } else {
+                env::panic_str("Deposit is not in invalid conditions.");
+            }
+        } else {
+            env::panic_str("Deposit record not found");
+        }
+    }
+
+    pub fn update_withdraw_fail_deposit_status(&mut self, btc_txn_hash: String, timestamp: u64) {
+        self.assert_not_paused();
+        self.assert_admin();
+
+        // Validate input parameters
+        assert!(!btc_txn_hash.is_empty(), "Transaction hash cannot be empty");
+        assert!(timestamp > 0, "Timestamp must be greater than zero");
+
+        // Retrieve the redemption record based on txn_hash
+        if let Some(mut deposit) = self.deposits.get(&btc_txn_hash.clone()).cloned() {
+            if deposit.status == DEP_BTC_REFUNDING && !deposit.custody_txn_id.is_empty() {
+                deposit.status = DEP_BTC_REFUNDED;
                 self.deposits.insert(btc_txn_hash.clone(), deposit);
             } else {
                 env::panic_str("Deposit is not in invalid conditions.");

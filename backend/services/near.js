@@ -692,6 +692,13 @@ class Near {
       custody_txn_id,
     });
   }
+
+  async updateWithdrawFailDepositStatus(btc_txn_hash, timestamp) {
+    return this.makeNearRpcChangeCall("update_withdraw_fail_deposit_status", {
+      btc_txn_hash,
+      timestamp,
+    });
+  }
 }
 
 module.exports = { Near };

@@ -210,7 +210,7 @@ async function runWithdrawFailDepositCoboIntegration(btcTransactionHash, near) {
   // Create an instance of the Transactions API
   const apiInstance = new CoboWaas2.TransactionsApi();
 
-  const request_id = deposit.btc_txn_hash;
+  const request_id = deposit.btc_txn_hash + String(deposit.timestamp);
   // Step 1: Estimate the Fee
   const optsEstimateFee = {
     EstimateFeeParams: new CoboWaas2.EstimateFeeParams({
