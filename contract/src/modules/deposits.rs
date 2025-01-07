@@ -6,8 +6,15 @@ use crate::constants::status::*;
 use crate::modules::signer::*;
 use crate::modules::structs::DepositRecord;
 use crate::AtlasExt;
+use crate::UtxoInput;
+use crate::WithDrawFailDepositResult;
+use bitcoin::blockdata::transaction::{Transaction, TxOut};
+use bitcoin::consensus::encode::serialize;
+use bitcoin::util::address::Address;
+use bitcoin::util::psbt::PartiallySignedTransaction as Psbt;
 use ethers_core::types::{H160, U256};
 use hex::FromHex;
+use near_sdk::env::keccak256;
 use near_sdk::{
     env, log, near_bindgen, AccountId, NearToken, Promise, PromiseError, PromiseOrValue,
 };
@@ -18,10 +25,8 @@ use omni_transaction::transaction_builder::{
     TransactionBuilder as OmniTransactionBuilder, TxBuilder,
 };
 use omni_transaction::types::EVM;
-use std::str::FromStr;
-
-use near_sdk::env::keccak256;
 use serde_json::json;
+use std::str::FromStr;
 
 #[near_bindgen]
 impl Atlas {
@@ -88,6 +93,8 @@ impl Atlas {
             remarks,
             date_created,
             verified_count: 0,
+            retry_count: 0,
+            custody_txn_id: "".to_string(),
         };
 
         self.deposits.insert(btc_txn_hash, record);
@@ -289,6 +296,10 @@ impl Atlas {
     pub fn rollback_all_deposit_status(&mut self) {
         self.assert_not_paused();
 
+        let global_params = self.get_all_global_params();
+        let global_params_json = serde_json::to_value(&global_params).unwrap();
+        let max_retry_count = global_params_json["max_retry_count"].as_u64().unwrap() as u8;
+
         // Collect the keys and deposits that need to be updated
         let updates: Vec<(String, DepositRecord)> = self
             .deposits
@@ -299,6 +310,7 @@ impl Atlas {
                     && !deposit.receiving_chain_id.is_empty()
                     && !deposit.receiving_address.is_empty()
                     && !deposit.remarks.is_empty()
+                    && deposit.retry_count <= max_retry_count
                 {
                     // If receiving chain ID is EVM and receiving address is not a valid EVM address, do not rollback
                     if let Some(chain_config) = self
@@ -317,11 +329,13 @@ impl Atlas {
                     match deposit.status {
                         DEP_BTC_PENDING_DEPOSIT_INTO_BABYLON => {
                             deposit.status = DEP_BTC_DEPOSITED_INTO_ATLAS;
+                            deposit.retry_count += 1;
                             deposit.remarks.clear();
                             Some((key.clone(), deposit)) // Clone the key and return the updated deposit
                         }
                         DEP_BTC_PENDING_MINTED_INTO_ABTC => {
                             deposit.status = DEP_BTC_DEPOSITED_INTO_ATLAS;
+                            deposit.retry_count += 1;
                             deposit.remarks.clear();
                             Some((key.clone(), deposit)) // Clone the key and return the updated deposit
                         }
@@ -347,12 +361,17 @@ impl Atlas {
             env::panic_str("BTC transaction hash cannot be empty");
         }
 
+        let global_params = self.get_all_global_params();
+        let global_params_json = serde_json::to_value(&global_params).unwrap();
+        let max_retry_count = global_params_json["max_retry_count"].as_u64().unwrap() as u8;
+
         // Retrieve the deposit record based on btc_txn_hash
         if let Some(mut deposit) = self.deposits.get(&btc_txn_hash).cloned() {
             if !deposit.btc_sender_address.is_empty()
                 && !deposit.receiving_chain_id.is_empty()
                 && !deposit.receiving_address.is_empty()
                 && !deposit.remarks.is_empty()
+                && deposit.retry_count < max_retry_count
             {
                 // If receiving chain ID is EVM and receiving address is not a valid EVM address, do not rollback
                 if let Some(chain_config) = self
@@ -371,10 +390,12 @@ impl Atlas {
                 match deposit.status {
                     DEP_BTC_PENDING_DEPOSIT_INTO_BABYLON => {
                         deposit.status = DEP_BTC_DEPOSITED_INTO_ATLAS;
+                        deposit.retry_count += 1;
                         deposit.remarks.clear();
                     }
                     DEP_BTC_PENDING_MINTED_INTO_ABTC => {
                         deposit.status = DEP_BTC_DEPOSITED_INTO_ATLAS;
+                        deposit.retry_count += 1;
                         deposit.remarks.clear();
                     }
                     _ => {
@@ -734,6 +755,171 @@ impl Atlas {
                 &mempool_deposit.btc_txn_hash
             );
             return false;
+        }
+    }
+
+    pub fn withdraw_fail_deposit_by_btc_tx_hash(
+        &mut self,
+        btc_txn_hash: String,
+        utxos: Vec<UtxoInput>,
+        fee_rate: u64,
+    ) -> WithDrawFailDepositResult {
+        self.assert_not_paused();
+        self.assert_admin();
+
+        // Validate input parameters
+        assert!(
+            !btc_txn_hash.is_empty(),
+            "BTC transaction hash cannot be empty"
+        );
+
+        let global_params = self.get_all_global_params();
+        let global_params_json = serde_json::to_value(&global_params).unwrap();
+        let max_retry_count = global_params_json["max_retry_count"].as_u64().unwrap() as u8;
+
+        if let Some(mut deposit) = self.deposits.get(&btc_txn_hash).cloned() {
+            if deposit.status == DEP_BTC_PENDING_MINTED_INTO_ABTC
+                && !deposit.remarks.is_empty()
+                && deposit.retry_count >= max_retry_count
+            {
+                deposit.status = DEP_BTC_REFUNDING;
+                self.deposits.insert(btc_txn_hash, deposit.clone());
+
+                let mut total_input = 0u64;
+                let mut selected_utxos: Vec<UtxoInput> = Vec::new();
+                let mut estimated_fee = 0u64;
+                let satoshis = deposit.btc_amount; // Amount in satoshis
+
+                // Sort UTXOs by value (ascending order)
+                let mut sorted_utxos = utxos.clone();
+                sorted_utxos.sort_by(|a, b| a.value.cmp(&b.value));
+
+                // Select UTXOs until the total input covers satoshis + estimated fee + redemption fee
+                for utxo in sorted_utxos.iter() {
+                    selected_utxos.push(utxo.clone());
+                    total_input += utxo.value;
+
+                    let estimated_size = selected_utxos.len() * 148 + 34 + 100; // Estimated size in bytes
+                    estimated_fee = fee_rate * estimated_size as u64;
+
+                    let required_amount = satoshis + estimated_fee;
+
+                    if total_input >= required_amount {
+                        break;
+                    }
+                }
+
+                if total_input < satoshis {
+                    env::panic_str("Not enough UTXOs to cover the transaction");
+                }
+
+                // Prepare the outputs for the transaction
+                let receive_amount = satoshis - estimated_fee;
+                let change = total_input - satoshis;
+
+                // Create a new raw unsigned transaction
+                let mut unsigned_tx = Transaction {
+                    version: 2,     // Current standard version of Bitcoin transactions
+                    lock_time: 0,   // No specific lock time
+                    input: vec![],  // To be populated below
+                    output: vec![], // To be populated below
+                };
+
+                // Add outputs to the raw unsigned transaction
+                unsigned_tx.output.push(TxOut {
+                    value: receive_amount,
+                    script_pubkey: Address::from_str(&deposit.btc_sender_address)
+                        .unwrap()
+                        .script_pubkey(), // Receiver's scriptPubKey
+                });
+
+                // Add change output, if applicable
+                if change > 0 {
+                    unsigned_tx.output.push(TxOut {
+                        value: change,
+                        script_pubkey: Address::from_str(&deposit.btc_sender_address)
+                            .unwrap()
+                            .script_pubkey(), // Sender's scriptPubKey for change
+                    });
+                }
+
+                // Add OP_RETURN for transaction metadata
+                unsigned_tx.output.push(TxOut {
+                    value: 0,
+                    script_pubkey: bitcoin::blockdata::script::Builder::new()
+                        .push_opcode(bitcoin::blockdata::opcodes::all::OP_RETURN)
+                        .push_slice(deposit.btc_txn_hash.as_bytes()) // Store the txn_hash in OP_RETURN
+                        .into_script(),
+                });
+
+                // Create a PSBT from the unsigned transaction
+                let psbt = Psbt::from_unsigned_tx(unsigned_tx).expect("Failed to create PSBT");
+
+                // Serialize the PSBT to bytes
+                let serialized_psbt = serialize(&psbt);
+
+                // Return the results as the custom struct
+                return WithDrawFailDepositResult {
+                    btc_txn_hash: deposit.btc_txn_hash.clone(), // Return the BTC transaction hash
+                    psbt: base64::encode(&serialized_psbt), // Return the PSBT as base64-encoded binary
+                    utxos: selected_utxos,                  // Return the selected UTXOs
+                    estimated_fee,                          // Return the estimated fee
+                    receive_amount,                         // Return the amount the receiver gets
+                    change,                                 // Return the change amount
+                };
+            } else {
+                env::panic_str("Deposit is not in invalid conditions.")
+            }
+        }
+
+        env::panic_str("Deposit is not found.")
+    }
+
+    pub fn update_deposit_custody_txn_id(&mut self, btc_txn_hash: String, custody_txn_id: String) {
+        self.assert_not_paused();
+        self.assert_admin();
+
+        // Validate input parameters
+        assert!(!btc_txn_hash.is_empty(), "Transaction hash cannot be empty");
+        assert!(
+            !custody_txn_id.is_empty(),
+            "Custody transaction ID cannot be empty"
+        );
+
+        // Retrieve the redemption record based on txn_hash
+        if let Some(mut deposit) = self.deposits.get(&btc_txn_hash.clone()).cloned() {
+            if deposit.status == DEP_BTC_REFUNDING && deposit.custody_txn_id.is_empty() {
+                deposit.custody_txn_id = custody_txn_id.clone();
+                self.deposits.insert(btc_txn_hash.clone(), deposit);
+            } else {
+                env::panic_str("Deposit is not in invalid conditions.");
+            }
+        } else {
+            env::panic_str("Deposit record not found");
+        }
+    }
+
+    pub fn update_withdraw_fail_deposit_status(&mut self, btc_txn_hash: String, timestamp: u64) {
+        self.assert_not_paused();
+        self.assert_admin();
+
+        // Validate input parameters
+        assert!(
+            !btc_txn_hash.is_empty(),
+            "BTC transaction hash cannot be empty"
+        );
+        assert!(timestamp > 0, "Timestamp must be greater than zero");
+
+        // Retrieve the redemption record based on txn_hash
+        if let Some(mut deposit) = self.deposits.get(&btc_txn_hash.clone()).cloned() {
+            if deposit.status == DEP_BTC_REFUNDING && !deposit.custody_txn_id.is_empty() {
+                deposit.status = DEP_BTC_REFUNDED;
+                self.deposits.insert(btc_txn_hash.clone(), deposit);
+            } else {
+                env::panic_str("Deposit is not in invalid conditions.");
+            }
+        } else {
+            env::panic_str("Deposit is not found.");
         }
     }
 }

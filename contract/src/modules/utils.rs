@@ -3,9 +3,9 @@ use crate::chain_configs::ChainConfigRecord;
 use crate::global_params::GlobalParams;
 use crate::AtlasExt;
 use near_sdk::near_bindgen;
+use near_sdk::AccountId;
 use serde_json::json;
 use serde_json::Value;
-use near_sdk::AccountId;
 
 use crate::constants::delimiter::COMMA;
 use crate::constants::network_type::*;
@@ -34,6 +34,8 @@ impl Atlas {
                 "DEP_BTC_DEPOSITED_INTO_BABYLON": DEP_BTC_DEPOSITED_INTO_BABYLON,
                 "DEP_BTC_PENDING_MINTED_INTO_ABTC": DEP_BTC_PENDING_MINTED_INTO_ABTC,
                 "DEP_BTC_MINTED_INTO_ABTC": DEP_BTC_MINTED_INTO_ABTC,
+                "DEP_BTC_REFUNDING": DEP_BTC_REFUNDING,
+                "DEP_BTC_REFUNDED": DEP_BTC_REFUNDED,
             },
             "redemption_status": {
                 "RED_ABTC_BURNT": RED_ABTC_BURNT,
@@ -72,7 +74,8 @@ impl Atlas {
 
     pub fn update_fee_redemption_bps(&mut self, fee_redemption_bps: u16) {
         self.assert_not_paused();
-        self.global_params.update_fee_redemption_bps(fee_redemption_bps);
+        self.global_params
+            .update_fee_redemption_bps(fee_redemption_bps);
     }
 
     pub fn update_fee_bridging_bps(&mut self, fee_bridging_bps: u16) {
@@ -82,7 +85,8 @@ impl Atlas {
 
     pub fn update_fee_babylon_rewards_bps(&mut self, fee_babylon_rewards_bps: u16) {
         self.assert_not_paused();
-        self.global_params.update_fee_babylon_rewards_bps(fee_babylon_rewards_bps);
+        self.global_params
+            .update_fee_babylon_rewards_bps(fee_babylon_rewards_bps);
     }
 
     pub fn update_btc_staking_cap(&mut self, btc_staking_cap: u64) {
@@ -92,17 +96,24 @@ impl Atlas {
 
     pub fn update_btc_max_staking_amount(&mut self, btc_max_staking_amount: u64) {
         self.assert_not_paused();
-        self.global_params.update_btc_max_staking_amount(btc_max_staking_amount);
+        self.global_params
+            .update_btc_max_staking_amount(btc_max_staking_amount);
     }
 
     pub fn update_btc_min_staking_amount(&mut self, btc_min_staking_amount: u64) {
         self.assert_not_paused();
-        self.global_params.update_btc_min_staking_amount(btc_min_staking_amount);
+        self.global_params
+            .update_btc_min_staking_amount(btc_min_staking_amount);
     }
 
     pub fn update_treasury_address(&mut self, treasury_address: String) {
         self.assert_not_paused();
         self.global_params.update_treasury_address(treasury_address);
+    }
+
+    pub fn update_max_retry_count(&mut self, max_retry_count: u8) {
+        self.assert_not_paused();
+        self.global_params.update_max_retry_count(max_retry_count);
     }
 
     pub fn get_chain_configs_owner_id(&self) -> AccountId {
@@ -120,10 +131,11 @@ impl Atlas {
     pub fn get_chain_configs(&self) -> Vec<ChainConfigRecord> {
         self.chain_configs.get_chain_configs()
     }
-    
+
     pub fn set_chain_configs_from_json(&mut self, new_json_data: String) {
         self.assert_not_paused();
-        self.chain_configs.set_chain_configs_from_json(new_json_data);
+        self.chain_configs
+            .set_chain_configs_from_json(new_json_data);
     }
 
     pub fn set_mpc_contract(&mut self, new_mpc_contract: AccountId) {
@@ -133,7 +145,8 @@ impl Atlas {
 
     pub fn propose_new_global_params_owner(&mut self, proposed_owner_id: AccountId) {
         self.assert_not_paused();
-        self.global_params.propose_new_global_params_owner(proposed_owner_id);
+        self.global_params
+            .propose_new_global_params_owner(proposed_owner_id);
     }
 
     pub fn accept_global_params_owner(&mut self) {
@@ -143,12 +156,12 @@ impl Atlas {
 
     pub fn propose_new_chain_configs_owner(&mut self, proposed_owner_id: AccountId) {
         self.assert_not_paused();
-        self.chain_configs.propose_new_chain_configs_owner(proposed_owner_id);
+        self.chain_configs
+            .propose_new_chain_configs_owner(proposed_owner_id);
     }
 
     pub fn accept_chain_configs_owner(&mut self) {
         self.assert_not_paused();
         self.chain_configs.accept_chain_configs_owner();
     }
-
 }

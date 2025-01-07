@@ -4,6 +4,10 @@ const dotenv = require("dotenv");
 const { globalParams, updateGlobalParams } = require("./config/globalParams");
 const { getTransactionsAndComputeStats } = require("./utils/transactionStats");
 const { UpdateAtlasBtcDeposits } = require("./utils/updateAtlasBtcDeposits");
+const { WithdrawFailDepoists } = require("./utils/WithdrawFailDepoists");
+const {
+  UpdateWithdrawFailDepoists,
+} = require("./utils/UpdateWithdrawFailDepoists");
 const {
   MintaBtcToReceivingChain,
 } = require("./utils/mintaBtcToReceivingChain");
@@ -289,6 +293,9 @@ async function runBatch() {
   await MintaBtcToReceivingChain(near);
 
   await UpdateAtlasAbtcMinted(deposits, near);
+
+  await WithdrawFailDepoists(deposits, near, bitcoin);
+  await UpdateWithdrawFailDepoists(deposits, near, bitcoin);
 
   await UpdateAtlasBtcRedemptions(near);
 

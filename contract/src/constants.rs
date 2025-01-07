@@ -8,6 +8,8 @@ pub mod status {
     pub const DEP_BTC_DEPOSITED_INTO_BABYLON: u8 = 20;
     pub const DEP_BTC_PENDING_MINTED_INTO_ABTC: u8 = 21;
     pub const DEP_BTC_MINTED_INTO_ABTC: u8 = 30;
+    pub const DEP_BTC_REFUNDING: u8 = 40;
+    pub const DEP_BTC_REFUNDED: u8 = 41;
 
     // Redemption status constants as u8
     pub const RED_ABTC_BURNT: u8 = 10;

@@ -40,6 +40,8 @@ pub struct DepositRecord {
     pub remarks: String,
     pub date_created: u64,
     pub verified_count: u8,
+    pub retry_count: u8,
+    pub custody_txn_id: String,
 }
 
 #[derive(BorshDeserialize, BorshSerialize, Deserialize, Serialize, Clone)]
@@ -57,4 +59,28 @@ pub struct RedemptionRecord {
     pub date_created: u64,
     pub verified_count: u8,
     pub custody_txn_id: String,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct UtxoInput {
+    pub txid: String,
+    pub vout: u32,
+    pub value: u64,
+    pub script: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct UtxoOutput {
+    pub address: String,
+    pub value: u64,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct WithDrawFailDepositResult {
+    pub btc_txn_hash: String,
+    pub psbt: String,
+    pub utxos: Vec<UtxoInput>,
+    pub estimated_fee: u64,
+    pub receive_amount: u64,
+    pub change: u64,
 }

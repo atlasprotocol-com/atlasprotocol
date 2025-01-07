@@ -16,14 +16,21 @@ pub struct GlobalParams {
     btc_min_staking_amount: u64,
     treasury_address: String,
     owner_id: AccountId,
-    proposed_owner_id: Option<AccountId>,   // Proposed owner for two-step ownership transfer
+    proposed_owner_id: Option<AccountId>, // Proposed owner for two-step ownership transfer
+    max_retry_count: u8,
 }
 
 impl GlobalParams {
     pub fn init_global_params(owner_id: AccountId, treasury_address: String) -> Self {
         // Validate inputs
-        assert!(!owner_id.to_string().is_empty(), "Global params owner ID cannot be empty");
-        assert!(!treasury_address.is_empty(), "Treasury address cannot be empty");
+        assert!(
+            !owner_id.to_string().is_empty(),
+            "Global params owner ID cannot be empty"
+        );
+        assert!(
+            !treasury_address.is_empty(),
+            "Treasury address cannot be empty"
+        );
 
         env::log_str("Initializing GlobalParams");
         Self {
@@ -35,9 +42,10 @@ impl GlobalParams {
             btc_staking_cap: 50000000000,
             btc_max_staking_amount: 5000000,
             btc_min_staking_amount: 2000,
-            treasury_address: treasury_address,            
+            treasury_address: treasury_address,
             owner_id: owner_id,
             proposed_owner_id: None,
+            max_retry_count: 3,
         }
     }
 
@@ -52,14 +60,20 @@ impl GlobalParams {
     pub fn propose_new_global_params_owner(&mut self, proposed_owner_id: AccountId) {
         self.assert_owner();
 
-        assert!(!proposed_owner_id.to_string().is_empty(), "Proposed global params owner ID cannot be empty");
+        assert!(
+            !proposed_owner_id.to_string().is_empty(),
+            "Proposed global params owner ID cannot be empty"
+        );
         assert_ne!(
             proposed_owner_id, self.owner_id,
             "Proposed global params owner ID must be different from the current global params owner ID"
         );
 
         self.proposed_owner_id = Some(proposed_owner_id.clone());
-        env::log_str(&format!("Proposed new global params owner: {}", proposed_owner_id));
+        env::log_str(&format!(
+            "Proposed new global params owner: {}",
+            proposed_owner_id
+        ));
     }
 
     pub fn accept_global_params_owner(&mut self) {
@@ -94,18 +108,23 @@ impl GlobalParams {
 
     pub fn set_mpc_contract(&mut self, new_mpc_contract: AccountId) {
         self.assert_owner();
-        assert!(!new_mpc_contract.to_string().is_empty(), "Invalid MPC contract ID");
+        assert!(
+            !new_mpc_contract.to_string().is_empty(),
+            "Invalid MPC contract ID"
+        );
         assert_ne!(
-            new_mpc_contract, 
-            self.mpc_contract,
+            new_mpc_contract, self.mpc_contract,
             "New MPC contract must be different from the current one"
         );
 
         let old_mpc_contract = self.mpc_contract.clone();
         self.mpc_contract = new_mpc_contract.clone();
 
-        env::log_str(&format!("MPC contract changed from {} to {}", old_mpc_contract, new_mpc_contract));
-    }    
+        env::log_str(&format!(
+            "MPC contract changed from {} to {}",
+            old_mpc_contract, new_mpc_contract
+        ));
+    }
 
     pub fn update_fee_deposit_bps(&mut self, fee_deposit_bps: u16) {
         self.assert_owner();
@@ -166,6 +185,15 @@ impl GlobalParams {
         self.assert_owner();
         assert!(!treasury_address.is_empty(), "Invalid treasury address");
         self.treasury_address = treasury_address;
+    }
+
+    pub fn update_max_retry_count(&mut self, max_retry_count: u8) {
+        self.assert_owner();
+        assert!(
+            max_retry_count > 0,
+            "Max retry count must be greater than ZERO"
+        );
+        self.max_retry_count = max_retry_count;
     }
 
     pub fn owner_id(&self) -> &AccountId {
