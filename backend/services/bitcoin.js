@@ -268,11 +268,22 @@ class Bitcoin {
   }
 
   // Function which returns the txn's btc amount based on receiverAddress
-  async getBtcReceivingAmount(txn, receiverAddress) {
+  async getBtcReceivingAmount(txn, receiverAddress, treasuryAddress) {
     const output = txn.vout.find(
       (vout) => vout.scriptpubkey_address === receiverAddress,
     );
-    return output ? output.value : 0;
+
+    const treasuryOutput = txn.vout.find(
+      (vout) => vout.scriptpubkey_address === treasuryAddress,
+    );
+    
+    const outputValue = output ? output.value : 0;
+    const treasuryValue = treasuryOutput ? treasuryOutput.value : 0;
+
+    return {
+      btcAmount: outputValue + treasuryValue,
+      feeAmount: treasuryValue
+    };
   }
 
   // Function which returns the txn's receiving chain and receiving address based on OP_RETURN code

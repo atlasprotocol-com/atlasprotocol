@@ -17,6 +17,7 @@ import { getFeeRateFromMempool } from "@/utils/getFeeRateFromMempool";
 import { isStakingSignReady } from "@/utils/isStakingSignReady";
 import { WalletProvider } from "@/utils/wallet/wallet_provider";
 import { useChainConfig } from "@/app/context/api/ChainConfigProvider"; 
+import { getProtocolDepositFee } from "@/utils/getProtocolDepositFee";
 
 import { FeedbackModal } from "../Modals/FeedbackModal";
 import { PreviewModal } from "../Modals/PreviewModal";
@@ -206,8 +207,9 @@ export const Staking: React.FC<StakingProps> = ({
       if (!feeRate) throw new Error("Fee rates not loaded");
 
 
-      const { atlasAddress } = globalParams.data[0];
-      console.log(atlasAddress);
+      const { atlasAddress, feeDepositPercentage, treasuryAddress } = globalParams.data[0];
+      const protocolFeeSat = getProtocolDepositFee(feeDepositPercentage, stakingAmountSat);
+
       //Sign the staking transaction
       const { stakingTxHex } = await signStakingTx(
         btcWallet,
@@ -218,7 +220,10 @@ export const Staking: React.FC<StakingProps> = ({
         publicKeyNoCoord,
         feeRate,
         availableUTXOs,
+        protocolFeeSat,
+        treasuryAddress,
         `${stakingReceivingChainID},${stakingReceivingAddress}`,
+
       );
 
       // UI
@@ -259,7 +264,8 @@ export const Staking: React.FC<StakingProps> = ({
 
         const memoizedFeeRate = selectedFeeRate || defaultFeeRate;
         //Calculate the staking fee
-        const { atlasAddress } = globalParams.data[0];
+        const { atlasAddress, feeDepositPercentage, treasuryAddress } = globalParams.data[0];
+        const protocolFeeSat = getProtocolDepositFee(feeDepositPercentage, stakingAmountSat);
 
         const { stakingFeeSat } = createStakingTx(
           stakingAmountSat,
@@ -269,6 +275,8 @@ export const Staking: React.FC<StakingProps> = ({
           publicKeyNoCoord,
           memoizedFeeRate,
           availableUTXOs,
+          protocolFeeSat,
+          treasuryAddress,
           `${stakingReceivingChainID},${stakingReceivingAddress}`,
         );
 
@@ -362,7 +370,7 @@ export const Staking: React.FC<StakingProps> = ({
     else if (isLoading || globalParams.isLoading) {
       return <LoadingView />;
     } else if (globalParams.data) {
-      const { minStakingAmountSat, maxStakingAmountSat, atlasAddress } =
+      const { minStakingAmountSat, maxStakingAmountSat, atlasAddress, feeDepositPercentage, treasuryAddress } =
         globalParams.data[0];
 
       // Check if the staking transaction is ready to be signed
@@ -441,6 +449,7 @@ export const Staking: React.FC<StakingProps> = ({
                   stakingReceivingChain={stakingReceivingChain}
                   stakingReceivingAddress={stakingReceivingAddress}
                   feeRate={feeRate}
+                  protocolFeeSat={getProtocolDepositFee(feeDepositPercentage, stakingAmountSat)}
                 />
               )}
             </div>

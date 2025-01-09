@@ -37,6 +37,7 @@ impl Atlas {
         receiving_chain_id: String,
         receiving_address: String,
         btc_amount: u64,
+        fee_amount: u64,
         minted_txn_hash: String,
         timestamp: u64,
         remarks: String,
@@ -75,17 +76,17 @@ impl Atlas {
             env::panic_str("Deposit with this transaction hash already exists");
         }
 
-        let global_params = self.get_all_global_params();
-        let global_params_json = serde_json::to_value(&global_params).unwrap();
-        let fee_deposit_bps = global_params_json["fee_deposit_bps"].as_u64().unwrap() as u16;
-        let fee_amount: u64 = (fee_deposit_bps as u64 * btc_amount) / 10000;
+        // let global_params = self.get_all_global_params();
+        // let global_params_json = serde_json::to_value(&global_params).unwrap();
+        // let fee_deposit_bps = global_params_json["fee_deposit_bps"].as_u64().unwrap() as u16;
+        // let fee_amount: u64 = (fee_deposit_bps as u64 * btc_amount) / 10000;
 
         let record = DepositRecord {
             btc_txn_hash: btc_txn_hash.clone(),
             btc_sender_address,
             receiving_chain_id,
             receiving_address,
-            btc_amount: btc_amount - fee_amount,
+            btc_amount,
             fee_amount,
             minted_txn_hash,
             timestamp,

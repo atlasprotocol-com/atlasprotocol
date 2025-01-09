@@ -190,6 +190,8 @@ app.get("/api/v1/global-params", async (req, res) => {
           max_staking_amount: globalParams.maxStakingAmount,
           min_staking_amount: globalParams.minStakingAmount,
           atlas_address: btcAtlasDepositAddress,
+          deposit_fee_percentage: globalParams.atlasDepositFeePercentage,
+          treasury_address: globalParams.atlasTreasuryAddress,
         },
       ],
     };
@@ -287,6 +289,8 @@ async function runBatch() {
   await UpdateAtlasBtcDeposits(
     btcMempool,
     btcAtlasDepositAddress,
+    globalParams.atlasTreasuryAddress,
+    globalParams.atlasDepositFeePercentage,
     near,
     bitcoin,
   );

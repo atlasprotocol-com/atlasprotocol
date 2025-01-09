@@ -3,4 +3,6 @@ export interface GlobalParamsVersion {
   maxStakingAmountSat: number;
   minStakingAmountSat: number;
   atlasAddress: string;
+  feeDepositPercentage: number;
+  treasuryAddress: string;
 }

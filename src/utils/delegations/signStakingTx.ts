@@ -18,6 +18,8 @@ export const createStakingTx = (
   publicKeyNoCoord: string,
   feeRate: number,
   inputUTXOs: UTXO[],
+  protocolFeeSat: number,
+  treasuryAddress: string,
   data: string,
 ) => {
   if (inputUTXOs.length == 0) {
@@ -39,6 +41,8 @@ export const createStakingTx = (
       feeRate,
       inputUTXOs,
       btcWalletNetwork,
+      protocolFeeSat,
+      treasuryAddress,
       data,
       isTaproot(address) ? Buffer.from(publicKeyNoCoord, "hex") : undefined,
     );
@@ -66,6 +70,8 @@ export const signStakingTx = async (
   publicKeyNoCoord: string,
   feeRate: number,
   inputUTXOs: UTXO[],
+  protocolFeeSat: number,
+  treasuryAddress: string,
   data: string,
 ): Promise<{ stakingTxHex: string }> => {
 
@@ -79,6 +85,8 @@ export const signStakingTx = async (
     publicKeyNoCoord,
     feeRate,
     inputUTXOs,
+    protocolFeeSat,
+    treasuryAddress,
     data,
   );
 
