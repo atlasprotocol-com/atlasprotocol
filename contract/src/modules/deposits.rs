@@ -3,6 +3,7 @@ use crate::chain_configs::ChainConfigRecord;
 use crate::constants::near_gas::*;
 use crate::constants::network_type::*;
 use crate::constants::status::*;
+use crate::constants::delimiter::COMMA;
 use crate::modules::signer::*;
 use crate::modules::structs::DepositRecord;
 use crate::AtlasExt;
@@ -95,6 +96,7 @@ impl Atlas {
             date_created,
             verified_count: 0,
             retry_count: 0,
+            minted_txn_hash_verified_count: 0,
             custody_txn_id: "".to_string(),
         };
 
@@ -177,6 +179,67 @@ impl Atlas {
         }
     }
 
+    pub fn update_deposit_minted_txn_hash(&mut self, btc_txn_hash: String, minted_txn_hash: String) {
+        self.assert_not_paused();
+        self.assert_admin();
+
+        // Validate input parameters
+        assert!(
+            !btc_txn_hash.is_empty(),
+            "BTC transaction hash cannot be empty"
+        );
+        assert!(
+            !minted_txn_hash.is_empty(),
+            "Minted transaction hash cannot be empty"
+        );
+
+        // Check if the deposit exists for the given btc_txn_hash
+        if let Some(mut deposit) = self.deposits.get(&btc_txn_hash).cloned() {
+            // Fetch chain configuration for the bitcoin deposit
+            let chain_id = if self.is_production_mode() {
+                BITCOIN.to_string()
+            } else {
+                SIGNET.to_string()
+            };
+
+            if let Some(chain_config) = self
+                .chain_configs
+                .get_chain_config(chain_id.clone())
+            {
+                // Check all specified conditions
+                if (deposit.status == DEP_BTC_PENDING_MINTED_INTO_ABTC)
+                    && deposit.verified_count >= chain_config.validators_threshold                    
+                    && deposit.remarks.is_empty()
+                    && deposit.minted_txn_hash.is_empty()
+                {
+                    // All conditions are met, proceed to update the minted transaction hash                    
+                    deposit.minted_txn_hash = minted_txn_hash.clone();
+                    self.deposits.insert(btc_txn_hash.clone(), deposit);
+                    log!(
+                        "minted txn hash: {} updated for btc_txn_hash: {}",
+                        minted_txn_hash,
+                        btc_txn_hash
+                    );
+                } else {
+                    // Log a message if conditions are not met
+                    log!(
+                        "Conditions not met for updating deposit minted txn hash for btc_txn_hash: {}. 
+                         Status: {}, Verified count: {}, Remarks: {}, Minted txn hash: {}",
+                        btc_txn_hash,
+                        deposit.status,
+                        deposit.verified_count,
+                        deposit.remarks,
+                        deposit.minted_txn_hash
+                    );
+                }
+            } else {
+                env::panic_str("Chain configuration not found for receiving chain ID");
+            }
+        } else {
+            env::panic_str("Deposit record not found");
+        }
+    }
+
     pub fn update_deposit_minted(&mut self, btc_txn_hash: String, minted_txn_hash: String) {
         self.assert_not_paused();
         self.assert_admin();
@@ -193,39 +256,55 @@ impl Atlas {
 
         // Check if the deposit exists for the given btc_txn_hash
         if let Some(mut deposit) = self.deposits.get(&btc_txn_hash).cloned() {
-            // Fetch chain configuration for the deposit's receiving_chain_id
-            if let Some(chain_config) = self
+            // Fetch chain configuration for the bitcoin deposit
+            let btc_chain_id = if self.is_production_mode() {
+                BITCOIN.to_string()
+            } else {
+                SIGNET.to_string()
+            };
+            
+            if let Some(btc_chain_config) = self
                 .chain_configs
-                .get_chain_config(deposit.receiving_chain_id.clone())
+                .get_chain_config(btc_chain_id.clone())
             {
-                // Check all specified conditions
-                if (deposit.status == DEP_BTC_PENDING_MINTED_INTO_ABTC)
-                    && deposit.verified_count >= chain_config.validators_threshold
-                    && deposit.remarks.is_empty()
-                    && deposit.minted_txn_hash.is_empty()
+
+                // Fetch chain configuration for the deposit's receiving_chain_id
+                if let Some(chain_config) = self
+                    .chain_configs
+                    .get_chain_config(deposit.receiving_chain_id.clone())
                 {
-                    // All conditions are met, proceed to update the deposit status and minted transaction hash
-                    deposit.status = DEP_BTC_MINTED_INTO_ABTC;
-                    deposit.minted_txn_hash = minted_txn_hash.clone();
-                    self.deposits.insert(btc_txn_hash.clone(), deposit);
-                    log!(
-                        "Deposit status updated to DEP_BTC_MINTED_INTO_ABTC for btc_txn_hash: {}",
-                        btc_txn_hash
-                    );
+                    // Check all specified conditions
+                    if (deposit.status == DEP_BTC_PENDING_MINTED_INTO_ABTC)
+                        && deposit.verified_count >= btc_chain_config.validators_threshold
+                        && deposit.minted_txn_hash_verified_count  >= chain_config.validators_threshold
+                        && deposit.remarks.is_empty()
+                        && deposit.minted_txn_hash == minted_txn_hash
+                    {
+                        // All conditions are met, proceed to update the deposit status
+                        deposit.status = DEP_BTC_MINTED_INTO_ABTC;                        
+                        self.deposits.insert(btc_txn_hash.clone(), deposit);
+                        log!(
+                            "Deposit status updated to DEP_BTC_MINTED_INTO_ABTC for btc_txn_hash: {}",
+                            btc_txn_hash
+                        );
+                    } else {
+                        // Log a message if conditions are not met
+                        log!(
+                            "Conditions not met for updating deposit minted status for btc_txn_hash: {}. 
+                            Status: {}, Verified count: {}, Remarks: {}, Minted txn hash: {}, Minted txn hash verified count: {}",
+                            btc_txn_hash,
+                            deposit.status,
+                            deposit.verified_count,
+                            deposit.remarks,
+                            deposit.minted_txn_hash,
+                            deposit.minted_txn_hash_verified_count
+                        );
+                    }
                 } else {
-                    // Log a message if conditions are not met
-                    log!(
-                        "Conditions not met for updating deposit minted status for btc_txn_hash: {}. 
-                         Status: {}, Verified count: {}, Remarks: {}, Minted txn hash: {}",
-                        btc_txn_hash,
-                        deposit.status,
-                        deposit.verified_count,
-                        deposit.remarks,
-                        deposit.minted_txn_hash
-                    );
+                    env::panic_str("Chain configuration not found for receiving chain ID");
                 }
             } else {
-                env::panic_str("Chain configuration not found for receiving chain ID");
+                env::panic_str("Chain configuration not found for bitcoin deposit");
             }
         } else {
             env::panic_str("Deposit record not found");
@@ -759,6 +838,77 @@ impl Atlas {
         }
     }
 
+    // Increments deposit record's minted_txn_hash_verified_count by 1
+    // Caller of this function has to be an authorised validator for the particular receiving_chain_id of the deposit record
+    // Caller of this function has to be a new validator of this <btc_txn_hash>,<minted_txn_hash>
+    // Checks that deposit record's btc_txn_hash and minted_txn_hash are equal to the input parameters, then increments the minted_txn_hash_verified_count by 1
+    // Returns true if minted_txn_hash_verified_count incremented successfully and returns false if not incremented
+    pub fn increment_deposit_minted_txn_hash_verified_count(&mut self, btc_txn_hash: String, minted_txn_hash: String) -> bool {
+        self.assert_not_paused();
+
+        // Validate input parameters
+        if btc_txn_hash.is_empty() || minted_txn_hash.is_empty() {
+            log!("Invalid input: btc_txn_hash or minted_txn_hash is empty");
+            return false;
+        }
+
+        let caller: AccountId = env::predecessor_account_id();
+
+        // Retrieve the deposit record using the btc_txn_hash
+        if let Some(mut deposit) = self.deposits.get(&btc_txn_hash).cloned() {
+            // Check if the caller is an authorized validator for the receiving_chain_id
+            if self.is_validator(&caller, &deposit.receiving_chain_id) {
+                // Create a unique key for the verifications map using the COMMA constant
+                let verification_key = format!("{}{}{}", btc_txn_hash, COMMA, minted_txn_hash);
+
+                // Retrieve the list of validators for this <btc_txn_hash>,<minted_txn_hash>
+                let mut validators_list = self.get_validators_by_txn_hash(verification_key.clone());
+
+                // Check if the caller has already verified this <btc_txn_hash>,<minted_txn_hash>
+                if validators_list.contains(&caller) {
+                    log!(
+                        "Caller {} has already verified the transaction with btc_txn_hash: {} and minted_txn_hash: {}.",
+                        &caller,
+                        &btc_txn_hash,
+                        &minted_txn_hash
+                    );
+                    return false;
+                }
+
+                // Verify that the deposit record's btc_txn_hash and minted_txn_hash match the input parameters
+                if deposit.btc_txn_hash == btc_txn_hash && deposit.minted_txn_hash == minted_txn_hash {
+                    // Increment the minted_txn_hash_verified_count
+                    deposit.minted_txn_hash_verified_count += 1;
+
+                    // Update the deposit record in the map
+                    self.deposits.insert(btc_txn_hash.clone(), deposit);
+
+                    // Add the caller to the list of validators for this <btc_txn_hash>,<minted_txn_hash>
+                    validators_list.push(caller);
+                    self.verifications.insert(verification_key, validators_list);
+
+                    true // success case returns true
+                } else {
+                    log!("Mismatch between deposit record and input parameters. Verification failed.");
+                    false
+                }
+            } else {
+                log!(
+                    "Caller {} is not an authorized validator for the receiving_chain_id: {}",
+                    &caller,
+                    &deposit.receiving_chain_id
+                );
+                false
+            }
+        } else {
+            log!(
+                "Deposit record not found for btc_txn_hash: {}.",
+                &btc_txn_hash
+            );
+            false
+        }
+    }
+    
     pub fn withdraw_fail_deposit_by_btc_tx_hash(
         &mut self,
         btc_txn_hash: String,

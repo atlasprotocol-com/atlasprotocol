@@ -4,10 +4,10 @@ const { handleCoboTransaction } = require("./coboIntegration");
 
 const { flagsBatch } = require("./batchFlags");
 
-const batchName = `-------------- Batch F UpdateWithdrawFailDepoists`;
+const batchName = `-------------- Batch F UpdateWithdrawFailDeposits`;
 
-async function UpdateWithdrawFailDepoists(allDeposits, near, bitcoin) {
-  if (flagsBatch.UpdateWithdrawFailDepoistsRunning) {
+async function UpdateWithdrawFailDeposits(allDeposits, near, bitcoin) {
+  if (flagsBatch.UpdateWithdrawFailDepositsRunning) {
     return;
   }
   console.log(`${batchName}. Start run ...`);
@@ -45,12 +45,12 @@ async function UpdateWithdrawFailDepoists(allDeposits, near, bitcoin) {
       }
     }
 
-    flagsBatch.UpdateWithdrawFailDepoistsRunning = true;
+    flagsBatch.UpdateWithdrawFailDepositsRunning = true;
   } catch (error) {
     console.error(`Error ${batchName}:`, error);
   } finally {
-    flagsBatch.UpdateWithdrawFailDepoistsRunning = false;
+    flagsBatch.UpdateWithdrawFailDepositsRunning = false;
   }
 }
 
-module.exports = { UpdateWithdrawFailDepoists };
+module.exports = { UpdateWithdrawFailDeposits };

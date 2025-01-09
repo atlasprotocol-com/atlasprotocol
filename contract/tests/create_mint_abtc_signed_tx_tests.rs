@@ -145,6 +145,7 @@ fn test_create_mint_abtc_signed_tx_existing_deposit_status_not_waiting_mint() {
         1.to_string(),
         "421614".to_string(),
         50000,
+        0,
         "".to_string(),
         1000,
         "".to_string(),
@@ -179,6 +180,7 @@ fn test_create_mint_abtc_signed_tx_no_chain_config() {
         "421614".to_string(),
         "nonexistent_chain_id".to_string(), // This chain ID should not have a configuration
         50000,
+        0,
         "".to_string(),
         1000,
         "".to_string(),
@@ -230,6 +232,7 @@ fn test_create_mint_abtc_signed_tx_not_enough_verified_count() {
         "421614".to_string(),
         "0x2564186c643B292d6A4215f5C33Aa69b213414dd".to_string(), // This chain ID should not have a configuration
         50000,
+        0,
         "".to_string(),
         1000,
         "".to_string(),

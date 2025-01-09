@@ -50,6 +50,7 @@ async fn test_insert_deposit_btc() {
         receiving_chain_id.clone(),
         receiving_address.clone(),
         btc_amount,
+        0,
         minted_txn_hash.clone(),
         timestamp,
         remarks.clone(),
@@ -64,12 +65,14 @@ async fn test_insert_deposit_btc() {
     assert_eq!(deposit.receiving_chain_id, receiving_chain_id);
     assert_eq!(deposit.receiving_address, receiving_address);
     assert_eq!(deposit.btc_amount, btc_amount);
+    assert_eq!(deposit.fee_amount, 0);
     assert_eq!(deposit.minted_txn_hash, minted_txn_hash);
     assert_eq!(deposit.timestamp, timestamp);
     assert_eq!(deposit.status, DEP_BTC_PENDING_MEMPOOL);
     assert_eq!(deposit.remarks, remarks);
     assert_eq!(deposit.date_created, date_created);
     assert_eq!(deposit.verified_count, 0);
+    assert_eq!(deposit.minted_txn_hash_verified_count, 0);
 }
 
 #[tokio::test]
@@ -95,6 +98,7 @@ async fn test_insert_duplicate_deposit() {
         "receiving_chain_id".to_string(),
         "receiving_address".to_string(),
         1000,
+        0,
         "".to_string(),
         1234567890,
         "".to_string(),
@@ -108,6 +112,7 @@ async fn test_insert_duplicate_deposit() {
             "receiving_chain_id".to_string(),
             "receiving_address".to_string(),
             1000,
+            0,
             "".to_string(),
             1234567890,
             "".to_string(),
@@ -141,6 +146,7 @@ async fn test_insert_invalid_deposit() {
     let receiving_chain_id = "receiving_chain_id".to_string();
     let receiving_address = "receiving_address".to_string();
     let btc_amount = 1000;
+    let fee_amount = 0;
     let minted_txn_hash = "".to_string();
     let timestamp = 1234567890;
     let remarks = "".to_string();
@@ -153,6 +159,7 @@ async fn test_insert_invalid_deposit() {
             receiving_chain_id.clone(),
             receiving_address.clone(),
             btc_amount,
+            fee_amount,
             minted_txn_hash.clone(),
             timestamp,
             remarks.clone(),
@@ -183,6 +190,7 @@ async fn test_insert_maximum_deposit() {
     let receiving_chain_id = "receiving_chain_id".to_string();
     let receiving_address = "receiving_address".to_string();
     let btc_amount = u64::MAX;
+    let fee_amount = 0;
     let minted_txn_hash = "".to_string();
     let timestamp = 1234567890;
     let remarks = "".to_string();
@@ -194,6 +202,7 @@ async fn test_insert_maximum_deposit() {
         receiving_chain_id.clone(),
         receiving_address.clone(),
         btc_amount,
+        fee_amount,
         minted_txn_hash.clone(),
         timestamp,
         remarks.clone(),
@@ -238,6 +247,7 @@ async fn test_insert_deposit_with_empty_fields() {
             receiving_chain_id.clone(),
             receiving_address.clone(),
             btc_amount,
+            0,
             minted_txn_hash.clone(),
             timestamp,
             remarks.clone(),
@@ -269,6 +279,7 @@ async fn test_insert_deposit_with_invalid_btc_amount() {
             "btc_sender_address".to_string(),
             "receiving_chain_id".to_string(),
             "receiving_address".to_string(),
+            0,
             0,
             "".to_string(),
             1234567890,
@@ -302,6 +313,7 @@ async fn test_insert_deposit_with_invalid_timestamp() {
             "receiving_chain_id".to_string(),
             "receiving_address".to_string(),
             1000,
+            0,
             "".to_string(),
             0,
             "".to_string(),
@@ -335,6 +347,7 @@ async fn test_insert_duplicate_btc_txn_hash() {
         "receiving_chain_id".to_string(),
         "receiving_address".to_string(),
         1000,
+        0,
         "".to_string(),
         1234567890,
         "".to_string(),
@@ -348,6 +361,7 @@ async fn test_insert_duplicate_btc_txn_hash() {
             "receiving_chain_id".to_string(),
             "receiving_address".to_string(),
             1000,
+            0,
             "".to_string(),
             1234567890,
             "".to_string(),
@@ -383,6 +397,7 @@ async fn test_insert_deposit_with_missing_fields() {
             "receiving_chain_id".to_string(),
             "receiving_address".to_string(),
             1000,
+            0,
             "".to_string(),
             1234567890,
             "".to_string(),
@@ -401,6 +416,7 @@ async fn test_insert_deposit_with_missing_fields() {
             "receiving_chain_id".to_string(),
             "receiving_address".to_string(),
             1000,
+            0,
             "".to_string(),
             1234567890,
             "".to_string(),
@@ -419,6 +435,7 @@ async fn test_insert_deposit_with_missing_fields() {
             "".to_string(),
             "receiving_address".to_string(),
             1000,
+            0,
             "".to_string(),
             1234567890,
             "".to_string(),
@@ -437,6 +454,7 @@ async fn test_insert_deposit_with_missing_fields() {
             "receiving_chain_id".to_string(),
             "".to_string(),
             1000,
+            0,
             "".to_string(),
             1234567890,
             "".to_string(),
@@ -455,6 +473,7 @@ async fn test_insert_deposit_with_missing_fields() {
             "receiving_chain_id".to_string(),
             "receiving_address".to_string(),
             0,
+            0,
             "".to_string(),
             1234567890,
             "".to_string(),
@@ -470,6 +489,7 @@ async fn test_insert_deposit_with_missing_fields() {
             "receiving_chain_id".to_string(),
             "receiving_address".to_string(),
             1000,
+            0,
             "".to_string(),
             0,
             "".to_string(),
@@ -485,6 +505,7 @@ async fn test_insert_deposit_with_missing_fields() {
             "receiving_chain_id".to_string(),
             "receiving_address".to_string(),
             1000,
+            0,
             "".to_string(),
             1234567890,
             "".to_string(),
@@ -519,6 +540,7 @@ async fn test_insert_deposit_with_invalid_chain_id() {
             "".to_string(),
             "receiving_address".to_string(),
             1000,
+            0,
             "".to_string(),
             1234567890,
             "".to_string(),
@@ -551,6 +573,7 @@ async fn test_insert_deposit_with_invalid_receiving_address() {
             "receiving_chain_id".to_string(),
             "".to_string(),
             1000,
+            0,
             "".to_string(),
             1234567890,
             "".to_string(),
@@ -588,6 +611,7 @@ async fn test_concurrent_deposits() {
     let receiving_chain_id = "receiving_chain_id".to_string();
     let receiving_address = "receiving_address".to_string();
     let btc_amount = 1000;
+    let fee_amount = 0;
     let minted_txn_hash = "".to_string();
     let timestamp = 1234567890;
     let remarks = "".to_string();
@@ -600,6 +624,7 @@ async fn test_concurrent_deposits() {
         receiving_chain_id.clone(),
         receiving_address.clone(),
         btc_amount,
+        fee_amount,
         minted_txn_hash.clone(),
         timestamp,
         remarks.clone(),
@@ -612,6 +637,7 @@ async fn test_concurrent_deposits() {
         receiving_chain_id.clone(),
         receiving_address.clone(),
         btc_amount,
+        fee_amount,
         minted_txn_hash.clone(),
         timestamp,
         remarks.clone(),
@@ -641,6 +667,7 @@ async fn test_insert_deposit_with_empty_btc_txn_hash() {
         "receiving_chain_id".to_string(),
         "receiving_address".to_string(),
         1000,
+        0,
         "".to_string(),
         1234567890,
         "".to_string(),
@@ -658,6 +685,7 @@ async fn test_insert_deposit_with_empty_btc_sender_address() {
         "receiving_chain_id".to_string(),
         "receiving_address".to_string(),
         1000,
+        0,
         "".to_string(),
         1234567890,
         "".to_string(),
@@ -675,6 +703,7 @@ async fn test_insert_deposit_with_empty_receiving_chain_id() {
         "".to_string(),
         "receiving_address".to_string(),
         1000,
+        0,
         "".to_string(),
         1234567890,
         "".to_string(),
@@ -692,6 +721,7 @@ async fn test_insert_deposit_with_empty_receiving_address() {
         "receiving_chain_id".to_string(),
         "".to_string(),
         1000,
+        0,
         "".to_string(),
         1234567890,
         "".to_string(),
@@ -708,6 +738,7 @@ async fn test_insert_deposit_with_zero_btc_amount() {
         "btc_sender_address".to_string(),
         "receiving_chain_id".to_string(),
         "receiving_address".to_string(),
+        0,
         0,
         "".to_string(),
         1234567890,
@@ -726,6 +757,7 @@ async fn test_insert_deposit_with_zero_timestamp() {
         "receiving_chain_id".to_string(),
         "receiving_address".to_string(),
         1000,
+        0,
         "".to_string(),
         0,
         "".to_string(),
@@ -743,6 +775,7 @@ async fn test_insert_deposit_with_zero_date_created() {
         "receiving_chain_id".to_string(),
         "receiving_address".to_string(),
         1000,
+        0,
         "".to_string(),
         1234567890,
         "".to_string(),
@@ -759,6 +792,7 @@ async fn test_insert_deposit_with_very_large_btc_amount() {
         "receiving_chain_id".to_string(),
         "receiving_address".to_string(),
         u64::MAX,
+        0,
         "".to_string(),
         1234567890,
         "".to_string(),
@@ -780,6 +814,7 @@ async fn test_insert_deposit_with_very_large_timestamp() {
         "receiving_chain_id".to_string(),
         "receiving_address".to_string(),
         1000,
+        0,
         "".to_string(),
         u64::MAX,
         "".to_string(),
@@ -814,6 +849,7 @@ async fn test_insert_deposit_by_non_admin() {
         "receiving_chain_id".to_string(),
         "receiving_address".to_string(),
         1000,
+        0,
         "".to_string(),
         1234567890,
         "".to_string(),
@@ -841,6 +877,7 @@ async fn test_insert_deposit_btc_with_fee_dps() {
     let receiving_chain_id = "receiving_chain_id".to_string();
     let receiving_address = "receiving_address".to_string();
     let btc_amount = 1000;
+    let fee_amount = 10;
     let minted_txn_hash = "".to_string();
     let timestamp = 1234567890;
     let remarks = "".to_string();
@@ -852,6 +889,7 @@ async fn test_insert_deposit_btc_with_fee_dps() {
         receiving_chain_id.clone(),
         receiving_address.clone(),
         btc_amount,
+        fee_amount,
         minted_txn_hash.clone(),
         timestamp,
         remarks.clone(),
@@ -865,10 +903,7 @@ async fn test_insert_deposit_btc_with_fee_dps() {
     assert_eq!(deposit.btc_sender_address, btc_sender_address);
     assert_eq!(deposit.receiving_chain_id, receiving_chain_id);
     assert_eq!(deposit.receiving_address, receiving_address);
-    assert_eq!(
-        deposit.btc_amount,
-        btc_amount * (10000 - fee_deposit_bps as u64) / 10000
-    );
+    assert_eq!(deposit.btc_amount, btc_amount);
     assert_eq!(
         deposit.fee_amount,
         btc_amount * fee_deposit_bps as u64 / 10000
@@ -879,4 +914,5 @@ async fn test_insert_deposit_btc_with_fee_dps() {
     assert_eq!(deposit.remarks, remarks);
     assert_eq!(deposit.date_created, date_created);
     assert_eq!(deposit.verified_count, 0);
+    assert_eq!(deposit.minted_txn_hash_verified_count, 0);    
 }

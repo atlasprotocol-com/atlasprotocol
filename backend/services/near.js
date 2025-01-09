@@ -76,6 +76,7 @@ class Near {
           "insert_redemption_abtc",
           "update_redemption_remarks",
           "create_mint_abtc_signed_tx",
+          "update_deposit_minted_txn_hash",
           "update_deposit_minted",
           "update_deposit_btc_deposited",
           "create_redeem_abtc_signed_payload",
@@ -208,6 +209,12 @@ class Near {
     });
   }
 
+  async updateDepositMintedTxnHash(btcTxnHash, mintedTxnHash) {
+    return this.makeNearRpcChangeCall("update_deposit_minted_txn_hash", {
+      btc_txn_hash: btcTxnHash,
+      minted_txn_hash: mintedTxnHash,
+    });
+  }
   async updateDepositMinted(btcTxnHash, mintedTxnHash) {
     return this.makeNearRpcChangeCall("update_deposit_minted", {
       btc_txn_hash: btcTxnHash,

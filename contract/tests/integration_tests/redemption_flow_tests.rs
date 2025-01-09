@@ -36,7 +36,7 @@ async fn test_redemption_flow() {
     atlas.update_redemption_redeemed(txn_hash.clone(), "confirmed_btc_txn_hash".to_string(), 1625097700);
 
     // 4. Verify final state
-    let final_redemption = atlas.get_redemption_by_txn_hash(txn_hash).unwrap();
+    let final_redemption = atlas.get_redemption_by_txn_hash(txn_hash.clone()).unwrap();
     assert_eq!(final_redemption.status, RED_BTC_REDEEMED_BACK_TO_USER);
     assert_eq!(final_redemption.btc_txn_hash, "confirmed_btc_txn_hash");
     assert_eq!(final_redemption.verified_count, 2);

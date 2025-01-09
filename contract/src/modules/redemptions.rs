@@ -55,6 +55,7 @@ impl Atlas {
             remarks: "".to_string(),
             date_created,
             verified_count: 0,
+            btc_txn_hash_verified_count: 0,
             custody_txn_id: "".to_string(),
         };
 
@@ -250,6 +251,7 @@ impl Atlas {
                 if (redemption.status == RED_BTC_PENDING_REDEMPTION_FROM_ATLAS_TO_USER
                     || redemption.status == RED_BTC_PENDING_MEMPOOL_CONFIRMATION)
                     && redemption.verified_count >= chain_config.validators_threshold
+                    //&& redemption.btc_txn_hash_verified_count >= chain_config.validators_threshold
                     && redemption.remarks.is_empty()
                 {
                     // All conditions are met, proceed to update the redemption status

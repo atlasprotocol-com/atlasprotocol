@@ -110,6 +110,7 @@ async fn test_update_deposit_btc_deposited() {
         SIGNET.to_string(),
         "receiving_address".to_string(),
         1000,
+        0,
         "".to_string(),
         1234567890,
         "".to_string(),
@@ -142,6 +143,7 @@ async fn test_update_deposit_minted() {
         "421614".to_string(),
         "0x2564186c643B292d6A4215f5C33Aa69b213414dd".to_string(),
         1000,
+        0,
         "".to_string(),
         1234567890,
         "".to_string(),
@@ -166,7 +168,7 @@ async fn test_update_deposit_minted() {
         .build());
     atlas.increment_deposit_verified_count(deposit);
 
-    // 3. Verify deposit by validators
+    // 4. Mint abtc
     let deposit = atlas
         .get_deposit_by_btc_txn_hash(btc_txn_hash.clone())
         .unwrap();
@@ -178,23 +180,45 @@ async fn test_update_deposit_minted() {
         .build());
     atlas.create_mint_abtc_signed_tx(deposit.btc_txn_hash.clone(), 94, 5000000, 100000000, 0);
 
-    // 4. Update deposit to minted status
+    // 5. Update minted txn hash
+    let minted_txn_hash = "0x511d02e4a7dc5319a339050a405f40a6ff17ad68dce7f9cb0e3d0cf549c6acbf".to_string();
+    testing_env!(VMContextBuilder::new()
+        .predecessor_account_id(accounts(1))
+        .build());
+    atlas.update_deposit_minted_txn_hash(
+        btc_txn_hash.clone(),
+        minted_txn_hash.clone(),
+    );
+
+    // 6. Verify minted txn hash by validators
+    let deposit = atlas
+        .get_deposit_by_btc_txn_hash(btc_txn_hash.clone())
+        .unwrap();
+    assert_eq!(deposit.status, DEP_BTC_PENDING_MINTED_INTO_ABTC);
+
+    testing_env!(VMContextBuilder::new()
+        .predecessor_account_id(accounts(1))
+        .build());
+    atlas.increment_deposit_minted_txn_hash_verified_count(btc_txn_hash.clone(), minted_txn_hash.clone());
+    testing_env!(VMContextBuilder::new()
+        .predecessor_account_id(accounts(2))
+        .build());
+    atlas.increment_deposit_minted_txn_hash_verified_count(btc_txn_hash.clone(), minted_txn_hash.clone());
+
+    // 7. Update deposit to minted status
     testing_env!(VMContextBuilder::new()
         .predecessor_account_id(accounts(1))
         .build());
     atlas.update_deposit_minted(
         btc_txn_hash.clone(),
-        "0x511d02e4a7dc5319a339050a405f40a6ff17ad68dce7f9cb0e3d0cf549c6acbf".to_string(),
+        minted_txn_hash.clone(),
     );
 
     let updated_deposit = atlas
         .get_deposit_by_btc_txn_hash(btc_txn_hash.clone())
         .unwrap();
     assert_eq!(updated_deposit.status, DEP_BTC_MINTED_INTO_ABTC);
-    assert_eq!(
-        updated_deposit.minted_txn_hash,
-        "0x511d02e4a7dc5319a339050a405f40a6ff17ad68dce7f9cb0e3d0cf549c6acbf"
-    );
+    assert_eq!(updated_deposit.minted_txn_hash, minted_txn_hash);
 }
 
 #[tokio::test]
@@ -213,6 +237,7 @@ async fn test_update_deposit_multiple_times() {
         "421614".to_string(),
         "0x2564186c643B292d6A4215f5C33Aa69b213414dd".to_string(),
         1000,
+        0,
         "".to_string(),
         1234567890,
         "".to_string(),
@@ -237,7 +262,7 @@ async fn test_update_deposit_multiple_times() {
         .build());
     atlas.increment_deposit_verified_count(deposit);
 
-    // 3. Verify deposit by validators
+    // 4. Mint abtc
     let deposit = atlas
         .get_deposit_by_btc_txn_hash(btc_txn_hash.clone())
         .unwrap();
@@ -249,13 +274,38 @@ async fn test_update_deposit_multiple_times() {
         .build());
     atlas.create_mint_abtc_signed_tx(deposit.btc_txn_hash.clone(), 94, 5000000, 100000000, 0);
 
-    // 4. Update deposit to minted status
+    // 5. Update minted txn hash
+    let minted_txn_hash = "0x511d02e4a7dc5319a339050a405f40a6ff17ad68dce7f9cb0e3d0cf549c6acbf".to_string();
+    testing_env!(VMContextBuilder::new()
+        .predecessor_account_id(accounts(1))
+        .build());
+    atlas.update_deposit_minted_txn_hash(
+        btc_txn_hash.clone(),
+        minted_txn_hash.clone(),
+    );
+
+    // 6. Verify minted txn hash by validators
+    let deposit = atlas
+        .get_deposit_by_btc_txn_hash(btc_txn_hash.clone())
+        .unwrap();
+    assert_eq!(deposit.status, DEP_BTC_PENDING_MINTED_INTO_ABTC);
+
+    testing_env!(VMContextBuilder::new()
+        .predecessor_account_id(accounts(1))
+        .build());
+    atlas.increment_deposit_minted_txn_hash_verified_count(btc_txn_hash.clone(), minted_txn_hash.clone());
+    testing_env!(VMContextBuilder::new()
+        .predecessor_account_id(accounts(2))
+        .build());
+    atlas.increment_deposit_minted_txn_hash_verified_count(btc_txn_hash.clone(), minted_txn_hash.clone());
+
+    // 7. Update deposit to minted status
     testing_env!(VMContextBuilder::new()
         .predecessor_account_id(accounts(1))
         .build());
     atlas.update_deposit_minted(
-        btc_txn_hash.clone(),
-        "0x511d02e4a7dc5319a339050a405f40a6ff17ad68dce7f9cb0e3d0cf549c6acbf".to_string(),
+        btc_txn_hash.clone(),  
+        minted_txn_hash.clone(),
     );
 
     // Try to update remarks after minting (this should not change the remarks)
@@ -265,10 +315,7 @@ async fn test_update_deposit_multiple_times() {
         atlas.get_deposit_by_btc_txn_hash(btc_txn_hash).unwrap();
     assert_eq!(updated_deposit.status, DEP_BTC_MINTED_INTO_ABTC);
     assert_eq!(updated_deposit.timestamp, 1234567001);
-    assert_eq!(
-        updated_deposit.minted_txn_hash,
-        "0x511d02e4a7dc5319a339050a405f40a6ff17ad68dce7f9cb0e3d0cf549c6acbf"
-    );
+    assert_eq!(updated_deposit.minted_txn_hash, minted_txn_hash);
     assert_eq!(updated_deposit.remarks, ""); // Remarks should not be updated after minting
 }
 
@@ -283,6 +330,7 @@ async fn test_unauthorized_update_deposit() {
         SIGNET.to_string(),
         "receiving_address".to_string(),
         1000,
+        0,
         "".to_string(),
         1234567890,
         "".to_string(),
@@ -308,6 +356,7 @@ async fn test_update_deposit_remarks() {
         "receiving_chain_id".to_string(),
         "receiving_address".to_string(),
         1000,
+        0,
         "".to_string(),
         1234567890,
         "".to_string(),
@@ -348,6 +397,7 @@ async fn test_update_deposit_with_zero_timestamp() {
         "receiving_chain_id".to_string(),
         "receiving_address".to_string(),
         1000,
+        0,
         "".to_string(),
         1234567890,
         "".to_string(),
@@ -367,6 +417,7 @@ async fn test_update_deposit_minted_with_empty_minted_txn_hash() {
         "receiving_chain_id".to_string(),
         "receiving_address".to_string(),
         1000,
+        0,
         "".to_string(),
         1234567890,
         "".to_string(),
@@ -387,6 +438,7 @@ async fn test_update_deposit_remarks_with_empty_remarks() {
         "receiving_chain_id".to_string(),
         "receiving_address".to_string(),
         1000,
+        0,
         "".to_string(),
         1234567890,
         "".to_string(),
@@ -405,6 +457,7 @@ async fn test_update_deposit_with_max_timestamp() {
         "receiving_chain_id".to_string(),
         "receiving_address".to_string(),
         1000,
+        0,
         "".to_string(),
         1234567890,
         "".to_string(),
@@ -427,6 +480,7 @@ async fn test_update_deposit_remarks_with_long_string() {
         "receiving_chain_id".to_string(),
         "receiving_address".to_string(),
         1000,
+        0,
         "".to_string(),
         1234567890,
         "".to_string(),

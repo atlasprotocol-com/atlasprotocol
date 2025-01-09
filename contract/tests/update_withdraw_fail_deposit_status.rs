@@ -129,6 +129,7 @@ fn test_update_withdraw_fail_deposit_status_not_valid_conditions() {
         1.to_string(),
         "421614".to_string(),
         50000,
+        0,
         "".to_string(),
         1000,
         "".to_string(),
@@ -163,6 +164,7 @@ fn test_update_withdraw_fail_deposit_status() {
         date_created: 1,
         verified_count: 0,
         retry_count: 0,
+        minted_txn_hash_verified_count: 0,
         custody_txn_id: "2".to_string(),
     };
     atlas.deposits.insert(record.btc_txn_hash.clone(), record);

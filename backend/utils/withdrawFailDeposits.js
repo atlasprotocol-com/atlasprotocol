@@ -4,10 +4,10 @@ const { runWithdrawFailDepositCoboIntegration } = require("./coboIntegration");
 
 const { flagsBatch } = require("./batchFlags");
 
-const batchName = `-------------- Batch E WithdrawFailDepoists`;
+const batchName = `-------------- Batch E WithdrawFailDeposits`;
 
-async function WithdrawFailDepoists(allDeposits, near, bitcoin) {
-  if (flagsBatch.WithdrawFailDepoistsRunning) {
+async function WithdrawFailDeposits(allDeposits, near, bitcoin) {
+  if (flagsBatch.WithdrawFailDepositsRunning) {
     return;
   }
   console.log(`${batchName}. Start run ...`);
@@ -24,7 +24,7 @@ async function WithdrawFailDepoists(allDeposits, near, bitcoin) {
     return;
   }
 
-  flagsBatch.WithdrawFailDepoistsRunning = true;
+  flagsBatch.WithdrawFailDepositsRunning = true;
 
   try {
     const toBeRefund = allDeposits.filter(
@@ -56,8 +56,8 @@ async function WithdrawFailDepoists(allDeposits, near, bitcoin) {
   } catch (error) {
     console.error(`Error ${batchName}:`, error);
   } finally {
-    flagsBatch.WithdrawFailDepoistsRunning = false;
+    flagsBatch.WithdrawFailDepositsRunning = false;
   }
 }
 
-module.exports = { WithdrawFailDepoists };
+module.exports = { WithdrawFailDeposits };

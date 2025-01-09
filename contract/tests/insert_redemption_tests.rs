@@ -65,6 +65,7 @@ async fn test_insert_redemption_abtc() {
     assert_eq!(redemption.remarks, "");
     assert_eq!(redemption.date_created, date_created);
     assert_eq!(redemption.verified_count, 0);
+    assert_eq!(redemption.btc_txn_hash_verified_count, 0);
     assert_eq!(redemption.custody_txn_id, "");
 }
 

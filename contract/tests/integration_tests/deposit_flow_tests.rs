@@ -20,6 +20,7 @@ async fn test_deposit_flow_evm() {
         "421614".to_string(),
         "0x2564186c643B292d6A4215f5C33Aa69b213414dd".to_string(),
         1000,
+        0,
         "".to_string(),
         1234567890,
         "".to_string(),
@@ -42,9 +43,9 @@ async fn test_deposit_flow_evm() {
     testing_env!(VMContextBuilder::new()
         .predecessor_account_id(accounts(2))
         .build());
-    atlas.increment_deposit_verified_count(deposit);
+    atlas.increment_deposit_verified_count(deposit.clone());
 
-    // 3. Verify deposit by validators
+    // 4. Mint abtc
     let deposit = atlas
         .get_deposit_by_btc_txn_hash(btc_txn_hash.clone())
         .unwrap();
@@ -55,24 +56,47 @@ async fn test_deposit_flow_evm() {
         .block_timestamp(1234567890)
         .build());
     atlas.create_mint_abtc_signed_tx(deposit.btc_txn_hash.clone(), 94, 5000000, 100000000, 0);
+    
+    // 5. Update minted txn hash
+    let minted_txn_hash = "0x511d02e4a7dc5319a339050a405f40a6ff17ad68dce7f9cb0e3d0cf549c6acbf".to_string();
+    testing_env!(VMContextBuilder::new()
+        .predecessor_account_id(accounts(1))
+        .build());
+    atlas.update_deposit_minted_txn_hash(
+        btc_txn_hash.clone(),
+        minted_txn_hash.clone(),
+    );
 
-    // 4. Update deposit to minted status
+    // 6. Verify minted txn hash by validators
+    let deposit = atlas
+        .get_deposit_by_btc_txn_hash(btc_txn_hash.clone())
+        .unwrap();
+    assert_eq!(deposit.status, DEP_BTC_PENDING_MINTED_INTO_ABTC);
+
+    testing_env!(VMContextBuilder::new()
+        .predecessor_account_id(accounts(1))
+        .build());
+    atlas.increment_deposit_minted_txn_hash_verified_count(btc_txn_hash.clone(), minted_txn_hash.clone());
+    testing_env!(VMContextBuilder::new()
+        .predecessor_account_id(accounts(2))
+        .build());
+    atlas.increment_deposit_minted_txn_hash_verified_count(btc_txn_hash.clone(), minted_txn_hash.clone());
+    
+    // 7. Update deposit to minted status
     testing_env!(VMContextBuilder::new()
         .predecessor_account_id(accounts(1))
         .build());
     atlas.update_deposit_minted(
         btc_txn_hash.clone(),
-        "0x511d02e4a7dc5319a339050a405f40a6ff17ad68dce7f9cb0e3d0cf549c6acbf".to_string(),
+        minted_txn_hash.clone(),
     );
 
-    // 5. Verify final state
+    // 8. Verify final state
     let final_deposit = atlas.get_deposit_by_btc_txn_hash(btc_txn_hash).unwrap();
     assert_eq!(final_deposit.status, DEP_BTC_MINTED_INTO_ABTC);
-    assert_eq!(
-        final_deposit.minted_txn_hash,
-        "0x511d02e4a7dc5319a339050a405f40a6ff17ad68dce7f9cb0e3d0cf549c6acbf"
-    );
+    assert_eq!(final_deposit.minted_txn_hash, minted_txn_hash);
     assert_eq!(final_deposit.verified_count, 2);
+    assert_eq!(final_deposit.minted_txn_hash_verified_count, 2);
 }
 
 #[tokio::test]
@@ -91,6 +115,7 @@ async fn test_deposit_flow_near() {
         "NEAR_TESTNET".to_string(),
         "velar.testnet".to_string(),
         1000,
+        0,
         "".to_string(),
         1234567890,
         "".to_string(),
@@ -115,7 +140,7 @@ async fn test_deposit_flow_near() {
         .build());
     atlas.increment_deposit_verified_count(deposit);
 
-    // 3. Verify deposit by validators
+    // 4. Mint abtc
     let deposit = atlas
         .get_deposit_by_btc_txn_hash(btc_txn_hash.clone())
         .unwrap();
@@ -127,21 +152,44 @@ async fn test_deposit_flow_near() {
         .build());
     atlas.create_mint_abtc_signed_tx(deposit.btc_txn_hash.clone(), 94, 5000000, 100000000, 0);
 
-    // 4. Update deposit to minted status
+    // 5. Update minted txn hash
+    let minted_txn_hash = "25YpMdT51NiUzHGpnpJMJtwdboAe91YBMFEGo3GCwyRq".to_string();
+    testing_env!(VMContextBuilder::new()
+        .predecessor_account_id(accounts(1))
+        .build());
+    atlas.update_deposit_minted_txn_hash(
+        btc_txn_hash.clone(),
+        minted_txn_hash.clone(),
+    );
+    
+    // 6. Verify minted txn hash by validators
+    let deposit = atlas
+        .get_deposit_by_btc_txn_hash(btc_txn_hash.clone())
+        .unwrap();
+    assert_eq!(deposit.status, DEP_BTC_PENDING_MINTED_INTO_ABTC);
+
+    testing_env!(VMContextBuilder::new()
+        .predecessor_account_id(accounts(1))
+        .build());
+    atlas.increment_deposit_minted_txn_hash_verified_count(btc_txn_hash.clone(), minted_txn_hash.clone());
+    testing_env!(VMContextBuilder::new()
+        .predecessor_account_id(accounts(2))
+        .build());
+    atlas.increment_deposit_minted_txn_hash_verified_count(btc_txn_hash.clone(), minted_txn_hash.clone());
+    
+    // 7. Update deposit to minted status
     testing_env!(VMContextBuilder::new()
         .predecessor_account_id(accounts(1))
         .build());
     atlas.update_deposit_minted(
         btc_txn_hash.clone(),
-        "25YpMdT51NiUzHGpnpJMJtwdboAe91YBMFEGo3GCwyRq".to_string(),
+        minted_txn_hash.clone(),
     );
 
-    // 5. Verify final state
+    // 8. Verify final state
     let final_deposit = atlas.get_deposit_by_btc_txn_hash(btc_txn_hash).unwrap();
     assert_eq!(final_deposit.status, DEP_BTC_MINTED_INTO_ABTC);
-    assert_eq!(
-        final_deposit.minted_txn_hash,
-        "25YpMdT51NiUzHGpnpJMJtwdboAe91YBMFEGo3GCwyRq"
-    );
+    assert_eq!(final_deposit.minted_txn_hash, minted_txn_hash);
     assert_eq!(final_deposit.verified_count, 2);
+    assert_eq!(final_deposit.minted_txn_hash_verified_count, 2);
 }

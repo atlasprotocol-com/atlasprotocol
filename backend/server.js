@@ -4,10 +4,10 @@ const dotenv = require("dotenv");
 const { globalParams, updateGlobalParams } = require("./config/globalParams");
 const { getTransactionsAndComputeStats } = require("./utils/transactionStats");
 const { UpdateAtlasBtcDeposits } = require("./utils/updateAtlasBtcDeposits");
-const { WithdrawFailDepoists } = require("./utils/WithdrawFailDepoists");
+const { WithdrawFailDeposits } = require("./utils/WithdrawFailDeposits");
 const {
-  UpdateWithdrawFailDepoists,
-} = require("./utils/UpdateWithdrawFailDepoists");
+  UpdateWithdrawFailDeposits,
+} = require("./utils/UpdateWithdrawFailDeposits");
 const {
   MintaBtcToReceivingChain,
 } = require("./utils/mintaBtcToReceivingChain");
@@ -19,6 +19,7 @@ const {
   UpdateAtlasBtcBackToUser,
 } = require("./utils/updateAtlasBtcBackToUser");
 const { UpdateAtlasAbtcMinted } = require("./utils/updateAtlasAbtcMinted");
+const { UpdateAtlasAbtcMintedTxnHash } = require("./utils/UpdateAtlasAbtcMintedTxnHash");
 
 const {
   fetchAndSetChainConfigs,
@@ -294,12 +295,15 @@ async function runBatch() {
     near,
     bitcoin,
   );
+
   await MintaBtcToReceivingChain(near);
+
+  await UpdateAtlasAbtcMintedTxnHash(deposits, near);
 
   await UpdateAtlasAbtcMinted(deposits, near);
 
-  await WithdrawFailDepoists(deposits, near, bitcoin);
-  await UpdateWithdrawFailDepoists(deposits, near, bitcoin);
+  await WithdrawFailDeposits(deposits, near, bitcoin);
+  await UpdateWithdrawFailDeposits(deposits, near, bitcoin);
 
   await UpdateAtlasBtcRedemptions(near);
 
