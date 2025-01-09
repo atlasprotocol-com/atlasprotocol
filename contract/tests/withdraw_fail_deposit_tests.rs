@@ -186,6 +186,10 @@ fn test_update_deposit_custody_txn_id_not_valid_conditions() {
     );
 
     atlas.update_deposit_custody_txn_id(result.btc_txn_hash.clone(), "custody_txn_id".to_string());
+    atlas.update_deposit_custody_txn_id(
+        result.btc_txn_hash.clone(),
+        "another_custody_txn_id".to_string(),
+    );
 }
 
 #[test]
@@ -255,11 +259,17 @@ fn setup_withdraw_fail_deposit(btc_amount: u64) -> (Atlas, WithDrawFailDepositRe
     atlas.create_mint_abtc_signed_tx(deposit.btc_txn_hash.clone(), 94, 5000000, 100000000, 0);
     atlas.update_deposit_remarks(
         btc_txn_hash.clone(),
-        "oops, something went wrong".to_string(),
+        "oops, something went wrong at first try".to_string(),
     );
     atlas.rollback_deposit_status_by_btc_txn_hash(btc_txn_hash.clone());
 
-    // 3. Verify deposit by validators
+    // second retry
+    atlas.create_mint_abtc_signed_tx(deposit.btc_txn_hash.clone(), 94, 5000000, 100000000, 0);
+    atlas.update_deposit_remarks(
+        btc_txn_hash.clone(),
+        "oops, something went wrong at second try".to_string(),
+    );
+
     let deposit = atlas
         .get_deposit_by_btc_txn_hash(btc_txn_hash.clone())
         .unwrap();
