@@ -18,8 +18,8 @@ const { SendBtcBackToUser } = require("./utils/sendBtcBackToUser");
 const {
   UpdateAtlasBtcBackToUser,
 } = require("./utils/updateAtlasBtcBackToUser");
-const { UpdateAtlasAbtcMinted } = require("./utils/updateAtlasAbtcMinted");
 const { UpdateAtlasAbtcMintedTxnHash } = require("./utils/UpdateAtlasAbtcMintedTxnHash");
+const { UpdateAtlasAbtcMinted } = require("./utils/updateAtlasAbtcMinted");
 
 const {
   fetchAndSetChainConfigs,

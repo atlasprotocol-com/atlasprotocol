@@ -1,5 +1,7 @@
 use crate::atlas::Atlas;
 use crate::constants::status::*;
+use crate::constants::network_type::*;
+use crate::constants::delimiter::COMMA;
 use crate::modules::structs::RedemptionRecord;
 use crate::AtlasExt;
 use near_sdk::{env, log, near_bindgen, AccountId};
@@ -180,10 +182,7 @@ impl Atlas {
 
         // Validate input parameters
         assert!(!txn_hash.is_empty(), "Transaction hash cannot be empty");
-        assert!(
-            !btc_txn_hash.is_empty(),
-            "BTC transaction hash cannot be empty"
-        );
+        assert!(!btc_txn_hash.is_empty(), "BTC transaction hash cannot be empty");
 
         // Retrieve the redemption record based on txn_hash
         if let Some(mut redemption) = self.redemptions.get(&txn_hash).cloned() {
@@ -234,10 +233,7 @@ impl Atlas {
 
         // Validate input parameters
         assert!(!txn_hash.is_empty(), "Transaction hash cannot be empty");
-        assert!(
-            !btc_txn_hash.is_empty(),
-            "BTC transaction hash cannot be empty"
-        );
+        assert!(!btc_txn_hash.is_empty(), "BTC transaction hash cannot be empty");
         assert!(timestamp != 0, "Timestamp cannot be zero");
 
         // Retrieve the redemption record based on txn_hash
@@ -247,23 +243,36 @@ impl Atlas {
                 .chain_configs
                 .get_chain_config(redemption.abtc_redemption_chain_id.clone())
             {
-                // Check all specified conditions
-                if (redemption.status == RED_BTC_PENDING_REDEMPTION_FROM_ATLAS_TO_USER
-                    || redemption.status == RED_BTC_PENDING_MEMPOOL_CONFIRMATION)
-                    && redemption.verified_count >= chain_config.validators_threshold
-                    //&& redemption.btc_txn_hash_verified_count >= chain_config.validators_threshold
-                    && redemption.remarks.is_empty()
-                {
-                    // All conditions are met, proceed to update the redemption status
-                    redemption.status = RED_BTC_REDEEMED_BACK_TO_USER;
-                    redemption.btc_txn_hash = btc_txn_hash;
-                    redemption.timestamp = timestamp;
-                    self.redemptions.insert(txn_hash.clone(), redemption);
-                    log!("Redemption status updated to RED_BTC_REDEEMED_BACK_TO_USER for txn_hash: {}", txn_hash);
+                // Fetch chain configuration for the bitcoin redemption
+                let btc_chain_id = if self.is_production_mode() {
+                    BITCOIN.to_string()
                 } else {
-                    // Panic with the expected message if conditions are not met
-                    env::panic_str("Conditions not met for updating redemption status");
-                }
+                    SIGNET.to_string()
+                };
+                
+                if let Some(btc_chain_config) = self
+                    .chain_configs
+                    .get_chain_config(btc_chain_id.clone())
+                {
+                    // Check all specified conditions
+                    if (redemption.status == RED_BTC_PENDING_MEMPOOL_CONFIRMATION)
+                        && redemption.verified_count >= chain_config.validators_threshold
+                        && redemption.btc_txn_hash_verified_count >= btc_chain_config.validators_threshold
+                        && redemption.remarks.is_empty()
+                        && redemption.btc_txn_hash == btc_txn_hash
+                    {
+                        // All conditions are met, proceed to update the redemption status
+                        redemption.status = RED_BTC_REDEEMED_BACK_TO_USER;                    
+                        redemption.timestamp = timestamp;
+                        self.redemptions.insert(txn_hash.clone(), redemption);
+                        log!("Redemption status updated to RED_BTC_REDEEMED_BACK_TO_USER for txn_hash: {}", txn_hash);
+                    } else {
+                        // Panic with the expected message if conditions are not met
+                        env::panic_str("Conditions not met for updating redemption status");
+                    }
+                } else {
+                    env::panic_str("Chain configuration not found for bitcoin redemption");
+                }    
             } else {
                 env::panic_str("Chain configuration not found for redemption chain ID");
             }
@@ -487,13 +496,13 @@ impl Atlas {
     ) -> bool {
         self.assert_not_paused();
 
-        let caller: AccountId = env::predecessor_account_id();
-
         // Validate the mempool_redemption
         if mempool_redemption.txn_hash.is_empty() {
             log!("Invalid mempool_redemption: txn_hash is empty");
             return false;
         }
+        
+        let caller: AccountId = env::predecessor_account_id();
 
         // Retrieve the redemption record using the txn_hash
         if let Some(mut redemption) = self.redemptions.get(&mempool_redemption.txn_hash).cloned() {
@@ -558,6 +567,84 @@ impl Atlas {
                 &mempool_redemption.txn_hash
             );
             return false;
+        }
+    }
+
+    // Increments redemption record's btc_txn_hash_verified_count by 1
+    // Caller of this function has to be an authorized validator for the bitcoin chain of the redemption record
+    // Caller of this function has to be a new validator of this <txn_hash>,<btc_txn_hash>
+    // Checks that redemption record's txn_hash and btc_txn_hash are equal to the input parameters, then increments the btc_txn_hash_verified_count by 1
+    // Returns true if btc_txn_hash_verified_count incremented successfully and returns false if not incremented
+    pub fn increment_redemption_btc_txn_hash_verified_count(&mut self, txn_hash: String, btc_txn_hash: String) -> bool {
+        self.assert_not_paused();
+
+        // Validate input parameters
+        if txn_hash.is_empty() || btc_txn_hash.is_empty() {
+            log!("Invalid input: txn_hash or btc_txn_hash is empty");
+            return false;
+        }
+
+        let caller: AccountId = env::predecessor_account_id();
+
+        // Retrieve the redemption record using the txn_hash
+        if let Some(mut redemption) = self.redemptions.get(&txn_hash).cloned() {
+            let btc_chain_id = if self.is_production_mode() {
+                BITCOIN.to_string()
+            } else {
+                SIGNET.to_string()
+            };
+
+            // Check if the caller is an authorized validator for the bitcoin chain
+            if self.is_validator(&caller, &btc_chain_id) {
+
+                // Create a unique key for the verifications map using the COMMA constant
+                let verification_key = format!("{}{}{}", txn_hash, COMMA, btc_txn_hash);
+
+                // Retrieve the list of validators for this <txn_hash>,<btc_txn_hash>
+                let mut validators_list = self.get_validators_by_txn_hash(verification_key.clone());
+
+                // Check if the caller has already verified this <txn_hash>,<btc_txn_hash>
+                if validators_list.contains(&caller) {
+                    log!(
+                        "Caller {} has already verified the transaction with txn_hash: {} and btc_txn_hash: {}.",
+                        &caller,
+                        &txn_hash,
+                        &btc_txn_hash
+                    );
+                    return false;
+                }
+
+                // Verify that the redemption record's txn_hash and btc_txn_hash match the input parameters
+                if redemption.txn_hash == txn_hash && redemption.btc_txn_hash == btc_txn_hash {
+                    // Increment the btc_txn_hash_verified_count
+                    redemption.btc_txn_hash_verified_count += 1;
+
+                    // Update the redemption record in the map
+                    self.redemptions.insert(txn_hash.clone(), redemption);
+
+                    // Add the caller to the list of validators for this <txn_hash>,<btc_txn_hash>
+                    validators_list.push(caller);
+                    self.verifications.insert(verification_key, validators_list);
+
+                    true // success case returns true
+                } else {
+                    log!("Mismatch between redemption record and input parameters. Verification failed.");
+                    false
+                }
+            } else {
+                log!(
+                    "Caller {} is not an authorized validator for the bitcoin chain: {}",
+                    &caller,
+                    &btc_chain_id
+                );
+                false
+            }
+        } else {
+            log!(
+                "Redemption record not found for txn_hash: {}.",
+                &txn_hash
+            );
+            false
         }
     }
 }
