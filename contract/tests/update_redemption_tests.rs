@@ -17,9 +17,13 @@ fn setup_atlas() -> Atlas {
         false,
     );
 
-    // Add two validators for the test chain
+    // Add two validators for the test chains
+    atlas.add_validator(accounts(1), "SIGNET".to_string());
+    atlas.add_validator(accounts(2), "SIGNET".to_string());
     atlas.add_validator(accounts(1), "421614".to_string());
     atlas.add_validator(accounts(2), "421614".to_string());
+    atlas.add_validator(accounts(1), "NEAR_TESTNET".to_string());
+    atlas.add_validator(accounts(2), "NEAR_TESTNET".to_string());
 
     atlas
 }
@@ -116,14 +120,20 @@ async fn test_update_redemption_redeemed() {
     // Set the predecessor to the admin account
     testing_env!(VMContextBuilder::new().predecessor_account_id(accounts(1)).build());
 
-    let txn_hash = insert_test_redemption(&mut atlas);
-
-    
+    let txn_hash = insert_test_redemption(&mut atlas);    
 
     atlas.update_redemption_start(txn_hash.clone());
-    atlas.update_redemption_pending_btc_mempool(txn_hash.clone(), "btc_txn_hash".to_string());
 
-    let btc_txn_hash = "confirmed_btc_txn_hash".to_string();
+    let btc_txn_hash = "btc_txn_hash".to_string();
+    atlas.update_redemption_pending_btc_mempool(txn_hash.clone(), btc_txn_hash.clone());
+    
+    // verify btc_txn_hash by validators
+    testing_env!(VMContextBuilder::new().predecessor_account_id(accounts(1)).build());
+    atlas.increment_redemption_btc_txn_hash_verified_count(txn_hash.clone(), btc_txn_hash.clone());
+    testing_env!(VMContextBuilder::new().predecessor_account_id(accounts(2)).build());
+    atlas.increment_redemption_btc_txn_hash_verified_count(txn_hash.clone(), btc_txn_hash.clone());
+
+    testing_env!(VMContextBuilder::new().predecessor_account_id(accounts(1)).build());
     let new_timestamp = 1625097700;
     atlas.update_redemption_redeemed(txn_hash.clone(), btc_txn_hash.clone(), new_timestamp);
 
@@ -131,6 +141,7 @@ async fn test_update_redemption_redeemed() {
     assert_eq!(updated_redemption.status, RED_BTC_REDEEMED_BACK_TO_USER);
     assert_eq!(updated_redemption.btc_txn_hash, btc_txn_hash);
     assert_eq!(updated_redemption.timestamp, new_timestamp);
+    assert_eq!(updated_redemption.btc_txn_hash_verified_count, 2);
 }
 
 #[tokio::test]
@@ -234,6 +245,13 @@ async fn test_update_redemption_multiple_times() {
     let btc_txn_hash = "btc_txn_hash".to_string();
     atlas.update_redemption_pending_btc_mempool(txn_hash.clone(), btc_txn_hash.clone());
 
+    // verify btc_txn_hash by validators
+    testing_env!(VMContextBuilder::new().predecessor_account_id(accounts(1)).build());
+    atlas.increment_redemption_btc_txn_hash_verified_count(txn_hash.clone(), btc_txn_hash.clone());
+    testing_env!(VMContextBuilder::new().predecessor_account_id(accounts(2)).build());
+    atlas.increment_redemption_btc_txn_hash_verified_count(txn_hash.clone(), btc_txn_hash.clone());
+
+    testing_env!(VMContextBuilder::new().predecessor_account_id(accounts(1)).build());
     let new_timestamp = 1625097700;
     atlas.update_redemption_redeemed(txn_hash.clone(), btc_txn_hash.clone(), new_timestamp);
 
@@ -241,6 +259,7 @@ async fn test_update_redemption_multiple_times() {
     assert_eq!(updated_redemption.status, RED_BTC_REDEEMED_BACK_TO_USER);
     assert_eq!(updated_redemption.btc_txn_hash, btc_txn_hash);
     assert_eq!(updated_redemption.timestamp, new_timestamp);
+    assert_eq!(updated_redemption.btc_txn_hash_verified_count, 2);
 }
 
 #[tokio::test]
@@ -259,11 +278,22 @@ async fn test_update_redemption_with_max_timestamp() {
     let txn_hash = insert_test_redemption(&mut atlas);
 
     atlas.update_redemption_start(txn_hash.clone());
-    atlas.update_redemption_pending_btc_mempool(txn_hash.clone(), "btc_txn_hash".to_string());
-    atlas.update_redemption_redeemed(txn_hash.clone(), "btc_txn_hash".to_string(), u64::MAX);
+
+    let btc_txn_hash = "btc_txn_hash".to_string();
+    atlas.update_redemption_pending_btc_mempool(txn_hash.clone(), btc_txn_hash.clone());
+
+    // verify btc_txn_hash by validators
+    testing_env!(VMContextBuilder::new().predecessor_account_id(accounts(1)).build());
+    atlas.increment_redemption_btc_txn_hash_verified_count(txn_hash.clone(), btc_txn_hash.clone());
+    testing_env!(VMContextBuilder::new().predecessor_account_id(accounts(2)).build());
+    atlas.increment_redemption_btc_txn_hash_verified_count(txn_hash.clone(), btc_txn_hash.clone());
+
+    testing_env!(VMContextBuilder::new().predecessor_account_id(accounts(1)).build());
+    atlas.update_redemption_redeemed(txn_hash.clone(), btc_txn_hash.clone(), u64::MAX);
 
     let updated_redemption = atlas.get_redemption_by_txn_hash(txn_hash).unwrap();
     assert_eq!(updated_redemption.timestamp, u64::MAX);
+    assert_eq!(updated_redemption.btc_txn_hash_verified_count, 2);
 }
 
 #[tokio::test]
