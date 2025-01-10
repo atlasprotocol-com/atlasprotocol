@@ -22,7 +22,7 @@
       "network_name": "NEAR testnet",
       "chain_rpc_url": "https://rpc.testnet.near.org",
       "explorer_url": "https://testnet.nearblocks.io/",
-      "abtc_address": "atbtc_audit_v2.velar.testnet",
+      "abtc_address": "atbtc_audit_v20241223.velar.testnet",
       "native_currency_name": "NEAR",
       "native_currency_decimals": 18,
       "native_currency_symbol": "NEAR",
