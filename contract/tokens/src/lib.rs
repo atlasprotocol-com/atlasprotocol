@@ -106,6 +106,7 @@ impl Contract {
 
         self.token.internal_deposit(&account_id, amount.into());
 
+        let predecessor = env::predecessor_account_id();
         let event_log = json!({
             "standard": "nep141",
             "version": "1.0.0",
