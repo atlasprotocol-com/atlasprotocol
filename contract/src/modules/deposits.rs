@@ -800,6 +800,7 @@ impl Atlas {
                     || deposit.receiving_chain_id != mempool_deposit.receiving_chain_id
                     || deposit.receiving_address != mempool_deposit.receiving_address
                     || deposit.btc_amount != mempool_deposit.btc_amount
+                    || deposit.fee_amount != mempool_deposit.fee_amount
                     || deposit.timestamp != mempool_deposit.timestamp
                     || deposit.status != DEP_BTC_DEPOSITED_INTO_ATLAS
                     || deposit.remarks != mempool_deposit.remarks
