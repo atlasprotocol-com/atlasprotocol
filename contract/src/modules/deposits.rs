@@ -1,9 +1,9 @@
 use crate::atlas::Atlas;
 use crate::chain_configs::ChainConfigRecord;
+use crate::constants::delimiter::COMMA;
 use crate::constants::near_gas::*;
 use crate::constants::network_type::*;
 use crate::constants::status::*;
-use crate::constants::delimiter::COMMA;
 use crate::modules::signer::*;
 use crate::modules::structs::DepositRecord;
 use crate::AtlasExt;
@@ -179,7 +179,11 @@ impl Atlas {
         }
     }
 
-    pub fn update_deposit_minted_txn_hash(&mut self, btc_txn_hash: String, minted_txn_hash: String) {
+    pub fn update_deposit_minted_txn_hash(
+        &mut self,
+        btc_txn_hash: String,
+        minted_txn_hash: String,
+    ) {
         self.assert_not_paused();
         self.assert_admin();
 
@@ -202,17 +206,14 @@ impl Atlas {
                 SIGNET.to_string()
             };
 
-            if let Some(chain_config) = self
-                .chain_configs
-                .get_chain_config(chain_id.clone())
-            {
+            if let Some(chain_config) = self.chain_configs.get_chain_config(chain_id.clone()) {
                 // Check all specified conditions
                 if (deposit.status == DEP_BTC_PENDING_MINTED_INTO_ABTC)
-                    && deposit.verified_count >= chain_config.validators_threshold                    
+                    && deposit.verified_count >= chain_config.validators_threshold
                     && deposit.remarks.is_empty()
                     && deposit.minted_txn_hash.is_empty()
                 {
-                    // All conditions are met, proceed to update the minted transaction hash                    
+                    // All conditions are met, proceed to update the minted transaction hash
                     deposit.minted_txn_hash = minted_txn_hash.clone();
                     self.deposits.insert(btc_txn_hash.clone(), deposit);
                     log!(
@@ -262,12 +263,10 @@ impl Atlas {
             } else {
                 SIGNET.to_string()
             };
-            
-            if let Some(btc_chain_config) = self
-                .chain_configs
-                .get_chain_config(btc_chain_id.clone())
-            {
 
+            if let Some(btc_chain_config) =
+                self.chain_configs.get_chain_config(btc_chain_id.clone())
+            {
                 // Fetch chain configuration for the deposit's receiving_chain_id
                 if let Some(chain_config) = self
                     .chain_configs
@@ -276,12 +275,13 @@ impl Atlas {
                     // Check all specified conditions
                     if (deposit.status == DEP_BTC_PENDING_MINTED_INTO_ABTC)
                         && deposit.verified_count >= btc_chain_config.validators_threshold
-                        && deposit.minted_txn_hash_verified_count  >= chain_config.validators_threshold
+                        && deposit.minted_txn_hash_verified_count
+                            >= chain_config.validators_threshold
                         && deposit.remarks.is_empty()
                         && deposit.minted_txn_hash == minted_txn_hash
                     {
                         // All conditions are met, proceed to update the deposit status
-                        deposit.status = DEP_BTC_MINTED_INTO_ABTC;                        
+                        deposit.status = DEP_BTC_MINTED_INTO_ABTC;
                         self.deposits.insert(btc_txn_hash.clone(), deposit);
                         log!(
                             "Deposit status updated to DEP_BTC_MINTED_INTO_ABTC for btc_txn_hash: {}",
@@ -390,7 +390,7 @@ impl Atlas {
                     && !deposit.receiving_chain_id.is_empty()
                     && !deposit.receiving_address.is_empty()
                     && !deposit.remarks.is_empty()
-                    && deposit.retry_count <= max_retry_count
+                    && deposit.retry_count < max_retry_count
                 {
                     // If receiving chain ID is EVM and receiving address is not a valid EVM address, do not rollback
                     if let Some(chain_config) = self
@@ -844,7 +844,11 @@ impl Atlas {
     // Caller of this function has to be a new validator of this <btc_txn_hash>,<minted_txn_hash>
     // Checks that deposit record's btc_txn_hash and minted_txn_hash are equal to the input parameters, then increments the minted_txn_hash_verified_count by 1
     // Returns true if minted_txn_hash_verified_count incremented successfully and returns false if not incremented
-    pub fn increment_deposit_minted_txn_hash_verified_count(&mut self, btc_txn_hash: String, minted_txn_hash: String) -> bool {
+    pub fn increment_deposit_minted_txn_hash_verified_count(
+        &mut self,
+        btc_txn_hash: String,
+        minted_txn_hash: String,
+    ) -> bool {
         self.assert_not_paused();
 
         // Validate input parameters
@@ -877,7 +881,9 @@ impl Atlas {
                 }
 
                 // Verify that the deposit record's btc_txn_hash and minted_txn_hash match the input parameters
-                if deposit.btc_txn_hash == btc_txn_hash && deposit.minted_txn_hash == minted_txn_hash {
+                if deposit.btc_txn_hash == btc_txn_hash
+                    && deposit.minted_txn_hash == minted_txn_hash
+                {
                     // Increment the minted_txn_hash_verified_count
                     deposit.minted_txn_hash_verified_count += 1;
 
@@ -909,7 +915,7 @@ impl Atlas {
             false
         }
     }
-    
+
     pub fn withdraw_fail_deposit_by_btc_tx_hash(
         &mut self,
         btc_txn_hash: String,
