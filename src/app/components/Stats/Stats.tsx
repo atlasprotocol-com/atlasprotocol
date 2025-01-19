@@ -1,115 +1,89 @@
-import Image from "next/image";
-import { Fragment, useEffect, useState } from "react";
+import { useMemo } from "react";
 
-import { useGlobalParams } from "@/app/context/api/GlobalParamsProvider";
-import {
-  StakingStats,
-  useStakingStats,
-} from "@/app/context/api/StakingStatsProvider";
-import { getNetworkConfig } from "@/config/network.config";
+import { useAppContext } from "@/app/context/app";
+import { useGetGlobalParams, useGetStats } from "@/hooks/stats";
 import { satoshiToBtc } from "@/utils/btcConversions";
 import { maxDecimals } from "@/utils/maxDecimals";
 
-import confirmedTvl from "./icons/confirmed-tvl.svg";
-import pendingStake from "./icons/pending-stake.svg";
-import stakingTvlCap from "./icons/staking-tvl-cap.svg";
+import { Card } from "../Card";
+
+import { LockIcon } from "./icons/Lock";
+import { MintIcon } from "./icons/Mint";
+import { StakeIcon } from "./icons/Stake";
+
+function CardStat({
+  icon,
+  title,
+  value,
+  valueUnit,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  value: string;
+  valueUnit?: string;
+}) {
+  return (
+    <Card className="flex gap-4">
+      <div className="w-14 h-14 rounded-full bg-[#FEF3DE] dark:bg-neutral-11 flex justify-center items-center text-[36px]">
+        {icon}
+      </div>
+      <div>
+        <p className="text-caption">{title}</p>
+        <p className="text-base">
+          <span className="text-2xl font-bold">{value}</span> {valueUnit ?? ""}
+        </p>
+      </div>
+    </Card>
+  );
+}
 
 export const Stats: React.FC = () => {
-  const [stakingStats, setStakingStats] = useState<StakingStats | undefined>({
-    activeTVLSat: 0,
-    totalTVLSat: 0,
-    totalStakers: 0,
-    unconfirmedTVLSat: 0,
-  });
-  const [stakingCapText, setStakingCapText] = useState<{
-    title: string;
-    value: string;
-  }>({
-    title: "Staking TVL Cap",
-    value: "-",
-  });
-  const [isLoading, setIsLoading] = useState(true);
-  const stakingStatsProvider = useStakingStats();
-  const globalParams = useGlobalParams();
+  const globalParams = useGetGlobalParams();
+  const stats = useGetStats();
+  const {
+    BTC_TOKEN,
+    ATLAS_BTC_TOKEN,
+    btcWallet,
+    btcAddress,
+    btcPublicKeyNoCoord,
+    btcNetwork,
+    btcRefreshBalance,
+  } = useAppContext();
 
-  const { coinName } = getNetworkConfig();
+  const statsValue = useMemo(() => {
+    if (!stats.data) return null;
 
-  // Load the data from staking stats provider and global params
-  useEffect(() => {
-    if (stakingStatsProvider.data) {
-      setStakingStats(stakingStatsProvider.data);
-    }
-
-    if (globalParams.data && globalParams.data.length > 0) {
-      const currentVersion = globalParams.data[0]; // Assuming you want the first version
-      setStakingCapText({
-        title: "Staking TVL Cap",
-        value: `${maxDecimals(satoshiToBtc(currentVersion.stakingCapSat), 8)} ${coinName}`,
-      });
-    }
-
-    setIsLoading(stakingStatsProvider.isLoading || globalParams.isLoading);
-  }, [stakingStatsProvider, globalParams, coinName]);
-
-  const sections = [
-    [
-      {
-        title: stakingCapText.title,
-        value: stakingCapText.value,
-        icon: stakingTvlCap,
-      },
-      {
-        title: "Confirmed TVL",
-        value: stakingStats?.activeTVLSat
-          ? `${maxDecimals(satoshiToBtc(stakingStats.activeTVLSat), 8)} ${coinName}`
-          : 0,
-        icon: confirmedTvl,
-      },
-      {
-        title: "Pending Stake",
-        value: stakingStats?.unconfirmedTVLSat
-          ? `${maxDecimals(satoshiToBtc(stakingStats.unconfirmedTVLSat), 8)} ${coinName}`
-          : 0,
-        icon: pendingStake,
-      },
-    ],
-  ];
+    const statsData = stats.data;
+    return {
+      totalBTCStaked: maxDecimals(satoshiToBtc(statsData.btcStaked || 0), 8),
+      totalTVL: statsData.tvl || 0,
+      totalAtBtcMinted: maxDecimals(
+        satoshiToBtc(statsData.atbtcMinted || 0),
+        8,
+      ),
+    };
+  }, [stats.data]);
 
   return (
-    <div className="card flex flex-col gap-4 bg-base-300 p-1 shadow-sm">
-      {sections.map((section, index) => (
-        <div
-          key={index}
-          className="card flex justify-center bg-base-400 p-4 text-sm md:flex-row"
-        >
-          {section.map((subSection, subIndex) => (
-            <Fragment key={subSection.title}>
-              <div className="flex md:items-center gap-2 flex-col flex-wrap md:justify-center md:w-[160px]">
-                <div className="flex items-center gap-2">
-                  <Image src={subSection.icon} alt={subSection.title} />
-                  <div className="flex items-center gap-1">
-                    <p className="dark:text-neutral-content">
-                      {subSection.title}
-                    </p>
-                  </div>
-                </div>
-                <div>
-                  <p className="flex-1">
-                    {isLoading ? (
-                      <span className="loading loading-spinner text-primary" />
-                    ) : (
-                      <strong>{subSection.value}</strong>
-                    )}
-                  </p>
-                </div>
-              </div>
-              {subIndex !== section.length - 1 && (
-                <div className="divider mx-0 my-2 md:divider-horizontal" />
-              )}
-            </Fragment>
-          ))}
-        </div>
-      ))}
+    <div className="grid lg:grid-cols-3 gap-4">
+      <CardStat
+        icon={<StakeIcon />}
+        title="Total BTC Staked"
+        value={statsValue?.totalBTCStaked.toString() ?? "--"}
+        valueUnit={BTC_TOKEN}
+      />
+      <CardStat
+        icon={<LockIcon />}
+        title="Total TVL"
+        value={statsValue?.totalTVL.toFixed(2).toString() ?? "--"}
+        valueUnit={"USD"}
+      />
+      <CardStat
+        icon={<MintIcon />}
+        title={`${ATLAS_BTC_TOKEN} Minted`}
+        value={statsValue?.totalAtBtcMinted.toString() ?? "--"}
+        valueUnit={ATLAS_BTC_TOKEN}
+      />
     </div>
   );
 };

@@ -1,17 +1,35 @@
-CONTRACT_ID ?= atlas_audit_v20241223
-FT_CONTRACT_ID ?= atbtc_audit_v20241223
+# CONTRACT_ID ?= atlas_revamp_20241126
+# FT_CONTRACT_ID ?= atbtc_revamp_20241126
 
-# CONTRACT_ID ?= atlas_audit_v2
-# FT_CONTRACT_ID ?= atbtc_audit_v2
+CONTRACT_ID ?= atlas_revamp_20241201
+FT_CONTRACT_ID ?= atbtc_revamp_20241201
+
+cleanup:
+	near call $(CONTRACT_ID).velar.testnet clear_all_deposits --accountId velar.testnet;
+	near call $(CONTRACT_ID).velar.testnet clear_all_redemptions --accountId velar.testnet;
+	near call $(CONTRACT_ID).velar.testnet clear_all_bridgings --accountId velar.testnet;
+	near call $(CONTRACT_ID).velar.testnet clear_all_verifications --accountId velar.testnet;
+
+validator:
+	near call $(CONTRACT_ID).velar.testnet add_validator '{"account_id": "velar.testnet", "chain_id": "SIGNET"}' --accountId velar.testnet;
+	near call $(CONTRACT_ID).velar.testnet add_validator '{"account_id": "velar.testnet", "chain_id": "421614"}' --accountId velar.testnet;
+	near call $(CONTRACT_ID).velar.testnet add_validator '{"account_id": "velar.testnet", "chain_id": "11155420"}' --accountId velar.testnet;
+	near call $(CONTRACT_ID).velar.testnet add_validator '{"account_id": "velar.testnet", "chain_id": "NEAR_TESTNET"}' --accountId velar.testnet
+
+	near call $(CONTRACT_ID).velar.testnet add_validator '{"account_id": "buglungtung.testnet", "chain_id": "SIGNET"}' --accountId velar.testnet;
+	near call $(CONTRACT_ID).velar.testnet add_validator '{"account_id": "buglungtung.testnet", "chain_id": "421614"}' --accountId velar.testnet;
+	near call $(CONTRACT_ID).velar.testnet add_validator '{"account_id": "buglungtung.testnet", "chain_id": "11155420"}' --accountId velar.testnet;
+	near call $(CONTRACT_ID).velar.testnet add_validator '{"account_id": "buglungtung.testnet", "chain_id": "NEAR_TESTNET"}' --accountId velar.testnet;
 
 redeploy-all: redeploy redeploy-near-ft
 
 redeploy:
 	./build.sh
 
-	near call $(CONTRACT_ID).velar.testnet clear_all_validators --accountId velar.testnet;
+	near call $(CONTRACT_ID).velar.testnet clear_all_deposits --accountId velar.testnet;
+	near call $(CONTRACT_ID).velar.testnet clear_all_redemptions --accountId velar.testnet;
+	near call $(CONTRACT_ID).velar.testnet clear_all_bridgings --accountId velar.testnet;
 	near call $(CONTRACT_ID).velar.testnet clear_all_verifications --accountId velar.testnet;
-	near call $(CONTRACT_ID).velar.testnet clear_all_chain_configs --accountId velar.testnet;
 	
 	near delete-account $(CONTRACT_ID).velar.testnet velar.testnet;
 	near create-account $(CONTRACT_ID).velar.testnet --masterAccount velar.testnet --initialBalance 10;
@@ -20,17 +38,12 @@ redeploy:
 	near state $(CONTRACT_ID).velar.testnet;
 
 	near deploy $(CONTRACT_ID).velar.testnet res/atlas_protocol.wasm;
-	near call $(CONTRACT_ID).velar.testnet new '{"atlas_owner_id": "velar.testnet", "atlas_admin_id": "velar_admin.testnet", "global_params_owner_id": "velar.testnet", "chain_configs_owner_id": "velar.testnet", "treasury_address": "tb1pa4xwtgs3672h38rqdveyk5w9jqczfhjxh89j8erdlr59yj92qs8szyvw53", "production_mode": false}' --accountId velar.testnet;
+	near call $(CONTRACT_ID).velar.testnet new '{"atlas_owner_id": "velar.testnet", "atlas_admin_id": "velar.testnet", "global_params_owner_id": "velar.testnet", "chain_configs_owner_id": "velar.testnet", "treasury_address": "tb1pa4xwtgs3672h38rqdveyk5w9jqczfhjxh89j8erdlr59yj92qs8szyvw53"}' --accountId velar.testnet;
 
 	near call $(CONTRACT_ID).velar.testnet add_validator '{"account_id": "velar.testnet", "chain_id": "SIGNET"}' --accountId velar.testnet;
 	near call $(CONTRACT_ID).velar.testnet add_validator '{"account_id": "velar.testnet", "chain_id": "421614"}' --accountId velar.testnet;
 	near call $(CONTRACT_ID).velar.testnet add_validator '{"account_id": "velar.testnet", "chain_id": "11155420"}' --accountId velar.testnet;
 	near call $(CONTRACT_ID).velar.testnet add_validator '{"account_id": "velar.testnet", "chain_id": "NEAR_TESTNET"}' --accountId velar.testnet;
-
-	near call $(CONTRACT_ID).velar.testnet add_validator '{"account_id": "yeowlin.testnet", "chain_id": "SIGNET"}' --accountId velar.testnet;
-	near call $(CONTRACT_ID).velar.testnet add_validator '{"account_id": "yeowlin.testnet", "chain_id": "421614"}' --accountId velar.testnet;
-	near call $(CONTRACT_ID).velar.testnet add_validator '{"account_id": "yeowlin.testnet", "chain_id": "11155420"}' --accountId velar.testnet;
-	near call $(CONTRACT_ID).velar.testnet add_validator '{"account_id": "yeowlin.testnet", "chain_id": "NEAR_TESTNET"}' --accountId velar.testnet;
 
 	near call $(CONTRACT_ID).velar.testnet add_validator '{"account_id": "buglungtung.testnet", "chain_id": "SIGNET"}' --accountId velar.testnet;
 	near call $(CONTRACT_ID).velar.testnet add_validator '{"account_id": "buglungtung.testnet", "chain_id": "421614"}' --accountId velar.testnet;
@@ -51,5 +64,5 @@ redeploy-near-ft:
 	sleep 10;
 	near view $(FT_CONTRACT_ID).velar.testnet ft_metadata
 	
-	# near tokens buglungtung.testnet view-ft-balance atbtc_audit_v20241223.velar.testnet network-config testnet now
+	# near tokens buglungtung.testnet view-ft-balance $(FT_CONTRACT_ID).velar.testnet network-config testnet now
 	

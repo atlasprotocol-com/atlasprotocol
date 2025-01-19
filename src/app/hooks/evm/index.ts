@@ -1,2 +1,5 @@
 export * from "./balance";
-export * from './web3';
+export * from "./bridge";
+export * from "./estGas";
+export * from "./redeem";
+export * from "./web3";

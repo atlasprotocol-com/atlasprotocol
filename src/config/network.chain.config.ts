@@ -1,7 +1,6 @@
 // src/config/network.chain.config.ts
-import { ChainConfig } from "@/app/types/chainConfig";
 import { getChainConfigs } from "@/app/api/getChainConfigs";
-
+import { ChainConfig } from "@/app/types/chainConfig";
 
 // Variable to hold the loaded configuration data
 let chainConfigs: Record<string, ChainConfig> = {};

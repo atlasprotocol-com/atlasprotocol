@@ -18,8 +18,6 @@ export const createStakingTx = (
   publicKeyNoCoord: string,
   feeRate: number,
   inputUTXOs: UTXO[],
-  protocolFeeSat: number,
-  treasuryAddress: string,
   data: string,
 ) => {
   if (inputUTXOs.length == 0) {
@@ -38,11 +36,9 @@ export const createStakingTx = (
       address,
       finalityProviderPublicKey,
       stakingAmountSat,
-      feeRate,
+      feeRate + 1, // + 1 to avoid bad fee estimation
       inputUTXOs,
       btcWalletNetwork,
-      protocolFeeSat,
-      treasuryAddress,
       data,
       isTaproot(address) ? Buffer.from(publicKeyNoCoord, "hex") : undefined,
     );
@@ -70,12 +66,19 @@ export const signStakingTx = async (
   publicKeyNoCoord: string,
   feeRate: number,
   inputUTXOs: UTXO[],
-  protocolFeeSat: number,
-  treasuryAddress: string,
   data: string,
-): Promise<{ stakingTxHex: string }> => {
+): Promise<{ stakingTxHex: string; txHash: string }> => {
+  console.log("Signing staking transaction", {
+    stakingAmountSat,
+    finalityProviderPublicKey,
+    btcWalletNetwork,
+    address,
+    publicKeyNoCoord,
+    feeRate,
+    inputUTXOs,
+    data,
+  });
 
-  
   // Create the staking transaction
   let { unsignedStakingPsbt } = createStakingTx(
     stakingAmountSat,
@@ -85,8 +88,6 @@ export const signStakingTx = async (
     publicKeyNoCoord,
     feeRate,
     inputUTXOs,
-    protocolFeeSat,
-    treasuryAddress,
     data,
   );
 
@@ -96,8 +97,8 @@ export const signStakingTx = async (
     stakingTx = await signPsbtTransaction(btcWallet)(
       unsignedStakingPsbt.toHex(),
     );
-    
   } catch (error: Error | any) {
+    console.error("Staking transaction signing PSBT error", error);
     throw new Error(error?.message || "Staking transaction signing PSBT error");
   }
 
@@ -107,5 +108,5 @@ export const signStakingTx = async (
   // Broadcast the staking transaction
   const txHash = await btcWallet.pushTx(stakingTxHex);
 
-  return { stakingTxHex };
+  return { stakingTxHex, txHash };
 };

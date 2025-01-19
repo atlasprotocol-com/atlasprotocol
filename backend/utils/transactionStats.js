@@ -1,70 +1,60 @@
-// Define the AtlasStats structure
-class AtlasStats {
-    constructor(activeTVLSat, unconfirmedTVLSat, totalStakers, totalTVLSat) {
-      this.activeTVLSat = activeTVLSat;
-      this.unconfirmedTVLSat = unconfirmedTVLSat;
-      this.totalStakers = totalStakers;
-      this.totalTVLSat = totalTVLSat;
-    }
-  }
-  
-  const getTransactionsAndComputeStats = (
-    deposits,
-    redemptions,
-    btcAtlasDepositAddress
-  ) => {
-    let activeTVLSat = 0;
-    let unconfirmedTVLSat = 0;
-    let totalStakers = 0;
-    let totalTVLSat = 0;
-  
-    try {
-      // Sum of btc_amount in deposits where status = 0
-      unconfirmedTVLSat = deposits
-        .filter(
-          (deposit) =>
-            deposit.status === 0 &&
-            deposit.btc_sender_address !== btcAtlasDepositAddress
-        )
-        .reduce((sum, deposit) => sum + deposit.btc_amount, 0);
-  
-      // Count of unique btc_sender_address
-      const uniqueAddresses = new Set(
-        deposits.map((deposit) => deposit.btc_sender_address)
-      );
-      totalStakers = uniqueAddresses.size;
-  
-      // Sum of btc_amount in deposits where status != 0
-      const activeTVLSatDeposits = deposits
-        .filter(
-          (deposit) =>
-            deposit.status !== 0 &&
-            deposit.btc_sender_address !== btcAtlasDepositAddress
-        )
-        .reduce((sum, deposit) => sum + deposit.btc_amount, 0);
-  
-      // Total abtc_amount in redemptions where status = 30
-      const totalRedemptions = redemptions
-        .filter((redemption) => redemption.status === 30)
-        .reduce((sum, redemption) => sum + redemption.abtc_amount, 0);
-  
-      // Calculate activeTVLSat
-      activeTVLSat = activeTVLSatDeposits - totalRedemptions;
-  
-      totalTVLSat = activeTVLSat + unconfirmedTVLSat;
-  
-    //   console.log(
-    //     `Stats: activeTVLSat=${activeTVLSat}, unconfirmedTVLSat=${unconfirmedTVLSat}, totalStakers=${totalStakers}, totalTVLSat=${totalTVLSat}`
-    //   );
-    } catch (error) {
-      console.error(
-        `Failed to compute transactions and stats: ${error.message}`
-      );
-    }
-  
-    // Return the result as an instance of AtlasStats
-    return new AtlasStats(activeTVLSat, unconfirmedTVLSat, totalStakers, totalTVLSat);
+const { getConstants } = require("../constants");
+const { getPrice } = require("../coin");
+const { MemoryCache } = require("../cache");
+
+const cache = new MemoryCache();
+
+function toNumber(v) {
+  return Number(v || 0);
+}
+
+const getTransactionsAndComputeStats = async (
+  deposits,
+  redemptions,
+  btcAtlasDepositAddress,
+) => {
+  const { DEPOSIT_STATUS, REDEMPTION_STATUS } = getConstants();
+
+  const depositedStats = deposits
+    .filter(
+      (deposit) =>
+        deposit.btc_sender_address !== btcAtlasDepositAddress &&
+        deposit.status != DEPOSIT_STATUS.BTC_PENDING_DEPOSIT_MEMPOOL,
+    )
+    .reduce(
+      (sum, deposit) =>
+        sum + toNumber(deposit.btc_amount) - toNumber(deposit.fee_amount),
+      0,
+    );
+
+  const redeemedStats = redemptions
+    .filter((redemption) =>
+      [REDEMPTION_STATUS.BTC_REDEEMED_BACK_TO_USER].includes(redemption.status),
+    )
+    .reduce((sum, redemption) => sum + toNumber(redemption.abtc_amount), 0);
+
+  const btcStaked = depositedStats - redeemedStats;
+  const btcPrice = await cache.wrap(getPrice)("bitcoin", "usd");
+  const tvl = (btcPrice * btcStaked) / 1e8;
+
+  const atbtcMinted = deposits
+    .filter(
+      (deposit) =>
+        deposit.btc_sender_address === btcAtlasDepositAddress &&
+        [DEPOSIT_STATUS.BTC_MINTED_INTO_ABTC].includes(deposit.status),
+    )
+    .reduce((sum, deposit) => sum + deposit.btc_amount - deposit.fee_amount, 0);
+
+  return {
+    btc_staked: btcStaked,
+    tvl: tvl,
+    atbtc_minted: atbtcMinted,
+    metadata: {
+      btc_price_usd: btcPrice,
+      deposits: { count: deposits.length },
+      redemptions: { count: redemptions.length },
+    },
   };
-  
-  module.exports = { getTransactionsAndComputeStats, AtlasStats };
-  
+};
+
+module.exports = { getTransactionsAndComputeStats };

@@ -15,22 +15,22 @@ near call atlas_revamp.velar.testnet clear_all_validators --accountId velar.test
 near call atlas_revamp.velar.testnet clear_all_verifications --accountId velar.testnet
 near call atlas_revamp.velar.testnet clear_all_chain_configs --accountId velar.testnet
 
-near delete-account atlas_dev_1.velar.testnet velar.testnet
+near delete-account atlas_dev.velar.testnet velar.testnet
 near delete-account atlas_revamp.velar.testnet velar.testnet
 
 Create NEAR Subaccount (CLI)
-near create-account atlas_dev_1.velar.testnet --masterAccount velar.testnet --initialBalance 10
-near create-account atlas_revamp.velar.testnet --masterAccount velar.testnet --initialBalance 10
+near create-account atlas_dev.velar.testnet --masterAccount velar.testnet --initialBalance 5
+near create-account atlas_revamp.velar.testnet --masterAccount velar.testnet --initialBalance 5
 
 Check State of the NEAR Account - No need to run for delete of smart contract (CLI)
-near state atlas_dev_1.velar.testnet
+near state atlas_dev.velar.testnet
 
 Deploy NEAR contract (CLI)
-near deploy atlas_dev_1.velar.testnet res/atlas_protocol.wasm
+near deploy atlas_dev.velar.testnet res/atlas_protocol.wasm
 near deploy atlas_revamp.velar.testnet res/atlas_protocol.wasm
 
 Initialise NEAR contract (CLI)
-near call atlas_dev_1.velar.testnet new '{"atlas_owner_id": "velar.testnet", "atlas_admin_id": "yeowlin.testnet", "global_params_owner_id": "velar.testnet", "chain_configs_owner_id": "velar.testnet", "treasury_address": "tb1pa4xwtgs3672h38rqdveyk5w9jqczfhjxh89j8erdlr59yj92qs8szyvw53", "production_mode": false}' --accountId velar.testnet
+near call atlas_dev.velar.testnet new '{"owner_id": "velar.testnet", "treasury_address": "tb1pa4xwtgs3672h38rqdveyk5w9jqczfhjxh89j8erdlr59yj92qs8szyvw53"}' --accountId velar.testnet
 near call atlas_revamp.velar.testnet new '{"atlas_owner_id": "velar.testnet", "atlas_admin_id": "velar.testnet", "global_params_owner_id": "velar.testnet", "chain_configs_owner_id": "velar.testnet", "treasury_address": "tb1pa4xwtgs3672h38rqdveyk5w9jqczfhjxh89j8erdlr59yj92qs8szyvw53"}' --accountId velar.testnet
 
 Call NEAR contract methods (CLI)
@@ -50,21 +50,6 @@ near view atlas_dev.velar.testnet get_bridgings_count
 near view atlas_dev.velar.testnet get_deposits_by_btc_sender_address '{"btc_sender_address": "tb1pn3axvlfpuzna9skzzmqw26k97xj0gkettk4vz290phdd46a5d2rqj8xsj2"}'
 
 near call atlas_dev.velar.testnet change_owner '{"new_owner_id": "velar.testnet"}' --accountId velar.testnet
-near call atlas_dev_1.velar.testnet propose_new_atlas_owner '{"proposed_owner_id": "yeowlin2.testnet"}' --accountId velar.testnet
-near call atlas_dev_1.velar.testnet accept_atlas_owner --accountId yeowlin2.testnet
-near call atlas_dev_1.velar.testnet propose_new_atlas_admin '{"proposed_admin_id": "velar.testnet"}' --accountId yeowlin2.testnet
-near call atlas_dev_1.velar.testnet accept_atlas_admin --accountId velar.testnet
-near view atlas_dev_1.velar.testnet get_atlas_owner_id
-near view atlas_dev_1.velar.testnet get_atlas_admin_id
-near view atlas_dev_1.velar.testnet get_chain_configs_owner_id
-near call atlas_dev_1.velar.testnet propose_new_global_params_owner '{"proposed_owner_id": "yeowlin.testnet"}' --accountId velar.testnet
-near call atlas_dev_1.velar.testnet accept_global_params_owner --accountId yeowlin.testnet
-near call atlas_dev_1.velar.testnet propose_new_chain_configs_owner '{"proposed_owner_id": "yeowlin.testnet"}' --accountId velar.testnet
-near call atlas_dev_1.velar.testnet accept_chain_configs_owner --accountId yeowlin.testnet
-near call atlas_dev_1.velar.testnet pause --accountId velar.testnet
-near call atlas_dev_1.velar.testnet unpause --accountId velar.testnet
-near view atlas_dev_1.velar.testnet is_paused
-near view atlas_dev_1.velar.testnet is_production_mode
 
 near call atlas_dev.velar.testnet get_deposit_by_btc_txn_hash '{"btc_txn_hash": "698fdaf6b008cddfbfcad2eca12af40f70145d2d3f32950e4dc7b46e1875c007"}' --accountId velar.testnet
 
@@ -138,7 +123,12 @@ near call atlas_revamp_10.velar.testnet add_validator '{"account_id": "yeowlin.t
 near view atlas_revamp_10.velar.testnet get_all_chain_configs
 near view atlas_revamp_10.velar.testnet get_all_deposits
 near view atlas_revamp_10.velar.testnet get_all_redemptions
+near view atlas_revamp_10.velar.testnet get_all_bridgings
 near view atlas_revamp_10.velar.testnet get_first_valid_deposit_chain_config
+near call atlas_revamp_10.velar.testnet update_fee_deposit_bps '{"fee_deposit_bps": 0}' --accountId velar.testnet
+near view atlas_revamp_10.velar.testnet get_deposit_tax_amount '{"amount": 2000}'
+near view atlas_revamp_10.velar.testnet get_bridging_tax_amount '{"amount": 2000}'
+
 
 near call atlas_revamp_10.velar.testnet update_deposit_remarks '{"btc_txn_hash": "8cc0afd07737877ed7c22cc7850759b95535516dfde4e260311f2253bc04ed33", "remarks": ""}' --accountId velar.testnet
 near call atlas_revamp_10.velar.testnet update_deposit_status '{"btc_txn_hash": "8cc0afd07737877ed7c22cc7850759b95535516dfde4e260311f2253bc04ed33", "status": 10}' --accountId velar.testnet
@@ -148,8 +138,25 @@ near call atlas_revamp_10.velar.testnet update_redemption_remarks '{"txn_hash": 
 near call atlas_revamp_10.velar.testnet update_redemption_status '{"txn_hash": "421614,0x5f57a32109380c7f4277eeedc029b92ef727c5b23b338a848d33b296e5652e16", "status": 10}' --accountId velar.testnet
 
 
-near call atlas_revamp_10.velar.testnet rollback_deposit_status_by_btc_txn_hash '{"btc_txn_hash": "9d8eebf47242770c87438c37570219afc497f4c6e2693b3f7c94c99448d47703"}' --accountId velar.testnet
+near call atlas_revamp_10.velar.testnet rollback_deposit_status_by_btc_txn_hash '{"btc_txn_hash": "08d75e91fb1496b0f08ceeb821f7ca31d3c7c052833b02384d17a9c1ca9fff50"}' --accountId velar.testnet
 
+near call atlas_revamp_10.velar.testnet rollback_redemption_status_by_txn_hash '{"txn_hash": "421614,0xb72f67b340c530f5bc410d9e7d0aa8d1e293e7762b41f4fdcb95ff9a4d47c8ad"}' --accountId velar.testnet
+
+
+near view atlas_revamp_10.velar.testnet get_all_global_params
+
+near view atlas_revamp_10.velar.testnet get_all_chain_configs
+near call atlas_revamp_10.velar.testnet update_btc_min_staking_amount '{"btc_min_staking_amount": 2000}' --accountId velar.testnet
+near view atlas_revamp_10.velar.testnet get_chain_config '{"key": "11155420"}'
+near call atlas_revamp_10.velar.testnet set_chain_configs_from_json '{"new_json_data": '"$(jq -Rs '.' < chain_chains.json)"'}' --accountId velar.testnet
+
+near call atlas_audit.velar.testnet get_deposit_by_btc_txn_hash '{"btc_txn_hash": "63d4b432874e0615aac2f2fe0e3fe9de7a655ad9f6399fe10ffd02fb5468e33a"}' --accountId velar.testnet
+
+
+
+near delete-account atlas_revamp_3.velar.testnet velar.testnet
+near create-account atlas_revamp_3.velar.testnet --masterAccount velar.testnet --initialBalance 10
+near deploy atlas_revamp_3.velar.testnet res/atlas_protocol.wasm
 near call atlas_revamp_3.velar.testnet update_deposit_remarks '{"btc_txn_hash": "781eaa989e5e35db6da84cb190e3df49c21cee8931e5301e91e8d9820e8f2c13", "remarks": ""}' --accountId velar.testnet
 near call atlas_revamp_3.velar.testnet update_deposit_status '{"btc_txn_hash": "781eaa989e5e35db6da84cb190e3df49c21cee8931e5301e91e8d9820e8f2c13", "status": 10}' --accountId velar.testnet
 
@@ -222,47 +229,3 @@ near call atlas_revamp_3.velar.testnet update_deposit_status '{"btc_txn_hash": "
 near call atlas_revamp_3.velar.testnet update_deposit_status '{"btc_txn_hash": "b71d3878f6a9ee5c821179a8f38cf8e422d2661b8c5d2ca28e42edda471ba234", "status": 10}' --accountId velar.testnet
 near call atlas_revamp_3.velar.testnet update_deposit_remarks '{"btc_txn_hash": "b71d3878f6a9ee5c821179a8f38cf8e422d2661b8c5d2ca28e42edda471ba234", "remarks": ""}' --accountId velar.testnet
 
-
-near call atlas_audit.velar.testnet clear_all_deposits --accountId velar.testnet
-near call atlas_audit.velar.testnet clear_all_redemptions --accountId velar.testnet
-near call atlas_audit.velar.testnet clear_all_bridgings --accountId velar.testnet
-near call atlas_audit.velar.testnet clear_all_validators --accountId velar.testnet
-near call atlas_audit.velar.testnet clear_all_verifications --accountId velar.testnet
-near call atlas_audit.velar.testnet clear_all_chain_configs --accountId velar.testnet
-near delete-account atlas_audit.velar.testnet velar.testnet
-near create-account atlas_audit.velar.testnet --masterAccount velar.testnet --initialBalance 10
-near deploy atlas_audit.velar.testnet res/atlas_protocol.wasm
-near call atlas_audit.velar.testnet new '{"atlas_owner_id": "velar.testnet", "atlas_admin_id": "velar.testnet", "global_params_owner_id": "velar.testnet", "chain_configs_owner_id": "velar.testnet", "treasury_address": "tb1pa4xwtgs3672h38rqdveyk5w9jqczfhjxh89j8erdlr59yj92qs8szyvw53"}' --accountId velar.testnet
-
-near call atlas_audit.velar.testnet add_validator '{"account_id": "velar.testnet", "chain_id": "SIGNET"}' --accountId velar.testnet
-near call atlas_audit.velar.testnet add_validator '{"account_id": "velar1.testnet", "chain_id": "SIGNET"}' --accountId velar.testnet
-near call atlas_audit.velar.testnet add_validator '{"account_id": "velar2.testnet", "chain_id": "SIGNET"}' --accountId velar.testnet
-near call atlas_audit.velar.testnet add_validator '{"account_id": "velar3.testnet", "chain_id": "SIGNET"}' --accountId velar.testnet
-near call atlas_audit.velar.testnet add_validator '{"account_id": "velar4.testnet", "chain_id": "SIGNET"}' --accountId velar.testnet
-near call atlas_audit.velar.testnet add_validator '{"account_id": "velar5.testnet", "chain_id": "SIGNET"}' --accountId velar.testnet
-near call atlas_audit.velar.testnet add_validator '{"account_id": "yeowlin.testnet", "chain_id": "SIGNET"}' --accountId velar.testnet
-near call atlas_audit.velar.testnet add_validator '{"account_id": "velar.testnet", "chain_id": "421614"}' --accountId velar.testnet
-near call atlas_audit.velar.testnet add_validator '{"account_id": "velar1.testnet", "chain_id": "421614"}' --accountId velar.testnet
-near call atlas_audit.velar.testnet add_validator '{"account_id": "velar2.rtestnet", "chain_id": "421614"}' --accountId velar.testnet
-near call atlas_audit.velar.testnet add_validator '{"account_id": "velar3.testnet", "chain_id": "421614"}' --accountId velar.testnet
-near call atlas_audit.velar.testnet add_validator '{"account_id": "velar4.testnet", "chain_id": "421614"}' --accountId velar.testnet
-near call atlas_audit.velar.testnet add_validator '{"account_id": "velar5.testnet", "chain_id": "421614"}' --accountId velar.testnet
-near call atlas_audit.velar.testnet add_validator '{"account_id": "yeowlin.testnet", "chain_id": "421614"}' --accountId velar.testnet
-near call atlas_audit.velar.testnet add_validator '{"account_id": "velar.testnet", "chain_id": "11155420"}' --accountId velar.testnet
-near call atlas_audit.velar.testnet add_validator '{"account_id": "velar1.testnet", "chain_id": "11155420"}' --accountId velar.testnet
-near call atlas_audit.velar.testnet add_validator '{"account_id": "velar2.testnet", "chain_id": "11155420"}' --accountId velar.testnet
-near call atlas_audit.velar.testnet add_validator '{"account_id": "velar3.testnet", "chain_id": "11155420"}' --accountId velar.testnet
-near call atlas_audit.velar.testnet add_validator '{"account_id": "velar4.testnet", "chain_id": "11155420"}' --accountId velar.testnet
-near call atlas_audit.velar.testnet add_validator '{"account_id": "velar5.testnet", "chain_id": "11155420"}' --accountId velar.testnet
-near call atlas_audit.velar.testnet add_validator '{"account_id": "yeowlin.testnet", "chain_id": "11155420"}' --accountId velar.testnet
-near call atlas_audit.velar.testnet add_validator '{"account_id": "yeowlin.testnet", "chain_id": "NEAR_TESTNET"}' --accountId velar.testnet
-near call atlas_audit.velar.testnet add_validator '{"account_id": "velar.testnet", "chain_id": "NEAR_TESTNET"}' --accountId velar.testnet
-near call atlas_audit.velar.testnet add_validator '{"account_id": "velar1.testnet", "chain_id": "NEAR_TESTNET"}' --accountId velar.testnet
-near call atlas_audit.velar.testnet add_validator '{"account_id": "velar2.testnet", "chain_id": "NEAR_TESTNET"}' --accountId velar.testnet
-near call atlas_audit.velar.testnet add_validator '{"account_id": "velar3.testnet", "chain_id": "NEAR_TESTNET"}' --accountId velar.testnet
-near call atlas_audit.velar.testnet add_validator '{"account_id": "velar4.testnet", "chain_id": "NEAR_TESTNET"}' --accountId velar.testnet
-near call atlas_audit.velar.testnet add_validator '{"account_id": "velar5.testnet", "chain_id": "NEAR_TESTNET"}' --accountId velar.testnet
-near view atlas_audit.velar.testnet get_all_deposits
-near view atlas_audit.velar.testnet get_all_chain_configs
-near call atlas_audit.velar.testnet set_chain_configs_from_json '{"new_json_data": '"$(jq -Rs '.' < chain_chains.json)"'}' --accountId velar.testnet
-near call atlas_audit.velar.testnet rollback_deposit_status_by_btc_txn_hash '{"btc_txn_hash": "aa580a38218aa5b59752882d523bc0cf661de25d4b9bdd9800f06cfc41635818"}' --accountId velar.testnet

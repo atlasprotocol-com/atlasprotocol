@@ -4,17 +4,18 @@ pub mod status {
     // Deposit status constants as u8
     pub const DEP_BTC_PENDING_MEMPOOL: u8 = 0;
     pub const DEP_BTC_DEPOSITED_INTO_ATLAS: u8 = 10;
-    pub const DEP_BTC_PENDING_DEPOSIT_INTO_BABYLON: u8 = 11;
-    pub const DEP_BTC_DEPOSITED_INTO_BABYLON: u8 = 20;
+    pub const DEP_BTC_PENDING_YIELD_PROVIDER_DEPOSIT: u8 = 11;
+    pub const DEP_BTC_YIELD_PROVIDER_DEPOSITED: u8 = 20;
     pub const DEP_BTC_PENDING_MINTED_INTO_ABTC: u8 = 21;
     pub const DEP_BTC_MINTED_INTO_ABTC: u8 = 30;
-    pub const DEP_BTC_REFUNDING: u8 = 40;
-    pub const DEP_BTC_REFUNDED: u8 = 41;
 
     // Redemption status constants as u8
     pub const RED_ABTC_BURNT: u8 = 10;
-    pub const RED_BTC_PENDING_REDEMPTION_FROM_BABYLON_TO_ATLAS: u8 = 11;
-    pub const RED_BTC_REDEEMED_FROM_BABYLON_INTO_ATLAS: u8 = 20;
+    pub const RED_BTC_PENDING_YIELD_PROVIDER_UNSTAKE: u8 = 11;
+    pub const RED_BTC_YIELD_PROVIDER_UNSTAKE_PROCESSING: u8 = 12;
+    pub const RED_BTC_YIELD_PROVIDER_UNSTAKED: u8 = 13;
+    pub const RED_BTC_PENDING_YIELD_PROVIDER_WITHDRAW: u8 = 14;
+    pub const RED_BTC_YIELD_PROVIDER_WITHDRAWING: u8 = 15;
     pub const RED_BTC_PENDING_REDEMPTION_FROM_ATLAS_TO_USER: u8 = 21;
     pub const RED_BTC_PENDING_MEMPOOL_CONFIRMATION: u8 = 22;
     pub const RED_BTC_REDEEMED_BACK_TO_USER: u8 = 30;

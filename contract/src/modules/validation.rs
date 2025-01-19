@@ -48,9 +48,9 @@ impl Atlas {
 
     // Setter for validators: Add chain_id to the account_id in validators map
     pub fn add_validator(&mut self, account_id: AccountId, chain_id: String) {
-        self.assert_not_paused();
+     
         self.assert_owner();
-
+     
         // Validate input parameters
         assert!(!account_id.to_string().is_empty(), "Account ID cannot be empty");
         assert!(!chain_id.is_empty(), "Chain ID cannot be empty");
@@ -64,7 +64,6 @@ impl Atlas {
 
     // Setter for validators: Remove chain_id from the account_id in validators map
     pub fn remove_validator(&mut self, account_id: AccountId, chain_id: String) {
-        self.assert_not_paused();
         self.assert_owner();
 
         // Validate input parameters

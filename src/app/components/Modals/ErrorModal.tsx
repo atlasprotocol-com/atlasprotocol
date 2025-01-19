@@ -1,10 +1,10 @@
 import { format } from "date-fns";
-import { IoMdClose } from "react-icons/io";
 
 import { useError } from "@/app/context/Error/ErrorContext";
 import { ErrorState, ShowErrorParams } from "@/app/types/errors";
 
-import { GeneralModal } from "./GeneralModal";
+import { Button } from "../Button";
+import { Dialog } from "../Dialog";
 
 interface ErrorModalProps {
   open: boolean;
@@ -81,38 +81,23 @@ export const ErrorModal: React.FC<ErrorModalProps> = ({
   const formattedErrorTime = format(errorTime, "dd MMMM yyyy 'at' HH:mm:ss");
 
   return (
-    <GeneralModal open={open} onClose={onClose}>
-      <div className="mb- flex items-center justify-end">
-        <button
-          className="btn btn-circle btn-ghost btn-sm"
-          onClick={() => onClose()}
-        >
-          <IoMdClose size={24} />
-        </button>
-      </div>
+    <Dialog open={open} onOpenChange={onClose} headerTitle={getErrorTitle()}>
       <div className="flex flex-col justify-center gap-4">
-        <h3 className="text-center font-bold text-error">{getErrorTitle()}</h3>
         <div className="flex flex-col gap-3">
           <p className="text-center">{getErrorMessage()}</p>
           <p className="text-center text-xs opacity-50">{formattedErrorTime}</p>
         </div>
-        <div className="mt-4 flex justify-around gap-4">
-          <button
-            className="btn btn-outline flex-1 rounded-lg px-2"
-            onClick={() => onClose()}
-          >
+        <div className="mt-4 flex gap-4">
+          <Button intent="outline" className="flex-1" onClick={() => onClose()}>
             Cancel
-          </button>
+          </Button>
           {onRetry && (
-            <button
-              className="btn-primary btn flex-1 rounded-lg px-2 text-white"
-              onClick={handleRetry}
-            >
+            <Button className="flex-1" onClick={handleRetry}>
               Try Again
-            </button>
+            </Button>
           )}
         </div>
       </div>
-    </GeneralModal>
+    </Dialog>
   );
 };

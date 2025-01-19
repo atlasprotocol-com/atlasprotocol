@@ -14,7 +14,7 @@
       "batch_size": 0,
       "gas_limit": 0,
       "abi_path": "",
-      "validators_threshold": 2
+      "validators_threshold": 1
     },
     {
       "chain_id": "NEAR_TESTNET",
@@ -22,7 +22,7 @@
       "network_name": "NEAR testnet",
       "chain_rpc_url": "https://rpc.testnet.near.org",
       "explorer_url": "https://testnet.nearblocks.io/",
-      "abtc_address": "atbtc_audit_v2.velar.testnet",
+      "abtc_address": "atbtc_101.velar.testnet",
       "native_currency_name": "NEAR",
       "native_currency_decimals": 18,
       "native_currency_symbol": "NEAR",
@@ -30,7 +30,7 @@
       "batch_size": 10000,
       "gas_limit": 0,
       "abi_path": "",
-      "validators_threshold": 2
+      "validators_threshold": 1
     },
     {
       "chain_id": "421614",
@@ -38,15 +38,15 @@
       "network_name": "Arbitrum Sepolia",
       "chain_rpc_url": "https://sepolia-rollup.arbitrum.io/rpc",
       "explorer_url": "https://sepolia.arbiscan.io/",
-      "abtc_address": "0x163b2778a4807e4321e8aa01a2dc09f541a98003",
+      "abtc_address": "0xe04270F600b76b16e283A1349025d0D123B71D35",
       "native_currency_name": "ETH",
       "native_currency_decimals": 18,
       "native_currency_symbol": "ETH",
       "first_block": 67300000,
       "batch_size": 50000,
-      "gas_limit": 10000000,
+      "gas_limit": 5000000,
       "abi_path": "../../contract/artifacts/atBTC.abi",
-      "validators_threshold": 2
+      "validators_threshold": 1
     },
     {
       "chain_id": "11155420",
@@ -54,15 +54,15 @@
       "network_name": "Optimism Sepolia",
       "chain_rpc_url": "https://sepolia.optimism.io",
       "explorer_url": "https://sepolia-optimism.etherscan.io/",
-      "abtc_address": "0x630619e62cd82f823bde3bd9dd48879bd23ad0c9",
+      "abtc_address": "0x52E79f33937C51446Bdd5b2d89F013da3839C399",
       "native_currency_name": "ETH",
       "native_currency_decimals": 18,
       "native_currency_symbol": "ETH",
       "first_block": 15210000,
       "batch_size": 10000,
-      "gas_limit": 10000000,
+      "gas_limit": 5000000,
       "abi_path": "../../contract/artifacts/atBTC.abi",
-      "validators_threshold": 2
+      "validators_threshold": 1
     }
   ]
 }

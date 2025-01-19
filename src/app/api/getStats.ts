@@ -7,22 +7,24 @@ interface StatsAPIResponse {
 }
 
 interface StatsAPI {
-  active_tvl: number;
-  total_tvl: number;
-  total_stakers: number;
-  unconfirmed_tvl: number;
+  btc_staked: number;
+  tvl: number;
+  atbtc_minted: number;
 }
 
 export const getStats = async (): Promise<StakingStats> => {
-  const response = await apiWrapper("GET", "/api/v1/stats", "Error getting stats");
+  const response = await apiWrapper(
+    "GET",
+    "/api/v1/stats",
+    "Error getting stats",
+  );
 
   const statsAPIResponse: StatsAPIResponse = response.data;
   const statsAPI: StatsAPI = statsAPIResponse.data;
 
   return {
-    activeTVLSat: statsAPI.active_tvl,
-    totalTVLSat: statsAPI.total_tvl,
-    totalStakers: statsAPI.total_stakers,
-    unconfirmedTVLSat: statsAPI.unconfirmed_tvl,
+    btcStaked: statsAPI.btc_staked || 0,
+    tvl: statsAPI.tvl || 0,
+    atbtcMinted: statsAPI.btc_staked || 0,
   };
 };

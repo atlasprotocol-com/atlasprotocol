@@ -4,28 +4,48 @@ const dotenv = require("dotenv");
 const { globalParams, updateGlobalParams } = require("./config/globalParams");
 const { getTransactionsAndComputeStats } = require("./utils/transactionStats");
 const { UpdateAtlasBtcDeposits } = require("./utils/updateAtlasBtcDeposits");
-const { WithdrawFailDeposits } = require("./utils/WithdrawFailDeposits");
-const {
-  UpdateWithdrawFailDeposits,
-} = require("./utils/UpdateWithdrawFailDeposits");
 const {
   MintaBtcToReceivingChain,
 } = require("./utils/mintaBtcToReceivingChain");
 const {
+  MintBridgeABtcToDestChain,
+} = require("./utils/mintBridgeABtcToDestChain");
+const {
   UpdateAtlasBtcRedemptions,
 } = require("./utils/updateAtlasBtcRedemptions");
-const { SendBtcBackToUser } = require("./utils/sendBtcBackToUser");
+const { UpdateAtlasBtcBridgings } = require("./utils/updateAtlasBtcBridgings");
+const {
+  UpdateAtlasBridgeAbtcMinted,
+} = require("./utils/updateAtlasBridgeAbtcMinted");
 const {
   UpdateAtlasBtcBackToUser,
 } = require("./utils/updateAtlasBtcBackToUser");
-const { UpdateAtlasAbtcMintedTxnHash } = require("./utils/UpdateAtlasAbtcMintedTxnHash");
 const { UpdateAtlasAbtcMinted } = require("./utils/updateAtlasAbtcMinted");
+const {
+  UpdateYieldProviderStacked,
+} = require("./utils/updateYieldProviderStacked");
+const {
+  UpdateYieldProviderUnStacked,
+} = require("./utils/updateYieldProviderUnStacked");
 
 const {
   fetchAndSetChainConfigs,
   getAllChainConfig,
+  getChainConfig,
 } = require("./utils/network.chain.config");
 const { fetchAndSetConstants, getConstants } = require("./constants");
+
+// Ensure StakeToYieldProvider is imported or defined
+const {
+  StakeToYieldProvider,
+  getBithiveDeposits,
+} = require("./utils/stakeToYieldProvider");
+const {
+  UnStakeFromYieldProvider,
+} = require("./utils/unStakeFromYieldProvider");
+const {
+  WithdrawFromYieldProvider,
+} = require("./utils/withdrawFromYieldProvider");
 
 // Load environment variables from .env.local or .env based on NODE_ENV
 const envFile = process.env.NODE_ENV === "production" ? ".env" : ".env.local";
@@ -41,14 +61,10 @@ app.use(helmet());
 
 const { Bitcoin } = require("./services/bitcoin");
 const { Near } = require("./services/near");
-
+const { Ethereum } = require("./services/ethereum");
 // Configuration for BTC connection
 const btcConfig = {
-  //btcAtlasDepositAddress: process.env.BTC_ATLAS_DEPOSIT_ADDRESS,
-  btcAtlasDepositAddress:
-    process.env.USE_COBO === "true"
-      ? process.env.COBO_DEPOSIT_ADDRESS
-      : process.env.BTC_ATLAS_DEPOSIT_ADDRESS,
+  btcAtlasDepositAddress: process.env.BTC_ATLAS_DEPOSIT_ADDRESS,
   btcAPI: process.env.BTC_MEMPOOL_API_URL,
   btcNetwork: process.env.BTC_NETWORK,
   btcDerivationPath: process.env.BTC_DERIVATION_PATH,
@@ -68,6 +84,7 @@ const nearConfig = {
   accountId: process.env.NEAR_ACCOUNT_ID,
   pk: process.env.NEAR_PRIVATE_KEY,
   gas: process.env.NEAR_DEFAULT_GAS,
+  bitHiveContractId: process.env.NEAR_BIT_HIVE_CONTRACT_ID,
 };
 
 const near = new Near(
@@ -78,6 +95,7 @@ const near = new Near(
   nearConfig.networkId,
   nearConfig.gas,
   nearConfig.mpcContractId,
+  nearConfig.bitHiveContractId,
 );
 
 app.use(cors());
@@ -88,9 +106,10 @@ let atlasStats = {};
 let deposits = [];
 let redemptions = [];
 let btcMempool = [];
+let bridgings = [];
 
-const computeStats = () => {
-  atlasStats = getTransactionsAndComputeStats(
+const computeStats = async () => {
+  atlasStats = await getTransactionsAndComputeStats(
     deposits,
     redemptions,
     btcAtlasDepositAddress,
@@ -118,6 +137,16 @@ const getAllRedemptionHistory = async () => {
   }
 };
 
+// Function to poll Near Atlas bridging records
+const getAllBridgingHistory = async () => {
+  try {
+    //console.log("Fetching bridgings history");
+    bridgings = await near.getAllBridgings();
+  } catch (error) {
+    console.error(`Failed to fetch bridging history: ${error.message}`);
+  }
+};
+
 // Function to poll Btc mempool records
 const getBtcMempoolRecords = async () => {
   try {
@@ -139,13 +168,13 @@ app.get("/api/v1/atlas/address", async (req, res) => {
 
 app.get("/api/v1/stats", async (req, res) => {
   try {
-    const data = {
-      active_tvl: atlasStats.activeTVLSat,
-      total_tvl: atlasStats.totalTVLSat,
-      total_stakers: atlasStats.totalStakers,
-      unconfirmed_tvl: atlasStats.unconfirmedTVLSat,
-    };
-    res.json({ data });
+    await getBtcMempoolRecords();
+    await getAllDepositHistory();
+    await getAllBridgingHistory();
+    await getAllRedemptionHistory();
+    await computeStats();
+
+    res.json({ data: { ...atlasStats } });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "ERR_INTERNAL_SERVER_ERROR" });
@@ -191,8 +220,6 @@ app.get("/api/v1/global-params", async (req, res) => {
           max_staking_amount: globalParams.maxStakingAmount,
           min_staking_amount: globalParams.minStakingAmount,
           atlas_address: btcAtlasDepositAddress,
-          deposit_fee_percentage: globalParams.atlasDepositFeePercentage,
-          treasury_address: globalParams.atlasTreasuryAddress,
         },
       ],
     };
@@ -212,6 +239,8 @@ app.get("/api/v1/staker/stakingHistories", async (req, res) => {
       return res.status(400).json({ error: "ERR_MISSING_WALLET_ADDRESS" });
     }
 
+    await getBtcMempoolRecords();
+    await computeStats();
     const filteredData = deposits
       .filter((record) => record.btc_sender_address === btc_address)
       .map((record) => ({
@@ -245,6 +274,9 @@ app.get("/api/v1/staker/redemptionHistories", async (req, res) => {
       return res.status(400).json({ error: "ERR_MISSING_WALLET_ADDRESS" });
     }
 
+    await getAllRedemptionHistory();
+    await computeStats();
+
     const data = redemptions
       .filter((record) => record.btc_receiving_address === btc_address)
       .map((record) => ({
@@ -270,6 +302,34 @@ app.get("/api/v1/staker/redemptionHistories", async (req, res) => {
   }
 });
 
+app.get("/api/v1/staker/bridgeHistories", async (req, res) => {
+  try {
+    const { chain_address } = req.query;
+
+    if (!chain_address) {
+      return res.status(400).json({ error: "ERR_MISSING_CHAIN_ADDRESS" });
+    }
+
+    await getAllBridgingHistory();
+    await computeStats();
+
+    const data = bridgings.filter(
+      (record) =>
+        record.dest_chain_address === chain_address ||
+        record.origin_chain_address === chain_address,
+    );
+
+    const pagination = {
+      next_key: null, // Assuming there is no pagination support for this example
+    };
+
+    res.json({ data, pagination });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "ERR_INTERNAL_SERVER_ERROR" });
+  }
+});
+
 // Define the /api/v1/chainConfigs endpoint
 app.get("/api/v1/chainConfigs", (req, res) => {
   try {
@@ -281,41 +341,101 @@ app.get("/api/v1/chainConfigs", (req, res) => {
   }
 });
 
+app.get("/api/v1/bithive-deposit", async (req, res) => {
+  try {
+    const { publicKey } = await bitcoin.deriveBTCAddress(near);
+    const returnData = await getBithiveDeposits(publicKey.toString("hex"));
+    res.status(200).json(returnData);
+  } catch (error) {
+    console.error("Error fetching bithive deposit:", error);
+    res.status(500).json({ message: "Error fetching bithive deposit" });
+  }
+});
+
+// API endpoint to get derived BTC address
+app.get("/api/derived-address", async (req, res) => {
+  try {
+    const { NETWORK_TYPE } = getConstants();
+    let derivationPath = NETWORK_TYPE.BITCOIN;
+
+    if (!derivationPath) {
+      throw new Error("NETWORK_TYPE.BITCOIN is undefined");
+    }
+
+    const { address: btcAddress, publicKey: btcPublicKey } =
+      await bitcoin.deriveBTCAddress(near);
+
+    let chainConfig = getChainConfig("421614");
+    console.log(chainConfig);
+
+    if (!chainConfig) {
+      throw new Error("Chain config for '421614' is undefined");
+    }
+
+    const ethereum = new Ethereum(
+      chainConfig.chainID, // Corrected property name
+      chainConfig.chainRpcUrl, // Corrected property name
+      chainConfig.gasLimit, // Corrected property name
+      chainConfig.aBTCAddress, // Corrected property name
+      chainConfig.abiPath, // Corrected property name
+    );
+
+    derivationPath = chainConfig.networkType; // Corrected property name
+    console.log(derivationPath);
+
+    if (!derivationPath) {
+      throw new Error("chainConfig.networkType is undefined");
+    }
+
+    // Generate the derived address for the aBTC minter & sender
+    const evmAddress = await ethereum.deriveEthAddress(
+      await near.nearMPCContract.public_key(),
+      near.contract_id,
+      derivationPath,
+    );
+
+    res.json({
+      evmAddress: evmAddress,
+      btcAddress: btcAddress,
+      btcPublicKey: btcPublicKey.toString("hex"),
+      mpcContractId: near.mpcContractId,
+      contractId: near.contract_id,
+    });
+  } catch (error) {
+    console.error("Error deriving address:", error);
+    res
+      .status(500)
+      .json({ error: "Failed to derive address", details: error.message });
+  }
+});
+
 async function runBatch() {
-  await getAllDepositHistory();
-  await getAllRedemptionHistory();
   await getBtcMempoolRecords();
+  await getAllDepositHistory();
+  await getAllBridgingHistory();
+  await getAllRedemptionHistory();
   await computeStats();
 
   await UpdateAtlasBtcDeposits(
     btcMempool,
     btcAtlasDepositAddress,
-    globalParams.atlasTreasuryAddress,
-    globalParams.atlasDepositFeePercentage,
     near,
     bitcoin,
   );
-
+  await StakeToYieldProvider(near, bitcoin);
+  await UpdateYieldProviderStacked(deposits, near, bitcoin);
   await MintaBtcToReceivingChain(near);
-
-  await UpdateAtlasAbtcMintedTxnHash(deposits, near);
-
   await UpdateAtlasAbtcMinted(deposits, near);
 
-  await WithdrawFailDeposits(deposits, near, bitcoin);
-  await UpdateWithdrawFailDeposits(deposits, near, bitcoin);
-
   await UpdateAtlasBtcRedemptions(near);
+  await UnStakeFromYieldProvider(near, bitcoin);
+  await UpdateYieldProviderUnStacked(redemptions, near, bitcoin);
+  await WithdrawFromYieldProvider(redemptions, near, bitcoin);
+  await UpdateAtlasBtcBackToUser(redemptions, near, bitcoin);
 
-  await SendBtcBackToUser(redemptions, near, bitcoin);
-
-  await UpdateAtlasBtcBackToUser(
-    redemptions,
-    btcMempool,
-    btcAtlasDepositAddress,
-    near,
-    bitcoin,
-  );
+  // await UpdateAtlasBtcBridgings(near);
+  // await MintBridgeABtcToDestChain(near);
+  // await UpdateAtlasBridgeAbtcMinted(bridgings, near);
 
   // Delay for 5 seconds before running the batch again
   await new Promise((resolve) => setTimeout(resolve, 5000));
@@ -329,13 +449,8 @@ app.listen(PORT, async () => {
   // Fetch and set chain configs before running the batch processes
   await fetchAndSetChainConfigs(near);
   await fetchAndSetConstants(near); // Load constants
+
   console.log(`Server is running on port ${PORT}`);
-  // const derivationPath = "BITCOIN";
-  //   const { address, publicKey } = await bitcoin.deriveBTCAddress(
-  //     await near.nearMPCContract.public_key(),
-  //     near.contract_id,
-  //     derivationPath,
-  //   );
-  // console.log("Bitcoin address: " + address);
+
   runBatch().catch(console.error);
 });

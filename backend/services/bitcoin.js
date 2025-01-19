@@ -13,6 +13,9 @@ const {
   uncompressedHexPointToSegwitAddress,
 } = require("../services/kdf");
 const fetchWithRetry = require("../utils/fetchWithRetry");
+const { getConstants } = require("../constants");
+
+const { magicHash } = require('./message');
 
 // Initialize ECC library
 bitcoin.initEccLib(ecc);
@@ -152,6 +155,188 @@ class Bitcoin {
     };
   }
 
+  async createPayload(near, sender, redemptionTxnHash) {
+    // Fetch UTXOs for the sender
+    const utxos = await this.fetchUTXOs(sender);
+
+    // Fetch the current fee rate from an external source
+    const feeRate = await this.fetchFeeRate();
+
+    // Prepare the payload header to send to the NEAR contract
+    const payloadHeader = {
+      sender: sender,
+      txn_hash: redemptionTxnHash,
+      utxos: utxos,
+      fee_rate: feeRate,
+    };
+
+    // Call the NEAR contract method to create the transaction
+    const result = await near.createRedeemAbtcTransaction(payloadHeader);
+
+    // Destructure the result from the NEAR contract
+    const {
+      psbt,
+      utxos: selectedUtxos,
+      estimated_fee: estimatedFee,
+      tax_amount: taxAmount,
+      receive_amount: receiveAmount,
+      change,
+    } = result;
+
+    // Return the necessary information
+    return {
+      psbt,
+      utxos: selectedUtxos,
+      estimatedFee,
+      taxAmount,
+      receiveAmount,
+      change,
+    };
+  }
+
+  // async requestSignatureToMPC(near, path, btcPayload, publicKey) {
+  //   const { psbt, utxos } = btcPayload;
+  //   console.log("publicKey:" + publicKey);
+  //   // Bitcoin needs to sign multiple utxos, so we need to pass a signer function
+  //   const sign = async (tx) => {
+  //     const btcPayload = Array.from(ethers.getBytes(tx));
+  //     //const payload = Array.from(ethPayload);
+  //     const signArgs = {
+  //       payload: btcPayload,
+  //       path: path,
+  //       key_version: 0,
+  //     };
+  //     const result = await near.nearMPCContract.sign({
+  //       args: { request: signArgs },
+  //       gas: "300000000000000",
+  //       amount: 1,
+  //     });
+
+  //     // const result = {
+  //     //   big_r: {
+  //     //     affine_point: '02F50391FFAED6521E163F1163FB7383C9509059393328334F43DAB16E8C629BE8'
+  //     //   },
+  //     //   s: {
+  //     //     scalar: '2E22941B9D3E3B4D7B8FAB1B3978D68E089BC1CEE33DD131B6A498FFF43CCE60'
+  //     //   },
+  //     //   recovery_id: 1
+  //     // };
+
+  //     console.log(result);
+
+  //     const big_r = result.big_r.affine_point;
+  //     const big_s = result.s.scalar;
+
+  //     return this.reconstructSignature(big_r, big_s);
+  //   };
+
+  //   await Promise.all(
+  //     utxos.map(async (_, index) => {
+  //       await psbt.signInputAsync(index, { publicKey, sign });
+  //     }),
+  //   );
+
+  //   psbt.finalizeAllInputs();
+
+  //   return psbt.extractTransaction().toHex();
+  // }
+
+  async requestSignatureToMPC(near, btcPayload, publicKey, txn_hash) {
+    const { psbt, utxos } = btcPayload;
+
+    //const fakePsbt = psbt;
+
+    // Example: Modify the PSBT outputs before finalizing
+    //fakePsbt.txOutputs.forEach((output, index) => {
+    //  console.log(`Output ${index}: Address - ${output.address}, Value - ${output.value}`);
+
+    // You can modify the value or address here
+    // Example: Adjusting the value of the first output
+    // if (index === 2) {
+    //   output.value -= 1000;  // Reduce output value by 5000 satoshis (fee or other adjustments)
+    // }
+
+    // Example: Changing the recipient of the second output
+    //  if (index === 1) {
+    //   output.address = "tb1pn3axvlfpuzna9skzzmqw26k97xj0gkettk4vz290phdd46a5d2rqj8xsj2";
+    //   output.value = 1000;
+    // }
+    //});
+
+    // Add a new output, if needed
+    // fakePsbt.addOutput({
+    //   address: "tb1pn3axvlfpuzna9skzzmqw26k97xj0gkettk4vz290phdd46a5d2rqj8xsj2",
+    //   value: 100000, // Value in satoshis
+    // });
+
+    // fakePsbt.txOutputs.forEach((output, index) => {
+    //   console.log(
+    //     `Output ${index}: Address - ${output.address}, Value - ${output.value}`,
+    //   );
+    // });
+
+    // Serialize the PSBT to Buffer
+    // const psbtBuffer = psbt.toBuffer();
+
+    // const psbtData = Array.from(psbtBuffer);
+
+    // Bitcoin needs to sign multiple utxos, so we need to pass a signer function
+    const sign = async (tx) => {
+      const btcPayload = Array.from(ethers.getBytes(tx));
+      //const payload = Array.from(ethPayload);
+
+      // const signArgs = {
+      //   payload: btcPayload,
+      //   path: path,
+      //   key_version: 0,
+      // };
+
+      const result = await near.createRedeemAbtcSignedPayload(
+        txn_hash,
+        btcPayload,
+        psbt,
+      );
+
+      const big_r = result.big_r.affine_point;
+      const big_s = result.s.scalar;
+
+      return this.reconstructSignature(big_r, big_s);
+    };
+
+    for (let i = 0; i < utxos.length; i++) {
+      console.log(`MPC_SIGN #${i} / ${utxos.length}`);
+      await psbt.signInputAsync(i, { publicKey, sign });
+    }
+    // await Promise.all(
+    //   utxos.map(async (x, index) => {
+    //     await psbt.signInputAsync(index, { publicKey, sign });
+    //   }),
+    // );
+
+    // psbt.txOutputs.forEach((output, index) => {
+    //   console.log(
+    //     `Output ${index}: Address - ${output.address}, Value - ${output.value}`,
+    //   );
+    // });
+
+    psbt.finalizeAllInputs();
+
+    return psbt.extractTransaction().toHex();
+  }
+
+  reconstructSignature(big_r, big_s) {
+    const r = big_r.slice(2).padStart(64, "0");
+    const s = big_s.padStart(64, "0");
+
+    const rawSignature = Buffer.from(r + s, "hex");
+
+    if (rawSignature.length !== 64) {
+      throw new Error("Invalid signature length.");
+    }
+
+    return rawSignature;
+  }
+
   // This code can be used to actually relay the transaction to the Ethereum network
   async relayTransaction(signedTransaction) {
     //console.log(this.chain_rpc);
@@ -195,7 +380,7 @@ class Bitcoin {
   async fetchFeeRate() {
     const response = await axios.get(`${this.chain_rpc}/fee-estimates`);
     const confirmationTarget = 6;
-    return response.data[confirmationTarget];
+    return Math.ceil(response.data[confirmationTarget]);
   }
 
   /**
@@ -268,22 +453,11 @@ class Bitcoin {
   }
 
   // Function which returns the txn's btc amount based on receiverAddress
-  async getBtcReceivingAmount(txn, receiverAddress, treasuryAddress) {
+  async getBtcReceivingAmount(txn, receiverAddress) {
     const output = txn.vout.find(
       (vout) => vout.scriptpubkey_address === receiverAddress,
     );
-
-    const treasuryOutput = txn.vout.find(
-      (vout) => vout.scriptpubkey_address === treasuryAddress,
-    );
-    
-    const outputValue = output ? output.value : 0;
-    const treasuryValue = treasuryOutput ? treasuryOutput.value : 0;
-
-    return {
-      btcAmount: outputValue + treasuryValue,
-      feeAmount: treasuryValue
-    };
+    return output ? output.value : 0;
   }
 
   // Function which returns the txn's receiving chain and receiving address based on OP_RETURN code
@@ -291,6 +465,7 @@ class Bitcoin {
     let chain = null;
     let address = null;
     let remarks = "";
+    let yieldProviderGasFee = 0;
 
     try {
       for (const vout of txn.vout) {
@@ -298,8 +473,10 @@ class Bitcoin {
         const chunks = bitcoin.script.decompile(scriptPubKey);
         if (chunks[0] === bitcoin.opcodes.OP_RETURN) {
           const embeddedData = chunks[1].toString("utf-8");
-          [chain, address] = embeddedData.split(",");
-          return { chain, address, remarks };
+
+          [chain, address, yieldProviderGasFee] = embeddedData.split(",");
+          
+          return { chain, address, yieldProviderGasFee: Number(yieldProviderGasFee), remarks };
         }
       }
 
@@ -307,7 +484,7 @@ class Bitcoin {
     } catch (error) {
       remarks = `Error from retrieveOpReturnFromTxnHash: ${error.message}`;
       //console.error(remarks);
-      return { chain, address, remarks };
+      return { chain, address, yieldProviderGasFee: Number(yieldProviderGasFee), remarks };
     }
   }
 
@@ -380,7 +557,7 @@ class Bitcoin {
       };
       const response = await fetchWithRetry(axioConfig);
       const time = response.data[0];
-      console.log(`Unconfirmed txn hash ${txn.txId} time: ${time}`);
+      console.log(`Unconfirmed txn hash ${txn.txid} time: ${time}`);
       return time;
     } catch (error) {
       throw new Error(
@@ -417,12 +594,15 @@ class Bitcoin {
     return response.data;
   }
 
-  async deriveBTCAddress(rootPublicKey, accountId, derivationPath) {
+  async deriveBTCAddress(near) {
+    const { NETWORK_TYPE } = getConstants();
+
     const publicKey = await derivep2wpkhChildPublicKey(
-      await najPublicKeyStrToUncompressedHexPoint(rootPublicKey),
-      accountId,
-      derivationPath,
+      await najPublicKeyStrToUncompressedHexPoint(await near.nearMPCContract.public_key()),
+      near.contract_id,
+      NETWORK_TYPE.BITCOIN,
     );
+
     const address = await uncompressedHexPointToSegwitAddress(
       publicKey,
       this.network,
@@ -463,6 +643,55 @@ class Bitcoin {
         psbt.addInput(inputOptions);
       }),
     );
+  }
+
+  async mpcSignPsbt(near,psbtHex) {
+    // Parse the PSBT
+    const psbt = bitcoin.Psbt.fromHex(psbtHex, {network: this.network});
+    const { publicKey } = await this.deriveBTCAddress(near);
+    const sign = async (tx) => {
+      const btcPayload = Array.from(ethers.getBytes(tx));
+
+      const result =
+        await near.createDepositBithiveSignedPayload(btcPayload);
+
+      const big_r = result.big_r.affine_point;
+      const big_s = result.s.scalar;
+
+      return this.reconstructSignature(big_r, big_s);
+    };
+
+    // Log the inputs
+    for (let i = 0; i < psbt.data.inputs.length; i++) {
+      await psbt.signInputAsync(i, { publicKey, sign });
+    }
+
+    return psbt;
+  }
+
+  async mpcSignMessage(near, message) {
+    const msgHash = magicHash(message, "Bitcoin Signed Message:\n");
+
+    // // Sign the message using NEAR MPC
+    const payload = Array.from(msgHash);
+    const result = await near.createWithdrawalBithiveUnstakeMessageSignedPayload(payload);
+    
+    const big_r = result.big_r.affine_point;
+    const big_s = result.s.scalar;
+    const recovery_id = parseInt(result.recovery_id) + 27;
+
+    const r = big_r.slice(2).padStart(64, "0");
+    const s = big_s.padStart(64, "0");
+
+    const rawSignatureTemp = Buffer.from(r + s, "hex");
+
+    // Create a 65 byte buffer with recovery_id + r + s
+    const signature = Buffer.concat([
+      Buffer.from([recovery_id]),
+      rawSignatureTemp
+    ]);
+
+    return signature;
   }
 }
 

@@ -1,8 +1,8 @@
 const { getConstants } = require("../constants");
 const { Ethereum } = require("../services/ethereum");
-const address = require("../services/address");
 
 const { flagsBatch } = require("./batchFlags");
+
 const GAS_FOR_MINT_CALL = 100; // Gas for minting call
 
 async function MintaBtcToReceivingChain(near) {
@@ -15,7 +15,7 @@ async function MintaBtcToReceivingChain(near) {
       console.log(`${batchName}. Start run ...`);
       flagsBatch.MintaBtcToReceivingChainRunning = true;
 
-      const { NETWORK_TYPE, DEPOSIT_STATUS } = getConstants(); // Access constants dynamically
+      const { NETWORK_TYPE } = getConstants(); // Access constants dynamically
 
       // Get the first valid deposit and associated chain config using near.getFirstValidDepositChainConfig
       const result = await near.getFirstValidDepositChainConfig();
@@ -31,18 +31,8 @@ async function MintaBtcToReceivingChain(near) {
       // console.log(`BTC Transaction Hash: ${btcTxnHash}`);
       // console.log(`Chain Config:`, chainConfig);
 
-      const depositRecord = await near.getDepositByBtcTxnHash(btcTxnHash);
-
       try {
         if (chainConfig.network_type === NETWORK_TYPE.EVM) {
-          if (
-            !address.isValidEthereumAddress(depositRecord.receiving_address)
-          ) {
-            throw new Error(
-              `Invalid receiving address: ${depositRecord.receiving_address}`,
-            );
-          }
-
           const ethereum = new Ethereum(
             chainConfig.chain_id,
             chainConfig.chain_rpc_url,
@@ -85,7 +75,7 @@ async function MintaBtcToReceivingChain(near) {
             await ethereum.relayTransaction(signedTransaction);
           console.log(
             "\x1b[35m%s\x1b[0m",
-            `Processed Txn: Mint aBTC with BTC txn hash ${btcTxnHash}, mintStatus = ${status}`,
+            `Processed Txn: Mint aBTC with BTC txn hash ${btcTxnHash}, mintStatus = ${status} and txnHash = ${txnHash}`,
           );
 
           if (status !== 1n) {
@@ -94,11 +84,6 @@ async function MintaBtcToReceivingChain(near) {
             await near.updateDepositRemarks(btcTxnHash, remarks);
           }
         } else if (chainConfig.network_type === "NEAR") {
-          if (!address.isValidNearAddress(depositRecord.receiving_address)) {
-            throw new Error(
-              `Invalid receiving address: ${depositRecord.receiving_address}`,
-            );
-          }
           const payloadHeader = {
             btc_txn_hash: btcTxnHash,
             nonce: 0,
@@ -115,7 +100,7 @@ async function MintaBtcToReceivingChain(near) {
           console.log(signedTransaction);
         }
       } catch (error) {
-        let remarks = `Error ${batchName} processing Txn with BTC txn hash ${btcTxnHash}: ${error}`;
+        let remarks = `Error ${batchName} processing Txn with BTC txn hash ${btcTxnHash}: ${error} - ${error.reason}`;
 
         console.error(remarks);
 

@@ -25,8 +25,6 @@ export interface UTXO {
     feeRate: number,
     inputUTXOs: UTXO[],
     btcWalletNetwork: networks.Network,
-    protocolFeeSat: number,
-    treasuryAddress: string,
     data: string,
     publicKeyNoCoord?: Buffer,
     
@@ -63,39 +61,26 @@ export interface UTXO {
         totalInput += utxo.value;
       });
     }
-
-    let receiverAmount = satoshis;
-  
-    if (protocolFeeSat > 0) {
-      receiverAmount = satoshis - protocolFeeSat;
-    }
     
   
     // Add outputs to the PSBT
     psbt.addOutput({
       address: receiver,
-      value: receiverAmount,
-    });
-
-    if (protocolFeeSat > 0) {
-      psbt.addOutput({
-        address: treasuryAddress,
-        value: protocolFeeSat,
-      });
-    }
-
-    // Embed data in the witness stack
-    psbt.addOutput({
-      script: bitcoin.script.compile([
-        bitcoin.opcodes.OP_RETURN,
-        Buffer.from(data),
-      ]),
-      value: 0,
+      value: satoshis,
     });
 
     const estimatedSize = psbt.txInputs.length * 148 + psbt.txOutputs.length * 34 + 10; // Approximate calculation
   
     const fee = Math.round(feeRate * estimatedSize);
+
+    // Embed data in the witness stack with fee appended
+    psbt.addOutput({
+      script: bitcoin.script.compile([
+        bitcoin.opcodes.OP_RETURN,
+        Buffer.from(`${data},${fee}`),
+      ]),
+      value: 0,
+    });
 
     const change = totalInput - Number(satoshis) - fee;
     if (change > 0) {

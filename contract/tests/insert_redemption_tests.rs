@@ -1,7 +1,7 @@
-use atlas_protocol::constants::status::*;
-use atlas_protocol::modules::structs::Atlas;
 use near_sdk::test_utils::{accounts, VMContextBuilder};
 use near_sdk::testing_env;
+use atlas_protocol::modules::structs::Atlas;
+use atlas_protocol::constants::status::*;
 
 fn setup_atlas() -> Atlas {
     let mut context = VMContextBuilder::new();
@@ -14,7 +14,6 @@ fn setup_atlas() -> Atlas {
         accounts(2),
         accounts(3),
         "treasury_address".to_string(),
-        false,
     )
 }
 
@@ -30,7 +29,6 @@ async fn test_insert_redemption_abtc() {
         accounts(2),
         accounts(3),
         "treasury_address".to_string(),
-        false,
     );
 
     let txn_hash = "421614,0x1234567890abcdef".to_string();
@@ -54,10 +52,7 @@ async fn test_insert_redemption_abtc() {
     let redemption = atlas.get_redemption_by_txn_hash(txn_hash.clone()).unwrap();
     assert_eq!(redemption.txn_hash, txn_hash);
     assert_eq!(redemption.abtc_redemption_address, abtc_redemption_address);
-    assert_eq!(
-        redemption.abtc_redemption_chain_id,
-        abtc_redemption_chain_id
-    );
+    assert_eq!(redemption.abtc_redemption_chain_id, abtc_redemption_chain_id);
     assert_eq!(redemption.btc_receiving_address, btc_receiving_address);
     assert_eq!(redemption.abtc_amount, abtc_amount);
     assert_eq!(redemption.timestamp, timestamp);
@@ -65,9 +60,9 @@ async fn test_insert_redemption_abtc() {
     assert_eq!(redemption.remarks, "");
     assert_eq!(redemption.date_created, date_created);
     assert_eq!(redemption.verified_count, 0);
-    assert_eq!(redemption.btc_txn_hash_verified_count, 0);
-    assert_eq!(redemption.custody_txn_id, "");
+    assert_eq!(redemption.yield_provider_txn_hash, "");
 }
+
 
 #[tokio::test]
 async fn test_insert_duplicate_redemption() {
@@ -81,7 +76,6 @@ async fn test_insert_duplicate_redemption() {
         accounts(2),
         accounts(3),
         "treasury_address".to_string(),
-        false,
     );
 
     let txn_hash = "421614,0x1234567890abcdef".to_string();
@@ -108,10 +102,7 @@ async fn test_insert_duplicate_redemption() {
         );
     }));
 
-    assert!(
-        result.is_err(),
-        "Expected panic due to duplicate transaction hash"
-    );
+    assert!(result.is_err(), "Expected panic due to duplicate transaction hash");
 }
 
 #[tokio::test]
@@ -126,7 +117,6 @@ async fn test_insert_redemption_with_invalid_data() {
         accounts(2),
         accounts(3),
         "treasury_address".to_string(),
-        false,
     );
 
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
@@ -141,10 +131,7 @@ async fn test_insert_redemption_with_invalid_data() {
         );
     }));
 
-    assert!(
-        result.is_err(),
-        "Expected panic due to empty transaction hash"
-    );
+    assert!(result.is_err(), "Expected panic due to empty transaction hash");
 
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         atlas.insert_redemption_abtc(
@@ -158,10 +145,7 @@ async fn test_insert_redemption_with_invalid_data() {
         );
     }));
 
-    assert!(
-        result.is_err(),
-        "Expected panic due to empty abtc_redemption_address"
-    );
+    assert!(result.is_err(), "Expected panic due to empty abtc_redemption_address");
 
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         atlas.insert_redemption_abtc(
@@ -190,7 +174,6 @@ async fn test_insert_redemption_unauthorized() {
         accounts(2),
         accounts(3),
         "treasury_address".to_string(),
-        false,
     );
 
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
@@ -220,7 +203,6 @@ async fn test_insert_multiple_redemptions() {
         accounts(2),
         accounts(3),
         "treasury_address".to_string(),
-        false,
     );
 
     let txn_hash1 = "421614,0x1234567890abcdef".to_string();
@@ -370,10 +352,8 @@ async fn test_insert_redemption_with_very_large_abtc_amount() {
         1625097600,
         1625097600,
     );
-
-    let redemption = atlas
-        .get_redemption_by_txn_hash("421614,0x1234567890abcdef".to_string())
-        .unwrap();
+    
+    let redemption = atlas.get_redemption_by_txn_hash("421614,0x1234567890abcdef".to_string()).unwrap();
     assert_eq!(redemption.abtc_amount, u64::MAX);
 }
 
@@ -389,10 +369,8 @@ async fn test_insert_redemption_with_very_large_timestamp() {
         u64::MAX,
         1625097600,
     );
-
-    let redemption = atlas
-        .get_redemption_by_txn_hash("421614,0x1234567890abcdef".to_string())
-        .unwrap();
+    
+    let redemption = atlas.get_redemption_by_txn_hash("421614,0x1234567890abcdef".to_string()).unwrap();
     assert_eq!(redemption.timestamp, u64::MAX);
 }
 
@@ -400,39 +378,11 @@ async fn test_insert_redemption_with_very_large_timestamp() {
 #[should_panic(expected = "Only the admin can call this method")]
 async fn test_insert_redemption_by_non_admin() {
     let mut context = VMContextBuilder::new();
-
+    
     let mut atlas = setup_atlas();
 
     context.predecessor_account_id(accounts(2)); // Not the admin
     testing_env!(context.build());
-
-    atlas.insert_redemption_abtc(
-        "421614,0x1234567890abcdef".to_string(),
-        "0x1234567890123456789012345678901234567890".to_string(),
-        "421614".to_string(),
-        "tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx".to_string(),
-        1000,
-        1625097600,
-        1625097600,
-    );
-}
-
-#[tokio::test]
-#[should_panic(expected = "Contract is paused")]
-async fn test_insert_redemption_abtc_paused() {
-    let mut atlas = setup_atlas();
-
-    testing_env!(VMContextBuilder::new()
-        .is_view(false)
-        .predecessor_account_id(accounts(0)) //owner
-        .build());
-
-    atlas.pause();
-
-    testing_env!(VMContextBuilder::new()
-        .is_view(false)
-        .predecessor_account_id(accounts(1)) // admin
-        .build());
 
     atlas.insert_redemption_abtc(
         "421614,0x1234567890abcdef".to_string(),

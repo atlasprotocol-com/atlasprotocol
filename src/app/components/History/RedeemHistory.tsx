@@ -1,0 +1,300 @@
+import { useEffect, useMemo } from "react";
+import InfiniteScroll from "react-infinite-scroll-component";
+import { useLocalStorage } from "usehooks-ts";
+
+import { useAppContext } from "@/app/context/app";
+import { useGetRedemptionHistory } from "@/app/hooks/history";
+import { getStatusMessage, Redemptions } from "@/app/types/redemptions";
+import { getNetworkConfig } from "@/config/network.config";
+import { useGetChainConfig } from "@/hooks";
+import { satoshiToBtc } from "@/utils/btcConversions";
+import { formatTimestamp } from "@/utils/getFormattedTimestamp";
+import { calculateRedemptionHistoriesDiff } from "@/utils/local_storage/calculateRedemptionHistoriesDiff";
+import { getRedemptionHistoriesLocalStorageKey } from "@/utils/local_storage/getRedemptionHistoriesLocalStorageKey";
+import { maxDecimals } from "@/utils/maxDecimals";
+import { trim } from "@/utils/trim";
+
+import { Card } from "../Card";
+import { LoadingTableList } from "../Loading/Loading";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../Table";
+
+export function RedeemHistory() {
+  const { btcPublicKeyNoCoord, btcAddress, BTC_TOKEN } = useAppContext();
+  const { mempoolApiUrl } = getNetworkConfig();
+  const { data: chainConfigs = {} } = useGetChainConfig();
+
+  const {
+    data: redemptionHistories,
+    fetchNextPage: fetchNextRedemptionHistoriesPage,
+    hasNextPage: hasNextRedemptionHistoriesPage,
+    isFetchingNextPage: isFetchingNextRedemptionHistoriesPage,
+    error: redemptionHistoriesError,
+    isError: hasRedemptionHistoriesError,
+    refetch: refetchRedemptionHistoriesData,
+  } = useGetRedemptionHistory({
+    address: btcAddress,
+    publicKeyNoCoord: btcPublicKeyNoCoord,
+  });
+
+  const redemptionHistoriesLocalStorageKey =
+    getRedemptionHistoriesLocalStorageKey(btcPublicKeyNoCoord || "");
+
+  const [redemptionHistoriesLocalStorage, setRedemptionHistoriesLocalStorage] =
+    useLocalStorage<Redemptions[]>(redemptionHistoriesLocalStorageKey, []);
+
+  const sortedRedemptionHistoriesData = useMemo(() => {
+    // Combine redemptionHistories from the API and local storage, prioritizing API data
+    const combinedRedemptionHistoriesData =
+      redemptionHistories?.redemptionHistories
+        ? [
+            ...redemptionHistoriesLocalStorage,
+            ...redemptionHistories.redemptionHistories,
+          ]
+        : // If no API data, fallback to using only local storage redemptionHistories
+          redemptionHistoriesLocalStorage;
+
+    // Sort the combined redemptionHistories by startTimestamp, newest records first
+    return combinedRedemptionHistoriesData.sort(
+      (a, b) =>
+        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
+    );
+  }, [redemptionHistories, redemptionHistoriesLocalStorage]);
+
+  // Clean up the local storage redmeption
+  useEffect(() => {
+    if (!redemptionHistories?.redemptionHistories) {
+      return;
+    }
+
+    const updateRedemptionHistoriesLocalStorage = async () => {
+      const {
+        areRedemptionHistoriesDifferent,
+        redemptionHistories: newRedemptionHistories,
+      } = await calculateRedemptionHistoriesDiff(
+        redemptionHistories.redemptionHistories,
+        redemptionHistoriesLocalStorage,
+      );
+      if (areRedemptionHistoriesDifferent) {
+        setRedemptionHistoriesLocalStorage(newRedemptionHistories);
+      }
+    };
+
+    updateRedemptionHistoriesLocalStorage();
+  }, [
+    redemptionHistories,
+    setRedemptionHistoriesLocalStorage,
+    redemptionHistoriesLocalStorage,
+  ]);
+
+  return (
+    <Card>
+      <h3 className="text-2xl font-bold">Redemption History</h3>
+      <div className="mt-4">
+        {sortedRedemptionHistoriesData.length === 0 ? (
+          <div className="text-base font-normal text-neutral-7 text-center py-4 flex-col justify-center items-center gap-2 flex">
+            <p className="text-center">No history found</p>
+          </div>
+        ) : (
+          <>
+            <div
+              id="redeem-history-mobile"
+              className="flex-col flex gap-4 no-scrollbar max-h-[600px] overflow-y-auto lg:hidden"
+            >
+              <InfiniteScroll
+                className="flex flex-col gap-4 pt-3"
+                dataLength={sortedRedemptionHistoriesData.length}
+                next={fetchNextRedemptionHistoriesPage}
+                hasMore={hasNextRedemptionHistoriesPage}
+                loader={
+                  isFetchingNextRedemptionHistoriesPage ? (
+                    <LoadingTableList />
+                  ) : null
+                }
+                scrollableTarget="redeem-history-mobile"
+              >
+                {sortedRedemptionHistoriesData.map((redeemHistory) => {
+                  if (!redeemHistory) return null;
+                  const chain =
+                    chainConfigs[redeemHistory.abtcRedemptionChainId];
+
+                  return (
+                    <div
+                      key={redeemHistory.timestamp}
+                      className="p-3 dark:bg-neutral-11 rounded-lg border border-neutral-5 dark:border-neutral-9 flex-col flex"
+                    >
+                      <div className="flex justify-between">
+                        <span className=" px-2 py-0.5 bg-secondary-200 dark:bg-secondary-900 text-secondary-800 dark:text-secondary-700 rounded-[30px] justify-center items-center gap-px inline-flex text-[12px] font-semibold">
+                          {getStatusMessage(redeemHistory.status)}
+                        </span>
+                        {redeemHistory.txnHash && (
+                          <a
+                            href={`${chain?.explorerURL}tx/${redeemHistory.txnHash.includes(",") ? redeemHistory.txnHash.split(",")[1] : redeemHistory.txnHash}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary hover:underline"
+                          >
+                            {trim(
+                              redeemHistory.txnHash.includes(",")
+                                ? redeemHistory.txnHash.split(",")[1]
+                                : redeemHistory.txnHash,
+                            )}
+                          </a>
+                        )}
+                      </div>
+                      <div className="flex justify-between text-sm mt-2">
+                        <p className="text-sm font-semibold dark:text-neutral-7">
+                          Amount
+                        </p>
+                        <p>
+                          {maxDecimals(
+                            satoshiToBtc(redeemHistory.abtcAmount),
+                            8,
+                          )}{" "}
+                          {BTC_TOKEN}
+                        </p>
+                      </div>
+                      <div className="flex justify-between text-sm mt-1">
+                        <p className="font-semibold dark:text-neutral-7">
+                          Redemption Chain
+                        </p>
+                        <p>{chain.networkName}</p>
+                      </div>
+                      <div className="flex justify-between text-sm  mt-1">
+                        <p className="text-sm font-semibold dark:text-neutral-7">
+                          Date
+                        </p>
+                        <p>{formatTimestamp(redeemHistory.timestamp)}</p>
+                      </div>
+                      <div className="flex justify-between text-sm  mt-1">
+                        <p className="text-sm font-semibold dark:text-neutral-7">
+                          Redemption Address
+                        </p>
+                        <p>{trim(redeemHistory.abtcRedemptionAddress)}</p>
+                      </div>
+                      <div className="flex justify-between text-sm  mt-1">
+                        <p className="text-sm font-semibold dark:text-neutral-7">
+                          BTC Tx Hash
+                        </p>
+                        <p>
+                          {redeemHistory.btcTxnHash ? (
+                            <a
+                              href={`${chain?.explorerURL}/tx/${redeemHistory.btcTxnHash}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-primary hover:underline"
+                            >
+                              {trim(redeemHistory.btcTxnHash)}
+                            </a>
+                          ) : (
+                            "-"
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </InfiniteScroll>
+            </div>
+            <div className="hidden lg:block">
+              <InfiniteScroll
+                className="flex flex-col gap-4 pt-3"
+                dataLength={sortedRedemptionHistoriesData.length}
+                next={fetchNextRedemptionHistoriesPage}
+                hasMore={hasNextRedemptionHistoriesPage}
+                loader={
+                  isFetchingNextRedemptionHistoriesPage ? (
+                    <LoadingTableList />
+                  ) : null
+                }
+                scrollableTarget="redeem-history"
+              >
+                <div
+                  id="redeem-history"
+                  className="no-scrollbar max-h-[600px] overflow-y-auto"
+                >
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Amount</TableHead>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Redemption Chain</TableHead>
+                        <TableHead>Redemption Address</TableHead>
+                        <TableHead>Tx Hash</TableHead>
+                        <TableHead>BTC Tx Hash</TableHead>
+                        <TableHead>Status</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {sortedRedemptionHistoriesData.map((redeemHistory) => {
+                        if (!redeemHistory) return null;
+                        const chain =
+                          chainConfigs[redeemHistory.abtcRedemptionChainId];
+                        return (
+                          <TableRow key={redeemHistory.timestamp}>
+                            <TableCell>
+                              {maxDecimals(
+                                satoshiToBtc(redeemHistory.abtcAmount),
+                                8,
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {formatTimestamp(redeemHistory.timestamp)}
+                            </TableCell>
+                            <TableCell>{chain.networkName}</TableCell>
+                            <TableCell>
+                              {trim(redeemHistory.abtcRedemptionAddress)}
+                            </TableCell>
+                            <TableCell>
+                              <a
+                                href={`${chain?.explorerURL}tx/${redeemHistory.txnHash.includes(",") ? redeemHistory.txnHash.split(",")[1] : redeemHistory.txnHash}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-primary hover:underline"
+                              >
+                                {trim(
+                                  redeemHistory.txnHash.includes(",")
+                                    ? redeemHistory.txnHash.split(",")[1]
+                                    : redeemHistory.txnHash,
+                                )}
+                              </a>
+                            </TableCell>
+                            <TableCell>
+                              {redeemHistory.btcTxnHash ? (
+                                <a
+                                  href={`${mempoolApiUrl}/tx/${redeemHistory.btcTxnHash}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-primary hover:underline"
+                                >
+                                  {trim(redeemHistory.btcTxnHash)}
+                                </a>
+                              ) : (
+                                "-"
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <span className=" px-2 py-0.5 bg-secondary-200 dark:bg-secondary-900 text-secondary-800 dark:text-secondary-700 rounded-[30px] justify-center items-center gap-px inline-flex text-[12px] font-semibold">
+                                {getStatusMessage(redeemHistory.status)}
+                              </span>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              </InfiniteScroll>
+            </div>
+          </>
+        )}
+      </div>
+    </Card>
+  );
+}

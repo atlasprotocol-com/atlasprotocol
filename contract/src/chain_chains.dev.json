@@ -14,15 +14,15 @@
       "batch_size": 0,
       "gas_limit": 0,
       "abi_path": "",
-      "validators_threshold": 2
+      "validators_threshold": 0
     },
     {
       "chain_id": "NEAR_TESTNET",
       "network_type": "NEAR",
-      "network_name": "NEAR testnet",
-      "chain_rpc_url": "https://rpc.testnet.near.org",
+      "network_name": "NEAR Testnet",
+      "chain_rpc_url": "https://archival-rpc.testnet.near.org",
       "explorer_url": "https://testnet.nearblocks.io/",
-      "abtc_address": "atbtc_2.velar.testnet",
+      "abtc_address": "atbtc_10.velar.testnet",
       "native_currency_name": "NEAR",
       "native_currency_decimals": 18,
       "native_currency_symbol": "NEAR",
@@ -30,7 +30,7 @@
       "batch_size": 10000,
       "gas_limit": 0,
       "abi_path": "",
-      "validators_threshold": 2
+      "validators_threshold": 0
     },
     {
       "chain_id": "421614",
@@ -38,15 +38,15 @@
       "network_name": "Arbitrum Sepolia",
       "chain_rpc_url": "https://sepolia-rollup.arbitrum.io/rpc",
       "explorer_url": "https://sepolia.arbiscan.io/",
-      "abtc_address": "0x2AD354e21e6C1D159a19bE1A0E6917bea028e7ED",
+      "abtc_address": "0x278A2A1fdBD6be9D1776ADfc6EFa4272EaffAcB0",
       "native_currency_name": "ETH",
       "native_currency_decimals": 18,
       "native_currency_symbol": "ETH",
       "first_block": 67300000,
       "batch_size": 50000,
       "gas_limit": 5000000,
-      "abi_path": "../../contract/artifacts/aBTC.abi",
-      "validators_threshold": 2
+      "abi_path": "../../contract/artifacts/atBTC.abi",
+      "validators_threshold": 0
     },
     {
       "chain_id": "11155420",
@@ -54,15 +54,15 @@
       "network_name": "Optimism Sepolia",
       "chain_rpc_url": "https://sepolia.optimism.io",
       "explorer_url": "https://sepolia-optimism.etherscan.io/",
-      "abtc_address": "0xf27Be9207a0012A8690C9c53684Ad9566753D5eA",
+      "abtc_address": "0x6Bd879A0aDaF9b5669e16852e8fC40c596D55275",
       "native_currency_name": "ETH",
       "native_currency_decimals": 18,
       "native_currency_symbol": "ETH",
       "first_block": 15210000,
       "batch_size": 10000,
       "gas_limit": 5000000,
-      "abi_path": "../../contract/artifacts/aBTC.abi",
-      "validators_threshold": 2
+      "abi_path": "../../contract/artifacts/atBTC.abi",
+      "validators_threshold": 0
     }
   ]
 }

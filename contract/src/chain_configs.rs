@@ -30,7 +30,6 @@ pub struct ChainConfigRecord {
 pub struct ChainConfigs {
     chain_configs: IterableMap<String, ChainConfigRecord>,
     owner_id: AccountId,
-    proposed_owner_id: Option<AccountId>, // Proposed owner for two-step ownership transfer
 }
 
 impl ChainConfigs {
@@ -61,8 +60,7 @@ impl ChainConfigs {
         // Return the initialized instance
         Self {
             chain_configs: new_chain_configs,
-            owner_id: owner_id,
-            proposed_owner_id: None,
+            owner_id,
         }
     }
 
@@ -74,45 +72,16 @@ impl ChainConfigs {
         self.owner_id.clone()
     }
 
-    pub fn propose_new_chain_configs_owner(&mut self, proposed_owner_id: AccountId) {
+    pub fn change_chain_configs_owner_id(&mut self, new_owner_id: AccountId) {
         self.assert_owner();
+        
+        assert!(!new_owner_id.to_string().is_empty(), "New owner ID cannot be empty");
+        assert_ne!(new_owner_id, self.owner_id, "New owner ID must be different from the current owner ID");
+        
+        let old_owner_id = self.owner_id.clone();
+        self.owner_id = new_owner_id.clone();
 
-        assert!(
-            !proposed_owner_id.to_string().is_empty(),
-            "Proposed owner ID cannot be empty"
-        );
-        assert_ne!(
-            proposed_owner_id, self.owner_id,
-            "Proposed owner ID must be different from the current owner ID"
-        );
-
-        self.proposed_owner_id = Some(proposed_owner_id.clone());
-        env::log_str(&format!("Proposed new chain configs owner: {}", proposed_owner_id));
-    }
-
-    pub fn accept_chain_configs_owner(&mut self) {
-        let caller = env::predecessor_account_id();
-
-        // Ensure there is a proposed owner
-        if self.proposed_owner_id.is_none() {
-            env::panic_str("No proposed owner to accept ownership");
-        }
-
-        // Ensure the caller is the proposed owner
-        let proposed_owner = self.proposed_owner_id.clone().unwrap();
-        if proposed_owner != caller {
-            env::panic_str("Only the proposed owner can accept ownership");
-        }
-
-        // Transfer ownership
-        let old_owner = self.owner_id.clone();
-        self.owner_id = caller;
-        self.proposed_owner_id = None;
-
-        env::log_str(&format!(
-            "Chain configs ownership transferred from {} to {}.",
-            old_owner, self.owner_id
-        ));
+        env::log_str(&format!("Chain configs owner changed from {} to {}", old_owner_id, new_owner_id));
     }
 
     pub fn get_chain_config(&self, key: String) -> Option<ChainConfigRecord> {

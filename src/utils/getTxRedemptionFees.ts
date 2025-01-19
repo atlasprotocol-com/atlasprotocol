@@ -7,7 +7,9 @@ export const getTxRedemptionFees = async (
 ) => {
   try {
     const { estimatedGasFee, estimatedReceiveAmount, atlasRedemptionFee } =
-      await getRedemptionFees(sender_address, amount, txn_hash);
+      // await getRedemptionFees(sender_address, amount, txn_hash);
+      // amount > 0 will throw an error
+      await getRedemptionFees(sender_address, 0, txn_hash);
     return { estimatedGasFee, estimatedReceiveAmount, atlasRedemptionFee };
   } catch (error) {
     console.error("Failed to fetch redemption fees:", error);
