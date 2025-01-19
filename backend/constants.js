@@ -17,6 +17,7 @@ async function fetchAndSetConstants(near) {
   try {
     const fetchedConstants = await near.getConstants(); // Fetch constants from NEAR contract
 
+    console.log(fetchedConstants.deposit_status);
     constants = {
       ...constants, // Keep other static properties
       DEPOSIT_STATUS: {
@@ -32,6 +33,8 @@ async function fetchAndSetConstants(near) {
           fetchedConstants.deposit_status.DEP_BTC_PENDING_MINTED_INTO_ABTC,
         BTC_MINTED_INTO_ABTC:
           fetchedConstants.deposit_status.DEP_BTC_MINTED_INTO_ABTC,
+        DEP_BTC_REFUNDING: fetchedConstants.deposit_status.DEP_BTC_REFUNDING,
+        DEP_BTC_REFUNDED: fetchedConstants.deposit_status.DEP_BTC_REFUNDED,
       },
       REDEMPTION_STATUS: {
         ABTC_BURNT: fetchedConstants.redemption_status.RED_ABTC_BURNT,

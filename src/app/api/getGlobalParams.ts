@@ -10,6 +10,8 @@ interface GlobalParamsDataResponse {
     max_staking_amount: number;
     min_staking_amount: number;
     atlas_address: string;
+    deposit_fee_percentage: number;
+    treasury_address: string;
   }[];
 }
 
@@ -27,5 +29,7 @@ export const getGlobalParams = async (): Promise<GlobalParamsVersion[]> => {
     maxStakingAmountSat: v.max_staking_amount,
     minStakingAmountSat: v.min_staking_amount,
     atlasAddress: v.atlas_address,
+    feeDepositPercentage: v.deposit_fee_percentage,
+    treasuryAddress: v.treasury_address,
   }));
 };

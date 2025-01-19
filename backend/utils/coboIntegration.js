@@ -34,10 +34,12 @@ async function runCoboIntegration(transactionHash, near) {
         },
         destination: {
           destination_type: "Address",
-          account_output: {
-            address: redemptionRecords.btc_receiving_address,
-            amount: (redemptionRecords.abtc_amount / 100000000).toString(), // Amount in BTC for estimation
-          },
+          uxto_outputs: [
+            {
+              address: redemptionRecords.btc_receiving_address,
+              amount: (redemptionRecords.abtc_amount / 100000000).toString(), // Amount in BTC for estimation
+            },
+          ],
         },
         token_id: "SIGNET_BTC",
       }),
@@ -83,7 +85,7 @@ async function runCoboIntegration(transactionHash, near) {
     };
 
     // Step 4: Execute the Transfer Transaction
-    apiInstance.createTransferTransaction(opts).then(
+    await apiInstance.createTransferTransaction(opts).then(
       async (data) => {
         console.log("API called successfully. Returned data: ");
         console.log(data);
@@ -186,4 +188,116 @@ async function handleCoboTransaction(custodyTxnId) {
   }
 }
 
-module.exports = { runCoboIntegration, handleCoboTransaction };
+async function runWithdrawFailDepositCoboIntegration(btcTransactionHash, near) {
+  const deposit = await near.getDepositByBtcTxnHash(btcTransactionHash);
+  if (!deposit) {
+    throw new Error("Deposit not found");
+  }
+
+  // Initial default API client
+  const apiClient = CoboWaas2.ApiClient.instance;
+
+  if (process.env.COBO_ENV === "DEV") {
+    apiClient.setEnv(CoboWaas2.Env.DEV);
+  } else {
+    apiClient.setEnv(CoboWaas2.Env.PROD);
+  }
+
+  console.log(process.env.COBO_PK);
+  // Set your private key for signing requests (be sure to keep this secure)
+  apiClient.setPrivateKey(process.env.COBO_PK);
+
+  // Create an instance of the Transactions API
+  const apiInstance = new CoboWaas2.TransactionsApi();
+
+  const request_id = deposit.btc_txn_hash;
+  // Step 1: Estimate the Fee
+  const optsEstimateFee = {
+    EstimateFeeParams: new CoboWaas2.EstimateFeeParams({
+      request_id: request_id,
+      request_type: "Transfer",
+      source: {
+        source_type: "Org-Controlled",
+        wallet_id: process.env.COBO_WALLET_ID,
+      },
+      destination: {
+        destination_type: "Address",
+        uxto_outputs: [
+          {
+            address: deposit.btc_sender_address,
+            amount: (deposit.btc_amount / 100000000).toString(), // Amount in BTC for estimation
+          },
+        ],
+      },
+      token_id: "SIGNET_BTC",
+    }),
+  };
+
+  // Call the API to estimate fees
+  const feeResponse = await apiInstance.estimateFee(optsEstimateFee);
+  const recommendedFee = feeResponse.actualInstance.recommended;
+  const feeAmount = parseFloat(recommendedFee.fee_amount);
+
+  // Convert the fee amount to satoshis
+  const feeInSatoshis = Math.round(feeAmount * 100000000); // Convert BTC to Satoshis
+  console.log(`Estimated fee in satoshis: ${feeInSatoshis}`);
+  // Step 2: Subtract the Fee from the Redemption Amount
+  const transferAmount = deposit.btc_amount - feeInSatoshis; // Final amount after fee deduction
+  if (transferAmount <= 0) {
+    throw new Error("Transfer amount is too low after deducting the fee.");
+  }
+
+  // Step 3: Create Transfer Transaction
+  const opts = {
+    TransferParams: new CoboWaas2.TransferParams(
+      request_id,
+      {
+        source_type: "Org-Controlled",
+        wallet_id: process.env.COBO_WALLET_ID, // Source wallet ID Asset
+        address: process.env.COBO_DEPOSIT_ADDRESS,
+      },
+      "SIGNET_BTC", // The network you are transacting on (SIGNET_BTC for Bitcoin testnet)
+      {
+        destination_type: "Address",
+        account_output: {
+          address: deposit.btc_sender_address, // Destination address for Bitcoin transfer
+          amount: (transferAmount / 100000000).toString(), // Final amount to transfer in BTC
+          memo: deposit.btc_txn_hash,
+        },
+      },
+    ),
+  };
+
+  // Step 4: Execute the Transfer Transaction
+  await apiInstance.createTransferTransaction(opts).then(
+    async (data) => {
+      console.log("API called successfully. Returned data: ");
+      console.log(data);
+
+      if (data.status === "Submitted") {
+        await near.updateDepositCustodyTxnId(
+          deposit.btc_txn_hash,
+          data.transaction_id,
+        );
+      } else {
+        await near.updateDepositRemarks(
+          deposit.btc_txn_hash,
+          `Unable to run withdraw fail deposit: ${data.status}`,
+        );
+      }
+    },
+    async (error) => {
+      console.error("Error calling API:", error);
+      await near.updateDepositRemarks(
+        deposit.btc_txn_hash,
+        `Unable to run withdraw fail deposit: ${error.body.error_message}`,
+      );
+    },
+  );
+}
+
+module.exports = {
+  runCoboIntegration,
+  handleCoboTransaction,
+  runWithdrawFailDepositCoboIntegration,
+};

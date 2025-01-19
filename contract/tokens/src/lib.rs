@@ -5,7 +5,9 @@ use near_contract_standards::fungible_token::FungibleToken;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::LazyOption;
 use near_sdk::json_types::U128;
-use near_sdk::{env, log, near_bindgen, AccountId, Balance, PanicOnDefault, PromiseOrValue};
+use near_sdk::{
+    assert_one_yocto, env, log, near_bindgen, AccountId, Balance, PanicOnDefault, PromiseOrValue,
+};
 use serde_json::json;
 
 const DATA_IMAGE_SVG_NEAR_ICON: &str = "data:image/svg+xml,%3Csvg%20xmlns=%27http://www.w3.org/2000/svg%27%20width=%27100%27%20height=%27100%27%20viewBox=%270%200%20100%20100%27%3E%3Crect%20width=%27100%25%27%20height=%27100%25%27%20fill=%27black%27/%3E%3Ctext%20x=%2750%27%20y=%2750%27%20font-size=%2760%27%20font-family=%27Arial%27%20font-weight=%27bold%27%20fill=%27red%27%20text-anchor=%27middle%27%20dominant-baseline=%27middle%27%3EV%3C/text%3E%3C/svg%3E";
@@ -16,6 +18,7 @@ pub struct Contract {
     token: FungibleToken,
     metadata: LazyOption<FungibleTokenMetadata>,
     owner_id: AccountId, // Store the owner's account ID
+    pub paused: bool,
 }
 
 #[near_bindgen]
@@ -23,22 +26,56 @@ impl Contract {
     /// Initializes the contract with the given `owner_id` and metadata, with zero initial supply.
     #[init]
     pub fn new(owner_id: AccountId, metadata: FungibleTokenMetadata) -> Self {
-        assert!(!env::state_exists(), "Already initialized");
         metadata.assert_valid();
+        assert_eq!(metadata.decimals, 8, "Decimals must be set to 8 for atBTC");
         let mut this = Self {
             token: FungibleToken::new(b"a".to_vec()),
             metadata: LazyOption::new(b"m".to_vec(), Some(&metadata)),
             owner_id: owner_id.clone(), // Set the owner's account ID
+            paused: false,
         };
         this.token.internal_register_account(&owner_id);
         this
     }
 
+    // Assertions for ownership and admin
+    pub fn assert_owner(&self) {
+        assert_eq!(
+            self.owner_id,
+            env::predecessor_account_id(),
+            "Only the owner can call this method"
+        );
+    }
+
+    // Function to pause the contract
+    pub fn pause(&mut self) {
+        self.assert_owner(); // Only the owner can pause the contract
+        self.paused = true;
+        env::log_str("Contract is paused");
+    }
+
+    // Function to unpause the contract
+    pub fn unpause(&mut self) {
+        self.assert_owner(); // Only the owner can unpause the contract
+        self.paused = false;
+        env::log_str("Contract is unpaused");
+    }
+
+    // Function to check if the contract is paused
+    pub fn assert_not_paused(&self) {
+        assert!(!self.paused, "Contract is paused");
+    }
+
+    // Function to check if the contract is paused
+    pub fn is_paused(&self) -> bool {
+        self.paused
+    }
+
     /// Mint new tokens to the specified `account_id`.
     /// Only the owner of the contract can call this method.
     pub fn mint_deposit(&mut self, account_id: AccountId, amount: U128, btc_txn_hash: String) {
-        let predecessor = env::predecessor_account_id();
-        assert_eq!(predecessor, self.owner_id, "Only the owner can mint tokens");
+        self.assert_not_paused();
+        self.assert_owner();
 
         self.token.internal_deposit(&account_id, amount.into());
 
@@ -64,11 +101,12 @@ impl Contract {
         origin_chain_address: String,
         origin_txn_hash: String,
     ) {
-        let predecessor = env::predecessor_account_id();
-        assert_eq!(predecessor, self.owner_id, "Only the owner can mint tokens");
+        self.assert_not_paused();
+        self.assert_owner();
 
         self.token.internal_deposit(&account_id, amount.into());
 
+        let predecessor = env::predecessor_account_id();
         let event_log = json!({
             "standard": "nep141",
             "version": "1.0.0",
@@ -84,7 +122,11 @@ impl Contract {
     }
 
     /// Custom burn function that logs the btcAddress for the redemption process
+    #[payable]
     pub fn burn_redeem(&mut self, amount: U128, btc_address: String) {
+        self.assert_not_paused();
+
+        assert_one_yocto();
         let predecessor = env::predecessor_account_id();
         self.token.internal_withdraw(&predecessor, amount.into());
         let event_log = json!({
@@ -102,7 +144,11 @@ impl Contract {
     }
 
     /// Custom burn function that logs the destination chainId and address for the bridging process
+    #[payable]
     pub fn burn_bridge(&mut self, amount: U128, dest_chain_id: String, dest_chain_address: String) {
+        self.assert_not_paused();
+
+        assert_one_yocto();
         let predecessor = env::predecessor_account_id();
         self.token.internal_withdraw(&predecessor, amount.into());
         let event_log = json!({
@@ -170,9 +216,8 @@ mod tests {
                 icon: Some(DATA_IMAGE_SVG_NEAR_ICON.to_string()),
                 reference: None,
                 reference_hash: None,
-                decimals: 24,
+                decimals: 8,
             },
-            near_sdk::json_types::U128(10000000),
         );
         testing_env!(context.is_view(true).build());
         assert_eq!(contract.ft_total_supply().0, 0); // Initially, total supply should be 0
@@ -192,14 +237,13 @@ mod tests {
                 icon: Some(DATA_IMAGE_SVG_NEAR_ICON.to_string()),
                 reference: None,
                 reference_hash: None,
-                decimals: 24,
+                decimals: 8,
             },
-            near_sdk::json_types::U128(10000000),
         );
 
         // Mint some tokens with a dummy BTC transaction hash
         let btc_txn_hash = "dummy_btc_txn_hash".to_string();
-        contract.mint(accounts(1).into(), U128(1000), btc_txn_hash);
+        contract.mint_deposit(accounts(1).into(), U128(1000), btc_txn_hash);
         testing_env!(context.is_view(true).build());
         assert_eq!(contract.ft_total_supply().0, 1000);
         assert_eq!(contract.ft_balance_of(accounts(1)).0, 1000);
@@ -226,12 +270,11 @@ mod tests {
                 icon: Some(DATA_IMAGE_SVG_NEAR_ICON.to_string()),
                 reference: None,
                 reference_hash: None,
-                decimals: 24,
+                decimals: 8,
             },
-            near_sdk::json_types::U128(10000000),
         );
         let btc_txn_hash = "dummy_btc_txn_hash".to_string();
-        contract.mint(accounts(2).into(), U128(1000), btc_txn_hash);
+        contract.mint_deposit(accounts(2).into(), U128(1000), btc_txn_hash);
         testing_env!(context
             .storage_usage(env::storage_usage())
             .attached_deposit(contract.storage_balance_bounds().min.into())

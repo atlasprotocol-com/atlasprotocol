@@ -14,6 +14,7 @@ fn setup_atlas() -> Atlas {
         accounts(2),
         accounts(3),
         "treasury_address".to_string(),
+        false,
     )
 }
 
@@ -27,6 +28,7 @@ async fn test_get_deposits_by_timestamp() {
     let receiving_chain_id = "receiving_chain_id".to_string();
     let receiving_address = "receiving_address".to_string();
     let btc_amount = 1000;
+    let fee_amount = 0;
     let minted_txn_hash = "".to_string();
     let timestamp1 = 1234567890;
     let timestamp2 = 1234567895;
@@ -39,6 +41,7 @@ async fn test_get_deposits_by_timestamp() {
         receiving_chain_id.clone(),
         receiving_address.clone(),
         btc_amount,
+        fee_amount,
         minted_txn_hash.clone(),
         timestamp1,
         remarks.clone(),
@@ -51,6 +54,7 @@ async fn test_get_deposits_by_timestamp() {
         receiving_chain_id.clone(),
         receiving_address.clone(),
         btc_amount,
+        fee_amount,
         minted_txn_hash.clone(),
         timestamp2,
         remarks.clone(),
@@ -83,6 +87,7 @@ async fn test_deposit_count() {
     let receiving_chain_id = "receiving_chain_id".to_string();
     let receiving_address = "receiving_address".to_string();
     let btc_amount = 1000;
+    let fee_amount = 0;
     let minted_txn_hash = "".to_string();
     let timestamp = 1234567890;
     let remarks = "".to_string();
@@ -94,6 +99,7 @@ async fn test_deposit_count() {
         receiving_chain_id.clone(),
         receiving_address.clone(),
         btc_amount,
+        fee_amount,
         minted_txn_hash.clone(),
         timestamp,
         remarks.clone(),
@@ -106,6 +112,7 @@ async fn test_deposit_count() {
         receiving_chain_id.clone(),
         receiving_address.clone(),
         btc_amount,
+        fee_amount,
         minted_txn_hash.clone(),
         timestamp,
         remarks.clone(),
@@ -125,6 +132,7 @@ async fn test_get_all_deposits() {
     let receiving_chain_id = "receiving_chain_id".to_string();
     let receiving_address = "receiving_address".to_string();
     let btc_amount = 1000;
+    let fee_amount = 0;
     let minted_txn_hash = "".to_string();
     let timestamp = 1234567890;
     let remarks = "".to_string();
@@ -136,6 +144,7 @@ async fn test_get_all_deposits() {
         receiving_chain_id.clone(),
         receiving_address.clone(),
         btc_amount,
+        fee_amount,
         minted_txn_hash.clone(),
         timestamp,
         remarks.clone(),
@@ -148,6 +157,7 @@ async fn test_get_all_deposits() {
         receiving_chain_id.clone(),
         receiving_address.clone(),
         btc_amount,
+        fee_amount,
         minted_txn_hash.clone(),
         timestamp,
         remarks.clone(),
@@ -184,6 +194,7 @@ async fn test_get_deposits_by_timestamp_same_start_end() {
     let receiving_chain_id = "receiving_chain_id".to_string();
     let receiving_address = "receiving_address".to_string();
     let btc_amount = 1000;
+    let fee_amount = 0;
     let minted_txn_hash = "".to_string();
     let timestamp = 1234567890;
     let remarks = "".to_string();
@@ -195,6 +206,7 @@ async fn test_get_deposits_by_timestamp_same_start_end() {
         receiving_chain_id,
         receiving_address,
         btc_amount,
+        fee_amount,
         minted_txn_hash,
         timestamp,
         remarks,
@@ -215,6 +227,7 @@ async fn test_get_deposit_by_btc_txn_hash_existing() {
     let receiving_chain_id = "receiving_chain_id".to_string();
     let receiving_address = "receiving_address".to_string();
     let btc_amount = 1000;
+    let fee_amount = 0;
     let minted_txn_hash = "".to_string();
     let timestamp = 1234567890;
     let remarks = "".to_string();
@@ -226,6 +239,7 @@ async fn test_get_deposit_by_btc_txn_hash_existing() {
         receiving_chain_id.clone(),
         receiving_address.clone(),
         btc_amount,
+        fee_amount,
         minted_txn_hash.clone(),
         timestamp,
         remarks.clone(),
@@ -238,12 +252,14 @@ async fn test_get_deposit_by_btc_txn_hash_existing() {
     assert_eq!(deposit.receiving_chain_id, receiving_chain_id);
     assert_eq!(deposit.receiving_address, receiving_address);
     assert_eq!(deposit.btc_amount, btc_amount);
+    assert_eq!(deposit.fee_amount, fee_amount);
     assert_eq!(deposit.minted_txn_hash, minted_txn_hash);
     assert_eq!(deposit.timestamp, timestamp);
     assert_eq!(deposit.status, DEP_BTC_PENDING_MEMPOOL);
     assert_eq!(deposit.remarks, remarks);
     assert_eq!(deposit.date_created, date_created);
     assert_eq!(deposit.verified_count, 0);
+    assert_eq!(deposit.minted_txn_hash_verified_count, 0);
 }
 
 #[tokio::test]

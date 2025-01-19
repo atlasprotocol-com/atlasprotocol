@@ -268,11 +268,22 @@ class Bitcoin {
   }
 
   // Function which returns the txn's btc amount based on receiverAddress
-  async getBtcReceivingAmount(txn, receiverAddress) {
+  async getBtcReceivingAmount(txn, receiverAddress, treasuryAddress) {
     const output = txn.vout.find(
       (vout) => vout.scriptpubkey_address === receiverAddress,
     );
-    return output ? output.value : 0;
+
+    const treasuryOutput = txn.vout.find(
+      (vout) => vout.scriptpubkey_address === treasuryAddress,
+    );
+    
+    const outputValue = output ? output.value : 0;
+    const treasuryValue = treasuryOutput ? treasuryOutput.value : 0;
+
+    return {
+      btcAmount: outputValue + treasuryValue,
+      feeAmount: treasuryValue
+    };
   }
 
   // Function which returns the txn's receiving chain and receiving address based on OP_RETURN code
@@ -320,7 +331,9 @@ class Bitcoin {
         );
 
         // Check if the transaction's block time is greater than the redemption time
-        const hasValidBlockTime = txn.status.block_time >= redemptionTimestamp || !txn.status.block_time;
+        const hasValidBlockTime =
+          txn.status.block_time >= redemptionTimestamp ||
+          !txn.status.block_time;
 
         // Check if the transaction has any output with the OP_RETURN data matching the provided opReturnCode
         const hasOpReturnData = txn.vout.some((vout) => {
@@ -330,7 +343,7 @@ class Bitcoin {
 
         return hasMatchingInput && hasValidBlockTime && hasOpReturnData;
       });
-      
+
       // Check if any records were found
       if (filteredTxns.length > 0) {
         const txn = filteredTxns[0];

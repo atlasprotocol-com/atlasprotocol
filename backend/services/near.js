@@ -5,6 +5,9 @@ const {
   Contract,
   providers,
 } = require("near-api-js");
+const pRetry = require("p-retry");
+const address = require("./address");
+
 const { InMemoryKeyStore } = keyStores;
 
 class Near {
@@ -73,6 +76,7 @@ class Near {
           "insert_redemption_abtc",
           "update_redemption_remarks",
           "create_mint_abtc_signed_tx",
+          "update_deposit_minted_txn_hash",
           "update_deposit_minted",
           "update_deposit_btc_deposited",
           "create_redeem_abtc_signed_payload",
@@ -81,6 +85,10 @@ class Near {
           "update_redemption_pending_btc_mempool",
           "update_redemption_redeemed",
           "update_redemption_custody_txn_id",
+          "create_abtc_accept_ownership_tx",
+          "withdraw_fail_deposit_by_btc_tx_hash",
+          "update_deposit_custody_txn_id",
+          "rollback_deposit_status_by_btc_txn_hash",
         ],
       });
 
@@ -113,17 +121,12 @@ class Near {
       throw new Error("NEAR contract is not initialized. Call init() first.");
     }
 
-    try {
-      const result = await this.nearContract[methodName]({
-        args,
-        gas: this.gas,
-        amount: this.amount,
-      });
-
-      return result;
-    } catch (error) {
-      throw new Error(`Failed to call method ${methodName}: ${error.message}`);
-    }
+    // MUST return original error to retrieve error context
+    return this.nearContract[methodName]({
+      args,
+      gas: this.gas,
+      amount: this.amount,
+    });
   }
 
   // Function to get deposit by BTC sender address from NEAR contract
@@ -206,6 +209,12 @@ class Near {
     });
   }
 
+  async updateDepositMintedTxnHash(btcTxnHash, mintedTxnHash) {
+    return this.makeNearRpcChangeCall("update_deposit_minted_txn_hash", {
+      btc_txn_hash: btcTxnHash,
+      minted_txn_hash: mintedTxnHash,
+    });
+  }
   async updateDepositMinted(btcTxnHash, mintedTxnHash) {
     return this.makeNearRpcChangeCall("update_deposit_minted", {
       btc_txn_hash: btcTxnHash,
@@ -219,6 +228,7 @@ class Near {
     receivingChainID,
     receivingAddress,
     btcAmount,
+    feeAmount,
     mintedTxnHash,
     timestamp,
     remarks,
@@ -230,6 +240,7 @@ class Near {
       receiving_chain_id: receivingChainID,
       receiving_address: receivingAddress,
       btc_amount: btcAmount,
+      fee_amount: feeAmount,
       minted_txn_hash: mintedTxnHash,
       timestamp: timestamp,
       remarks: remarks,
@@ -297,7 +308,7 @@ class Near {
       remarks: remarks,
     });
   }
-  
+
   async createMintaBtcSignedTx(payloadHeader) {
     return this.makeNearRpcChangeCall("create_mint_abtc_signed_tx", {
       btc_txn_hash: payloadHeader.btc_txn_hash,
@@ -318,16 +329,39 @@ class Near {
   }
 
   async createRedeemAbtcSignedPayload(txn_hash, payload, psbt) {
-    console.log("entered createRedeemAbtcSignedPayload");
-    console.log(txn_hash);
-    console.log(payload);
-    console.log(psbt);
+    try {
+      const r = await this.makeNearRpcChangeCall(
+        "create_redeem_abtc_signed_payload",
+        {
+          txn_hash: txn_hash,
+          payload: payload,
+          psbt_data: psbt,
+        },
+      );
 
-    return this.makeNearRpcChangeCall("create_redeem_abtc_signed_payload", {
-      txn_hash: txn_hash,
-      payload: payload,
-      psbt_data: psbt,
-    });
+      return r;
+    } catch (err) {
+      const txnhash = err.context?.transactionHash;
+      if (!txnhash) throw err;
+
+      // if we have a transaction hash, we can wait until the transaction is confirmed
+      const tx = await pRetry(
+        async (count) => {
+          const txnhash = err.context?.transactionHash;
+          console.log(
+            `NEAR createRedeemAbtcSignedPayload - retries: ${count} | ${txnhash}`,
+          );
+          return this.provider.txStatus(txnhash, this.contract_id, "FINAL");
+        },
+        { retries: 10 },
+      );
+      if (!tx || !tx.status || !tx.status.SuccessValue) throw err;
+
+      const value = Buffer.from(tx.status.SuccessValue, "base64").toString(
+        "utf-8",
+      );
+      return JSON.parse(value);
+    }
   }
 
   async createMintAbtcTransaction(payloadHeader) {
@@ -584,7 +618,7 @@ class Near {
                 }
               }),
             );
-            
+
             if (receipt && receipt.outcome.status.SuccessValue === "") {
               // Extract the log containing the JSON event
               const logEntry = receipt.outcome.logs.find((log) => {
@@ -606,6 +640,14 @@ class Near {
                 const wallet = memo.address;
                 const btcAddress = memo.btcAddress;
                 const transactionHash = txResult.transaction.hash;
+
+                var isValidAddress = address.isValidBTCAddress(btcAddress);
+                if (!isValidAddress) {
+                  console.error(
+                    `[${transactionHash}] Invalid address: ${btcAddress} in block ${blockHeight}`,
+                  );
+                  continue;
+                }
 
                 events.push({
                   returnValues: {
@@ -630,6 +672,41 @@ class Near {
       }
     }
     return events;
+  }
+
+  async createAcceptOwnershipTx(params) {
+    return this.makeNearRpcChangeCall(
+      "create_abtc_accept_ownership_tx",
+      params,
+    );
+  }
+
+  async withdrawFailDepositByBtcTxHash(params) {
+    return this.makeNearRpcChangeCall(
+      "withdraw_fail_deposit_by_btc_tx_hash",
+      params,
+    );
+  }
+
+  async rollbackDepositStatusByBtcTxnHash(params) {
+    return this.makeNearRpcChangeCall(
+      "rollback_deposit_status_by_btc_txn_hash",
+      params,
+    );
+  }
+
+  async updateDepositCustodyTxnId(btc_txn_hash, custody_txn_id) {
+    return this.makeNearRpcChangeCall("update_deposit_custody_txn_id", {
+      btc_txn_hash,
+      custody_txn_id,
+    });
+  }
+
+  async updateWithdrawFailDepositStatus(btc_txn_hash, timestamp) {
+    return this.makeNearRpcChangeCall("update_withdraw_fail_deposit_status", {
+      btc_txn_hash,
+      timestamp,
+    });
   }
 }
 

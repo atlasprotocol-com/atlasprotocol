@@ -1,15 +1,15 @@
-use near_sdk::{
-    near_bindgen, env, log, AccountId
-};
-use crate::modules::structs::RedemptionRecord;
-use crate::constants::status::*;
 use crate::atlas::Atlas;
+use crate::constants::status::*;
+use crate::constants::network_type::*;
+use crate::constants::delimiter::COMMA;
+use crate::modules::structs::RedemptionRecord;
 use crate::AtlasExt;
+use near_sdk::{env, log, near_bindgen, AccountId};
 
 #[near_bindgen]
 impl Atlas {
     pub fn insert_redemption_abtc(
-        &mut self,     
+        &mut self,
         txn_hash: String,
         abtc_redemption_address: String,
         abtc_redemption_chain_id: String,
@@ -18,13 +18,23 @@ impl Atlas {
         timestamp: u64,
         date_created: u64,
     ) {
+        self.assert_not_paused();
         self.assert_admin();
 
         // Input validation
         assert!(!txn_hash.is_empty(), "Transaction hash cannot be empty");
-        assert!(!abtc_redemption_address.is_empty(), "atBTC redemption address cannot be empty");
-        assert!(!abtc_redemption_chain_id.is_empty(), "atBTC redemption chain ID cannot be empty");
-        assert!(!btc_receiving_address.is_empty(), "BTC receiving address cannot be empty");
+        assert!(
+            !abtc_redemption_address.is_empty(),
+            "atBTC redemption address cannot be empty"
+        );
+        assert!(
+            !abtc_redemption_chain_id.is_empty(),
+            "atBTC redemption chain ID cannot be empty"
+        );
+        assert!(
+            !btc_receiving_address.is_empty(),
+            "BTC receiving address cannot be empty"
+        );
         assert!(abtc_amount > 0, "atBTC amount must be greater than zero");
         assert!(timestamp > 0, "Timestamp must be greater than zero");
         assert!(date_created > 0, "Date created must be greater than zero");
@@ -47,7 +57,8 @@ impl Atlas {
             remarks: "".to_string(),
             date_created,
             verified_count: 0,
-            custody_txn_id: "".to_string()
+            btc_txn_hash_verified_count: 0,
+            custody_txn_id: "".to_string(),
         };
 
         self.redemptions.insert(txn_hash, record);
@@ -59,8 +70,14 @@ impl Atlas {
         self.redemptions.get(&txn_hash).cloned()
     }
 
-    pub fn get_redemptions_by_abtc_redemption_address(&self, abtc_redemption_address: String) -> Vec<RedemptionRecord> {
-        assert!(!abtc_redemption_address.is_empty(), "atBTC redemption address cannot be empty");
+    pub fn get_redemptions_by_abtc_redemption_address(
+        &self,
+        abtc_redemption_address: String,
+    ) -> Vec<RedemptionRecord> {
+        assert!(
+            !abtc_redemption_address.is_empty(),
+            "atBTC redemption address cannot be empty"
+        );
 
         self.redemptions
             .values()
@@ -69,8 +86,14 @@ impl Atlas {
             .collect()
     }
 
-    pub fn get_redemptions_by_btc_receiving_address(&self, btc_receiving_address: String) -> Vec<RedemptionRecord> {
-        assert!(!btc_receiving_address.is_empty(), "BTC receiving address cannot be empty");
+    pub fn get_redemptions_by_btc_receiving_address(
+        &self,
+        btc_receiving_address: String,
+    ) -> Vec<RedemptionRecord> {
+        assert!(
+            !btc_receiving_address.is_empty(),
+            "BTC receiving address cannot be empty"
+        );
 
         self.redemptions
             .values()
@@ -79,9 +102,16 @@ impl Atlas {
             .collect()
     }
 
-    pub fn get_redemptions_by_timestamp(&self, start_time: u64, end_time: u64) -> Vec<RedemptionRecord> {
+    pub fn get_redemptions_by_timestamp(
+        &self,
+        start_time: u64,
+        end_time: u64,
+    ) -> Vec<RedemptionRecord> {
         // Validate input parameters
-        assert!(start_time <= end_time, "Start time must be less than or equal to end time");
+        assert!(
+            start_time <= end_time,
+            "Start time must be less than or equal to end time"
+        );
 
         self.redemptions
             .values()
@@ -99,11 +129,12 @@ impl Atlas {
     }
 
     pub fn update_redemption_start(&mut self, txn_hash: String) {
-        self.assert_admin();  // Changed from self.assert_owner()
+        self.assert_not_paused();
+        self.assert_admin();
 
         // Validate input
         assert!(!txn_hash.is_empty(), "Transaction hash cannot be empty");
-    
+
         // Retrieve the redemption record based on txn_hash
         if let Some(mut redemption) = self.redemptions.get(&txn_hash).cloned() {
             // Fetch chain configuration for the redemption's chain_id
@@ -140,15 +171,19 @@ impl Atlas {
             env::panic_str("Redemption record not found");
         }
     }
-    
 
-    pub fn update_redemption_pending_btc_mempool(&mut self, txn_hash: String, btc_txn_hash: String) {
-        self.assert_admin();  // Changed from self.assert_owner()
+    pub fn update_redemption_pending_btc_mempool(
+        &mut self,
+        txn_hash: String,
+        btc_txn_hash: String,
+    ) {
+        self.assert_not_paused();
+        self.assert_admin();
 
         // Validate input parameters
         assert!(!txn_hash.is_empty(), "Transaction hash cannot be empty");
         assert!(!btc_txn_hash.is_empty(), "BTC transaction hash cannot be empty");
-    
+
         // Retrieve the redemption record based on txn_hash
         if let Some(mut redemption) = self.redemptions.get(&txn_hash).cloned() {
             // Fetch chain configuration for the redemption's chain_id
@@ -186,9 +221,14 @@ impl Atlas {
             env::panic_str("Redemption record not found");
         }
     }
-    
 
-    pub fn update_redemption_redeemed(&mut self, txn_hash: String, btc_txn_hash: String, timestamp: u64) {
+    pub fn update_redemption_redeemed(
+        &mut self,
+        txn_hash: String,
+        btc_txn_hash: String,
+        timestamp: u64,
+    ) {
+        self.assert_not_paused();
         self.assert_admin();
 
         // Validate input parameters
@@ -203,22 +243,36 @@ impl Atlas {
                 .chain_configs
                 .get_chain_config(redemption.abtc_redemption_chain_id.clone())
             {
-                // Check all specified conditions
-                if (redemption.status == RED_BTC_PENDING_REDEMPTION_FROM_ATLAS_TO_USER
-                    || redemption.status == RED_BTC_PENDING_MEMPOOL_CONFIRMATION)
-                    && redemption.verified_count >= chain_config.validators_threshold
-                    && redemption.remarks.is_empty()
-                {
-                    // All conditions are met, proceed to update the redemption status
-                    redemption.status = RED_BTC_REDEEMED_BACK_TO_USER;
-                    redemption.btc_txn_hash = btc_txn_hash;
-                    redemption.timestamp = timestamp;
-                    self.redemptions.insert(txn_hash.clone(), redemption);
-                    log!("Redemption status updated to RED_BTC_REDEEMED_BACK_TO_USER for txn_hash: {}", txn_hash);
+                // Fetch chain configuration for the bitcoin redemption
+                let btc_chain_id = if self.is_production_mode() {
+                    BITCOIN.to_string()
                 } else {
-                    // Panic with the expected message if conditions are not met
-                    env::panic_str("Conditions not met for updating redemption status");
-                }
+                    SIGNET.to_string()
+                };
+                
+                if let Some(btc_chain_config) = self
+                    .chain_configs
+                    .get_chain_config(btc_chain_id.clone())
+                {
+                    // Check all specified conditions
+                    if (redemption.status == RED_BTC_PENDING_MEMPOOL_CONFIRMATION)
+                        && redemption.verified_count >= chain_config.validators_threshold
+                        && redemption.btc_txn_hash_verified_count >= btc_chain_config.validators_threshold
+                        && redemption.remarks.is_empty()
+                        && redemption.btc_txn_hash == btc_txn_hash
+                    {
+                        // All conditions are met, proceed to update the redemption status
+                        redemption.status = RED_BTC_REDEEMED_BACK_TO_USER;                    
+                        redemption.timestamp = timestamp;
+                        self.redemptions.insert(txn_hash.clone(), redemption);
+                        log!("Redemption status updated to RED_BTC_REDEEMED_BACK_TO_USER for txn_hash: {}", txn_hash);
+                    } else {
+                        // Panic with the expected message if conditions are not met
+                        env::panic_str("Conditions not met for updating redemption status");
+                    }
+                } else {
+                    env::panic_str("Chain configuration not found for bitcoin redemption");
+                }    
             } else {
                 env::panic_str("Chain configuration not found for redemption chain ID");
             }
@@ -228,12 +282,13 @@ impl Atlas {
     }
 
     pub fn update_redemption_remarks(&mut self, txn_hash: String, remarks: String) {
-        self.assert_admin();  // Changed from self.assert_owner()
-    
+        self.assert_not_paused();
+        self.assert_admin();
+
         // Validate input parameters
         assert!(!txn_hash.is_empty(), "Transaction hash cannot be empty");
         assert!(!remarks.trim().is_empty(), "Remarks cannot be blank");
-    
+
         // Retrieve the redemption record based on txn_hash
         if let Some(mut redemption) = self.redemptions.get(&txn_hash).cloned() {
             // Fetch chain configuration for the redemption's chain ID
@@ -268,15 +323,18 @@ impl Atlas {
             env::panic_str("Redemption record not found");
         }
     }
-    
 
     pub fn update_redemption_custody_txn_id(&mut self, txn_hash: String, custody_txn_id: String) {
-        self.assert_admin();  // Changed from self.assert_owner()
+        self.assert_not_paused();
+        self.assert_admin();
 
         // Validate input parameters
         assert!(!txn_hash.is_empty(), "Transaction hash cannot be empty");
-        assert!(!custody_txn_id.is_empty(), "Custody transaction ID cannot be empty");
-    
+        assert!(
+            !custody_txn_id.is_empty(),
+            "Custody transaction ID cannot be empty"
+        );
+
         // Retrieve the redemption record based on txn_hash
         if let Some(mut redemption) = self.redemptions.get(&txn_hash).cloned() {
             // Fetch chain configuration for the redemption's chain ID
@@ -315,35 +373,36 @@ impl Atlas {
     }
 
     pub fn rollback_redemption_status_by_txn_hash(&mut self, txn_hash: String) {
+        self.assert_not_paused();
 
         // Validate input parameters
         assert!(!txn_hash.is_empty(), "Transaction hash cannot be empty");
-        
+
         // Retrieve the redemption record based on txn_hash
         if let Some(mut redemption) = self.redemptions.get(&txn_hash).cloned() {
             if !redemption.abtc_redemption_address.is_empty()
                 && !redemption.abtc_redemption_chain_id.is_empty()
                 && !redemption.btc_receiving_address.is_empty()
-                && !redemption.remarks.is_empty() 
+                && !redemption.remarks.is_empty()
             {
                 match redemption.status {
                     RED_BTC_PENDING_REDEMPTION_FROM_BABYLON_TO_ATLAS => {
                         redemption.status = RED_ABTC_BURNT;
                         redemption.remarks.clear();
-                    },
+                    }
                     RED_BTC_PENDING_REDEMPTION_FROM_ATLAS_TO_USER => {
                         redemption.status = RED_ABTC_BURNT;
                         redemption.remarks.clear();
-                    },
+                    }
                     RED_BTC_PENDING_MEMPOOL_CONFIRMATION => {
                         redemption.status = RED_BTC_PENDING_REDEMPTION_FROM_ATLAS_TO_USER;
                         redemption.remarks.clear();
-                    },
+                    }
                     _ => {
                         // No action needed for other statuses
                     }
                 }
-    
+
                 // Update the redemption record in the map
                 self.redemptions.insert(txn_hash, redemption);
             }
@@ -353,38 +412,42 @@ impl Atlas {
     }
 
     pub fn rollback_all_redemption_status(&mut self) {
+        self.assert_not_paused();
+
         // Collect the keys and redemptions that need to be updated
-        let updates: Vec<(String, RedemptionRecord)> = self.redemptions.iter()
-        .filter_map(|(key, redemption)| {
-            let mut redemption = redemption.clone();  // Clone the redemption to modify it
-            if !redemption.abtc_redemption_address.is_empty()
-                && !redemption.abtc_redemption_chain_id.is_empty()
-                && !redemption.btc_receiving_address.is_empty()
-                && !redemption.remarks.is_empty() 
-            {
-                match redemption.status {
-                    RED_BTC_PENDING_REDEMPTION_FROM_BABYLON_TO_ATLAS => {
-                        redemption.status = RED_ABTC_BURNT;
-                        redemption.remarks.clear();
-                        Some((key.clone(), redemption))  // Clone the key and return the updated redemption
-                    },
-                    RED_BTC_PENDING_REDEMPTION_FROM_ATLAS_TO_USER => {
-                        redemption.status = RED_ABTC_BURNT;
-                        redemption.remarks.clear();
-                        Some((key.clone(), redemption))  // Clone the key and return the updated redemption
-                    },
-                    RED_BTC_PENDING_MEMPOOL_CONFIRMATION => {
-                        redemption.status = RED_BTC_PENDING_REDEMPTION_FROM_ATLAS_TO_USER;
-                        redemption.remarks.clear();
-                        Some((key.clone(), redemption))  // Clone the key and return the updated redemption
-                    },
-                    _ => None,
+        let updates: Vec<(String, RedemptionRecord)> = self
+            .redemptions
+            .iter()
+            .filter_map(|(key, redemption)| {
+                let mut redemption = redemption.clone(); // Clone the redemption to modify it
+                if !redemption.abtc_redemption_address.is_empty()
+                    && !redemption.abtc_redemption_chain_id.is_empty()
+                    && !redemption.btc_receiving_address.is_empty()
+                    && !redemption.remarks.is_empty()
+                {
+                    match redemption.status {
+                        RED_BTC_PENDING_REDEMPTION_FROM_BABYLON_TO_ATLAS => {
+                            redemption.status = RED_ABTC_BURNT;
+                            redemption.remarks.clear();
+                            Some((key.clone(), redemption)) // Clone the key and return the updated redemption
+                        }
+                        RED_BTC_PENDING_REDEMPTION_FROM_ATLAS_TO_USER => {
+                            redemption.status = RED_ABTC_BURNT;
+                            redemption.remarks.clear();
+                            Some((key.clone(), redemption)) // Clone the key and return the updated redemption
+                        }
+                        RED_BTC_PENDING_MEMPOOL_CONFIRMATION => {
+                            redemption.status = RED_BTC_PENDING_REDEMPTION_FROM_ATLAS_TO_USER;
+                            redemption.remarks.clear();
+                            Some((key.clone(), redemption)) // Clone the key and return the updated redemption
+                        }
+                        _ => None,
+                    }
+                } else {
+                    None
                 }
-            } else {
-                None
-            }
-        })
-        .collect();
+            })
+            .collect();
 
         // Apply the updates
         for (key, redemption) in updates {
@@ -398,10 +461,13 @@ impl Atlas {
             if redemption.btc_receiving_address != ""
                 && redemption.status == RED_ABTC_BURNT
                 && redemption.remarks == ""
-                && redemption.btc_txn_hash == "" 
+                && redemption.btc_txn_hash == ""
             {
                 // Fetch the chain configuration for the corresponding redemption chain ID
-                if let Some(chain_config) = self.chain_configs.get_chain_config(redemption.abtc_redemption_chain_id.clone()) {
+                if let Some(chain_config) = self
+                    .chain_configs
+                    .get_chain_config(redemption.abtc_redemption_chain_id.clone())
+                {
                     // Ensure that the verified_count meets or exceeds the validators_threshold
                     if redemption.verified_count >= chain_config.validators_threshold {
                         log!(
@@ -411,11 +477,11 @@ impl Atlas {
                             chain_config.validators_threshold
                         );
                         return Some(txn_hash.clone()); // Return the first matching txn_hash
-                    } 
-                } 
+                    }
+                }
             }
         }
-    
+
         None // If no matching redemption is found, return None
     }
 
@@ -424,8 +490,11 @@ impl Atlas {
     // Caller of this function has to be a new validator of this txn_hash
     // Checks all fields of mempool_record equal to redemption record
     // Returns true if verified_count incremented successfully and returns false if not incremented
-    pub fn increment_redemption_verified_count(&mut self, mempool_redemption: RedemptionRecord) -> bool {
-        let caller: AccountId = env::predecessor_account_id();
+    pub fn increment_redemption_verified_count(
+        &mut self,
+        mempool_redemption: RedemptionRecord,
+    ) -> bool {
+        self.assert_not_paused();
 
         // Validate the mempool_redemption
         if mempool_redemption.txn_hash.is_empty() {
@@ -433,30 +502,40 @@ impl Atlas {
             return false;
         }
         
+        let caller: AccountId = env::predecessor_account_id();
+
         // Retrieve the redemption record using the txn_hash
         if let Some(mut redemption) = self.redemptions.get(&mempool_redemption.txn_hash).cloned() {
             let chain_id = redemption.abtc_redemption_chain_id.clone();
-            
+
             // Use the is_validator function to check if the caller is authorized for the redemption chain ID
             if self.is_validator(&caller, &chain_id) {
                 // Retrieve the list of validators for this txn_hash using the getter method
-                let mut validators_list = self.get_validators_by_txn_hash(redemption.txn_hash.clone());
+                let mut validators_list =
+                    self.get_validators_by_txn_hash(redemption.txn_hash.clone());
 
                 // Check if the caller has already verified this txn_hash
                 if validators_list.contains(&caller) {
-                    log!("Caller {} has already verified the transaction with txn_hash: {}.", &caller, &redemption.txn_hash);
+                    log!(
+                        "Caller {} has already verified the transaction with txn_hash: {}.",
+                        &caller,
+                        &redemption.txn_hash
+                    );
                     return false;
                 }
 
                 // Verify that all fields of redemption and mempool_redemption are equal
-                if redemption.txn_hash != mempool_redemption.txn_hash ||
-                    redemption.abtc_redemption_address != mempool_redemption.abtc_redemption_address ||
-                    redemption.abtc_redemption_chain_id != mempool_redemption.abtc_redemption_chain_id ||
-                    redemption.btc_receiving_address != mempool_redemption.btc_receiving_address ||
-                    redemption.abtc_amount != mempool_redemption.abtc_amount ||
-                    redemption.timestamp != mempool_redemption.timestamp ||
-                    redemption.status != RED_ABTC_BURNT || 
-                    redemption.remarks != mempool_redemption.remarks {
+                if redemption.txn_hash != mempool_redemption.txn_hash
+                    || redemption.abtc_redemption_address
+                        != mempool_redemption.abtc_redemption_address
+                    || redemption.abtc_redemption_chain_id
+                        != mempool_redemption.abtc_redemption_chain_id
+                    || redemption.btc_receiving_address != mempool_redemption.btc_receiving_address
+                    || redemption.abtc_amount != mempool_redemption.abtc_amount
+                    || redemption.timestamp != mempool_redemption.timestamp
+                    || redemption.status != RED_ABTC_BURNT
+                    || redemption.remarks != mempool_redemption.remarks
+                {
                     log!("Mismatch between near_redemption and mempool_redemption records. Verification failed.");
                     return false;
                 }
@@ -464,25 +543,108 @@ impl Atlas {
                 // Increment the verified count
                 redemption.verified_count += 1;
 
-                // Clone redemption before inserting it to avoid moving it
-                let cloned_redemption = redemption.clone();
-
                 // Update the redemption record in the map
-                self.redemptions.insert(redemption.txn_hash.clone(), cloned_redemption);
+                self.redemptions
+                    .insert(mempool_redemption.txn_hash.clone(), redemption);
 
                 // Add the caller to the list of validators for this txn_hash
                 validators_list.push(caller);
-                self.verifications.insert(redemption.txn_hash.clone(), validators_list);
+                self.verifications
+                    .insert(mempool_redemption.txn_hash, validators_list);
 
                 true // success case returns true
             } else {
-                log!("Caller {} is not an authorized validator for the chain ID: {}", &caller, &chain_id);
+                log!(
+                    "Caller {} is not an authorized validator for the chain ID: {}",
+                    &caller,
+                    &chain_id
+                );
                 return false;
             }
         } else {
-            log!("Redemption record not found for txn_hash: {}.", &mempool_redemption.txn_hash);
+            log!(
+                "Redemption record not found for txn_hash: {}.",
+                &mempool_redemption.txn_hash
+            );
             return false;
         }
     }
-   
+
+    // Increments redemption record's btc_txn_hash_verified_count by 1
+    // Caller of this function has to be an authorized validator for the bitcoin chain of the redemption record
+    // Caller of this function has to be a new validator of this <txn_hash>,<btc_txn_hash>
+    // Checks that redemption record's txn_hash and btc_txn_hash are equal to the input parameters, then increments the btc_txn_hash_verified_count by 1
+    // Returns true if btc_txn_hash_verified_count incremented successfully and returns false if not incremented
+    pub fn increment_redemption_btc_txn_hash_verified_count(&mut self, txn_hash: String, btc_txn_hash: String) -> bool {
+        self.assert_not_paused();
+
+        // Validate input parameters
+        if txn_hash.is_empty() || btc_txn_hash.is_empty() {
+            log!("Invalid input: txn_hash or btc_txn_hash is empty");
+            return false;
+        }
+
+        let caller: AccountId = env::predecessor_account_id();
+
+        // Retrieve the redemption record using the txn_hash
+        if let Some(mut redemption) = self.redemptions.get(&txn_hash).cloned() {
+            let btc_chain_id = if self.is_production_mode() {
+                BITCOIN.to_string()
+            } else {
+                SIGNET.to_string()
+            };
+
+            // Check if the caller is an authorized validator for the bitcoin chain
+            if self.is_validator(&caller, &btc_chain_id) {
+
+                // Create a unique key for the verifications map using the COMMA constant
+                let verification_key = format!("{}{}{}", txn_hash, COMMA, btc_txn_hash);
+
+                // Retrieve the list of validators for this <txn_hash>,<btc_txn_hash>
+                let mut validators_list = self.get_validators_by_txn_hash(verification_key.clone());
+
+                // Check if the caller has already verified this <txn_hash>,<btc_txn_hash>
+                if validators_list.contains(&caller) {
+                    log!(
+                        "Caller {} has already verified the transaction with txn_hash: {} and btc_txn_hash: {}.",
+                        &caller,
+                        &txn_hash,
+                        &btc_txn_hash
+                    );
+                    return false;
+                }
+
+                // Verify that the redemption record's txn_hash and btc_txn_hash match the input parameters
+                if redemption.txn_hash == txn_hash && redemption.btc_txn_hash == btc_txn_hash {
+                    // Increment the btc_txn_hash_verified_count
+                    redemption.btc_txn_hash_verified_count += 1;
+
+                    // Update the redemption record in the map
+                    self.redemptions.insert(txn_hash.clone(), redemption);
+
+                    // Add the caller to the list of validators for this <txn_hash>,<btc_txn_hash>
+                    validators_list.push(caller);
+                    self.verifications.insert(verification_key, validators_list);
+
+                    true // success case returns true
+                } else {
+                    log!("Mismatch between redemption record and input parameters. Verification failed.");
+                    false
+                }
+            } else {
+                log!(
+                    "Caller {} is not an authorized validator for the bitcoin chain: {}",
+                    &caller,
+                    &btc_chain_id
+                );
+                false
+            }
+        } else {
+            log!(
+                "Redemption record not found for txn_hash: {}.",
+                &txn_hash
+            );
+            false
+        }
+    }
 }

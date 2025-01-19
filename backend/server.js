@@ -4,6 +4,10 @@ const dotenv = require("dotenv");
 const { globalParams, updateGlobalParams } = require("./config/globalParams");
 const { getTransactionsAndComputeStats } = require("./utils/transactionStats");
 const { UpdateAtlasBtcDeposits } = require("./utils/updateAtlasBtcDeposits");
+const { WithdrawFailDeposits } = require("./utils/WithdrawFailDeposits");
+const {
+  UpdateWithdrawFailDeposits,
+} = require("./utils/UpdateWithdrawFailDeposits");
 const {
   MintaBtcToReceivingChain,
 } = require("./utils/mintaBtcToReceivingChain");
@@ -14,6 +18,7 @@ const { SendBtcBackToUser } = require("./utils/sendBtcBackToUser");
 const {
   UpdateAtlasBtcBackToUser,
 } = require("./utils/updateAtlasBtcBackToUser");
+const { UpdateAtlasAbtcMintedTxnHash } = require("./utils/UpdateAtlasAbtcMintedTxnHash");
 const { UpdateAtlasAbtcMinted } = require("./utils/updateAtlasAbtcMinted");
 
 const {
@@ -28,9 +33,11 @@ dotenv.config({ path: envFile });
 
 const express = require("express");
 const cors = require("cors");
-const cron = require("node-cron");
+const helmet = require("helmet");
 
 const app = express();
+app.use(cors());
+app.use(helmet());
 
 const { Bitcoin } = require("./services/bitcoin");
 const { Near } = require("./services/near");
@@ -184,6 +191,8 @@ app.get("/api/v1/global-params", async (req, res) => {
           max_staking_amount: globalParams.maxStakingAmount,
           min_staking_amount: globalParams.minStakingAmount,
           atlas_address: btcAtlasDepositAddress,
+          deposit_fee_percentage: globalParams.atlasDepositFeePercentage,
+          treasury_address: globalParams.atlasTreasuryAddress,
         },
       ],
     };
@@ -281,12 +290,20 @@ async function runBatch() {
   await UpdateAtlasBtcDeposits(
     btcMempool,
     btcAtlasDepositAddress,
+    globalParams.atlasTreasuryAddress,
+    globalParams.atlasDepositFeePercentage,
     near,
     bitcoin,
   );
+
   await MintaBtcToReceivingChain(near);
 
+  await UpdateAtlasAbtcMintedTxnHash(deposits, near);
+
   await UpdateAtlasAbtcMinted(deposits, near);
+
+  await WithdrawFailDeposits(deposits, near, bitcoin);
+  await UpdateWithdrawFailDeposits(deposits, near, bitcoin);
 
   await UpdateAtlasBtcRedemptions(near);
 

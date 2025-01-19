@@ -55,13 +55,7 @@ export const ConnectSmall: React.FC<ConnectSmallProps> = ({
         </div>
       </button>
       {showMenu && (
-        <div
-          className="absolute right-[10px] top-0 z-10 mt-[4.5rem] flex flex-col gap-4 rounded-lg bg-base-300 p-4 shadow-lg"
-          style={{
-            // margin - border
-            width: "calc(100% - 8px)",
-          }}
-        >
+        <div className="absolute right-[10px] top-0 z-10 mt-[4.5rem] flex flex-col gap-4 rounded-lg bg-base-300 p-4 shadow-lg w-[calc(100%_-_8px)">
           <div className="flex items-center justify-between">
             <h3 className="font-bold dark:text-neutral-content">Settings</h3>
             <button

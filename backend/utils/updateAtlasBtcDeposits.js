@@ -9,10 +9,13 @@ const {
 async function UpdateAtlasBtcDeposits(
   btcMempool,
   btcAtlasDepositAddress,
+  treasuryAddress,
+  depositFeePercentage,
   near,
   bitcoin,
 ) {
   const batchName = `Batch A UpdateAtlasBtcDeposits`;
+  console.log(treasuryAddress);
 
   if (flagsBatch.UpdateAtlasBtcDepositsRunning) {
     return;
@@ -79,18 +82,28 @@ async function UpdateAtlasBtcDeposits(
           // Insert new deposit record
 
           const btcSenderAddress = await bitcoin.getBtcSenderAddress(txn);
-          const {
+          let {
             chain: receivingChainID,
             address: receivingAddress,
             remarks,
           } = await bitcoin.getChainAndAddressFromTxnHash(txn);
 
           if (receivingChainID && receivingAddress) {
-            const btcAmount = await bitcoin.getBtcReceivingAmount(
+            const { btcAmount, feeAmount } = await bitcoin.getBtcReceivingAmount(
               txn,
               btcAtlasDepositAddress,
+              treasuryAddress
             );
-            timestamp = await bitcoin.fetchUnconfirmedTransactionTime(txn);
+
+            if (feeAmount === 0 && depositFeePercentage > 0) {
+              remarks = `No deposit fee paid`;
+            }
+
+            // Use confirmed timestamp if available, otherwise fetch unconfirmed time
+            timestamp = blnStatusConfirmed
+              ? txn.status.block_time
+              : await bitcoin.fetchUnconfirmedTransactionTime(txn);
+
             const mintedTxnHash = "";
 
             await near.insertDepositBtc(
@@ -99,6 +112,7 @@ async function UpdateAtlasBtcDeposits(
               receivingChainID,
               receivingAddress,
               btcAmount,
+              feeAmount,
               mintedTxnHash,
               timestamp,
               remarks,

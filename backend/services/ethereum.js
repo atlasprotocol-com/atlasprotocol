@@ -1,11 +1,12 @@
 const { Web3 } = require("web3");
 const { bytesToHex } = require("@ethereumjs/util");
-const { FeeMarketEIP1559Transaction } = require("@ethereumjs/tx");
-const { Common } = require("@ethereumjs/common");
 const fs = require("fs");
 const path = require("path");
+const _ = require("lodash");
+const pRetry = require("p-retry");
 
 const { getConstants } = require("../constants");
+const address = require("./address");
 
 const {
   deriveChildPublicKey,
@@ -22,10 +23,12 @@ class Ethereum {
     );
 
     this.web3 = new Web3(rpcUrl);
+
     this.abtcContract = new this.web3.eth.Contract(
       this.contractABI,
       aBTCAddress,
     );
+
     this.chainID = Number(chainID);
     this.gasLimit = gasLimit;
     this.aBTCAddress = aBTCAddress;
@@ -58,21 +61,49 @@ class Ethereum {
       max_priority_fee_per_gas: Number(maxPriorityFeePerGas), // Convert BigInt to Number
     };
 
-    const result = await near.createMintaBtcSignedTx(payloadHeader);
+    try {
+      const signed = await near.createMintaBtcSignedTx(payloadHeader);
+      return new Uint8Array(signed);
+    } catch (err) {
+      const txnhash = err.context?.transactionHash;
+      if (!txnhash) throw err;
 
-    const signedTransaction = new Uint8Array(result);
+      // if we have a transaction hash, we can wait until the transaction is confirmed
+      const tx = await pRetry(
+        async (count) => {
+          console.log(
+            `EVM createMintaBtcSignedTx - retries: ${count} | ${txnhash}`,
+          );
+          return near.provider.txStatus(txnhash, near.contract_id, "FINAL");
+        },
+        { retries: 10 },
+      );
+      if (!tx || !tx.status || !tx.status.SuccessValue) throw err;
 
-    return signedTransaction;
+      const value = Buffer.from(tx.status.SuccessValue, "base64").toString(
+        "utf-8",
+      );
+
+      return new Uint8Array(JSON.parse(value));
+    }
   }
 
   // This code can be used to actually relay the transaction to the Ethereum network
   async relayTransaction(signedTransaction) {
     const serializedTx = bytesToHex(signedTransaction);
-    const relayed = await this.web3.eth.sendSignedTransaction(serializedTx);
-    const txnHash = relayed.transactionHash;
-    const status = relayed.status;
+    try {
+      const relayed = await this.web3.eth.sendSignedTransaction(serializedTx);
+      const txnHash = relayed.transactionHash;
+      const status = relayed.status;
 
-    return { txnHash, status };
+      return { txnHash, status };
+    } catch (err) {
+      console.log(err);
+      console.log(
+        `EVM relayTransaction error: ${err.message} | ${serializedTx}`,
+      );
+      throw err;
+    }
   }
 
   // Function to get the current block number
@@ -131,56 +162,53 @@ class Ethereum {
     );
   }
 
-  async _scanEvents(eventName, startBlock, endBlock, batchSize, wallet) {
-    let fromBlock = BigInt(startBlock);
-    let toBlock;
-    let allEvents = [];
+  async _scanEvents(
+    eventName,
+    startBlock,
+    endBlock,
+    batchSize,
+    wallet,
+    concurrency = 2,
+  ) {
+    const ranges = _.range(Number(startBlock), Number(endBlock), batchSize);
 
-    //console.log(`getPastEventsInBatches: Start block ${startBlock}`);
-    //console.log(`getPastEventsInBatches: End block ${endBlock}`);
-    while (fromBlock < endBlock) {
-      toBlock = fromBlock + BigInt(batchSize) - 1n;
-      if (toBlock > endBlock) {
-        toBlock = endBlock; // Ensure toBlock does not exceed endBlock
-      }
-
-      console.log(
-        `${eventName} ------------ ${fromBlock} -> ${toBlock} | ${batchSize}`,
-      );
-
-      try {
-        const filters = {
-          fromBlock: fromBlock,
-          toBlock: toBlock,
-        };
-        // wallet is indexed so we can filter by wallet
-        if (wallet) filters.wallet = wallet;
-
-        const events = await this.abtcContract.getPastEvents(
-          eventName,
-          filters,
-        );
-
-        allEvents = allEvents.concat(events);
-        //console.log(`Fetched events from blocks ${fromBlock} to ${toBlock}`);
-      } catch (error) {
-        if (error.message.includes("Block range is too large")) {
-          console.log(
-            `[${eventName}] Block range is too large | toBlock:${toBlock} -> toBlock:${Math.round(Number(toBlock) / 2)}`,
-          );
-          toBlock = BigInt(Math.round(Number(toBlock) / 2));
-          continue;
-        }
-
-        throw new Error(
-          `[${eventName}] Error: fetching events from blocks ${fromBlock} to ${toBlock}: ${error}`,
-        );
-      }
-
-      fromBlock = toBlock + 1n;
+    const items = [];
+    for (let i = 0; i < ranges.length; i += 1) {
+      items.push({
+        from: ranges[i],
+        to: Math.min(ranges[i] + batchSize - 1, Number(endBlock)),
+      });
     }
-    //console.log(`allEvents.length: ${allEvents.length}`);
-    return allEvents;
+
+    const events = [];
+
+    const chunk = _.chunk(items, concurrency);
+    for (let i = 0; i < chunk.length; i++) {
+      const found = await Promise.all(
+        chunk[i].map(async (x) => {
+          console.log(`---------- ${eventName}: ${x.from} -> ${x.to}`);
+          const filters = { fromBlock: BigInt(x.from), toBlock: BigInt(x.to) };
+          // wallet is indexed so we can filter by wallet
+          if (wallet) filters.wallet = wallet;
+
+          const items = await this.abtcContract.getPastEvents(
+            eventName,
+            filters,
+          );
+
+          return items;
+        }),
+      );
+      events.push(..._.flatten(found));
+    }
+
+    return events.filter(
+      (e) =>
+        address.isValidEthereumAddress(
+          e.returnValues && e.returnValues.wallet,
+        ) ||
+        address.isValidNearAddress(e.returnValues && e.returnValues.wallet),
+    );
   }
 
   async deriveEthAddress(rootPublicKey, accountId, derivationPath) {
@@ -193,6 +221,46 @@ class Ethereum {
     );
 
     return await uncompressedHexPointToEvmAddress(publicKey);
+  }
+
+  async createAcceptOwnershipTx(near, sender) {
+    const nonce = await this.web3.eth.getTransactionCount(sender);
+
+    const { maxFeePerGas, maxPriorityFeePerGas } = await this.queryGasPrice();
+
+    const params = {
+      chain_id: this.chainID.toString(),
+      nonce: Number(nonce), // Convert BigInt to Number
+      gas: Math.min(this.gasLimit, Number(maxFeePerGas)), // assuming gasLimit is a number
+      max_fee_per_gas: Number(maxFeePerGas), // Convert BigInt to Number
+      max_priority_fee_per_gas: Number(maxPriorityFeePerGas), // Convert BigInt to Number
+    };
+
+    try {
+      const signed = await near.createAcceptOwnershipTx(params);
+      return new Uint8Array(signed);
+    } catch (err) {
+      const txnhash = err.context?.transactionHash;
+      if (!txnhash) throw err;
+
+      // if we have a transaction hash, we can wait until the transaction is confirmed
+      const tx = await pRetry(
+        async (count) => {
+          console.log(
+            `EVM createAcceptOwnershipTx - retries: ${count} | ${txnhash}`,
+          );
+          return near.provider.txStatus(txnhash, near.contract_id, "FINAL");
+        },
+        { retries: 10 },
+      );
+      if (!tx || !tx.status || !tx.status.SuccessValue) throw err;
+
+      const value = Buffer.from(tx.status.SuccessValue, "base64").toString(
+        "utf-8",
+      );
+
+      return new Uint8Array(JSON.parse(value));
+    }
   }
 }
 module.exports = { Ethereum };

@@ -25,6 +25,8 @@ export interface UTXO {
     feeRate: number,
     inputUTXOs: UTXO[],
     btcWalletNetwork: networks.Network,
+    protocolFeeSat: number,
+    treasuryAddress: string,
     data: string,
     publicKeyNoCoord?: Buffer,
     
@@ -61,13 +63,26 @@ export interface UTXO {
         totalInput += utxo.value;
       });
     }
+
+    let receiverAmount = satoshis;
+  
+    if (protocolFeeSat > 0) {
+      receiverAmount = satoshis - protocolFeeSat;
+    }
     
   
     // Add outputs to the PSBT
     psbt.addOutput({
       address: receiver,
-      value: satoshis,
+      value: receiverAmount,
     });
+
+    if (protocolFeeSat > 0) {
+      psbt.addOutput({
+        address: treasuryAddress,
+        value: protocolFeeSat,
+      });
+    }
 
     // Embed data in the witness stack
     psbt.addOutput({
