@@ -154,6 +154,7 @@ class Bitcoin {
       change,
     };
   }
+  
   async createPayload(near, sender, redemptionTxnHash) {
     // Fetch UTXOs for the sender
     const utxos = await this.fetchUTXOs(sender);

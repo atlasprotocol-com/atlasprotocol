@@ -3,6 +3,7 @@ const { Ethereum } = require("../services/ethereum");
 const address = require("../services/address");
 
 const { flagsBatch } = require("./batchFlags");
+
 const GAS_FOR_MINT_CALL = 100; // Gas for minting call
 
 async function MintaBtcToReceivingChain(near) {

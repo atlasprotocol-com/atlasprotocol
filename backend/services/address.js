@@ -36,6 +36,7 @@ const isValidBTCAddress = (address) => {
 
   return btcP2PKH.test(address) || btcBech32.test(address);
 };
+
 module.exports = {
   isValidNearAddress,
   isValidEthereumAddress,
