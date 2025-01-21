@@ -1,7 +1,6 @@
 "use client";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { ReactQueryStreamedHydration } from "@tanstack/react-query-next-experimental";
 import { ThemeProvider } from "next-themes";
 import React, { useEffect, useState } from "react";
@@ -41,10 +40,6 @@ function Providers({ children }: React.PropsWithChildren) {
                 </EvmWalletProvider>
               </ErrorProvider>
             </TermsProvider>
-            <ReactQueryDevtools
-              buttonPosition="bottom-left"
-              initialIsOpen={false}
-            />
           </QueryClientProvider>
         </ThemeProvider>
       </WagmiProvider>

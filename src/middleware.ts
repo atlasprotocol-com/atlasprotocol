@@ -15,7 +15,7 @@ export function middleware(request: NextRequest) {
     base-uri 'self';
     form-action 'self';
     frame-ancestors 'none';
-    connect-src 'self' https://mempool.space https://api-audit.atlasprotocol.com https://metamask-sdk.api.cx.metamask.io https://sepolia-rollup.arbitrum.io https://sepolia.optimism.io http://localhost:3001;
+    connect-src 'self' https://mempool.space https://api-audit.atlasprotocol.com https://api-uat.atlasprotocol.com https://metamask-sdk.api.cx.metamask.io https://sepolia-rollup.arbitrum.io https://sepolia.optimism.io https://infragrid.v.network/wallet/getnodeinfo http://localhost:3001;
     upgrade-insecure-requests;
 `;
   // Replace newline characters and spaces

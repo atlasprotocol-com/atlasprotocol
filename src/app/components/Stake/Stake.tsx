@@ -83,12 +83,16 @@ export function Stake({ formattedBalance }: StakeProps) {
     receivingAddress: previewData?.address,
     receivingChainID: previewData?.chainID,
     stakingAmountSat: previewData?.amountSat,
-    protocolFeeSat: params?.data?.feeDepositPercentage === 0
+    protocolFeeSat:
+      params?.data?.feeDepositPercentage === 0
         ? 0
-        : Math.floor(Math.max(
-            1000,
-            ((params?.data?.feeDepositPercentage || 0) * (previewData?.amountSat || 0))
-          )),
+        : Math.floor(
+            Math.max(
+              1000,
+              (params?.data?.feeDepositPercentage || 0) *
+                (previewData?.amountSat || 0),
+            ),
+          ),
     treasuryAddress: params?.data?.treasuryAddress || "",
   });
 
@@ -189,12 +193,16 @@ export function Stake({ formattedBalance }: StakeProps) {
         stakingAmountSat: previewData?.amountSat + stakingFee?.amount,
         stakingReceivingAddress: previewData?.address,
         stakingReceivingChainID: previewData?.chainID,
-        protocolFeeSat: params?.data?.feeDepositPercentage === 0
-        ? 0
-        : Math.floor(Math.max(
-            1000,
-            ((params?.data?.feeDepositPercentage || 0) * (previewData?.amountSat || 0))
-          )),
+        protocolFeeSat:
+          params?.data?.feeDepositPercentage === 0
+            ? 0
+            : Math.floor(
+                Math.max(
+                  1000,
+                  (params?.data?.feeDepositPercentage || 0) *
+                    (previewData?.amountSat || 0),
+                ),
+              ),
         treasuryAddress: params?.data?.treasuryAddress || "",
       });
 
@@ -243,7 +251,7 @@ export function Stake({ formattedBalance }: StakeProps) {
     if (!previewData) return {};
 
     const chainConfig = chainConfigs[previewData.chainID];
-    console.log(stakingFee);
+
     return {
       amount: previewData.amount,
       networkName: chainConfig?.networkName,
@@ -266,7 +274,7 @@ export function Stake({ formattedBalance }: StakeProps) {
     mempoolFeeRates?.feeRates?.defaultFeeRate,
     params?.data?.feeDepositPercentage,
     previewData,
-    stakingFee,
+    stakingFee?.formatted,
   ]);
 
   const disabled =

@@ -44,15 +44,16 @@ export const getStakingHistories = async (
     // "pagination_limit": limit,
     btc_address: encode(btcWalletAddress),
   };
-  
+
   const response = await apiWrapper(
     "GET",
     "/api/v1/staker/stakingHistories",
     "Error getting staking histories",
     params,
   );
-  console.log(response);
-  const stakingHistoriesAPIResponse: StakingHistoriesAPIResponse = response.data;
+  // console.log(response);
+  const stakingHistoriesAPIResponse: StakingHistoriesAPIResponse =
+    response.data;
 
   const stakingHistories: Stakes[] = stakingHistoriesAPIResponse.data.map(
     (apiStaking: StakingAPI): Stakes => ({
