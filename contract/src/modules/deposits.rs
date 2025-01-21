@@ -17,7 +17,7 @@ use ethers_core::types::{H160, U256};
 use hex::FromHex;
 use near_sdk::env::keccak256;
 use near_sdk::{
-    env, log, near_bindgen, AccountId, NearToken, Promise, PromiseError, PromiseOrValue,
+    env, log, Gas, near_bindgen, AccountId, NearToken, Promise, PromiseError, PromiseOrValue,
 };
 use omni_transaction::evm::evm_transaction::EVMTransaction;
 use omni_transaction::evm::types::Signature as OmniSignature;
@@ -43,6 +43,7 @@ impl Atlas {
         timestamp: u64,
         remarks: String,
         date_created: u64,
+        yield_provider_gas_fee: u64
     ) {
         self.assert_not_paused();
         self.assert_admin();
@@ -71,7 +72,7 @@ impl Atlas {
         );
         assert!(timestamp > 0, "Timestamp must be greater than zero");
         assert!(date_created > 0, "Date created must be greater than zero");
-
+        assert!(yield_provider_gas_fee > 0, "Yield provider gas fee must be greater than zero");
         // Check for duplicate transaction hash
         if self.deposits.contains_key(&btc_txn_hash) {
             env::panic_str("Deposit with this transaction hash already exists");
@@ -97,7 +98,8 @@ impl Atlas {
             verified_count: 0,
             retry_count: 0,
             minted_txn_hash_verified_count: 0,
-            custody_txn_id: "".to_string(),
+            yield_provider_gas_fee,
+            yield_provider_txn_hash: "".to_string(),
         };
 
         self.deposits.insert(btc_txn_hash, record);
@@ -241,6 +243,88 @@ impl Atlas {
         }
     }
 
+    pub fn update_deposit_pending_yield_provider_deposit(&mut self, btc_txn_hash: String) {
+        self.assert_not_paused();
+        self.assert_admin();
+
+        // Validate input parameters
+        assert!(
+            !btc_txn_hash.is_empty(),
+            "BTC transaction hash cannot be empty"
+        );
+
+        // Check if the deposit exists for the given btc_txn_hash
+        if let Some(mut deposit) = self.deposits.get(&btc_txn_hash).cloned() {
+            // Check all specified conditions
+            if deposit.status == DEP_BTC_DEPOSITED_INTO_ATLAS
+                && deposit.remarks.is_empty()
+                && deposit.minted_txn_hash.is_empty()
+            {
+                // All conditions are met, proceed to update the deposit status
+                deposit.status = DEP_BTC_PENDING_YIELD_PROVIDER_DEPOSIT;
+                deposit.timestamp = env::block_timestamp() / 1_000_000_000;
+                self.deposits.insert(btc_txn_hash.clone(), deposit);
+                log!(
+                    "Deposit status updated to DEP_BTC_PENDING_YIELD_DEPOSIT for btc_txn_hash: {}",
+                    btc_txn_hash
+                );
+            } else {
+                // Log a message if conditions are not met
+                log!(
+                    "Conditions not met for updating deposit status for btc_txn_hash: {}. 
+                      Status: {}, Remarks: {}, Minted txn hash: {}",
+                    btc_txn_hash,
+                    deposit.status,
+                    deposit.remarks,
+                    deposit.minted_txn_hash
+                );
+            }
+        } else {
+            env::panic_str("Deposit record not found");
+        }
+    }
+
+    pub fn update_deposit_yield_provider_deposited(&mut self, btc_txn_hash: String) {
+        self.assert_not_paused();
+        self.assert_admin();
+
+        // Validate input parameters
+        assert!(
+            !btc_txn_hash.is_empty(),
+            "BTC transaction hash cannot be empty"
+        );
+        
+        // Check if the deposit exists for the given btc_txn_hash
+        if let Some(mut deposit) = self.deposits.get(&btc_txn_hash).cloned() {
+            // Check all specified conditions
+            if deposit.status == DEP_BTC_PENDING_YIELD_PROVIDER_DEPOSIT
+                && deposit.remarks.is_empty()
+                && deposit.minted_txn_hash.is_empty()
+            {
+                // All conditions are met, proceed to update the deposit status
+                deposit.status = DEP_BTC_YIELD_PROVIDER_DEPOSITED;
+                deposit.timestamp = env::block_timestamp() / 1_000_000_000;
+                self.deposits.insert(btc_txn_hash.clone(), deposit);
+                log!(
+                    "Deposit status updated to DEP_BTC_YIELD_PROVIDER_DEPOSITED for btc_txn_hash: {}",
+                    btc_txn_hash
+                );
+            } else {
+                // Log a message if conditions are not met
+                log!(
+                    "Conditions not met for updating deposit status for btc_txn_hash: {}. 
+                      Status: {}, Remarks: {}, Minted txn hash: {}",
+                    btc_txn_hash,
+                    deposit.status,
+                    deposit.remarks,
+                    deposit.minted_txn_hash
+                );
+            }
+        } else {
+            env::panic_str("Deposit record not found");
+        }
+    }
+
     pub fn update_deposit_minted(&mut self, btc_txn_hash: String, minted_txn_hash: String) {
         self.assert_not_paused();
         self.assert_admin();
@@ -282,6 +366,7 @@ impl Atlas {
                     {
                         // All conditions are met, proceed to update the deposit status
                         deposit.status = DEP_BTC_MINTED_INTO_ABTC;
+                        deposit.timestamp = env::block_timestamp() / 1_000_000_000;
                         self.deposits.insert(btc_txn_hash.clone(), deposit);
                         log!(
                             "Deposit status updated to DEP_BTC_MINTED_INTO_ABTC for btc_txn_hash: {}",
@@ -328,6 +413,7 @@ impl Atlas {
             if deposit.status != DEP_BTC_MINTED_INTO_ABTC {
                 // All conditions are met, proceed to update the remarks
                 deposit.remarks = remarks;
+                deposit.timestamp = env::block_timestamp() / 1_000_000_000;
                 self.deposits.insert(btc_txn_hash.clone(), deposit);
                 log!("Remarks updated for btc_txn_hash: {}", btc_txn_hash);
             } else {
@@ -339,12 +425,46 @@ impl Atlas {
         }
     }
 
-    pub fn get_first_valid_deposit_chain_config(&self) -> Option<(String, ChainConfigRecord)> {
+    pub fn get_first_valid_user_deposit(&self) -> Option<(String, u64, u64, u64)> {
         for (key, deposit) in self.deposits.iter() {
             if deposit.btc_sender_address != ""
                 && deposit.receiving_chain_id != ""
                 && deposit.receiving_address != ""
                 && deposit.status == DEP_BTC_DEPOSITED_INTO_ATLAS
+                && deposit.remarks == ""
+                && deposit.minted_txn_hash == ""
+                && deposit.btc_amount > 0  // Add btc amount check
+                && deposit.date_created > 0
+            // Add date created check
+            // This will stop re-minting as no one can update this once minted
+            {
+                // Get the chain config using deposit.receiving_chain_id
+                if let Some(chain_config) = self
+                    .chain_configs
+                    .get_chain_config(deposit.receiving_chain_id.clone())
+                {
+                    // Check if the verified_count meets or exceeds the validators_threshold
+                    if deposit.verified_count >= chain_config.validators_threshold {
+                        log!(
+                            "Deposit's verified_count ({}) meets or exceeds the validators_threshold ({})",
+                            deposit.verified_count,
+                            chain_config.validators_threshold
+                        );
+                        return Some((key.clone(), deposit.btc_amount.clone(), deposit.yield_provider_gas_fee.clone(), deposit.fee_amount.clone())); // Return the key and the ChainConfigRecord as a tuple
+                    }
+                }
+            }
+        }
+
+        None // If no matching deposit or chain config is found, return None
+    }
+
+    pub fn get_first_valid_deposit_chain_config(&self) -> Option<(String, ChainConfigRecord)> {
+        for (key, deposit) in self.deposits.iter() {
+            if deposit.btc_sender_address != ""
+                && deposit.receiving_chain_id != ""
+                && deposit.receiving_address != ""
+                && deposit.status == DEP_BTC_YIELD_PROVIDER_DEPOSITED
                 && deposit.remarks == ""
                 && deposit.minted_txn_hash == ""
                 && deposit.btc_amount > 0  // Add btc amount check
@@ -407,7 +527,7 @@ impl Atlas {
                     }
 
                     match deposit.status {
-                        DEP_BTC_PENDING_DEPOSIT_INTO_BABYLON => {
+                        DEP_BTC_PENDING_YIELD_PROVIDER_DEPOSIT => {
                             deposit.status = DEP_BTC_DEPOSITED_INTO_ATLAS;
                             deposit.retry_count += 1;
                             deposit.remarks.clear();
@@ -468,13 +588,13 @@ impl Atlas {
                 }
 
                 match deposit.status {
-                    DEP_BTC_PENDING_DEPOSIT_INTO_BABYLON => {
+                    DEP_BTC_PENDING_YIELD_PROVIDER_DEPOSIT => {
                         deposit.status = DEP_BTC_DEPOSITED_INTO_ATLAS;
                         deposit.retry_count += 1;
                         deposit.remarks.clear();
                     }
                     DEP_BTC_PENDING_MINTED_INTO_ABTC => {
-                        deposit.status = DEP_BTC_DEPOSITED_INTO_ATLAS;
+                        deposit.status = DEP_BTC_YIELD_PROVIDER_DEPOSITED;
                         deposit.retry_count += 1;
                         deposit.remarks.clear();
                     }
@@ -514,7 +634,7 @@ impl Atlas {
             if deposit.btc_sender_address != ""
                 && deposit.receiving_chain_id != ""
                 && deposit.receiving_address != ""
-                && deposit.status == DEP_BTC_DEPOSITED_INTO_ATLAS
+                && deposit.status == DEP_BTC_YIELD_PROVIDER_DEPOSITED
                 && deposit.remarks == ""
                 && deposit.minted_txn_hash == ""
             // This will stop re-minting as no one can update this once minted
@@ -545,8 +665,24 @@ impl Atlas {
                         self.deposits.insert(btc_txn_hash.clone(), deposit.clone());
 
                         if path == EVM.to_string() {
+                            // Check if the receiving address is a valid EVM address
+                            if !Self::is_valid_eth_address(deposit.receiving_address.clone()) {
+                                // Set remarks if the address is not a valid EVM address
+                                let error_msg =
+                                    "Receiving address is not a valid EVM address".to_string();
+
+                                deposit.remarks = error_msg.clone();
+
+                                // Update the deposit in the map
+                                self.deposits.insert(btc_txn_hash.clone(), deposit.clone());
+
+                                // Panic with the error message
+                                env::panic_str(&error_msg);
+                            }
+
                             // Ensure the BTC amount is properly converted to U256 (Ethereum uint256)
                             let amount = U256::from(deposit.btc_amount);
+                            let fee_amount = U256::from(deposit.fee_amount);
 
                             let to_address_str =
                                 chain_config.abtc_address.strip_prefix("0x").unwrap();
@@ -559,7 +695,7 @@ impl Atlas {
 
                             let data: Vec<u8> = Self::encode_mint_function_call(
                                 destination,
-                                amount,
+                                amount - fee_amount,
                                 btc_txn_hash.clone(),
                             );
 
@@ -584,14 +720,7 @@ impl Atlas {
                                 .build();
 
                             let evm_tx_encoded = evm_tx.build_for_signing();
-
-                            // Serialize the transaction to JSON or to bytes
-                            let evm_tx_json = serde_json::to_string(&evm_tx)
-                                .expect("Failed to serialize transaction");
-
-                            // Store the serialized JSON in self.last_evm_tx (as a string or Vec<u8>)
-                            self.last_evm_tx = Some(evm_tx_json.into_bytes());
-
+                            
                             let evm_tx_hash = keccak256(&evm_tx_encoded);
 
                             log!("Payload: [{}] {:?}", evm_tx_hash.len(), evm_tx_hash);
@@ -611,7 +740,7 @@ impl Atlas {
                                         Self::ext(env::current_account_id())
                                             .with_static_gas(SIGN_CALLBACK_GAS)
                                             .with_unused_gas_weight(0)
-                                            .sign_callback(),
+                                            .sign_callback(evm_tx),
                                     ),
                             );
                         } else if path == NEAR.to_string() {
@@ -620,7 +749,7 @@ impl Atlas {
                                 btc_txn_hash
                             );
 
-                            let amount_to_mint = deposit.btc_amount.to_string();
+                            let amount_to_mint = (deposit.btc_amount - deposit.fee_amount).to_string();
                             let account_id_str = chain_config.abtc_address.clone().to_string();
                             let account_id = AccountId::from_str(&account_id_str)
                                 .expect("Invalid NEAR account ID");
@@ -691,6 +820,7 @@ impl Atlas {
     #[private]
     pub fn sign_callback(
         &self,
+        evm_tx: EVMTransaction,
         #[callback_result] result: Result<SignResult, PromiseError>,
     ) -> Vec<u8> {
         if let Ok(sign_result) = result {
@@ -712,21 +842,13 @@ impl Atlas {
                 r: r_bytes.to_vec(),
                 s: s_bytes.to_vec(),
             };
-
-            // Retrieve the stored last evm transaction
-            if let Some(last_evm_tx) = &self.last_evm_tx {
-                // Deserialize the JSON string back into EVMTransaction
-                let evm_tx: EVMTransaction = serde_json::from_slice(last_evm_tx)
-                    .expect("Failed to deserialize last EVM transaction");
-
                 // Now you can use `evm_tx` and build the transaction with signature
                 let near_tx_signed = evm_tx.build_with_signature(&signature_omni);
 
+                log!("EVM_SIGNED_TRANSACTION: {}", hex::encode(&near_tx_signed));
+
                 // Return the signed transaction here
                 return near_tx_signed;
-            } else {
-                panic!("No last evm transaction found");
-            }
         } else {
             panic!("Callback failed");
         }
@@ -752,6 +874,39 @@ impl Atlas {
         function_call_data.append(&mut encoded); // Add the encoded parameters
 
         function_call_data
+    }
+
+    pub fn create_deposit_bithive_signed_payload(
+        &mut self,
+        payload: Vec<u8>,  // Passing the payload
+    ) -> Promise {
+
+        self.assert_admin();
+
+        let caller = env::predecessor_account_id();
+        let owner = env::current_account_id();
+
+        log!("Caller: {}", caller);
+        log!("Owner: {}", owner);
+        
+        let args = json!({
+            "request": {
+                "payload": payload,
+                "path": "BITCOIN",
+                "key_version": 0
+            }
+        })
+        .to_string()
+        .into_bytes();
+        
+        // Return the promise for the first matching record
+        return Promise::new(self.global_params.get_mpc_contract()).function_call(
+            "sign".to_owned(),
+            args,
+            NearToken::from_yoctonear(50),
+            Gas::from_tgas(275),
+        );
+
     }
 
     // Increments deposit record's verified_count by 1 based on the mempool_deposit record passed in
@@ -811,15 +966,18 @@ impl Atlas {
 
                 // Increment the verified count
                 deposit.verified_count += 1;
+                
+                // Clone deposit before inserting it to avoid moving it
+                let cloned_deposit = deposit.clone();
 
                 // Update the deposit record in the map
                 self.deposits
-                    .insert(mempool_deposit.btc_txn_hash.clone(), deposit);
+                    .insert(mempool_deposit.btc_txn_hash.clone(), cloned_deposit);
 
                 // Add the caller to the list of validators for this btc_txn_hash
                 validators_list.push(caller);
                 self.verifications
-                    .insert(mempool_deposit.btc_txn_hash, validators_list);
+                    .insert(mempool_deposit.btc_txn_hash.clone(), validators_list);
 
                 true // success case returns true
             } else {
@@ -836,6 +994,34 @@ impl Atlas {
                 &mempool_deposit.btc_txn_hash
             );
             return false;
+        }
+    }
+
+    pub fn update_yield_provider_txn_hash(&mut self, btc_txn_hash: String, yield_provider_txn_hash: String) {
+        self.assert_not_paused();
+        self.assert_admin();
+
+        // Validate input parameters
+        assert!(
+            !btc_txn_hash.is_empty(),
+            "BTC transaction hash cannot be empty"
+        );
+        assert!(
+            !yield_provider_txn_hash.is_empty(),
+            "Yield provider transaction hash cannot be empty"
+        );
+
+        // Check if the deposit exists for the given btc_txn_hash
+        if let Some(mut deposit) = self.deposits.get(&btc_txn_hash).cloned() {
+            // Update the yield_provider_txn_hash
+            deposit.yield_provider_txn_hash = yield_provider_txn_hash;
+            self.deposits.insert(btc_txn_hash.clone(), deposit);
+            log!(
+                "Yield provider transaction hash updated for btc_txn_hash: {}",
+                btc_txn_hash
+            );
+        } else {
+            env::panic_str("Deposit record not found");
         }
     }
 
@@ -1033,29 +1219,6 @@ impl Atlas {
         env::panic_str("Deposit is not found.")
     }
 
-    pub fn update_deposit_custody_txn_id(&mut self, btc_txn_hash: String, custody_txn_id: String) {
-        self.assert_not_paused();
-        self.assert_admin();
-
-        // Validate input parameters
-        assert!(!btc_txn_hash.is_empty(), "Transaction hash cannot be empty");
-        assert!(
-            !custody_txn_id.is_empty(),
-            "Custody transaction ID cannot be empty"
-        );
-
-        // Retrieve the redemption record based on txn_hash
-        if let Some(mut deposit) = self.deposits.get(&btc_txn_hash.clone()).cloned() {
-            if deposit.status == DEP_BTC_REFUNDING && deposit.custody_txn_id.is_empty() {
-                deposit.custody_txn_id = custody_txn_id.clone();
-                self.deposits.insert(btc_txn_hash.clone(), deposit);
-            } else {
-                env::panic_str("Deposit is not in invalid conditions.");
-            }
-        } else {
-            env::panic_str("Deposit record not found");
-        }
-    }
 
     pub fn update_withdraw_fail_deposit_status(&mut self, btc_txn_hash: String, timestamp: u64) {
         self.assert_not_paused();
@@ -1070,7 +1233,7 @@ impl Atlas {
 
         // Retrieve the redemption record based on txn_hash
         if let Some(mut deposit) = self.deposits.get(&btc_txn_hash.clone()).cloned() {
-            if deposit.status == DEP_BTC_REFUNDING && !deposit.custody_txn_id.is_empty() {
+            if deposit.status == DEP_BTC_REFUNDING && !deposit.yield_provider_txn_hash.is_empty() {
                 deposit.status = DEP_BTC_REFUNDED;
                 self.deposits.insert(btc_txn_hash.clone(), deposit);
             } else {

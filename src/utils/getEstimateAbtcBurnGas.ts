@@ -1,7 +1,7 @@
 import Web3 from "web3";
 import { AbiItem } from "web3-utils";
 
-import aBTCABI from "@/utils/ABI/aBTC.json"; 
+import aBTCABI from "@/utils/ABI/aBTC.json";
 
 interface GasEstimateResult {
   gasEstimate: number;
@@ -18,8 +18,13 @@ export const getEstimateAbtcBurnGas = async (
 ): Promise<GasEstimateResult> => {
   try {
     const web3 = new Web3(chainRpcUrl);
-    const contract = new web3.eth.Contract(aBTCABI as AbiItem[], contractAddress);
-    const data = contract.methods.burnRedeem(amount, btcAddress).encodeABI();
+    const contract = new web3.eth.Contract(
+      aBTCABI as AbiItem[],
+      contractAddress,
+    );
+    // Note: The amount is hardcoded to 0 in the snippet below. If > 0 error will be thrown
+    const data = contract.methods.burnRedeem(0, btcAddress).encodeABI();
+    // const data = contract.methods.burnRedeem(amount, btcAddress).encodeABI();
 
     const gasPriceBigInt = await web3.eth.getGasPrice();
     const gasPrice = Number(gasPriceBigInt);

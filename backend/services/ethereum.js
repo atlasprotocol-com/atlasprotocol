@@ -1,5 +1,7 @@
 const { Web3 } = require("web3");
 const { bytesToHex } = require("@ethereumjs/util");
+const { FeeMarketEIP1559Transaction } = require("@ethereumjs/tx");
+const { Common } = require("@ethereumjs/common");
 const fs = require("fs");
 const path = require("path");
 const _ = require("lodash");
@@ -23,12 +25,10 @@ class Ethereum {
     );
 
     this.web3 = new Web3(rpcUrl);
-
     this.abtcContract = new this.web3.eth.Contract(
       this.contractABI,
       aBTCAddress,
     );
-
     this.chainID = Number(chainID);
     this.gasLimit = gasLimit;
     this.aBTCAddress = aBTCAddress;
@@ -46,6 +46,35 @@ class Ethereum {
     return Number((balance * 100n) / ONE_ETH) / 100;
   }
 
+  async createPayload(sender, receiver, amount) {
+    const common = new Common({ chain: this.chainID });
+
+    // Get the nonce & gas price
+    const nonce = await this.web3.eth.getTransactionCount(sender);
+    const { maxFeePerGas, maxPriorityFeePerGas } = await this.queryGasPrice();
+
+    // Construct transaction
+    const transactionData = {
+      nonce,
+      gasLimit: 21000,
+      maxFeePerGas,
+      maxPriorityFeePerGas,
+      to: receiver,
+      value: BigInt(this.web3.utils.toWei(amount, "ether")),
+      chain: this.chainID,
+    };
+
+    console.log(transactionData);
+
+    const transaction = FeeMarketEIP1559Transaction.fromTxData(
+      transactionData,
+      { common },
+    );
+    const payload = transaction.getHashedMessageToSign();
+
+    return { transaction, payload };
+  }
+
   async createMintaBtcSignedTx(near, sender, btcTxnHash) {
     // Get the nonce & gas price
     // console.log(`Getting nonce...`);
@@ -56,7 +85,7 @@ class Ethereum {
     const payloadHeader = {
       btc_txn_hash: btcTxnHash,
       nonce: Number(nonce), // Convert BigInt to Number
-      gas: Math.min(this.gasLimit, Number(maxFeePerGas)), // assuming gasLimit is a number
+      gas: Math.min(this.gasLimit, Number(maxFeePerGas) * 1.2), // assuming gasLimit is a number
       max_fee_per_gas: Number(maxFeePerGas), // Convert BigInt to Number
       max_priority_fee_per_gas: Number(maxPriorityFeePerGas), // Convert BigInt to Number
     };
@@ -86,6 +115,80 @@ class Ethereum {
 
       return new Uint8Array(JSON.parse(value));
     }
+  }
+
+  async createMintBridgeABtcSignedTx(near, sender, txnHash) {
+    // Get the nonce & gas price
+    // console.log(`Getting nonce...`);
+    const nonce = await this.web3.eth.getTransactionCount(sender);
+
+    const { maxFeePerGas, maxPriorityFeePerGas } = await this.queryGasPrice();
+
+    const payloadHeader = {
+      txn_hash: txnHash,
+      nonce: Number(nonce), // Convert BigInt to Number
+      gas: Math.min(this.gasLimit, Number(maxFeePerGas)), // assuming gasLimit is a number
+      max_fee_per_gas: Number(maxFeePerGas), // Convert BigInt to Number
+      max_priority_fee_per_gas: Number(maxPriorityFeePerGas), // Convert BigInt to Number
+    };
+
+    try {
+      const signed = await near.createMintBridgeABtcSignedTx(payloadHeader);
+      return new Uint8Array(signed);
+    } catch (err) {
+      const txnhash = err.context?.transactionHash;
+      if (!txnhash) throw err;
+
+      // if we have a transaction hash, we can wait until the transaction is confirmed
+      const tx = await pRetry(
+        async (count) => {
+          console.log(
+            `EVM createMintBridgeABtcSignedTx - retries: ${count} | ${txnhash}`,
+          );
+          return near.provider.txStatus(txnhash, near.contract_id, "FINAL");
+        },
+        { retries: 10 },
+      );
+      if (!tx || !tx.status || !tx.status.SuccessValue) throw err;
+
+      const value = Buffer.from(tx.status.SuccessValue, "base64").toString(
+        "utf-8",
+      );
+      return new Uint8Array(JSON.parse(value));
+    }
+  }
+  // This is a sample function for send eth transaction, Arbitrum gasLimit set to 5 million
+  async createSendEthPayload(sender, receiver, amount) {
+    const common = new Common({ chain: this.chainID });
+
+    // Get the nonce & gas price
+    const nonce = await this.web3.eth.getTransactionCount(sender);
+    console.log(`Nonce: ${nonce}`);
+
+    const { maxFeePerGas, maxPriorityFeePerGas } = await this.queryGasPrice();
+    console.log(`maxFeePerGas: ${maxFeePerGas}`);
+    console.log(`maxPriorityFeePerGas: ${maxPriorityFeePerGas}`);
+
+    // Construct transaction
+    const transactionData = {
+      nonce,
+      gasLimit: 5000000, // 5 million
+      maxFeePerGas,
+      maxPriorityFeePerGas,
+      to: receiver,
+      value: BigInt(this.web3.utils.toWei(amount, "ether")),
+      chain: this.chainID,
+    };
+
+    console.log(transactionData);
+
+    const transaction = FeeMarketEIP1559Transaction.fromTxData(
+      transactionData,
+      { common },
+    );
+    const payload = transaction.getHashedMessageToSign();
+
+    return { transaction, payload };
   }
 
   // This code can be used to actually relay the transaction to the Ethereum network
@@ -151,11 +254,43 @@ class Ethereum {
     );
   }
 
+  // Function to get past events in batches
+  // TO-DO: Create indexer so do not need to fetch all Burn Events for every run
+  async getPastBurnBridgingEventsInBatches(
+    startBlock,
+    endBlock,
+    batchSize,
+    wallet,
+  ) {
+    console.log(
+      `Fetching Events in batches... ${startBlock} -> ${endBlock} | ${batchSize}`,
+    );
+
+    return this._scanEvents(
+      EVENT_NAME.BURN_BRIDGE,
+      startBlock,
+      endBlock,
+      batchSize,
+      wallet,
+    );
+  }
+
   async getPastMintEventsInBatches(startBlock, endBlock, batchSize) {
     console.log(`Fetching Events in batches... ${startBlock} -> ${endBlock}`);
 
     return this._scanEvents(
       EVENT_NAME.MINT_DEPOSIT,
+      startBlock,
+      endBlock,
+      batchSize,
+    );
+  }
+
+  async getPastMintBridgeEventsInBatches(startBlock, endBlock, batchSize) {
+    console.log(`Fetching Events in batches... ${startBlock} -> ${endBlock}`);
+
+    return this._scanEvents(
+      EVENT_NAME.MINT_BRIDGE,
       startBlock,
       endBlock,
       batchSize,
@@ -168,7 +303,7 @@ class Ethereum {
     endBlock,
     batchSize,
     wallet,
-    concurrency = 2,
+    concurrency = 1,
   ) {
     const ranges = _.range(Number(startBlock), Number(endBlock), batchSize);
 
@@ -211,6 +346,66 @@ class Ethereum {
     );
   }
 
+  // Request Signature to MPC
+  async requestSignatureToMPC(near, path, ethPayload, transaction, sender) {
+    // Ask the MPC to sign the payload
+    //const payload = Array.from(ethPayload.reverse());
+    const payload = Array.from(ethPayload);
+    const signArgs = {
+      payload: payload,
+      path: path,
+      key_version: 0,
+    };
+
+    //await near.reInitialiseConnection();
+
+    const result = await near.nearMPCContract.sign({
+      args: { request: signArgs },
+      gas: "300000000000000",
+      amount: 1,
+    });
+
+    /*
+    const result = await near.account.signAndSendTransaction({
+      receiverId: near.mpcContractId,
+      actions: [
+        {
+          type: 'FunctionCall',
+          params: {
+            methodName: 'sign',
+            args,
+            gas,
+            deposit,
+          },
+        },
+      ],
+    });
+    */
+
+    const r = Buffer.from(`${result.big_r.affine_point.substring(2)}`, "hex");
+    const s = Buffer.from(`${result.s.scalar}`, "hex");
+
+    // const signature = {
+    //   r: `0x${result.big_r.affine_point.substring(2)}`,
+    //   s: `0x${result.s.scalar}`,
+    //   yParity: result.recovery_id,
+    // };
+
+    //console.log(signature)
+
+    const candidates = [0n, 1n].map((v) => transaction.addSignature(v, r, s));
+    const signature = candidates.find((c) => {
+      const senderAddress = c.getSenderAddress().toString().toLowerCase();
+      return senderAddress === sender.toLowerCase();
+    });
+
+    if (signature.getValidationErrors().length > 0)
+      throw new Error("Transaction validation errors");
+    if (!signature.verifySignature()) throw new Error("Signature is not valid");
+
+    return signature;
+  }
+  
   async deriveEthAddress(rootPublicKey, accountId, derivationPath) {
     //const rootPublicKey = 'secp256k1:4NfTiv3UsGahebgTaHyD9vF8KYKMBnfd6kh94mK6xv8fGBiJB8TBtFMP5WWXz6B89Ac1fbpzPwAvoyQebemHFwx3';
 

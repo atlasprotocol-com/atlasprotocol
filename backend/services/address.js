@@ -32,7 +32,7 @@ const isValidEthereumAddress = (address) => {
 const isValidBTCAddress = (address) => {
   if (!address) return false;
   const btcP2PKH = /^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$/; // P2PKH (starts with 1) or P2SH (starts with 3)
-  const btcBech32 = /^(bc1)[a-z0-9]{39,59}$/; // Bech32 (starts with bc1)
+  const btcBech32 = /^(bc1|tb1)[a-z0-9]{39,59}$/; // Bech32 (mainnet: bc1, testnet: tb1)
 
   return btcP2PKH.test(address) || btcBech32.test(address);
 };

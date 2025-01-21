@@ -162,19 +162,19 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_update_fee_babylon_rewards_bps_owner() {
+    async fn test_update_fee_yield_provider_rewards_bps_owner() {
         let (mut atlas, owner_account) = setup_atlas();
         let new_fee = 50; // 0.5%
 
         testing_env!(VMContextBuilder::new()
             .predecessor_account_id(owner_account)
             .build());
-        atlas.update_fee_babylon_rewards_bps(new_fee);
+        atlas.update_fee_yield_provider_rewards_bps(new_fee);
 
         let global_params = atlas.get_all_global_params();
         let global_params_json = serde_json::to_value(&global_params).unwrap();
         assert_eq!(
-            global_params_json["fee_babylon_rewards_bps"]
+            global_params_json["fee_yield_provider_rewards_bps"]
                 .as_u64()
                 .unwrap() as u16,
             new_fee as u16
@@ -183,14 +183,14 @@ mod tests {
 
     #[tokio::test]
     #[should_panic(expected = "Only the owner can call this method")]
-    async fn test_update_fee_babylon_rewards_bps_non_owner() {
+    async fn test_update_fee_yield_provider_rewards_bps_non_owner() {
         let (mut atlas, _) = setup_atlas();
         let new_fee = 50; // 0.5%
 
         testing_env!(VMContextBuilder::new()
             .predecessor_account_id(accounts(1))
             .build());
-        atlas.update_fee_babylon_rewards_bps(new_fee);
+        atlas.update_fee_yield_provider_rewards_bps(new_fee);
     }
 
     #[tokio::test]
@@ -490,7 +490,7 @@ mod tests {
         atlas.update_fee_deposit_bps(100);
         atlas.update_fee_redemption_bps(200);
         atlas.update_fee_bridging_bps(150);
-        atlas.update_fee_babylon_rewards_bps(50);
+        atlas.update_fee_yield_provider_rewards_bps(50);
         atlas.update_btc_staking_cap(1000000);
         atlas.update_btc_max_staking_amount(100000);
         atlas.update_btc_min_staking_amount(1000);
@@ -502,7 +502,7 @@ mod tests {
         assert!(global_params_json["fee_redemption_bps"].as_u64().unwrap() > 0);
         assert!(global_params_json["fee_bridging_bps"].as_u64().unwrap() > 0);
         assert!(
-            global_params_json["fee_babylon_rewards_bps"]
+            global_params_json["fee_yield_provider_rewards_bps"]
                 .as_u64()
                 .unwrap()
                 > 0
@@ -573,14 +573,14 @@ mod tests {
 
     #[tokio::test]
     #[should_panic(expected = "Invalid fee: must be between 0 and 1000 basis points")]
-    async fn test_update_fee_babylon_rewards_bps_invalid() {
+    async fn test_update_fee_yield_provider_rewards_bps_invalid() {
         let (mut atlas, owner_account) = setup_atlas();
         let invalid_fee = 10001; // 100.01%, which is invalid
 
         testing_env!(VMContextBuilder::new()
             .predecessor_account_id(owner_account)
             .build());
-        atlas.update_fee_babylon_rewards_bps(invalid_fee);
+        atlas.update_fee_yield_provider_rewards_bps(invalid_fee);
     }
 
     #[tokio::test]

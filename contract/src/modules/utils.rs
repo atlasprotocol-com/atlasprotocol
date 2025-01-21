@@ -30,8 +30,8 @@ impl Atlas {
             "deposit_status": {
                 "DEP_BTC_PENDING_MEMPOOL": DEP_BTC_PENDING_MEMPOOL,
                 "DEP_BTC_DEPOSITED_INTO_ATLAS": DEP_BTC_DEPOSITED_INTO_ATLAS,
-                "DEP_BTC_PENDING_DEPOSIT_INTO_BABYLON": DEP_BTC_PENDING_DEPOSIT_INTO_BABYLON,
-                "DEP_BTC_DEPOSITED_INTO_BABYLON": DEP_BTC_DEPOSITED_INTO_BABYLON,
+                "DEP_BTC_PENDING_YIELD_PROVIDER_DEPOSIT": DEP_BTC_PENDING_YIELD_PROVIDER_DEPOSIT,
+                "DEP_BTC_YIELD_PROVIDER_DEPOSITED": DEP_BTC_YIELD_PROVIDER_DEPOSITED,
                 "DEP_BTC_PENDING_MINTED_INTO_ABTC": DEP_BTC_PENDING_MINTED_INTO_ABTC,
                 "DEP_BTC_MINTED_INTO_ABTC": DEP_BTC_MINTED_INTO_ABTC,
                 "DEP_BTC_REFUNDING": DEP_BTC_REFUNDING,
@@ -39,8 +39,11 @@ impl Atlas {
             },
             "redemption_status": {
                 "RED_ABTC_BURNT": RED_ABTC_BURNT,
-                "RED_BTC_PENDING_REDEMPTION_FROM_BABYLON_TO_ATLAS": RED_BTC_PENDING_REDEMPTION_FROM_BABYLON_TO_ATLAS,
-                "RED_BTC_REDEEMED_FROM_BABYLON_INTO_ATLAS": RED_BTC_REDEEMED_FROM_BABYLON_INTO_ATLAS,
+                "RED_BTC_PENDING_YIELD_PROVIDER_UNSTAKE": RED_BTC_PENDING_YIELD_PROVIDER_UNSTAKE,
+                "RED_BTC_YIELD_PROVIDER_UNSTAKE_PROCESSING": RED_BTC_YIELD_PROVIDER_UNSTAKE_PROCESSING,
+                "RED_BTC_YIELD_PROVIDER_UNSTAKED": RED_BTC_YIELD_PROVIDER_UNSTAKED,
+                "RED_BTC_PENDING_YIELD_PROVIDER_WITHDRAW": RED_BTC_PENDING_YIELD_PROVIDER_WITHDRAW,
+                "RED_BTC_YIELD_PROVIDER_WITHDRAWING": RED_BTC_YIELD_PROVIDER_WITHDRAWING,
                 "RED_BTC_PENDING_REDEMPTION_FROM_ATLAS_TO_USER": RED_BTC_PENDING_REDEMPTION_FROM_ATLAS_TO_USER,
                 "RED_BTC_PENDING_MEMPOOL_CONFIRMATION": RED_BTC_PENDING_MEMPOOL_CONFIRMATION,
                 "RED_BTC_REDEEMED_BACK_TO_USER": RED_BTC_REDEEMED_BACK_TO_USER,
@@ -83,10 +86,10 @@ impl Atlas {
         self.global_params.update_fee_bridging_bps(fee_bridging_bps);
     }
 
-    pub fn update_fee_babylon_rewards_bps(&mut self, fee_babylon_rewards_bps: u16) {
+    pub fn update_fee_yield_provider_rewards_bps(&mut self, fee_yield_provider_rewards_bps: u16) {
         self.assert_not_paused();
         self.global_params
-            .update_fee_babylon_rewards_bps(fee_babylon_rewards_bps);
+            .update_fee_yield_provider_rewards_bps(fee_yield_provider_rewards_bps);
     }
 
     pub fn update_btc_staking_cap(&mut self, btc_staking_cap: u64) {

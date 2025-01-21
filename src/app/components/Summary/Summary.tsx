@@ -9,7 +9,7 @@ import { Network } from "@/utils/wallet/wallet_provider";
 interface SummaryProps {
   address: string;
   totalStakedSat: number;
-  totalRedeemedSat: number
+  totalRedeemedSat: number;
   balanceSat: number;
 }
 
@@ -27,7 +27,7 @@ export const Summary: React.FC<SummaryProps> = ({
       <h3 className="mb-4 font-bold xl:mb-0">My Holdings</h3>
       <div className="flex flex-1 justify-between gap-2">
         <div className="flex flex-col gap-1 text-sm xl:flex-1 xl:flex-row xl:items-center xl:justify-center xl:gap-2 xl:text-base">
-          <p className="dark:text-neutral-content">Total staked</p>
+          <p className="dark:text-neutral-content">Total Staked</p>
           <div className="flex items-center gap-1">
             <FaBitcoin className="text-primary" size={16} />
             <p className="whitespace-nowrap font-semibold">
@@ -40,7 +40,7 @@ export const Summary: React.FC<SummaryProps> = ({
         </div>
         <div className="divider divider-horizontal xl:m-0" />
         <div className="flex flex-col gap-1 text-sm xl:flex-1 xl:flex-row xl:items-center xl:justify-center xl:gap-2 xl:text-base">
-          <p className="dark:text-neutral-content">Total redeemed</p>
+          <p className="dark:text-neutral-content">Total Redeemed</p>
           <div className="flex items-center gap-1">
             <FaBitcoin className="text-primary" size={16} />
             <p className="whitespace-nowrap font-semibold">

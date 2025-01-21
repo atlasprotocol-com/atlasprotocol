@@ -31,8 +31,8 @@ export const RedemptionHistories: React.FC<RedemptionHistoriesProps> = ({
       redemptionHistoriesLocalStorage;
 
   // Sort the combined redemptionHistories by startTimestamp, newest records first
-  const sortedRedemptionHistoriesData = combinedRedemptionHistoriesData.sort((a, b) => 
-    new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+  const sortedRedemptionHistoriesData = combinedRedemptionHistoriesData.sort(
+    (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
   );
 
   return (
@@ -49,8 +49,8 @@ export const RedemptionHistories: React.FC<RedemptionHistoriesProps> = ({
             <p>Date</p>
             <p>Redemption Chain</p>
             <p>Redemption Address</p>
-            <p className="text-center">Tx hash</p>
-            <p className="text-center">BTC tx hash</p>
+            <p className="text-center">Tx Hash</p>
+            <p className="text-center">BTC Tx Hash</p>
             <p className="text-center">Status</p>
           </div>
           <div

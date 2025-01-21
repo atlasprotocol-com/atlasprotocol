@@ -38,7 +38,7 @@ export const createStakingTx = (
       address,
       finalityProviderPublicKey,
       stakingAmountSat,
-      feeRate,
+      feeRate + 1, // + 1 to avoid bad fee estimation
       inputUTXOs,
       btcWalletNetwork,
       protocolFeeSat,
@@ -73,8 +73,7 @@ export const signStakingTx = async (
   protocolFeeSat: number,
   treasuryAddress: string,
   data: string,
-): Promise<{ stakingTxHex: string }> => {
-
+): Promise<{ stakingTxHex: string; txHash: string }> => {
   
   // Create the staking transaction
   let { unsignedStakingPsbt } = createStakingTx(
@@ -107,5 +106,5 @@ export const signStakingTx = async (
   // Broadcast the staking transaction
   const txHash = await btcWallet.pushTx(stakingTxHex);
 
-  return { stakingTxHex };
+  return { stakingTxHex, txHash };
 };

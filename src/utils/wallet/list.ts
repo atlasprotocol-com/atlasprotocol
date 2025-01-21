@@ -1,9 +1,11 @@
-import { network } from "@/config/network.config";
-
+import bitgetWalletIcon from "./icons/bitget-wallet.svg";
 import metamaskIcon from "./icons/metamask.png";
 import okxIcon from "./icons/okx.svg";
 import rabbyIcon from "./icons/rabby.png";
+import tomoIcon from "./icons/tomo.svg";
+import { BitgetWallet, bitgetWalletProvider } from "./providers/bitget_wallet";
 import { OKXWallet, okxProvider } from "./providers/okx_wallet";
+import { TomoWallet, tomoProvider } from "./providers/tomo_wallet";
 import { Network } from "./wallet_provider";
 
 interface IntegratedWallet {
@@ -36,14 +38,14 @@ export const walletList: IntegratedWallet[] = [
   //   linkToDocs: "",
   //   supportedNetworks: [Network.MAINNET, Network.SIGNET],
   // },
-  // {
-  //   name: "Tomo",
-  //   icon: tomoIcon,
-  //   wallet: TomoWallet,
-  //   provider: tomoProvider,
-  //   linkToDocs: "https://tomo.inc/",
-  //   supportedNetworks: [Network.MAINNET, Network.SIGNET],
-  // },
+  {
+    name: "Tomo",
+    icon: tomoIcon,
+    wallet: TomoWallet,
+    provider: tomoProvider,
+    linkToDocs: "https://tomo.inc/",
+    supportedNetworks: [Network.MAINNET, Network.SIGNET],
+  },
   // {
   //   name: "OneKey",
   //   icon: oneKeyIcon,
@@ -52,14 +54,14 @@ export const walletList: IntegratedWallet[] = [
   //   linkToDocs: "https://onekey.so/download",
   //   supportedNetworks: [Network.MAINNET, Network.SIGNET],
   // },
-  // {
-  //   name: "Bitget Wallet",
-  //   icon: bitgetWalletIcon,
-  //   wallet: BitgetWallet,
-  //   provider: bitgetWalletProvider,
-  //   linkToDocs: "https://web3.bitget.com",
-  //   supportedNetworks: [Network.MAINNET, Network.SIGNET],
-  // },
+  {
+    name: "Bitget Wallet",
+    icon: bitgetWalletIcon,
+    wallet: BitgetWallet,
+    provider: bitgetWalletProvider,
+    linkToDocs: "https://web3.bitget.com",
+    supportedNetworks: [Network.MAINNET, Network.SIGNET],
+  },
   // {
   //   name: "Keystone",
   //   icon: keystoneIcon,

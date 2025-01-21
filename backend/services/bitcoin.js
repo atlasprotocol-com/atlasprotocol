@@ -13,6 +13,9 @@ const {
   uncompressedHexPointToSegwitAddress,
 } = require("../services/kdf");
 const fetchWithRetry = require("../utils/fetchWithRetry");
+const { getConstants } = require("../constants");
+
+const { magicHash } = require('./message');
 
 // Initialize ECC library
 bitcoin.initEccLib(ecc);
@@ -151,6 +154,93 @@ class Bitcoin {
       change,
     };
   }
+  async createPayload(near, sender, redemptionTxnHash) {
+    // Fetch UTXOs for the sender
+    const utxos = await this.fetchUTXOs(sender);
+
+    // Fetch the current fee rate from an external source
+    const feeRate = await this.fetchFeeRate();
+
+    // Prepare the payload header to send to the NEAR contract
+    const payloadHeader = {
+      sender: sender,
+      txn_hash: redemptionTxnHash,
+      utxos: utxos,
+      fee_rate: feeRate,
+    };
+
+    // Call the NEAR contract method to create the transaction
+    const result = await near.createRedeemAbtcTransaction(payloadHeader);
+
+    // Destructure the result from the NEAR contract
+    const {
+      psbt,
+      utxos: selectedUtxos,
+      estimated_fee: estimatedFee,
+      protocol_fee: taxAmount,
+      receive_amount: receiveAmount,
+      change,
+    } = result;
+
+    // Return the necessary information
+    return {
+      psbt,
+      utxos: selectedUtxos,
+      estimatedFee,
+      taxAmount,
+      receiveAmount,
+      change,
+    };
+  }
+
+  async requestSignatureToMPC(near, btcPayload, publicKey, txn_hash) {
+    const { psbt, utxos } = btcPayload;
+
+    // Bitcoin needs to sign multiple utxos, so we need to pass a signer function
+    const sign = async (tx) => {
+      const btcPayload = Array.from(ethers.getBytes(tx));
+      //const payload = Array.from(ethPayload);
+
+      // const signArgs = {
+      //   payload: btcPayload,
+      //   path: path,
+      //   key_version: 0,
+      // };
+
+      const result = await near.createRedeemAbtcSignedPayload(
+        txn_hash,
+        btcPayload,
+        psbt,
+      );
+
+      const big_r = result.big_r.affine_point;
+      const big_s = result.s.scalar;
+
+      return this.reconstructSignature(big_r, big_s);
+    };
+
+    for (let i = 0; i < utxos.length; i++) {
+      console.log(`MPC_SIGN #${i} / ${utxos.length}`);
+      await psbt.signInputAsync(i, { publicKey, sign });
+    }
+
+    psbt.finalizeAllInputs();
+
+    return psbt.extractTransaction().toHex();
+  }
+
+  reconstructSignature(big_r, big_s) {
+    const r = big_r.slice(2).padStart(64, "0");
+    const s = big_s.padStart(64, "0");
+
+    const rawSignature = Buffer.from(r + s, "hex");
+
+    if (rawSignature.length !== 64) {
+      throw new Error("Invalid signature length.");
+    }
+
+    return rawSignature;
+  }
 
   // This code can be used to actually relay the transaction to the Ethereum network
   async relayTransaction(signedTransaction) {
@@ -195,7 +285,7 @@ class Bitcoin {
   async fetchFeeRate() {
     const response = await axios.get(`${this.chain_rpc}/fee-estimates`);
     const confirmationTarget = 6;
-    return response.data[confirmationTarget];
+    return Math.ceil(response.data[confirmationTarget]);
   }
 
   /**
@@ -291,6 +381,7 @@ class Bitcoin {
     let chain = null;
     let address = null;
     let remarks = "";
+    let yieldProviderGasFee = 0;
 
     try {
       for (const vout of txn.vout) {
@@ -298,8 +389,10 @@ class Bitcoin {
         const chunks = bitcoin.script.decompile(scriptPubKey);
         if (chunks[0] === bitcoin.opcodes.OP_RETURN) {
           const embeddedData = chunks[1].toString("utf-8");
-          [chain, address] = embeddedData.split(",");
-          return { chain, address, remarks };
+
+          [chain, address, yieldProviderGasFee] = embeddedData.split(",");
+          
+          return { chain, address, yieldProviderGasFee: Number(yieldProviderGasFee), remarks };
         }
       }
 
@@ -307,7 +400,7 @@ class Bitcoin {
     } catch (error) {
       remarks = `Error from retrieveOpReturnFromTxnHash: ${error.message}`;
       //console.error(remarks);
-      return { chain, address, remarks };
+      return { chain, address, yieldProviderGasFee: Number(yieldProviderGasFee), remarks };
     }
   }
 
@@ -390,12 +483,7 @@ class Bitcoin {
   }
 
   // Fetch BTC mempool transactions based on address
-  // To Confirm: https://mempool.space/signet/docs/api/rest#get-address-transactions
-  //    Get transaction history for the specified address/scripthash, sorted with newest first.
-  //    Returns up to 50 mempool transactions plus the first 25 confirmed transactions.
-  //    You can request more confirmed transactions using an after_txid query parameter.
   async fetchTxnsByAddress(address) {
-    //console.log(`${this.chain_rpc}/address/${address}/txs`);
     const axioConfig = {
       url: `${this.chain_rpc}/address/${address}/txs`,
       method: "get",
@@ -417,12 +505,15 @@ class Bitcoin {
     return response.data;
   }
 
-  async deriveBTCAddress(rootPublicKey, accountId, derivationPath) {
+  async deriveBTCAddress(near) {
+    const { NETWORK_TYPE } = getConstants();
+
     const publicKey = await derivep2wpkhChildPublicKey(
-      await najPublicKeyStrToUncompressedHexPoint(rootPublicKey),
-      accountId,
-      derivationPath,
+      await najPublicKeyStrToUncompressedHexPoint(await near.nearMPCContract.public_key()),
+      near.contract_id,
+      NETWORK_TYPE.BITCOIN,
     );
+
     const address = await uncompressedHexPointToSegwitAddress(
       publicKey,
       this.network,
@@ -463,6 +554,55 @@ class Bitcoin {
         psbt.addInput(inputOptions);
       }),
     );
+  }
+
+  async mpcSignPsbt(near,psbtHex) {
+    // Parse the PSBT
+    const psbt = bitcoin.Psbt.fromHex(psbtHex, {network: this.network});
+    const { publicKey } = await this.deriveBTCAddress(near);
+    const sign = async (tx) => {
+      const btcPayload = Array.from(ethers.getBytes(tx));
+
+      const result =
+        await near.createDepositBithiveSignedPayload(btcPayload);
+
+      const big_r = result.big_r.affine_point;
+      const big_s = result.s.scalar;
+
+      return this.reconstructSignature(big_r, big_s);
+    };
+
+    // Log the inputs
+    for (let i = 0; i < psbt.data.inputs.length; i++) {
+      await psbt.signInputAsync(i, { publicKey, sign });
+    }
+
+    return psbt;
+  }
+
+  async mpcSignMessage(near, message) {
+    const msgHash = magicHash(message, "Bitcoin Signed Message:\n");
+
+    // // Sign the message using NEAR MPC
+    const payload = Array.from(msgHash);
+    const result = await near.createWithdrawalBithiveUnstakeMessageSignedPayload(payload);
+    
+    const big_r = result.big_r.affine_point;
+    const big_s = result.s.scalar;
+    const recovery_id = parseInt(result.recovery_id) + 27;
+
+    const r = big_r.slice(2).padStart(64, "0");
+    const s = big_s.padStart(64, "0");
+
+    const rawSignatureTemp = Buffer.from(r + s, "hex");
+
+    // Create a 65 byte buffer with recovery_id + r + s
+    const signature = Buffer.concat([
+      Buffer.from([recovery_id]),
+      rawSignatureTemp
+    ]);
+
+    return signature;
   }
 }
 

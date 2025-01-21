@@ -1,6 +1,10 @@
+import { address, networks } from "bitcoinjs-lib";
 import { isAddress } from "viem";
 import Web3 from "web3";
 
+import { network } from "@/config/network.config";
+
+import { Network } from "./wallet/wallet_provider";
 // Function to validate an address based on the network type
 export const isValidAddress = (
   networkType: string,
@@ -23,15 +27,32 @@ export function validateBlockchainAddress({
   networkType,
   address,
 }: {
-  networkType: "EVM" | "NEAR" | string;
+  networkType: "EVM" | "NEAR";
   address: string;
 }): boolean {
   switch (networkType) {
     case "EVM":
       return isAddress(address);
     case "NEAR":
+      console.log(
+        "NEAR_ACCOUNT_ID_REGEX.test(address)",
+        NEAR_ACCOUNT_ID_REGEX.test(address),
+      );
       return NEAR_ACCOUNT_ID_REGEX.test(address);
     default:
-      return false;
+      throw new Error(`Unsupported network type: ${networkType}`);
+  }
+}
+
+export function validateBTCAddress(addressInput: string): boolean {
+  try {
+    address.toOutputScript(
+      addressInput,
+      network === Network.SIGNET ? networks.testnet : networks.bitcoin,
+    );
+
+    return true;
+  } catch (error) {
+    return false;
   }
 }

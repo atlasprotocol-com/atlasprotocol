@@ -5,7 +5,7 @@ let globalParams = {
   minStakingAmount: 0,
   atlasRedemptionFeePercentage: 0,
   atlasDepositFeePercentage: 0,
-  atlasBabylonRewardsFeePercentage: 0,
+  atlasYieldProviderRewardsFeePercentage: 0,
   atlasBridgingFeePercentage: 0,
   atlasTreasuryAddress: null,
   maxRetryCount: 1,
@@ -26,8 +26,8 @@ async function updateGlobalParams(near) {
       fetchedParams.fee_redemption_bps / 10000;
     globalParams.atlasDepositFeePercentage =
       fetchedParams.fee_deposit_bps / 10000;
-    globalParams.atlasBabylonRewardsFeePercentage =
-      fetchedParams.fee_babylon_rewards_bps / 10000;
+    globalParams.atlasYieldProviderRewardsFeePercentage =
+      fetchedParams.fee_yield_provider_rewards_bps / 10000;
     globalParams.atlasBridgingFeePercentage =
       fetchedParams.fee_bridging_bps / 10000;
     globalParams.atlasTreasuryAddress = fetchedParams.treasury_address;

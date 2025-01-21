@@ -10,9 +10,9 @@ import { useAccount, useSwitchChain } from "wagmi";
 import Web3, { AbiItem } from "web3";
 
 import { useWeb3jsSigner } from "@/app/hooks";
-import { useChainConfig } from "@/app/context/api/ChainConfigProvider";
+import { useGetChainConfig } from "@/hooks";
+import aBTCABI from "@/utils/ABI/aBTC.json";
 import { getEstimateAbtcBurnGas } from "@/utils/getEstimateAbtcBurnGas"; // Import gas estimation function
-import aBTCABI from "@/utils/ABI/aBTC.json"; 
 
 interface EvmWalletContextType {
   evmAddress?: string | null;
@@ -48,7 +48,7 @@ export const EvmWalletProvider: FC<{ children: ReactNode }> = ({
   });
 
   // Fetch the chainConfigs from the context
-  const { chainConfigs } = useChainConfig();
+  const { data: chainConfigs } = useGetChainConfig();
 
   const fetchGasDetails = useCallback(
     async (chainID: string, amount: number, btcAddress: string) => {
@@ -132,7 +132,10 @@ export const EvmWalletProvider: FC<{ children: ReactNode }> = ({
           });
         }
 
-        const contract = new w3.eth.Contract(aBTCABI as AbiItem[], chainConfig.aBTCAddress);
+        const contract = new w3.eth.Contract(
+          aBTCABI as AbiItem[],
+          chainConfig.aBTCAddress,
+        );
 
         console.log("Contract Address", chainConfig.aBTCAddress);
         console.log("Burning aBTC", {

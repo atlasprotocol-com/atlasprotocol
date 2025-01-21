@@ -266,3 +266,29 @@ near view atlas_audit.velar.testnet get_all_deposits
 near view atlas_audit.velar.testnet get_all_chain_configs
 near call atlas_audit.velar.testnet set_chain_configs_from_json '{"new_json_data": '"$(jq -Rs '.' < chain_chains.json)"'}' --accountId velar.testnet
 near call atlas_audit.velar.testnet rollback_deposit_status_by_btc_txn_hash '{"btc_txn_hash": "aa580a38218aa5b59752882d523bc0cf661de25d4b9bdd9800f06cfc41635818"}' --accountId velar.testnet
+
+
+near deploy atbtc_audit_2.velar.testnet res/atbtc.wasm
+near call atbtc_audit_2.velar.testnet new '{
+  "owner_id": "atlas_audit_2.velar.testnet",
+  "metadata": {
+    "spec": "ft-1.0.0",
+    "name": "Atlas BTC",
+    "symbol": "atBTC",
+    "icon": "data:image/svg+xml,%3Csvg%20xmlns=%27http://www.w3.org/2000/svg%27%20width=%27100%27%20height=%27100%27%20viewBox=%270%200%20100%20100%27%3E%3Crect%20width=%27100%25%27%20height=%27100%25%27%20fill=%27%23e67e22%27/%3E%3Ctext%20x=%2750%25%27%20y=%2750%25%27%20font-family=%27Tahoma%27%20font-size=%2720%27%20font-weight=%27bold%27%20fill=%27white%27%20text-anchor=%27middle%27%20dominant-baseline=%27middle%27%3EatBTC%3C/text%3E%3C/svg%3E",
+    "reference": null,
+    "reference_hash": null,
+    "decimals": 8
+  }
+}' --accountId velar.testnet
+
+near delete-account atlas_audit_2.velar.testnet velar.testnet
+near create-account atlas_audit_2.velar.testnet --masterAccount velar.testnet --initialBalance 10
+near deploy atlas_audit_2.velar.testnet res/atlas_protocol.wasm
+near call atlas_audit_2.velar.testnet new '{"atlas_owner_id": "velar.testnet", "atlas_admin_id": "yeowlin.testnet", "global_params_owner_id": "velar.testnet", "chain_configs_owner_id": "velar.testnet", "treasury_address": "tb1pa4xwtgs3672h38rqdveyk5w9jqczfhjxh89j8erdlr59yj92qs8szyvw53", "production_mode": false}' --accountId velar.testnet
+near view atlas_audit_2.velar.testnet get_all_chain_configs
+near view atlas_audit_2.velar.testnet get_all_global_params
+near view atlas_audit_2.velar.testnet get_all_deposits
+near call atlas_audit_2.velar.testnet update_fee_deposit_bps '{"fee_deposit_bps": 10000}' --accountId velar.testnet
+near call atlas_audit_2.velar.testnet set_chain_configs_from_json '{"new_json_data": '"$(jq -Rs '.' < chain_chains_manual.json)"'}' --accountId velar.testnet
+near call atlas_audit_2.velar.testnet rollback_deposit_status_by_btc_txn_hash '{"btc_txn_hash": "b9d04109fba919d0f3b686c86c9b3c90bac2eab0e9a96c9a4ec90c9dee76e406"}' --accountId velar.testnet

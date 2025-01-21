@@ -44,7 +44,7 @@ async function UpdateAtlasBtcDeposits(
     );
 
     console.log(
-      `Btc Mempool number of Deposit records: ${filteredTxns.length}`,
+      `${batchName} Btc Mempool number of Deposit records: total:${btcMempool.data.length} filtered:${filteredTxns.length}`,
     );
 
     let i = 0;
@@ -85,6 +85,7 @@ async function UpdateAtlasBtcDeposits(
           let {
             chain: receivingChainID,
             address: receivingAddress,
+            yieldProviderGasFee,
             remarks,
           } = await bitcoin.getChainAndAddressFromTxnHash(txn);
 
@@ -111,12 +112,13 @@ async function UpdateAtlasBtcDeposits(
               btcSenderAddress,
               receivingChainID,
               receivingAddress,
-              btcAmount,
+              btcAmount - yieldProviderGasFee,
               feeAmount,
               mintedTxnHash,
               timestamp,
               remarks,
               timestamp,
+              yieldProviderGasFee,
             );
 
             console.log(`Inserted Deposit with BTC txn hash ${btcTxnHash}`);

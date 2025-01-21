@@ -55,6 +55,7 @@ impl Atlas {
         Self {
             deposits: IterableMap::new(b"d"),
             redemptions: IterableMap::new(b"r"),
+            bridgings: IterableMap::new(b"r"),
             owner_id: atlas_owner_id,
             proposed_owner_id: None,
             admin_id: atlas_admin_id,
@@ -66,7 +67,6 @@ impl Atlas {
             chain_configs: ChainConfigs::init_chain_configs(chain_configs_owner_id),
             validators: IterableMap::new(b"v"),
             verifications: IterableMap::new(b"f"),
-            last_evm_tx: None, // Initialize with None
             paused: false,
             production_mode: production_mode,
         }
@@ -371,6 +371,7 @@ impl Atlas {
         Self {
             deposits: old_state.deposits,
             redemptions: old_state.redemptions,
+            bridgings: old_state.bridgings,
             owner_id: old_state.owner_id,
             proposed_owner_id: old_state.proposed_owner_id,
             admin_id: old_state.admin_id,
@@ -379,7 +380,6 @@ impl Atlas {
             chain_configs: old_state.chain_configs,
             validators: old_state.validators,
             verifications: old_state.verifications,
-            last_evm_tx: old_state.last_evm_tx,
             paused: old_state.paused,
             production_mode: old_state.production_mode,
         }

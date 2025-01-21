@@ -38,7 +38,7 @@ const iconLinks = [
   // },
   {
     name: "Docs",
-    url: "https://docs.atlasprotocol.xyz/",
+    url: "https://docs.atlasprotocol.com/",
     Icon: IoMdBook,
   },
   // {
@@ -59,8 +59,9 @@ export const Footer: React.FC<FooterProps> = () => {
   const { openTerms } = useTerms();
 
   return (
-    <div className="container mx-auto flex flex-col items-center">
-      {/* <div className="w-24">
+    <div className="flex flex-col items-center bg-footer-bg border-t border-footer-border">
+      <div className="container mx-auto">
+        {/* <div className="w-24">
         <div className="divider my-1" />
       </div>
       <div className="flex justify-center gap-8 p-2">
@@ -71,22 +72,19 @@ export const Footer: React.FC<FooterProps> = () => {
           Terms of Use
         </button>
       </div> */}
-      <div className="flex flex-wrap justify-center gap-8 p-4 pt-2 md:flex-row md:p-6 md:pt-2">
-        {iconLinks.map(({ name, url, Icon }) => (
-          <div
-            key={name}
-            className="flex w-4 items-center justify-center text-[22px] text-xl"
-          >
+        <div className="flex flex-wrap justify-center gap-6 px-4 py-4 md:flex-row md:p-6 md:py-4">
+          {iconLinks.map(({ name, url, Icon }) => (
             <a
+              key={name}
+              className="w-8 h-8 p-2 bg-neutral-3 dark:bg-neutral-9 rounded-full justify-center items-center gap-2 inline-flex"
               href={url}
               target="_blank"
               rel="noopener noreferrer"
-              className="transition-colors hover:text-primary"
             >
-              <Icon title={name} />
+              <Icon size={20} title={name} />
             </a>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     </div>
   );

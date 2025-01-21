@@ -77,6 +77,10 @@ export interface UTXO {
       value: receiverAmount,
     });
 
+    const estimatedSize = psbt.txInputs.length * 148 + psbt.txOutputs.length * 34 + 10; // Approximate calculation
+  
+    const fee = Math.round(feeRate * estimatedSize);
+
     if (protocolFeeSat > 0) {
       psbt.addOutput({
         address: treasuryAddress,
@@ -84,18 +88,14 @@ export interface UTXO {
       });
     }
 
-    // Embed data in the witness stack
+    // Embed data in the witness stack with staking fee appended
     psbt.addOutput({
       script: bitcoin.script.compile([
         bitcoin.opcodes.OP_RETURN,
-        Buffer.from(data),
+        Buffer.from(`${data},${fee}`),
       ]),
       value: 0,
     });
-
-    const estimatedSize = psbt.txInputs.length * 148 + psbt.txOutputs.length * 34 + 10; // Approximate calculation
-  
-    const fee = Math.round(feeRate * estimatedSize);
 
     const change = totalInput - Number(satoshis) - fee;
     if (change > 0) {
