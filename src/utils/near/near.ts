@@ -1,5 +1,5 @@
 // wallet selector
-import "@near-wallet-selector/modal-ui/styles.css";
+import "./style.css";
 
 import { setupBitteWallet } from "@near-wallet-selector/bitte-wallet";
 import {
