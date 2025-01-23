@@ -1,5 +1,8 @@
-CONTRACT_ID ?= atlas_audit_v20241223
-FT_CONTRACT_ID ?= atbtc_audit_v20241223
+CONTRACT_ID ?= atlas_revamp_20241201
+FT_CONTRACT_ID ?= atbtc_revamp_20241201
+
+# CONTRACT_ID ?= atlas_audit_v20241223
+# FT_CONTRACT_ID ?= atbtc_audit_v20241223
 
 # CONTRACT_ID ?= atlas_audit_v2
 # FT_CONTRACT_ID ?= atbtc_audit_v2
