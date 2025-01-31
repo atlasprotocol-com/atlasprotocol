@@ -24,7 +24,9 @@ const {
 const {
   UpdateAtlasBtcBackToUser,
 } = require("./utils/updateAtlasBtcBackToUser");
-const { UpdateAtlasAbtcMintedTxnHash } = require("./utils/UpdateAtlasAbtcMintedTxnHash");
+const {
+  UpdateAtlasAbtcMintedTxnHash,
+} = require("./utils/UpdateAtlasAbtcMintedTxnHash");
 const { UpdateAtlasAbtcMinted } = require("./utils/updateAtlasAbtcMinted");
 const {
   UpdateYieldProviderStacked,
@@ -337,7 +339,6 @@ app.get("/api/v1/staker/bridgeHistories", async (req, res) => {
   }
 });
 
-
 // Define the /api/v1/chainConfigs endpoint
 app.get("/api/v1/chainConfigs", (req, res) => {
   try {
@@ -435,9 +436,7 @@ async function runBatch() {
   await StakeToYieldProvider(near, bitcoin);
   await UpdateYieldProviderStacked(deposits, near, bitcoin);
   await MintaBtcToReceivingChain(near);
-
   await UpdateAtlasAbtcMintedTxnHash(deposits, near);
-
   await UpdateAtlasAbtcMinted(deposits, near);
 
   await WithdrawFailDeposits(deposits, near, bitcoin);
@@ -465,7 +464,7 @@ app.listen(PORT, async () => {
   // Fetch and set chain configs before running the batch processes
   await fetchAndSetChainConfigs(near);
   await fetchAndSetConstants(near); // Load constants
-  
+
   console.log(`Server is running on port ${PORT}`);
   // const derivationPath = "BITCOIN";
   //   const { address, publicKey } = await bitcoin.deriveBTCAddress(
