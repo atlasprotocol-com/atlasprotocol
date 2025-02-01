@@ -372,7 +372,7 @@ class Bitcoin {
     const treasuryValue = treasuryOutput ? treasuryOutput.value : 0;
 
     return {
-      btcAmount: outputValue + treasuryValue,
+      btcAmount: outputValue,
       feeAmount: treasuryValue
     };
   }
@@ -383,6 +383,8 @@ class Bitcoin {
     let address = null;
     let remarks = "";
     let yieldProviderGasFee = 0;
+    let protocolFee = 0;
+    let mintingFee = 0;
 
     try {
       for (const vout of txn.vout) {
@@ -391,9 +393,16 @@ class Bitcoin {
         if (chunks[0] === bitcoin.opcodes.OP_RETURN) {
           const embeddedData = chunks[1].toString("utf-8");
 
-          [chain, address, yieldProviderGasFee] = embeddedData.split(",");
+          [chain, address, yieldProviderGasFee, protocolFee, mintingFee] = embeddedData.split(",");
           
-          return { chain, address, yieldProviderGasFee: Number(yieldProviderGasFee), remarks };
+          return {
+            chain,
+            address,
+            yieldProviderGasFee: Number(yieldProviderGasFee),
+            protocolFee: Number(protocolFee),
+            mintingFee: Number(mintingFee),
+            remarks,
+          };
         }
       }
 
@@ -474,7 +483,7 @@ class Bitcoin {
       };
       const response = await fetchWithRetry(axioConfig);
       const time = response.data[0];
-      console.log(`Unconfirmed txn hash ${txn.txId} time: ${time}`);
+      console.log(`Unconfirmed txn hash ${txn.txid} time: ${time}`);
       return time;
     } catch (error) {
       throw new Error(

@@ -18,6 +18,8 @@ import { useBool } from "@/hooks/useBool";
 import { btcToSatoshi } from "@/utils/btcConversions";
 import { validateBlockchainAddress } from "@/utils/validateAddress";
 import { WalletProvider } from "@/utils/wallet/wallet_provider";
+import { getEstimateAbtcMintGas } from '@/utils/getEstimateAbtcMintGas';
+import { useGetStats } from "@/hooks/stats";
 
 import { Button } from "../Button";
 import { InputField } from "../InputField";
@@ -57,6 +59,8 @@ export function Stake({ formattedBalance }: StakeProps) {
   const params = useGetGlobalParams();
   const { addFeedback } = useAddFeedback();
   const { BTC_TOKEN, btcRefreshBalance } = useAppContext();
+  const { data: stats } = useGetStats();
+  const btcPriceEth = stats?.btcPriceEth || 0;
 
   const {
     data: mempoolFeeRates,
@@ -73,6 +77,7 @@ export function Stake({ formattedBalance }: StakeProps) {
   const [previewData, setReviewData] = useState<
     | (SchemaType & {
         amountSat: number;
+        mintingFee: number;
       })
     | undefined
   >(undefined);
@@ -83,6 +88,7 @@ export function Stake({ formattedBalance }: StakeProps) {
     receivingAddress: previewData?.address,
     receivingChainID: previewData?.chainID,
     stakingAmountSat: previewData?.amountSat,
+    mintingFeeSat: previewData?.mintingFee,
     protocolFeeSat:
       params?.data?.feeDepositPercentage === 0
         ? 0
@@ -162,9 +168,25 @@ export function Stake({ formattedBalance }: StakeProps) {
   });
 
   const onSubmit = async (data: SchemaType) => {
+    const amountSat = btcToSatoshi(data.amount);
+    
+    const mintingFee = await getEstimateAbtcMintGas(
+      chainConfigs[data.chainID].chainRpcUrl,
+      chainConfigs[data.chainID].aBTCAddress,
+      data.address,
+      amountSat,
+      "cd36e5e6072e3ea0ac92ad20f99ef8c736f78b3c287b43f0a8c3e8607fe6a337",
+      params?.data?.evmAtlasAddress || "",
+    );
+
+    const mintingFeeEth = (mintingFee.gasEstimate * mintingFee.gasPrice) / 1e18;
+    console.log(mintingFeeEth)
+    const mintingFeeBtc = mintingFeeEth / btcPriceEth;
+    console.log(mintingFeeBtc)
     setReviewData({
       ...data,
       amountSat: btcToSatoshi(data.amount),
+      mintingFee: Math.max(1000, btcToSatoshi(mintingFeeBtc)),
     });
     previewToggle.setTrue();
   };
@@ -190,7 +212,7 @@ export function Stake({ formattedBalance }: StakeProps) {
       const txHash = await sign.mutateAsync({
         availableUTXOs: accountUTXOs,
         feeRate: mempoolFeeRates?.feeRates?.defaultFeeRate,
-        stakingAmountSat: previewData?.amountSat + stakingFee?.amount,
+        stakingAmountSat: previewData?.amountSat,
         stakingReceivingAddress: previewData?.address,
         stakingReceivingChainID: previewData?.chainID,
         protocolFeeSat:
@@ -203,6 +225,7 @@ export function Stake({ formattedBalance }: StakeProps) {
                     (previewData?.amountSat || 0),
                 ),
               ),
+        mintingFeeSat: previewData?.mintingFee,
         treasuryAddress: params?.data?.treasuryAddress || "",
       });
 
@@ -253,11 +276,11 @@ export function Stake({ formattedBalance }: StakeProps) {
     const chainConfig = chainConfigs[previewData.chainID];
 
     return {
-      amount: previewData.amount,
+      amount: previewData.amountSat,
       networkName: chainConfig?.networkName,
       address: previewData.address,
       feeRate: mempoolFeeRates?.feeRates?.defaultFeeRate,
-      stakingFee: stakingFee?.formatted,
+      stakingFee: stakingFee?.amount,
       protocolFeeSat:
         params?.data?.feeDepositPercentage === 0
           ? 0
@@ -274,7 +297,7 @@ export function Stake({ formattedBalance }: StakeProps) {
     mempoolFeeRates?.feeRates?.defaultFeeRate,
     params?.data?.feeDepositPercentage,
     previewData,
-    stakingFee?.formatted,
+    stakingFee?.amount,
   ]);
 
   const disabled =
@@ -381,6 +404,7 @@ export function Stake({ formattedBalance }: StakeProps) {
         stakingFee={previewDataDisplay.stakingFee}
         receivingAddress={previewDataDisplay.address}
         receivingChain={previewDataDisplay.networkName}
+        mintingFee={previewData?.mintingFee}
         onConfirm={handleConfirm}
       />
     </>

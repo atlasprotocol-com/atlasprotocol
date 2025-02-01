@@ -23,7 +23,7 @@ const getTransactionsAndComputeStats = async (
     )
     .reduce(
       (sum, deposit) =>
-        sum + toNumber(deposit.btc_amount) - toNumber(deposit.fee_amount),
+        sum + toNumber(deposit.btc_amount) - toNumber(deposit.protocol_fee),
       0,
     );
 
@@ -35,6 +35,7 @@ const getTransactionsAndComputeStats = async (
 
   const btcStaked = depositedStats - redeemedStats;
   const btcPrice = await cache.wrap(getPrice)("bitcoin", "usd");
+  const btcPriceEth = await cache.wrap(getPrice)("bitcoin", "eth");
   const tvl = (btcPrice * btcStaked) / 1e8;
 
   const atbtcMinted = deposits
@@ -43,7 +44,7 @@ const getTransactionsAndComputeStats = async (
         deposit.btc_sender_address === btcAtlasDepositAddress &&
         [DEPOSIT_STATUS.BTC_MINTED_INTO_ABTC].includes(deposit.status),
     )
-    .reduce((sum, deposit) => sum + deposit.btc_amount - deposit.fee_amount, 0);
+    .reduce((sum, deposit) => sum + deposit.btc_amount - deposit.protocol_fee - deposit.yield_provider_gas_fee, 0);
 
   return {
     btc_staked: btcStaked,
@@ -51,6 +52,7 @@ const getTransactionsAndComputeStats = async (
     atbtc_minted: atbtcMinted,
     metadata: {
       btc_price_usd: btcPrice,
+      btc_price_eth: btcPriceEth,
       deposits: { count: deposits.length },
       redemptions: { count: redemptions.length },
     },

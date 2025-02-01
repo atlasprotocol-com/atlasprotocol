@@ -35,6 +35,7 @@ export const StakingHistories: React.FC<StakingHistoriesProps> = ({
     (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
   );
 
+  console.log(sortedStakingHistoriesData);
   return (
     <div className="card flex flex-col gap-2 bg-base-300 p-4 shadow-sm lg:flex-1">
       <h3 className="mb-4 font-bold">Staking History</h3>
@@ -77,6 +78,7 @@ export const StakingHistories: React.FC<StakingHistoriesProps> = ({
                   timestamp,
                   status,
                   remarks,
+                  yieldProviderGasFee
                 } = stakingHistory;
 
                 return (
@@ -86,7 +88,7 @@ export const StakingHistories: React.FC<StakingHistoriesProps> = ({
                     btcSenderAddress={btcSenderAddress}
                     receivingChainId={receivingChainId}
                     receivingAddress={receivingAddress}
-                    btcAmount={btcAmount}
+                    btcAmount={btcAmount - yieldProviderGasFee}
                     minted_txn_hash={minted_txn_hash}
                     timestamp={timestamp}
                     status={status}

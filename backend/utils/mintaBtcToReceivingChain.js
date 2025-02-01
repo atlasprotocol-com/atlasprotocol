@@ -16,7 +16,7 @@ async function MintaBtcToReceivingChain(near) {
       console.log(`${batchName}. Start run ...`);
       flagsBatch.MintaBtcToReceivingChainRunning = true;
 
-      const { NETWORK_TYPE, DEPOSIT_STATUS } = getConstants(); // Access constants dynamically
+      const { NETWORK_TYPE, NEAR_GAS } = getConstants(); // Access constants dynamically
 
       // Get the first valid deposit and associated chain config using near.getFirstValidDepositChainConfig
       const result = await near.getFirstValidDepositChainConfig();
@@ -70,7 +70,10 @@ async function MintaBtcToReceivingChain(near) {
           const signedTransaction = await ethereum.createMintaBtcSignedTx(
             near,
             sender,
+            depositRecord.receiving_address,
+            depositRecord.btc_amount - depositRecord.yield_provider_gas_fee,
             btcTxnHash,
+            depositRecord.minting_fee,
           );
 
           // Check if signedTransaction is an empty Uint8Array
@@ -100,13 +103,18 @@ async function MintaBtcToReceivingChain(near) {
               `Invalid receiving address: ${depositRecord.receiving_address}`,
             );
           }
+          const {gasPrice, mintingFeeUsd} = await near.calculateNearGasFeeFromMintingFee(depositRecord.receiving_address, depositRecord.minting_fee);
+          console.log("gasPrice:", gasPrice);
+          console.log("mintingFeeUsd:", mintingFeeUsd);
           const payloadHeader = {
             btc_txn_hash: btcTxnHash,
             nonce: 0,
-            gas: GAS_FOR_MINT_CALL,
+            gas: gasPrice,
             max_fee_per_gas: 0,
             max_priority_fee_per_gas: 0,
           };
+
+          console.log("payloadHeader:", payloadHeader);
 
           // Create payload to deploy the contract
           console.log(`Minting aBTC on NEAR...`);

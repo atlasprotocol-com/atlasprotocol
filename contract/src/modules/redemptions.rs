@@ -52,7 +52,8 @@ impl Atlas {
             self.redemptions.get(&txn_hash).is_none(),
             "Redemption with this transaction hash already exists"
         );
-
+        
+        let protocol_fee = self.get_redemption_protocol_fee(abtc_amount);
         let record = RedemptionRecord {
             txn_hash: txn_hash.clone(),
             abtc_redemption_address,
@@ -60,6 +61,7 @@ impl Atlas {
             btc_receiving_address,
             abtc_amount,
             btc_txn_hash: "".to_string(),
+            protocol_fee,
             timestamp,
             status: RED_ABTC_BURNT,
             remarks: "".to_string(),

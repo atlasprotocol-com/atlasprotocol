@@ -65,7 +65,7 @@ async fn test_insert_deposit_btc() {
     assert_eq!(deposit.receiving_chain_id, receiving_chain_id);
     assert_eq!(deposit.receiving_address, receiving_address);
     assert_eq!(deposit.btc_amount, btc_amount);
-    assert_eq!(deposit.fee_amount, 0);
+    assert_eq!(deposit.protocol_fee, 0);
     assert_eq!(deposit.minted_txn_hash, minted_txn_hash);
     assert_eq!(deposit.timestamp, timestamp);
     assert_eq!(deposit.status, DEP_BTC_PENDING_MEMPOOL);
@@ -146,7 +146,7 @@ async fn test_insert_invalid_deposit() {
     let receiving_chain_id = "receiving_chain_id".to_string();
     let receiving_address = "receiving_address".to_string();
     let btc_amount = 1000;
-    let fee_amount = 0;
+    let protocol_fee = 0;
     let minted_txn_hash = "".to_string();
     let timestamp = 1234567890;
     let remarks = "".to_string();
@@ -159,7 +159,7 @@ async fn test_insert_invalid_deposit() {
             receiving_chain_id.clone(),
             receiving_address.clone(),
             btc_amount,
-            fee_amount,
+            protocol_fee,
             minted_txn_hash.clone(),
             timestamp,
             remarks.clone(),
@@ -190,7 +190,7 @@ async fn test_insert_maximum_deposit() {
     let receiving_chain_id = "receiving_chain_id".to_string();
     let receiving_address = "receiving_address".to_string();
     let btc_amount = u64::MAX;
-    let fee_amount = 0;
+    let protocol_fee = 0;
     let minted_txn_hash = "".to_string();
     let timestamp = 1234567890;
     let remarks = "".to_string();
@@ -202,7 +202,7 @@ async fn test_insert_maximum_deposit() {
         receiving_chain_id.clone(),
         receiving_address.clone(),
         btc_amount,
-        fee_amount,
+        protocol_fee,
         minted_txn_hash.clone(),
         timestamp,
         remarks.clone(),
@@ -611,7 +611,7 @@ async fn test_concurrent_deposits() {
     let receiving_chain_id = "receiving_chain_id".to_string();
     let receiving_address = "receiving_address".to_string();
     let btc_amount = 1000;
-    let fee_amount = 0;
+    let protocol_fee = 0;
     let minted_txn_hash = "".to_string();
     let timestamp = 1234567890;
     let remarks = "".to_string();
@@ -624,7 +624,7 @@ async fn test_concurrent_deposits() {
         receiving_chain_id.clone(),
         receiving_address.clone(),
         btc_amount,
-        fee_amount,
+        protocol_fee,
         minted_txn_hash.clone(),
         timestamp,
         remarks.clone(),
@@ -637,7 +637,7 @@ async fn test_concurrent_deposits() {
         receiving_chain_id.clone(),
         receiving_address.clone(),
         btc_amount,
-        fee_amount,
+        protocol_fee,
         minted_txn_hash.clone(),
         timestamp,
         remarks.clone(),
@@ -877,7 +877,7 @@ async fn test_insert_deposit_btc_with_fee_dps() {
     let receiving_chain_id = "receiving_chain_id".to_string();
     let receiving_address = "receiving_address".to_string();
     let btc_amount = 1000;
-    let fee_amount = 10;
+    let protocol_fee = 10;
     let minted_txn_hash = "".to_string();
     let timestamp = 1234567890;
     let remarks = "".to_string();
@@ -889,7 +889,7 @@ async fn test_insert_deposit_btc_with_fee_dps() {
         receiving_chain_id.clone(),
         receiving_address.clone(),
         btc_amount,
-        fee_amount,
+        protocol_fee,
         minted_txn_hash.clone(),
         timestamp,
         remarks.clone(),
@@ -905,7 +905,7 @@ async fn test_insert_deposit_btc_with_fee_dps() {
     assert_eq!(deposit.receiving_address, receiving_address);
     assert_eq!(deposit.btc_amount, btc_amount);
     assert_eq!(
-        deposit.fee_amount,
+        deposit.protocol_fee,
         btc_amount * fee_deposit_bps as u64 / 10000
     );
     assert_eq!(deposit.minted_txn_hash, minted_txn_hash);

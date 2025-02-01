@@ -28,18 +28,11 @@ async function StakeToYieldProvider(near, bitcoinInstance) {
         return;
       }
 
-      const [btcTxnHash, btcAmount, yieldProviderGasFee, feeAmount] = result;
+      const [btcTxnHash, btcAmount, yieldProviderGasFee] = result;
       try {
         await near.updateDepositPendingYieldProviderDeposit(btcTxnHash);
         
         const { address, publicKey } = await bitcoinInstance.deriveBTCAddress(near);
-
-        console.log("btcTxnHash: ", btcTxnHash);
-        console.log("btcAmount: ", btcAmount);
-        console.log("feeAmount: ", feeAmount);
-        console.log("yieldProviderGasFee: ", yieldProviderGasFee);
-        console.log("address: ", address);
-        console.log("publicKey: ", publicKey);
 
         // Convert publicKey to a string
         const publicKeyString = publicKey.toString("hex");
@@ -49,8 +42,8 @@ async function StakeToYieldProvider(near, bitcoinInstance) {
         const { psbt: unsignedPsbtHex } = await relayer.deposit.buildUnsignedPsbt({
           publicKey: publicKeyString,
           address,
-          amount: Number(btcAmount) - Number(feeAmount),
-          fee: yieldProviderGasFee
+          amount: Number(btcAmount) - Number(yieldProviderGasFee),
+          fee: Number(yieldProviderGasFee)
         });
 
         console.log("unsignedPsbtHex: ", unsignedPsbtHex);

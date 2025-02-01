@@ -9,7 +9,13 @@ const _ = require("lodash");
 const pRetry = require("p-retry");
 
 const { InMemoryKeyStore } = keyStores;
+
+const { getPrice } = require("../coin");
+const { MemoryCache } = require("../cache");
+
 const address = require("./address");
+
+const cache = new MemoryCache();
 
 debugBridgeMint = require("debug")("bridge:getPastMintBridgeEventsInBatches");
 debugBridgeBurn = require("debug")("bridge:getPastBurnBridgingEventsInBatches");
@@ -299,12 +305,14 @@ class Near {
     receivingChainID,
     receivingAddress,
     btcAmount,
-    feeAmount,
+    protocolFee,
     mintedTxnHash,
+    mintingFee,
     timestamp,
     remarks,
     date_created,
-    yieldProviderGasFee
+    yieldProviderGasFee,
+    yieldProviderTxnHash
   ) {
     return this.makeNearRpcChangeCall("insert_deposit_btc", {
       btc_txn_hash: btcTxnHash,
@@ -312,12 +320,14 @@ class Near {
       receiving_chain_id: receivingChainID,
       receiving_address: receivingAddress,
       btc_amount: btcAmount,
-      fee_amount: feeAmount,
+      protocol_fee: protocolFee,
       minted_txn_hash: mintedTxnHash,
+      minting_fee: mintingFee,
       timestamp: timestamp,
       remarks: remarks,
       date_created: date_created,
-      yield_provider_gas_fee: yieldProviderGasFee
+      yield_provider_gas_fee: yieldProviderGasFee,
+      yield_provider_txn_hash: yieldProviderTxnHash,
     });
   }
 
@@ -400,6 +410,7 @@ class Near {
   }
 
   async createMintaBtcSignedTx(payloadHeader) {
+    console.log(payloadHeader);
     return this.makeNearRpcChangeCall("create_mint_abtc_signed_tx", {
       btc_txn_hash: payloadHeader.btc_txn_hash,
       nonce: payloadHeader.nonce,
@@ -1140,6 +1151,31 @@ class Near {
       btc_txn_hash: btcTxnHash,
       yield_provider_txn_hash: yieldProviderTxnHash
     });
+  }
+
+  async calculateNearGasFeeFromMintingFee(receiver, mintingFeeSat) {
+    console.log("receiver:", receiver);
+    console.log("mintingFeeSat:", mintingFeeSat);
+
+    const btcPriceUsd = await cache.wrap(getPrice)("bitcoin", "usd");
+    const nearPrice = await cache.wrap(getPrice)("near", "usd");
+
+    // Convert sats to USD
+    const mintingFeeUsd = (mintingFeeSat / 100_000_000) * btcPriceUsd;
+
+    // Convert USD to NEAR (1 NEAR = $2.95 USD)
+    const mintingFeeNear = mintingFeeUsd / nearPrice;
+
+    // Convert NEAR to Tgas (1 NEAR = 1000 Tgas)
+    const mintingFeeTgas = mintingFeeNear * 1000;
+
+    console.log("mintingFeeUsd:", mintingFeeUsd);
+    console.log("mintingFeeTgas:", mintingFeeTgas);
+
+    return {
+      gasPrice: Math.floor(mintingFeeTgas), // Return Tgas as integer
+      mintingFeeUsd: Number(mintingFeeUsd)
+    };
   }
 }
 

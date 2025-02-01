@@ -33,8 +33,9 @@ pub struct DepositRecord {
     pub receiving_chain_id: String,
     pub receiving_address: String,
     pub btc_amount: u64,
-    pub fee_amount: u64,
+    pub protocol_fee: u64,
     pub minted_txn_hash: String,
+    pub minting_fee: u64,
     pub timestamp: u64,
     pub status: u8,
     pub remarks: String,
@@ -54,6 +55,7 @@ pub struct RedemptionRecord {
     pub abtc_redemption_chain_id: String,
     pub btc_receiving_address: String,
     pub abtc_amount: u64,
+    pub protocol_fee: u64,
     pub btc_txn_hash: String,
     pub timestamp: u64,
     pub status: u8,
@@ -63,7 +65,6 @@ pub struct RedemptionRecord {
     pub yield_provider_gas_fee: u64,
     pub yield_provider_txn_hash: String,
     pub btc_txn_hash_verified_count: u8,
-    
 }
 
 #[derive(BorshDeserialize, BorshSerialize, Deserialize, Serialize, Clone)]
@@ -76,6 +77,7 @@ pub struct BridgingRecord {
     pub dest_chain_address: String,
     pub dest_txn_hash: String,
     pub abtc_amount: u64,
+    pub protocol_fee: u64,
     pub timestamp: u64,
     pub status: u8,
     pub remarks: String,

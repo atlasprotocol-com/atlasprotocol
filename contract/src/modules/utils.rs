@@ -10,6 +10,7 @@ use serde_json::Value;
 use crate::constants::delimiter::COMMA;
 use crate::constants::network_type::*;
 use crate::constants::status::*;
+use crate::constants::near_gas::*;
 
 #[near_bindgen]
 impl Atlas {
@@ -62,6 +63,10 @@ impl Atlas {
             },
             "delimiter": {
                 "COMMA": COMMA,
+            },
+            "near_gas": {
+                "GAS_FOR_STORAGE_DEPOSIT": GAS_FOR_STORAGE_DEPOSIT,
+                "MIN_STORAGE_DEPOSIT": MIN_STORAGE_DEPOSIT,
             },
         })
     }

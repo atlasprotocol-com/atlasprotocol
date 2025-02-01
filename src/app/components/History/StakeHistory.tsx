@@ -12,6 +12,7 @@ import { calculateStakingHistoriesDiff } from "@/utils/local_storage/calculateSt
 import { getStakingHistoriesLocalStorageKey } from "@/utils/local_storage/getStakingHistoriesLocalStorageKey";
 import { maxDecimals } from "@/utils/maxDecimals";
 import { trim } from "@/utils/trim";
+import { getNetworkConfig } from "@/config/network.config";
 
 import { Card } from "../Card";
 import { LoadingTableList } from "../Loading/Loading";
@@ -24,9 +25,10 @@ import {
   TableRow,
 } from "../Table";
 
+
 export function StakeHistory() {
   const { btcPublicKeyNoCoord, btcAddress, BTC_TOKEN } = useAppContext();
-
+  const { mempoolApiUrl } = getNetworkConfig();
   const { data: chainConfigs = {} } = useGetChainConfig();
 
   const {
@@ -230,24 +232,34 @@ export function StakeHistory() {
                         return (
                           <TableRow key={stakingHistory.timestamp}>
                             <TableCell>
-                              {maxDecimals(
-                                satoshiToBtc(stakingHistory.btcAmount),
-                                8,
-                              )}
+                              <div
+                                title={`Amount after staking/protocol/minting fee deduction (Original: ${maxDecimals(satoshiToBtc(stakingHistory.btcAmount + stakingHistory.protocolFee + stakingHistory.mintingFee), 8)})`}
+                              >
+                                {maxDecimals(
+                                  satoshiToBtc(
+                                    stakingHistory.btcAmount -
+                                      stakingHistory.yieldProviderGasFee,
+                                  ),
+                                  8,
+                                )}
+                              </div>
                             </TableCell>
                             <TableCell>
                               {formatTimestamp(stakingHistory.timestamp)}
                             </TableCell>
                             <TableCell>{chain.networkName}</TableCell>
                             <TableCell>
-                              {trim(stakingHistory.receivingAddress)}
+                              <span title={stakingHistory.receivingAddress}>
+                                {trim(stakingHistory.receivingAddress)}
+                              </span>
                             </TableCell>
                             <TableCell>
                               <a
-                                href={`${process.env.NEXT_PUBLIC_MEMPOOL_EXPLORER}/tx/${stakingHistory.btcTxnHash}`}
+                                href={`${mempoolApiUrl}/tx/${stakingHistory.btcTxnHash}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="text-primary hover:underline"
+                                title={stakingHistory.btcTxnHash || "-"}
                               >
                                 {stakingHistory.btcTxnHash
                                   ? trim(stakingHistory.btcTxnHash)
@@ -261,6 +273,7 @@ export function StakeHistory() {
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="text-primary hover:underline"
+                                  title={stakingHistory.minted_txn_hash}
                                 >
                                   {trim(stakingHistory.minted_txn_hash)}
                                 </a>

@@ -13,6 +13,7 @@ import { maxDecimals } from "@/utils/maxDecimals";
 
 import { useGetGlobalParams } from "../../hooks/stats";
 import { useAddFeedback } from "../stores/feedback";
+import { number } from "bitcoinjs-lib/src/script";
 
 export function useGetAccountUTXO() {
   const { btcAddress: address, btcWallet } = useAppContext();
@@ -73,6 +74,7 @@ export function useGetStakingFee({
   receivingChainID,
   receivingAddress,
   protocolFeeSat,
+  mintingFeeSat,
   treasuryAddress,
 }: {
   stakingAmountSat?: number;
@@ -81,6 +83,7 @@ export function useGetStakingFee({
   receivingChainID?: string;
   receivingAddress?: string;
   protocolFeeSat?: number;
+  mintingFeeSat?: number;
   treasuryAddress?: string;
 }) {
   const { btcNetwork, btcAddress, btcPublicKeyNoCoord } = useAppContext();
@@ -98,8 +101,9 @@ export function useGetStakingFee({
       !feeRate ||
       !inputUTXOs ||
       !inputUTXOs.length ||
-      !protocolFeeSat ||
-      !treasuryAddress
+      protocolFeeSat === undefined ||
+      !treasuryAddress ||
+      !mintingFeeSat
     ) {
       return undefined;
     }
@@ -113,6 +117,7 @@ export function useGetStakingFee({
       feeRate,
       inputUTXOs,
       protocolFeeSat,
+      mintingFeeSat,
       treasuryAddress,
       `${receivingChainID},${receivingAddress}`,
     );
@@ -122,17 +127,18 @@ export function useGetStakingFee({
       formatted: maxDecimals(satoshiToBtc(stakingFeeSat), 8),
     };
   }, [
-    btcAddress,
+    params?.atlasAddress,
     btcNetwork,
+    btcAddress,
     btcPublicKeyNoCoord,
+    stakingAmountSat,
     feeRate,
     inputUTXOs,
-    params?.atlasAddress,
-    receivingAddress,
-    receivingChainID,
-    stakingAmountSat,
     protocolFeeSat,
     treasuryAddress,
+    mintingFeeSat,
+    receivingChainID,
+    receivingAddress,
   ]);
 }
 
@@ -155,6 +161,7 @@ export function useSignStaking() {
     stakingReceivingChainID: string;
     stakingReceivingAddress: string;
     protocolFeeSat: number;
+    mintingFeeSat: number;
     treasuryAddress: string;
   }) => {
     const {
@@ -164,6 +171,7 @@ export function useSignStaking() {
       stakingReceivingChainID,
       stakingReceivingAddress,
       protocolFeeSat,
+      mintingFeeSat,
       treasuryAddress,
     } = data;
     if (!btcWallet) throw new Error("Wallet is not connected");
@@ -185,6 +193,7 @@ export function useSignStaking() {
       feeRate,
       availableUTXOs,
       protocolFeeSat,
+      mintingFeeSat,
       treasuryAddress,
       `${stakingReceivingChainID},${stakingReceivingAddress}`,
     );

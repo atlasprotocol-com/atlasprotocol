@@ -75,6 +75,8 @@ const btcConfig = {
   btcAPI: process.env.BTC_MEMPOOL_API_URL,
   btcNetwork: process.env.BTC_NETWORK,
   btcDerivationPath: process.env.BTC_DERIVATION_PATH,
+  btcAtlasTreasuryAddress: process.env.BTC_ATLAS_TREASURY_ADDRESS,
+  evmAtlasAddress: process.env.EVM_ATLAS_ADDRESS,
 };
 
 const bitcoin = new Bitcoin(btcConfig.btcAPI, btcConfig.btcNetwork);
@@ -109,6 +111,7 @@ app.use(cors());
 app.use(helmet());
 
 const btcAtlasDepositAddress = btcConfig.btcAtlasDepositAddress;
+const evmAtlasAddress = btcConfig.evmAtlasAddress;
 let atlasStats = {};
 let deposits = [];
 let redemptions = [];
@@ -229,6 +232,7 @@ app.get("/api/v1/global-params", async (req, res) => {
           atlas_address: btcAtlasDepositAddress,
           deposit_fee_percentage: globalParams.atlasDepositFeePercentage,
           treasury_address: globalParams.atlasTreasuryAddress,
+          evm_address: evmAtlasAddress,
         },
       ],
     };
@@ -262,6 +266,9 @@ app.get("/api/v1/staker/stakingHistories", async (req, res) => {
         timestamp: record.timestamp,
         status: record.status,
         remarks: record.remarks,
+        yield_provider_gas_fee: record.yield_provider_gas_fee,
+        minting_fee: record.minting_fee,
+        protocol_fee: record.protocol_fee,
       }));
 
     const pagination = {
@@ -338,6 +345,7 @@ app.get("/api/v1/staker/bridgeHistories", async (req, res) => {
     res.status(500).json({ error: "ERR_INTERNAL_SERVER_ERROR" });
   }
 });
+
 
 // Define the /api/v1/chainConfigs endpoint
 app.get("/api/v1/chainConfigs", (req, res) => {

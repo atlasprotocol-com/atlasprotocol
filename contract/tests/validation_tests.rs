@@ -44,7 +44,7 @@ async fn test_deposit_verification() {
     let receiving_chain_id = "SIGNET".to_string();
     let receiving_address = "receiving_address".to_string();
     let btc_amount = 1000;
-    let fee_amount = 0;
+    let protocol_fee = 0;
     let minted_txn_hash = "".to_string();
     let timestamp = 1234567890;
     let remarks = "".to_string();
@@ -56,7 +56,7 @@ async fn test_deposit_verification() {
         receiving_chain_id.clone(),
         receiving_address.clone(),
         btc_amount,
-        fee_amount,
+        protocol_fee,
         minted_txn_hash.clone(),
         timestamp,
         remarks.clone(),
@@ -71,7 +71,7 @@ async fn test_deposit_verification() {
         receiving_chain_id: receiving_chain_id.clone(),
         receiving_address: receiving_address.clone(),
         btc_amount,
-        fee_amount: 0,
+        protocol_fee: 0,
         minted_txn_hash: minted_txn_hash.clone(),
         timestamp,
         status: DEP_BTC_DEPOSITED_INTO_ATLAS,
@@ -111,7 +111,7 @@ async fn test_deposit_verification_with_invalid_data() {
     let receiving_chain_id = "SIGNET".to_string();
     let receiving_address = "receiving_address".to_string();
     let btc_amount = 1000;
-    let fee_amount = 0;
+    let protocol_fee = 0;
     let minted_txn_hash = "".to_string();
     let timestamp = 1234567890;
     let remarks = "".to_string();
@@ -123,7 +123,7 @@ async fn test_deposit_verification_with_invalid_data() {
         receiving_chain_id.clone(),
         receiving_address.clone(),
         btc_amount,
-        fee_amount,
+        protocol_fee,
         minted_txn_hash.clone(),
         timestamp,
         remarks.clone(),
@@ -138,7 +138,7 @@ async fn test_deposit_verification_with_invalid_data() {
         receiving_chain_id: receiving_chain_id.clone(),
         receiving_address: receiving_address.clone(),
         btc_amount,
-        fee_amount: 0,
+        protocol_fee: 0,
         minted_txn_hash: minted_txn_hash.clone(),
         timestamp,
         status: DEP_BTC_DEPOSITED_INTO_ATLAS,
@@ -233,7 +233,7 @@ async fn test_deposit_verification_with_multiple_validators() {
     let receiving_chain_id = "SIGNET".to_string();
     let receiving_address = "receiving_address".to_string();
     let btc_amount = 1000;
-    let fee_amount = 0;
+    let protocol_fee = 0;
     let minted_txn_hash = "".to_string();
     let timestamp = 1234567890;
     let remarks = "".to_string();
@@ -245,7 +245,7 @@ async fn test_deposit_verification_with_multiple_validators() {
         receiving_chain_id.clone(),
         receiving_address.clone(),
         btc_amount,
-        fee_amount,
+        protocol_fee,
         minted_txn_hash.clone(),
         timestamp,
         remarks.clone(),
@@ -260,7 +260,7 @@ async fn test_deposit_verification_with_multiple_validators() {
         receiving_chain_id: receiving_chain_id.clone(),
         receiving_address: receiving_address.clone(),
         btc_amount,
-        fee_amount: 0,
+        protocol_fee: 0,
         minted_txn_hash: minted_txn_hash.clone(),
         timestamp,
         status: DEP_BTC_DEPOSITED_INTO_ATLAS,

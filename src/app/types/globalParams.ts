@@ -7,4 +7,5 @@ export interface GlobalParamsVersion {
   formattedMaxStakingAmount: number;
   feeDepositPercentage: number;
   treasuryAddress: string;
+  evmAtlasAddress: string;
 }

@@ -22,7 +22,6 @@ async function fetchAndSetConstants(near) {
   try {
     const fetchedConstants = await near.getConstants(); // Fetch constants from NEAR contract
 
-    console.log(fetchedConstants.deposit_status);
     constants = {
       ...constants, // Keep other static properties
       DEPOSIT_STATUS: {
@@ -86,6 +85,10 @@ async function fetchAndSetConstants(near) {
       },
       DELIMITER: {
         COMMA: fetchedConstants.delimiter.COMMA,
+      },
+      NEAR_GAS: {
+        GAS_FOR_STORAGE_DEPOSIT: fetchedConstants.near_gas.GAS_FOR_STORAGE_DEPOSIT,
+        MIN_STORAGE_DEPOSIT: fetchedConstants.near_gas.MIN_STORAGE_DEPOSIT,
       },
     };
 

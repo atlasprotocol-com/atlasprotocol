@@ -41,7 +41,7 @@ impl GlobalParams {
             fee_yield_provider_rewards_bps: 0,
             btc_staking_cap: 50000000000,
             btc_max_staking_amount: 5000000,
-            btc_min_staking_amount: 10000,
+            btc_min_staking_amount: 30000,
             treasury_address: treasury_address,
             owner_id: owner_id,
             proposed_owner_id: None,

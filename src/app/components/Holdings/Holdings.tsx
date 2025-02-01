@@ -76,7 +76,7 @@ export function Holdings({ balanceSat }: { balanceSat: number }) {
 
     if (stakingHistories) {
       totalStakedSat = stakingHistories.stakingHistories.reduce(
-        (accumulator: number, item) => accumulator + item?.btcAmount,
+        (accumulator: number, item) => accumulator + item?.btcAmount - item?.yieldProviderGasFee,
         0,
       );
     }

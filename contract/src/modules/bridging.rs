@@ -40,6 +40,7 @@ impl Atlas {
     ) {
         self.assert_admin();
 
+        let protocol_fee = self.get_bridging_protocol_fee(abtc_amount);
         let record = BridgingRecord {
             txn_hash: txn_hash.clone(),
             origin_chain_id,
@@ -48,6 +49,7 @@ impl Atlas {
             dest_chain_address,
             dest_txn_hash,
             abtc_amount,
+            protocol_fee,
             timestamp,
             status,
             remarks,

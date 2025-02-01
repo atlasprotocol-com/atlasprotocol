@@ -10,6 +10,9 @@ export interface Stakes {
   timestamp: string;
   status: string;
   remarks: string;
+  yieldProviderGasFee: number;
+  protocolFee: number;
+  mintingFee: number;
 }
 
 export enum DepositStatus {

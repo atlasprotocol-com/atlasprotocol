@@ -15,6 +15,7 @@ interface GlobalParamsDataResponse {
     atlas_address: string;
     deposit_fee_percentage: number;
     treasury_address: string;
+    evm_address: string;
   }[];
 }
 
@@ -42,5 +43,6 @@ export const getGlobalParams = async (): Promise<GlobalParamsVersion[]> => {
     atlasAddress: v.atlas_address,
     feeDepositPercentage: v.deposit_fee_percentage,
     treasuryAddress: v.treasury_address,
+    evmAtlasAddress: v.evm_address,
   }));
 };

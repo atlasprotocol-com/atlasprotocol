@@ -7,6 +7,17 @@ import { Psbt,networks } from "bitcoinjs-lib";
 const ECPair = ECPairFactory(ecc);
 bitcoin.initEccLib(ecc);
 
+interface InputWithTapInternalKey {
+  hash: string;
+  index: number;
+  witnessUtxo: {
+    script: Buffer;
+    value: number;
+  };
+  sequence: number;
+  tapInternalKey?: Buffer; // Add the optional tapInternalKey property
+}
+
 // UTXO is a structure defining attributes for a UTXO
 export interface UTXO {
     // hash of transaction that holds the UTXO
@@ -26,50 +37,37 @@ export interface UTXO {
     inputUTXOs: UTXO[],
     btcWalletNetwork: networks.Network,
     protocolFeeSat: number,
+    mintingFeeSat: number,
     treasuryAddress: string,
     data: string,
     publicKeyNoCoord?: Buffer,
-    
   ) => {
     const psbt = new Psbt({ network: btcWalletNetwork });
     let totalInput = 0;
 
-    // Add inputs to the PSBT
-    if (publicKeyNoCoord){
-      inputUTXOs.forEach((utxo) => {
-        psbt.addInput({
-          hash: utxo.txid,
-          index: utxo.vout,
-          witnessUtxo: {
-            script: Buffer.from(utxo.scriptPubKey, "hex"),
-            value: utxo.value,
-          },
-          tapInternalKey: publicKeyNoCoord,
-        });
-  
-        totalInput += utxo.value;
-      });
-    }else{
-      inputUTXOs.forEach((utxo) => {
-        psbt.addInput({
-          hash: utxo.txid,
-          index: utxo.vout,
-          witnessUtxo: {
-            script: Buffer.from(utxo.scriptPubKey, "hex"),
-            value: utxo.value,
-          }
-        });
-  
-        totalInput += utxo.value;
-      });
-    }
+    // Add inputs to the PSBT with RBF enabled
+    // Update the input creation to use the new interface
+    inputUTXOs.forEach((utxo) => {
+      let input: InputWithTapInternalKey = {
+        hash: utxo.txid,
+        index: utxo.vout,
+        witnessUtxo: {
+          script: Buffer.from(utxo.scriptPubKey, "hex"),
+          value: utxo.value,
+        },
+        sequence: 0xfffffffd, // Enable RBF by setting nSequence to a value less than 0xFFFFFFFE
+      };
 
-    let receiverAmount = satoshis;
-  
-    if (protocolFeeSat > 0) {
-      receiverAmount = satoshis - protocolFeeSat;
-    }
-    
+      if (publicKeyNoCoord) {
+        input.tapInternalKey = publicKeyNoCoord;
+      }
+
+      psbt.addInput(input);
+      totalInput += utxo.value;
+    });
+
+    let treasuryAmount = protocolFeeSat + mintingFeeSat;
+    let receiverAmount = satoshis - treasuryAmount;    
   
     // Add outputs to the PSBT
     psbt.addOutput({
@@ -77,27 +75,27 @@ export interface UTXO {
       value: receiverAmount,
     });
 
-    const estimatedSize = psbt.txInputs.length * 148 + psbt.txOutputs.length * 34 + 10; // Approximate calculation
-  
-    const fee = Math.round(feeRate * estimatedSize);
-
-    if (protocolFeeSat > 0) {
+    if (treasuryAmount > 0) {
       psbt.addOutput({
         address: treasuryAddress,
-        value: protocolFeeSat,
+        value: treasuryAmount,
       });
     }
+
+    const estimatedSize = psbt.txInputs.length * 148 + psbt.txOutputs.length * 34 + 20; // Approximate calculation
+  
+    const fee = Math.round(feeRate * estimatedSize);
 
     // Embed data in the witness stack with staking fee appended
     psbt.addOutput({
       script: bitcoin.script.compile([
         bitcoin.opcodes.OP_RETURN,
-        Buffer.from(`${data},${fee}`),
+        Buffer.from(`${data},${fee},${protocolFeeSat},${mintingFeeSat}`),
       ]),
       value: 0,
     });
 
-    const change = totalInput - Number(satoshis) - fee;
+    const change = totalInput - receiverAmount - fee - treasuryAmount;
     if (change > 0) {
       psbt.addOutput({
         address: sender,
@@ -105,8 +103,6 @@ export interface UTXO {
       });
     }
 
-    
-  
     return { psbt, fee };
   
   };

@@ -38,12 +38,14 @@ impl Atlas {
         receiving_chain_id: String,
         receiving_address: String,
         btc_amount: u64,
-        fee_amount: u64,
+        protocol_fee: u64,
         minted_txn_hash: String,
+        minting_fee: u64,
         timestamp: u64,
         remarks: String,
         date_created: u64,
-        yield_provider_gas_fee: u64
+        yield_provider_gas_fee: u64,
+        yield_provider_txn_hash: String,
     ) {
         self.assert_not_paused();
         self.assert_admin();
@@ -73,15 +75,22 @@ impl Atlas {
         assert!(timestamp > 0, "Timestamp must be greater than zero");
         assert!(date_created > 0, "Date created must be greater than zero");
         assert!(yield_provider_gas_fee > 0, "Yield provider gas fee must be greater than zero");
+        assert!(
+            yield_provider_txn_hash.is_empty(),
+            "Yield provider transaction hash must be empty"
+        );
         // Check for duplicate transaction hash
         if self.deposits.contains_key(&btc_txn_hash) {
             env::panic_str("Deposit with this transaction hash already exists");
         }
+        assert!(minting_fee > 0, "Minting fee must be greater than zero");
+        
+
 
         // let global_params = self.get_all_global_params();
         // let global_params_json = serde_json::to_value(&global_params).unwrap();
         // let fee_deposit_bps = global_params_json["fee_deposit_bps"].as_u64().unwrap() as u16;
-        // let fee_amount: u64 = (fee_deposit_bps as u64 * btc_amount) / 10000;
+        // let protocol_fee: u64 = (fee_deposit_bps as u64 * btc_amount) / 10000;
 
         let record = DepositRecord {
             btc_txn_hash: btc_txn_hash.clone(),
@@ -89,17 +98,18 @@ impl Atlas {
             receiving_chain_id,
             receiving_address,
             btc_amount,
-            fee_amount,
+            protocol_fee,
             minted_txn_hash,
+            minting_fee,
             timestamp,
             status: DEP_BTC_PENDING_MEMPOOL,
             remarks,
             date_created,
             verified_count: 0,
+            yield_provider_gas_fee,
+            yield_provider_txn_hash,
             retry_count: 0,
             minted_txn_hash_verified_count: 0,
-            yield_provider_gas_fee,
-            yield_provider_txn_hash: "".to_string(),
         };
 
         self.deposits.insert(btc_txn_hash, record);
@@ -425,7 +435,7 @@ impl Atlas {
         }
     }
 
-    pub fn get_first_valid_user_deposit(&self) -> Option<(String, u64, u64, u64)> {
+    pub fn get_first_valid_user_deposit(&self) -> Option<(String, u64, u64, u64, u64)> {
         for (key, deposit) in self.deposits.iter() {
             if deposit.btc_sender_address != ""
                 && deposit.receiving_chain_id != ""
@@ -450,7 +460,7 @@ impl Atlas {
                             deposit.verified_count,
                             chain_config.validators_threshold
                         );
-                        return Some((key.clone(), deposit.btc_amount.clone(), deposit.yield_provider_gas_fee.clone(), deposit.fee_amount.clone())); // Return the key and the ChainConfigRecord as a tuple
+                        return Some((key.clone(), deposit.btc_amount.clone(), deposit.yield_provider_gas_fee.clone(), deposit.protocol_fee.clone(), deposit.minting_fee.clone())); // Return the key and the ChainConfigRecord as a tuple
                     }
                 }
             }
@@ -510,7 +520,7 @@ impl Atlas {
                     && !deposit.receiving_chain_id.is_empty()
                     && !deposit.receiving_address.is_empty()
                     && !deposit.remarks.is_empty()
-                    && deposit.retry_count < max_retry_count
+                    //&& deposit.retry_count < max_retry_count
                 {
                     // If receiving chain ID is EVM and receiving address is not a valid EVM address, do not rollback
                     if let Some(chain_config) = self
@@ -571,7 +581,7 @@ impl Atlas {
                 && !deposit.receiving_chain_id.is_empty()
                 && !deposit.receiving_address.is_empty()
                 && !deposit.remarks.is_empty()
-                && deposit.retry_count < max_retry_count
+                //&& deposit.retry_count < max_retry_count
             {
                 // If receiving chain ID is EVM and receiving address is not a valid EVM address, do not rollback
                 if let Some(chain_config) = self
@@ -595,6 +605,10 @@ impl Atlas {
                     }
                     DEP_BTC_PENDING_MINTED_INTO_ABTC => {
                         deposit.status = DEP_BTC_YIELD_PROVIDER_DEPOSITED;
+                        deposit.retry_count += 1;
+                        deposit.remarks.clear();
+                    }
+                    DEP_BTC_YIELD_PROVIDER_DEPOSITED => {
                         deposit.retry_count += 1;
                         deposit.remarks.clear();
                     }
@@ -682,10 +696,9 @@ impl Atlas {
 
                             // Ensure the BTC amount is properly converted to U256 (Ethereum uint256)
                             let amount = U256::from(deposit.btc_amount);
-                            let fee_amount = U256::from(deposit.fee_amount);
+                            let yield_provider_gas_fee = U256::from(deposit.yield_provider_gas_fee);
 
-                            let to_address_str =
-                                chain_config.abtc_address.strip_prefix("0x").unwrap();
+                            let to_address_str = chain_config.abtc_address.strip_prefix("0x").unwrap();
                             let to_address = parse_eth_address(to_address_str);
                             let destination = H160::from_slice(
                                 &hex::decode(deposit.receiving_address.strip_prefix("0x").unwrap())
@@ -695,7 +708,7 @@ impl Atlas {
 
                             let data: Vec<u8> = Self::encode_mint_function_call(
                                 destination,
-                                amount - fee_amount,
+                                amount - yield_provider_gas_fee,
                                 btc_txn_hash.clone(),
                             );
 
@@ -749,7 +762,7 @@ impl Atlas {
                                 btc_txn_hash
                             );
 
-                            let amount_to_mint = (deposit.btc_amount - deposit.fee_amount).to_string();
+                            let amount_to_mint = (deposit.btc_amount - deposit.protocol_fee - deposit.yield_provider_gas_fee).to_string();
                             let account_id_str = chain_config.abtc_address.clone().to_string();
                             let account_id = AccountId::from_str(&account_id_str)
                                 .expect("Invalid NEAR account ID");
@@ -788,7 +801,7 @@ impl Atlas {
                                 "mint_deposit".to_string(),   // The mint function to call
                                 args,                         // The arguments for minting
                                 NearToken::from_yoctonear(0), // Attach a small amount of NEAR (if required)
-                                GAS_FOR_MINT_CALL,            // Gas to attach to this call
+                                Gas::from_tgas(gas.try_into().unwrap()),            // Gas to attach to this call
                             );
 
                             // Chain the storage deposit and mint promises
@@ -955,7 +968,7 @@ impl Atlas {
                     || deposit.receiving_chain_id != mempool_deposit.receiving_chain_id
                     || deposit.receiving_address != mempool_deposit.receiving_address
                     || deposit.btc_amount != mempool_deposit.btc_amount
-                    || deposit.fee_amount != mempool_deposit.fee_amount
+                    || deposit.protocol_fee != mempool_deposit.protocol_fee
                     || deposit.timestamp != mempool_deposit.timestamp
                     || deposit.status != DEP_BTC_DEPOSITED_INTO_ATLAS
                     || deposit.remarks != mempool_deposit.remarks
