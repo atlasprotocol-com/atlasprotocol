@@ -1,55 +1,56 @@
-const { createRelayerClient } = require('@bithive/relayer-api');
+const { createRelayerClient } = require("@bithive/relayer-api");
 
 const { getConstants } = require("../constants");
 
-
 const { flagsBatch } = require("./batchFlags");
-
-
 
 async function UpdateYieldProviderStacked(allDeposits, near, bitcoinInstance) {
   const batchName = `Batch C UpdateYieldProviderStacked`;
   const relayer = createRelayerClient({ url: process.env.BITHIVE_RELAYER_URL });
-  
+
   // Check if a previous batch is still running
   if (flagsBatch.UpdateYieldProviderStackedRunning) {
     console.log(`Previous ${batchName} incomplete. Skipping this run.`);
     return;
-  }
-  else {  
-
+  } else {
     try {
       console.log(`${batchName}. Start run...`);
       flagsBatch.UpdateYieldProviderStackedRunning = true;
-      const { DEPOSIT_STATUS, BITHIVE_STATUS} = getConstants(); // Access constants dynamically
+      const { DEPOSIT_STATUS, BITHIVE_STATUS } = getConstants(); // Access constants dynamically
 
       const { publicKey } = await bitcoinInstance.deriveBTCAddress(near);
 
       const publicKeyString = publicKey.toString("hex");
-      
+
       // Filter deposits that need to be processed
       const filteredTxns = allDeposits.filter(
         (deposit) =>
-          deposit.status === DEPOSIT_STATUS.BTC_PENDING_YIELD_PROVIDER_DEPOSIT &&
+          deposit.status ===
+            DEPOSIT_STATUS.BTC_PENDING_YIELD_PROVIDER_DEPOSIT &&
           deposit.yield_provider_txn_hash !== "" &&
           deposit.remarks === "",
       );
 
-      filteredTxns.forEach(async (txn) => {
+      for (let i = 0; i < filteredTxns.length; i++) {
+        const txn = filteredTxns[i];
         const { deposit } = await relayer.user.getDeposit({
           publicKey: publicKeyString,
           txHash: txn.yield_provider_txn_hash,
         });
-
-        console.log("deposit:", deposit);
-
-        if (deposit) {   
-          if (deposit.status === BITHIVE_STATUS.DEPOSIT_CONFIRMED || deposit.status === BITHIVE_STATUS.DEPOSIT_CONFIRMED_INVALID) {
-            await near.updateDepositYieldProviderDeposited(txn.btc_txn_hash);
-          }
+        if (!deposit) {
+          console.error(
+            `Deposit not found for txHash: ${txn.yield_provider_txn_hash}`,
+          );
+          continue;
         }
-      });
 
+        if (
+          deposit.status === BITHIVE_STATUS.DEPOSIT_CONFIRMED ||
+          deposit.status === BITHIVE_STATUS.DEPOSIT_CONFIRMED_INVALID
+        ) {
+          await near.updateDepositYieldProviderDeposited(txn.btc_txn_hash);
+        }
+      }
     } catch (error) {
       console.error("Error updating stake to yield provider deposited:", error);
     } finally {

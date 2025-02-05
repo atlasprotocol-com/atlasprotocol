@@ -103,7 +103,11 @@ async function MintaBtcToReceivingChain(near) {
               `Invalid receiving address: ${depositRecord.receiving_address}`,
             );
           }
-          const {gasPrice, mintingFeeUsd} = await near.calculateNearGasFeeFromMintingFee(depositRecord.receiving_address, depositRecord.minting_fee);
+          const { gasPrice, mintingFeeUsd } =
+            await near.calculateNearGasFeeFromMintingFee(
+              depositRecord.receiving_address,
+              depositRecord.minting_fee,
+            );
           console.log("gasPrice:", gasPrice);
           console.log("mintingFeeUsd:", mintingFeeUsd);
           const payloadHeader = {
