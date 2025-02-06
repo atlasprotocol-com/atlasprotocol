@@ -44,12 +44,16 @@ async function UpdateYieldProviderStacked(allDeposits, near, bitcoinInstance) {
           continue;
         }
 
-        if (
+        const ok =
           deposit.status === BITHIVE_STATUS.DEPOSIT_CONFIRMED ||
-          deposit.status === BITHIVE_STATUS.DEPOSIT_CONFIRMED_INVALID
-        ) {
-          await near.updateDepositYieldProviderDeposited(txn.btc_txn_hash);
+          deposit.status === BITHIVE_STATUS.DEPOSIT_CONFIRMED_INVALID;
+        if (!ok) {
+          console.error(
+            `Deposit status ${deposit.status} of txHash: ${txn.yield_provider_txn_hash} is not valid`,
+          );
+          continue;
         }
+        await near.updateDepositYieldProviderDeposited(txn.btc_txn_hash);
       }
     } catch (error) {
       console.error("Error updating stake to yield provider deposited:", error);
