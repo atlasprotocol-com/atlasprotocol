@@ -35,7 +35,8 @@ const getTransactionsAndComputeStats = async (
 
   const btcStaked = depositedStats - redeemedStats;
   const btcPrice = await cache.wrap(getPrice)("bitcoin", "usd");
-  const btcPriceEth = await cache.wrap(getPrice)("bitcoin", "eth");
+  const ethPriceBtc = await cache.wrap(getPrice)("ethereum", "btc");
+  const ethPriceUsd = await cache.wrap(getPrice)("ethereum", "usd");
   const tvl = (btcPrice * btcStaked) / 1e8;
 
   const atbtcMinted = deposits
@@ -52,7 +53,8 @@ const getTransactionsAndComputeStats = async (
     atbtc_minted: atbtcMinted,
     metadata: {
       btc_price_usd: btcPrice,
-      btc_price_eth: btcPriceEth,
+      eth_price_btc: ethPriceBtc,
+      eth_price_usd: ethPriceUsd,
       deposits: { count: deposits.length },
       redemptions: { count: redemptions.length },
     },

@@ -60,9 +60,12 @@ async function fetchAndSetConstants(near) {
           BTC_PENDING_YIELD_PROVIDER_WITHDRAW:
             fetchedConstants.redemption_status
             .RED_BTC_PENDING_YIELD_PROVIDER_WITHDRAW,
-        BTC_YIELD_PROVIDER_WITHDRAWING:
-          fetchedConstants.redemption_status
-            .RED_BTC_YIELD_PROVIDER_WITHDRAWING,
+          BTC_YIELD_PROVIDER_WITHDRAWING:
+            fetchedConstants.redemption_status
+              .RED_BTC_YIELD_PROVIDER_WITHDRAWING,
+        BTC_YIELD_PROVIDER_WITHDRAWN:
+            fetchedConstants.redemption_status
+              .RED_BTC_YIELD_PROVIDER_WITHDRAWN,
         BTC_REDEEMED_BACK_TO_USER:
           fetchedConstants.redemption_status.RED_BTC_REDEEMED_BACK_TO_USER,
       },

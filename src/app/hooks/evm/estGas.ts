@@ -31,11 +31,7 @@ export function useGetRedeemFee({
         throw new Error("Missing required parameters");
       }
 
-      const fees = await getTxRedemptionFees(
-        userAddress,
-        amountSat,
-        "0xDUMMY7f1e736d47dc5ef864f332b1155955ac3e8af7e219e24c11e6fd7dc9be7",
-      );
+      const fees = await getTxRedemptionFees(amountSat);
 
       return fees;
     },
@@ -82,8 +78,8 @@ export function useEstGasAtlasBurn({
 
       if (success) {
         return {
-          gasPrice: Math.ceil(gasPrice * 1.5),
-          gasEstimate: Math.ceil(gasEstimate * 1.5),
+          gasPrice: Math.ceil(gasPrice),
+          gasEstimate: Math.ceil(gasEstimate),
         };
       }
 

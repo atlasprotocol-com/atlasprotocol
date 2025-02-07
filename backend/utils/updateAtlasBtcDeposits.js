@@ -39,6 +39,9 @@ async function UpdateAtlasBtcDeposits(
         txn.vout.some(
           (vout) => vout.scriptpubkey_address === btcAtlasDepositAddress,
         ) &&
+        !txn.vin.some(
+          (vin) => vin.prevout.scriptpubkey_address === btcAtlasDepositAddress
+        ) &&
         (txn.status.block_time > lastProcessedConfirmedTime ||
           !txn.status.confirmed),
     );
@@ -94,8 +97,11 @@ async function UpdateAtlasBtcDeposits(
           } = await bitcoin.getChainAndAddressFromTxnHash(txn);
 
           if (receivingChainID && receivingAddress) {
-            const { btcAmount, feeAmount } = await bitcoin.getBtcReceivingAmount(
 
+            console.log("receivingChainID:", receivingChainID);
+            console.log("receivingAddress:", receivingAddress);
+            console.log("btcTxnHash:", btcTxnHash);
+            const { btcAmount, feeAmount } = await bitcoin.getBtcReceivingAmount(
               txn,
               btcAtlasDepositAddress,
               treasuryAddress

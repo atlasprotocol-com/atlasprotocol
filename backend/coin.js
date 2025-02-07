@@ -1,13 +1,26 @@
 const axios = require("axios");
 
 async function getPrice(coin, currency = "usd") {
-  const uri = new URL(`https://api.coingecko.com/api/v3/simple/price`);
-  uri.searchParams.set("ids", coin);
-  uri.searchParams.set("vs_currencies", currency);
+  // Convert coin and currency to Binance format
+  const coinMap = {
+    'bitcoin': 'BTC',
+    'ethereum': 'ETH',
+    'near': 'NEAR'
+  };
+  const currencyMap = {
+    'btc': 'BTC',
+    'usd': 'USDT',
+    'eth': 'ETH',
+    'near': 'NEAR'
+  };
+
+  const symbol = `${coinMap[coin]}${currencyMap[currency]}`;
+  const uri = `https://api.binance.com/api/v3/ticker/price?symbol=${symbol}`;
 
   return axios
-    .get(uri.toString())
-    .then((res) => Number(res.data[coin][currency]) || 0);
+    .get(uri)
+    .then((res) => Number(res.data.price) || 0)
+    .catch(() => 0); // Return 0 if error occurs
 }
 
 module.exports = { getPrice };

@@ -136,7 +136,7 @@ export function Redeem({ btcAddress }: RedeemProps) {
 
   const redemptionFee =
     gasEstimate?.gasPrice && gasEstimate?.gasEstimate
-      ? gasEstimate.gasPrice * gasEstimate.gasEstimate
+      ? (gasEstimate.gasPrice * gasEstimate.gasEstimate) / 10 ** 18
       : 0;
 
   const addressLabel =
@@ -378,9 +378,9 @@ export function Redeem({ btcAddress }: RedeemProps) {
         amount={previewData?.amount}
         receivingAddress={previewData?.address}
         redeemChain={selectedChain?.networkName}
-        transactionFee={redemptionFee}
+        transactionFeeEth={redemptionFee}
         feeRate={gasEstimate?.gasPrice}
-        atlasRedemptionFee={redeemFee?.atlasRedemptionFee}
+        atlasProtocolFee={redeemFee?.atlasProtocolFee}
         btcRedemptionFee={redeemFee?.estimatedGasFee}
         onConfirm={onConfirm}
         hideFee={selectedChain?.networkType === "NEAR"}

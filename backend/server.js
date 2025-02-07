@@ -52,6 +52,11 @@ const {
 const {
   WithdrawFromYieldProvider,
 } = require("./utils/withdrawFromYieldProvider");
+const {
+  UpdateAtlasBtcWithdrawnFromYieldProvider,
+} = require("./utils/updateAtlasBtcWithdrawnFromYieldProvider");
+const { SendBtcBackToUser } = require("./utils/sendBtcBackToUser");
+const { estimateRedemptionFees } = require("./services/bithive");
 
 // Load environment variables from .env.local or .env based on NODE_ENV
 const envFile = process.env.NODE_ENV === "production" ? ".env" : ".env.local";
@@ -193,25 +198,17 @@ app.get("/api/v1/stats", async (req, res) => {
 
 app.get("/api/v1/atlas/redemptionFees", async (req, res) => {
   try {
-    const { sender, amount, redemptionTxnHash } = req.query;
+    const { amount } = req.query;
 
-    const { estimatedFee, receiveAmount, taxAmount } =
-      await bitcoin.getMockPayload(
-        btcConfig.btcAtlasDepositAddress,
-        sender,
-        amount,
-        redemptionTxnHash,
-        globalParams.atlasRedemptionFeePercentage,
-        globalParams.atlasTreasuryAddress,
-      );
+    const feeData = await estimateRedemptionFees(bitcoin, near, amount);
+
+    const protocolFee = globalParams.atlasRedemptionFeePercentage * amount;
 
     const data = {
-      estimatedGasFee: estimatedFee,
-      estimatedReceiveAmount: receiveAmount,
-      atlasRedemptionFee: taxAmount,
+      estimatedGasFee: feeData.estimated_fee < 1000 ? 1000 : feeData.estimated_fee,
+      atlasProtocolFee: protocolFee < 1000 ? 1000 : protocolFee,
+      estimatedFeeRate: feeData.estimated_fee_rate,
     };
-
-    //console.log(data);
 
     res.json({ data });
   } catch (error) {
@@ -305,6 +302,9 @@ app.get("/api/v1/staker/redemptionHistories", async (req, res) => {
         status: record.status,
         remarks: record.remarks,
         btc_txn_hash: record.btc_txn_hash,
+        yield_provider_gas_fee: record.yield_provider_gas_fee,
+        btc_redemption_fee: record.btc_redemption_fee,
+        protocol_fee: record.protocol_fee,
       }));
 
     const pagination = {
@@ -453,11 +453,13 @@ async function runBatch() {
   await UnStakeFromYieldProvider(near, bitcoin);
   await UpdateYieldProviderUnStacked(redemptions, near, bitcoin);
   await WithdrawFromYieldProvider(redemptions, near, bitcoin);
+  await UpdateAtlasBtcWithdrawnFromYieldProvider(redemptions, near, bitcoin);
+  await SendBtcBackToUser(near, bitcoin);
   await UpdateAtlasBtcBackToUser(redemptions, near, bitcoin);
 
-  await UpdateAtlasBtcBridgings(near);
-  await MintBridgeABtcToDestChain(near);
-  await UpdateAtlasBridgeAbtcMinted(bridgings, near);
+  // await UpdateAtlasBtcBridgings(near);
+  // await MintBridgeABtcToDestChain(near);
+  // await UpdateAtlasBridgeAbtcMinted(bridgings, near);
 
   // Delay for 5 seconds before running the batch again
   await new Promise((resolve) => setTimeout(resolve, 5000));

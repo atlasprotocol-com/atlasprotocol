@@ -57,6 +57,7 @@ pub struct RedemptionRecord {
     pub abtc_amount: u64,
     pub protocol_fee: u64,
     pub btc_txn_hash: String,
+    pub btc_redemption_fee: u64,
     pub timestamp: u64,
     pub status: u8,
     pub remarks: String,
@@ -117,4 +118,5 @@ pub struct CreatePayloadResult {
     pub protocol_fee: u64,
     pub receive_amount: u64,
     pub change: u64,
+    pub yield_provider_gas_fee: u64,
 }

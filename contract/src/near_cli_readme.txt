@@ -282,13 +282,47 @@ near call atbtc_audit_2.velar.testnet new '{
   }
 }' --accountId velar.testnet
 
-near delete-account atlas_audit_2.velar.testnet velar.testnet
-near create-account atlas_audit_2.velar.testnet --masterAccount velar.testnet --initialBalance 10
-near deploy atlas_audit_2.velar.testnet res/atlas_protocol.wasm
-near call atlas_audit_2.velar.testnet new '{"atlas_owner_id": "velar.testnet", "atlas_admin_id": "yeowlin.testnet", "global_params_owner_id": "velar.testnet", "chain_configs_owner_id": "velar.testnet", "treasury_address": "tb1pa4xwtgs3672h38rqdveyk5w9jqczfhjxh89j8erdlr59yj92qs8szyvw53", "production_mode": false}' --accountId velar.testnet
-near view atlas_audit_2.velar.testnet get_all_chain_configs
-near view atlas_audit_2.velar.testnet get_all_global_params
-near view atlas_audit_2.velar.testnet get_all_deposits
-near call atlas_audit_2.velar.testnet update_fee_deposit_bps '{"fee_deposit_bps": 10000}' --accountId velar.testnet
-near call atlas_audit_2.velar.testnet set_chain_configs_from_json '{"new_json_data": '"$(jq -Rs '.' < chain_chains_manual.json)"'}' --accountId velar.testnet
-near call atlas_audit_2.velar.testnet rollback_deposit_status_by_btc_txn_hash '{"btc_txn_hash": "b9d04109fba919d0f3b686c86c9b3c90bac2eab0e9a96c9a4ec90c9dee76e406"}' --accountId velar.testnet
+near view  atbtc_audit_2.velar.testnet mint_deposit '{"account_id": "starz.testnet", "amount": "0", "btc_txn_hash": "b9d04109fba919d0f3b686c86c9b3c90bac2eab0e9a96c9a4ec90c9dee76e406"}'
+
+
+near deploy atbtc_audit_2_v.velar.testnet res/atbtc.wasm
+near call atbtc_audit_2_v.velar.testnet new '{
+  "owner_id": "atlas_audit_2_v.velar.testnet",
+  "metadata": {
+    "spec": "ft-1.0.0",
+    "name": "Atlas BTC",
+    "symbol": "atBTC",
+    "icon": "data:image/svg+xml,%3Csvg%20xmlns=%27http://www.w3.org/2000/svg%27%20width=%27100%27%20height=%27100%27%20viewBox=%270%200%20100%20100%27%3E%3Crect%20width=%27100%25%27%20height=%27100%25%27%20fill=%27%23e67e22%27/%3E%3Ctext%20x=%2750%25%27%20y=%2750%25%27%20font-family=%27Tahoma%27%20font-size=%2720%27%20font-weight=%27bold%27%20fill=%27white%27%20text-anchor=%27middle%27%20dominant-baseline=%27middle%27%3EatBTC%3C/text%3E%3C/svg%3E",
+    "reference": null,
+    "reference_hash": null,
+    "decimals": 8
+  }
+}' --accountId velar.testnet
+
+
+near delete-account atlas_audit_2_v.velar.testnet velar.testnet
+near create-account atlas_audit_2_v.velar.testnet --masterAccount velar.testnet --initialBalance 10
+near deploy atlas_audit_2_v.velar.testnet res/atlas_protocol.wasm
+near call atlas_audit_2_v.velar.testnet new '{"atlas_owner_id": "velar.testnet", "atlas_admin_id": "yeowlin.testnet", "global_params_owner_id": "velar.testnet", "chain_configs_owner_id": "velar.testnet", "treasury_address": "tb1pa4xwtgs3672h38rqdveyk5w9jqczfhjxh89j8erdlr59yj92qs8szyvw53", "production_mode": false}' --accountId velar.testnet
+near view atlas_audit_2_v.velar_v.testnet get_all_chain_configs
+near view atlas_audit_2_v.velar.testnet get_all_global_params
+near view atlas_audit_2_v.velar.testnet get_all_deposits
+near call atlas_audit_2_v.velar.testnet update_fee_deposit_bps '{"fee_deposit_bps": 300}' --accountId velar.testnet
+near call atlas_audit_2_v.velar.testnet set_chain_configs_from_json '{"new_json_data": '"$(jq -Rs '.' < chain_chains_manual.json)"'}' --accountId velar.testnet
+near call atlas_audit_2_v.velar.testnet rollback_deposit_status_by_btc_txn_hash '{"btc_txn_hash": "059d2b4f880b2a7718bd8bd12d82e652cb1d16470812eb7da7dfce2854d59dff"}' --accountId velar.testnet
+near call atlas_audit_2_v.velar.testnet clear_all_deposits --accountId velar.testnet
+near call atlas_audit_2_v.velar.testnet clear_all_redemptions --accountId velar.testnet
+
+near call atlas_audit_2_v.velar.testnet create_abtc_accept_ownership_tx '{"chain_id": "421614", "nonce": 1, "gas": 1000000, "max_fee_per_gas": 1000000000, "max_priority_fee_per_gas": 100000000}' --accountId velar.testnet --gas 300000000000000 --deposit 0
+near call atlas_audit_2_v.velar.testnet update_fee_deposit_bps '{"fee_deposit_bps": 0}' --accountId velar.testnet --gas 300000000000000 
+near call atlas_audit_2_v.velar.testnet rollback_deposit_status_by_btc_txn_hash '{"btc_txn_hash": "bfde44d3e2f90f08cd318d033de60521cb55464aec43b941c3f898d9c6cd04b9"}' --accountId velar.testnet
+near call atlas_audit_2_v.velar.testnet update_fee_redemption_bps '{"fee_redemption_bps": 0}' --accountId velar.testnet --gas 300000000000000 
+near call atlas_audit_2_v.velar.testnet rollback_redemption_status_by_txn_hash '{"txn_hash": "11155420,0x0c9f04013de052e67965c60cc82f18faf08e2ab3e95700589686cb75e9a63e42"}' --accountId velar.testnet
+
+near call atlas_audit_2_v.velar.testnet update_redemption_yield_provider_withdrawing '{"txn_hash": "421614,0xcdabdb5c1d6f0c888995c71e38300bc09d8f94f5f2ccae77d1c7b98050fa0c29", "yield_provider_txn_hash": "c976a791e3c1454d4cdc5c504cb5931f8a3a56c4067bff437edbb6525f8efb1e", "yield_provider_gas_fee": 1768}' --accountId yeowlin.testnet
+near call atlas_audit_2_v.velar.testnet update_redemption_pending_btc_mempool '{"txn_hash": "11155420,0x0c9f04013de052e67965c60cc82f18faf08e2ab3e95700589686cb75e9a63e42", "btc_txn_hash": "3344451a0c527828c1c439012b50071634c82d766aeaf1dd9cecf957b2b8661c", "estimated_fee": 1128, "protocol_fee": 0}' --accountId yeowlin.testnet
+
+near call atlas_audit_2_v.velar.testnet add_validator '{"account_id": "velar.testnet", "chain_id": "SIGNET"}' --accountId velar.testnet
+near call atlas_audit_2_v.velar.testnet add_validator '{"account_id": "velar.testnet", "chain_id": "421614"}' --accountId velar.testnet
+near call atlas_audit_2_v.velar.testnet add_validator '{"account_id": "velar.testnet", "chain_id": "11155420"}' --accountId velar.testnet
+near call atlas_audit_2_v.velar.testnet add_validator '{"account_id": "velar.testnet", "chain_id": "NEAR_TESTNET"}' --accountId velar.testnet

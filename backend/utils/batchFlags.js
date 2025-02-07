@@ -18,7 +18,8 @@ const flagsBatch = {
   WithdrawFromYieldProviderRunning: false,
   UnStakeFromYieldProviderRunning: false,
   UpdateYieldProviderStackedRunning: false,
-  UpdateYieldProviderUnstakedRunning: false
+  UpdateYieldProviderUnstakedRunning: false,
+  UpdateAtlasBtcWithdrawnFromYieldProviderRunning: false,
 };
 
 function blockRange(block, start = 1000, end = 2000) {
