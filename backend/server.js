@@ -346,7 +346,6 @@ app.get("/api/v1/staker/bridgeHistories", async (req, res) => {
   }
 });
 
-
 // Define the /api/v1/chainConfigs endpoint
 app.get("/api/v1/chainConfigs", (req, res) => {
   try {

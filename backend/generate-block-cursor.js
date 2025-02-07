@@ -56,7 +56,7 @@ async function main() {
   if (!workflow) throw new Error("Workflow file is not set");
 
   const backfill = Number(
-    process.argv[4] || process.env.BLOCK_CURSOR_BACKFILL || 2000,
+    process.argv[4] || process.env.BLOCK_CURSOR_BACKFILL || 100,
   );
 
   const exist = await fs.promises
