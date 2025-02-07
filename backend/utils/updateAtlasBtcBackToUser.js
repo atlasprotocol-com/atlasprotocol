@@ -1,5 +1,3 @@
-const { createRelayerClient } = require("@bithive/relayer-api");
-
 const { getConstants } = require("../constants");
 
 const { flagsBatch } = require("./batchFlags");
@@ -11,9 +9,7 @@ async function UpdateAtlasBtcBackToUser(
 ) {
   const batchName = `Batch J UpdateAtlasBtcBackToUser`;
 
-  const relayer = createRelayerClient({ url: process.env.BITHIVE_RELAYER_URL });
-
-  const { REDEMPTION_STATUS, BITHIVE_STATUS } = getConstants(); // Access constants dynamically
+  const { REDEMPTION_STATUS } = getConstants(); // Access constants dynamically
 
   // Skip if the batch is already running
   if (flagsBatch.UpdateAtlasBtcBackToUserRunning) return;
@@ -28,14 +24,12 @@ async function UpdateAtlasBtcBackToUser(
         redemption.abtc_redemption_address !== "" &&
         redemption.abtc_redemption_chain_id !== "" &&
         redemption.btc_receiving_address !== "" &&
-        redemption.status === REDEMPTION_STATUS.BTC_YIELD_PROVIDER_WITHDRAWING &&
+        redemption.status === REDEMPTION_STATUS.BTC_PENDING_MEMPOOL_CONFIRMATION &&
         redemption.remarks === "" &&
         redemption.yield_provider_txn_hash !== "" &&
         redemption.yield_provider_gas_fee !== 0
     );
 
-    const { publicKey } = await bitcoinInstance.deriveBTCAddress(near);
-    const publicKeyString = publicKey.toString("hex");
     let i = 0;
 
     filteredTxns.forEach(async (txn) => {
@@ -43,24 +37,25 @@ async function UpdateAtlasBtcBackToUser(
         i++;
         console.log(`\nProcessing ${i} of ${filteredTxns.length} txns...`);
 
-        const { deposit } = await relayer.user.getDeposit({
-          publicKey: publicKeyString,
-          txHash: txn.yield_provider_txn_hash,
-        });
-
-        console.log(deposit);
-        if (
-          [BITHIVE_STATUS.WITHDRAW_CONFIRMED].includes(
-            deposit.status,
-          )
-        ) {
-          await near.updateRedemptionRedeemed(
-            txn.txn_hash,
-          );
-          console.log(
-            `Processed record ${i}: Updated Redemption for txn hash ${txn.txn_hash} and BTC txn hash ${txn.btc_txn_hash}`
-          );
+        const btcTxn = await bitcoinInstance.fetchTxnByTxnID(txn.btc_txn_hash);
+        
+        if (btcTxn && btcTxn.status && btcTxn.status.confirmed) {
+          // const confirmations = btcTxn.status.block_height 
+          //   ? await bitcoinInstance.getConfirmations(btcTxn.status.block_height) 
+          //   : 0;
+          
+          //   //console.log(`Confirmations: ${confirmations}`);
+            
+          //   if (confirmations > 6) {
+            await near.updateRedemptionRedeemed(
+              txn.txn_hash,
+            );
+            console.log(
+              `Processed record ${i}: Updated Redemption for txn hash ${txn.txn_hash} and BTC txn hash ${txn.btc_txn_hash}`
+            );
+          // }
         }
+        
       }  catch (error) {
         
         const errorMessage = error.body && error.body.error_message 

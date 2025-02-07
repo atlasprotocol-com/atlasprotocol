@@ -35,7 +35,7 @@ export const RedemptionPreviewModal: React.FC<RedemptionPreviewModalProps> = ({
   const [redemptionBTCfees, setRedemptionBTCfees] = useState<number | null>(
     null,
   );
-  const [atlasRedemptionFee, setAtlasRedemptionFee] = useState<number | null>(
+  const [atlasProtocolFee, setAtlasProtocolFee] = useState<number | null>(
     null,
   );
   const [loading, setLoading] = useState<boolean>(true);
@@ -50,17 +50,16 @@ export const RedemptionPreviewModal: React.FC<RedemptionPreviewModalProps> = ({
     const fetchRedemptionFees = async () => {
       try {
         const fees = await getTxRedemptionFees(
-          redemptionReceivingAddress,
           redemptionAmountSat,
-          "0xDUMMY7f1e736d47dc5ef864f332b1155955ac3e8af7e219e24c11e6fd7dc9be7",
         );
+        console.log(fees);
         if (fees) {
           setRedemptionBTCfees(fees.estimatedGasFee); // or whichever fee you need
-          setAtlasRedemptionFee(fees.atlasRedemptionFee);
+          setAtlasProtocolFee(fees.atlasProtocolFee);
           setIsButtonDisabled(false);
         } else {
           setRedemptionBTCfees(0);
-          setAtlasRedemptionFee(0);
+          setAtlasProtocolFee(0);
           setIsButtonDisabled(true);
           setErrorMessage("Failed to retrieve redemption fees.");
         }
@@ -73,10 +72,9 @@ export const RedemptionPreviewModal: React.FC<RedemptionPreviewModalProps> = ({
       }
     };
 
-    if (!isNearChain) {
       fetchRedemptionFees();
-    }
-  }, [redemptionReceivingAddress, redemptionAmountSat, isNearChain]);
+   
+  }, [redemptionAmountSat]);
 
   useEffect(() => {
     if (isNearChain) {
@@ -140,7 +138,7 @@ export const RedemptionPreviewModal: React.FC<RedemptionPreviewModalProps> = ({
               <p className="text-xs dark:text-neutral-content">
                 Atlas Protocol fee
               </p>
-              <p>{`${maxDecimals(satoshiToBtc(atlasRedemptionFee ? atlasRedemptionFee : 0), 8)} BTC`}</p>
+              <p>{`${maxDecimals(satoshiToBtc(atlasProtocolFee ? atlasProtocolFee : 0), 8)} BTC`}</p>
             </div>
           </div>
         )}

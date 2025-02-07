@@ -31,7 +31,7 @@ async function WithdrawFromYieldProvider(
           redemption.remarks === "",
       );
 
-      const { publicKey } = await bitcoinInstance.deriveBTCAddress(near);
+      const { publicKey, address } = await bitcoinInstance.deriveBTCAddress(near);
       const publicKeyString = publicKey.toString("hex");
 
       filteredTxns.forEach(async (txn) => {
@@ -59,13 +59,15 @@ async function WithdrawFromYieldProvider(
                 `Submit the above withdrawal PSBT for signing ... This may fail if the last signing request is still in progress, or NEAR Chain Signatures service is unstable.`,
             );
           } else {
+            const feeRate = await bitcoinInstance.fetchFeeRate() + 1;
             // 1. Build the PSBT that is ready for signing
             const { psbt: unsignedPsbtHex, deposits: depositsToSign } =
             await relayer.withdraw.buildUnsignedPsbt({
               publicKey: publicKeyString,
               deposits: _deposits,
               amount: txn.abtc_amount,
-              recipientAddress: txn.btc_receiving_address,
+              recipientAddress: address,
+              feeRate: feeRate,
             });
             let partiallySignedPsbt = await bitcoinInstance.mpcSignPsbt(near,unsignedPsbtHex);
             partiallySignedPsbtHex = partiallySignedPsbt.toHex();
@@ -103,7 +105,7 @@ async function WithdrawFromYieldProvider(
 
           console.log("Withdrawal txHash:", yieldProviderWithdrawalTxHash);
 
-          await near.updateRedemptionYieldProviderWithdrawing(txn.txn_hash, yieldProviderWithdrawalTxHash, depositTxHash, yieldProviderWithdrawalFee);
+          await near.updateRedemptionYieldProviderWithdrawing(txn.txn_hash, depositTxHash, yieldProviderWithdrawalFee);
           
         } catch (error) {
           let remarks = '';

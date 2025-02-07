@@ -3,6 +3,7 @@ export interface StakingStats {
   tvl?: number;
   atbtcMinted?: number;
   btcPriceUsd?: number;
-  btcPriceEth?: number;
+  ethPriceBtc?: number;
+  ethPriceUsd?: number;
 }
 

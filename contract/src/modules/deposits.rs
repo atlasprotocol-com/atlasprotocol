@@ -801,7 +801,8 @@ impl Atlas {
                                 "mint_deposit".to_string(),   // The mint function to call
                                 args,                         // The arguments for minting
                                 NearToken::from_yoctonear(0), // Attach a small amount of NEAR (if required)
-                                Gas::from_tgas(gas.try_into().unwrap()),            // Gas to attach to this call
+                                GAS_FOR_MINT_CALL,            // Gas to attach to this call
+                                //Gas::from_tgas(gas.try_into().unwrap()),            // Gas to attach to this call
                             );
 
                             // Chain the storage deposit and mint promises

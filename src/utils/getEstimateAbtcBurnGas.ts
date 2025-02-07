@@ -29,6 +29,7 @@ export const getEstimateAbtcBurnGas = async (
     const gasPriceBigInt = await web3.eth.getGasPrice();
     const gasPrice = Number(gasPriceBigInt);
 
+    
     const gasEstimateBigInt = await web3.eth.estimateGas({
       to: contractAddress,
       from: userAddress,
@@ -36,6 +37,9 @@ export const getEstimateAbtcBurnGas = async (
     });
     const gasEstimate = Number(gasEstimateBigInt);
 
+    console.log("Gas price:", gasPrice);
+    console.log("Gas estimate:", gasEstimate);
+    console.log("Gas Limit:", gasPrice * gasEstimate);
     return {
       gasEstimate,
       gasPrice,

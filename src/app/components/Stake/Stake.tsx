@@ -60,7 +60,7 @@ export function Stake({ formattedBalance }: StakeProps) {
   const { addFeedback } = useAddFeedback();
   const { BTC_TOKEN, btcRefreshBalance } = useAppContext();
   const { data: stats } = useGetStats();
-  const btcPriceEth = stats?.btcPriceEth || 0;
+  const ethPriceBtc = stats?.ethPriceBtc || 0;
 
   const {
     data: mempoolFeeRates,
@@ -181,8 +181,8 @@ export function Stake({ formattedBalance }: StakeProps) {
 
     const mintingFeeEth = (mintingFee.gasEstimate * mintingFee.gasPrice) / 1e18;
     console.log(mintingFeeEth)
-    const mintingFeeBtc = mintingFeeEth / btcPriceEth;
-    console.log(mintingFeeBtc)
+    const mintingFeeBtc = mintingFeeEth * ethPriceBtc;
+    console.log("mintingFeeBtc", btcToSatoshi(mintingFeeBtc))
     setReviewData({
       ...data,
       amountSat: btcToSatoshi(data.amount),

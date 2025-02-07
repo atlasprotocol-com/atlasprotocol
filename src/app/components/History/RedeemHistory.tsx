@@ -124,6 +124,11 @@ export function RedeemHistory() {
                   const chain =
                     chainConfigs[redeemHistory.abtcRedemptionChainId];
 
+                  const netAmount = redeemHistory.abtcAmount - 
+                    redeemHistory.protocolFee - 
+                    redeemHistory.yieldProviderGasFee - 
+                    redeemHistory.btcRedemptionFee;
+
                   return (
                     <div
                       key={redeemHistory.timestamp}
@@ -153,10 +158,7 @@ export function RedeemHistory() {
                           Amount
                         </p>
                         <p>
-                          {maxDecimals(
-                            satoshiToBtc(redeemHistory.abtcAmount),
-                            8,
-                          )}{" "}
+                          {maxDecimals(satoshiToBtc(netAmount), 8)}{" "}
                           {BTC_TOKEN}
                         </p>
                       </div>
@@ -236,20 +238,31 @@ export function RedeemHistory() {
                         if (!redeemHistory) return null;
                         const chain =
                           chainConfigs[redeemHistory.abtcRedemptionChainId];
+
+                        const netAmount = redeemHistory.abtcAmount - 
+                          redeemHistory.protocolFee - 
+                          redeemHistory.yieldProviderGasFee - 
+                          redeemHistory.btcRedemptionFee;
+
                         return (
                           <TableRow key={redeemHistory.timestamp}>
                             <TableCell>
-                              {maxDecimals(
-                                satoshiToBtc(redeemHistory.abtcAmount),
-                                8,
-                              )}
+                              <div title={`Total Amount: ${maxDecimals(satoshiToBtc(redeemHistory.abtcAmount), 8)} BTC
+Protocol Fee: ${maxDecimals(satoshiToBtc(redeemHistory.protocolFee), 8)} BTC
+Yield Provider Gas Fee: ${maxDecimals(satoshiToBtc(redeemHistory.yieldProviderGasFee), 8)} BTC
+BTC Redemption Fee: ${maxDecimals(satoshiToBtc(redeemHistory.btcRedemptionFee), 8)} BTC
+Net Amount: ${maxDecimals(satoshiToBtc(netAmount), 8)} BTC`}>
+                                {maxDecimals(satoshiToBtc(netAmount), 8)}
+                              </div>
                             </TableCell>
                             <TableCell>
                               {formatTimestamp(redeemHistory.timestamp)}
                             </TableCell>
                             <TableCell>{chain.networkName}</TableCell>
                             <TableCell>
-                              {trim(redeemHistory.abtcRedemptionAddress)}
+                              <span title={redeemHistory.abtcRedemptionAddress}>
+                                {trim(redeemHistory.abtcRedemptionAddress)}
+                              </span>
                             </TableCell>
                             <TableCell>
                               <a
@@ -257,6 +270,7 @@ export function RedeemHistory() {
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="text-primary hover:underline"
+                                title={redeemHistory.txnHash.includes(",") ? redeemHistory.txnHash.split(",")[1] : redeemHistory.txnHash}
                               >
                                 {trim(
                                   redeemHistory.txnHash.includes(",")
@@ -272,6 +286,7 @@ export function RedeemHistory() {
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="text-primary hover:underline"
+                                  title={redeemHistory.btcTxnHash}
                                 >
                                   {trim(redeemHistory.btcTxnHash)}
                                 </a>

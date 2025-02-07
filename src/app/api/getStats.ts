@@ -12,7 +12,8 @@ interface StatsAPI {
   atbtc_minted: number;
   metadata: {
     btc_price_usd: number;
-    btc_price_eth: number;
+    eth_price_btc: number;
+    eth_price_usd: number;
     deposits: {
       count: number;
     };
@@ -37,6 +38,7 @@ export const getStats = async (): Promise<StakingStats> => {
     tvl: statsAPI.tvl || 0,
     atbtcMinted: statsAPI.btc_staked || 0,
     btcPriceUsd: statsAPI.metadata?.btc_price_usd || 0,
-    btcPriceEth: statsAPI.metadata?.btc_price_eth || 0,
+    ethPriceBtc: statsAPI.metadata?.eth_price_btc || 0,
+    ethPriceUsd: statsAPI.metadata?.eth_price_usd || 0,
   };
 };

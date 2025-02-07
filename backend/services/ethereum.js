@@ -56,20 +56,20 @@ class Ethereum {
       return Number(gasLimit);
   }
 
-  async satsToWei(sats, btcEthRate) {
+  async satsToWei(sats, ethPriceBtc) {
     const satsInBtc = sats / 100_000_000; // Convert sats to BTC
-    const ethAmount = satsInBtc * btcEthRate; // Convert BTC to ETH 
+    const ethAmount = satsInBtc / ethPriceBtc; // Convert BTC to ETH by dividing by BTC/ETH price ratio
     const weiAmount = BigInt(Math.floor(ethAmount * 1e18)); // Convert ETH to wei using BigInt
     return weiAmount; // Remove decimals before converting to BigInt
   }
 
   async calculateEvmGasFeeFromMintingFee(sender, receiver, amount, btcTxnHash, mintingFeeSat) {
 
-    const btcPriceEth = await cache.wrap(getPrice)("bitcoin", "eth");
+    const ethPriceBtc = await cache.wrap(getPrice)("ethereum", "btc");
     const ethPrice = await cache.wrap(getPrice)("ethereum", "usd");
     
     // Convert mintingFeeSat (in satoshis) to wei
-    const mintingFeeWei = await this.satsToWei(mintingFeeSat, btcPriceEth)
+    const mintingFeeWei = await this.satsToWei(mintingFeeSat, ethPriceBtc)
 
     // Get current gas price
     const { baseFeePerGas, maxPriorityFeePerGas } = await this.queryGasPrice();

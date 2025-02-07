@@ -14,7 +14,7 @@
       "batch_size": 0,
       "gas_limit": 0,
       "abi_path": "",
-      "validators_threshold": 0
+      "validators_threshold": 1
     },
     {
       "chain_id": "NEAR_TESTNET",
@@ -30,7 +30,7 @@
       "batch_size": 10000,
       "gas_limit": 0,
       "abi_path": "",
-      "validators_threshold": 0
+      "validators_threshold": 1
     },
     {
       "chain_id": "421614",
@@ -46,7 +46,7 @@
       "batch_size": 50000,
       "gas_limit": 10000000,
       "abi_path": "../../contract/artifacts/atBTC.abi",
-      "validators_threshold": 0
+      "validators_threshold": 1
     },
     {
       "chain_id": "11155420",
@@ -62,7 +62,7 @@
       "batch_size": 10000,
       "gas_limit": 10000000,
       "abi_path": "../../contract/artifacts/atBTC.abi",
-      "validators_threshold": 0
+      "validators_threshold": 1
     }
   ]
 }

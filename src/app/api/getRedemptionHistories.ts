@@ -25,6 +25,9 @@ interface RedemptionAPI {
   status: string;
   remarks: string;
   btc_txn_hash: string;
+  protocol_fee: number;
+  yield_provider_gas_fee: number;
+  btc_redemption_fee: number;
 }
 
 export const getRedemptionHistories = async (
@@ -67,6 +70,9 @@ export const getRedemptionHistories = async (
         status: apiRedemption.status,
         remarks: apiRedemption.remarks,
         btcTxnHash: apiRedemption.btc_txn_hash,
+        protocolFee: apiRedemption.protocol_fee,
+        yieldProviderGasFee: apiRedemption.yield_provider_gas_fee,
+        btcRedemptionFee: apiRedemption.btc_redemption_fee,
       }),
     );
 

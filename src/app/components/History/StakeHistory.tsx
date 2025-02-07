@@ -232,9 +232,11 @@ export function StakeHistory() {
                         return (
                           <TableRow key={stakingHistory.timestamp}>
                             <TableCell>
-                              <div
-                                title={`Amount after staking/protocol/minting fee deduction (Original: ${maxDecimals(satoshiToBtc(stakingHistory.btcAmount + stakingHistory.protocolFee + stakingHistory.mintingFee), 8)})`}
-                              >
+                              <div title={`Total Amount: ${maxDecimals(satoshiToBtc(stakingHistory.btcAmount + stakingHistory.protocolFee + stakingHistory.mintingFee), 8)} BTC
+Protocol Fee: ${maxDecimals(satoshiToBtc(stakingHistory.protocolFee), 8)} BTC
+Minting Fee: ${maxDecimals(satoshiToBtc(stakingHistory.mintingFee), 8)} BTC
+Yield Provider Gas Fee: ${maxDecimals(satoshiToBtc(stakingHistory.yieldProviderGasFee), 8)} BTC
+Net Amount: ${maxDecimals(satoshiToBtc(stakingHistory.btcAmount - stakingHistory.yieldProviderGasFee), 8)} BTC`}>
                                 {maxDecimals(
                                   satoshiToBtc(
                                     stakingHistory.btcAmount -

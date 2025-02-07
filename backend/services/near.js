@@ -115,6 +115,7 @@ class Near {
           "update_redemption_yield_provider_unstake_processing",
           "update_redemption_pending_yield_provider_withdraw",
           "update_redemption_yield_provider_withdrawing",
+          "update_redemption_yield_provider_withdrawn",
           "create_abtc_accept_ownership_tx",
           "withdraw_fail_deposit_by_btc_tx_hash",
           "rollback_deposit_status_by_btc_txn_hash",
@@ -357,12 +358,14 @@ class Near {
     });
   }
 
-  async updateRedemptionPendingBtcMempool(redemptionTxnHash, btcTxnHash) {
+  async updateRedemptionPendingBtcMempool(redemptionTxnHash, btcTxnHash, estimatedFee, protocolFee) {
     console.log(redemptionTxnHash);
     console.log(btcTxnHash);
     return this.makeNearRpcChangeCall("update_redemption_pending_btc_mempool", {
       txn_hash: redemptionTxnHash,
       btc_txn_hash: btcTxnHash,
+      estimated_fee: estimatedFee,
+      protocol_fee: protocolFee,
     });
   }
 
@@ -393,12 +396,17 @@ class Near {
     });
   }
 
-  async updateRedemptionYieldProviderWithdrawing(txnHash, btcTxnHash, yieldProviderTxHash, yieldProviderGasFee, ) {
+  async updateRedemptionYieldProviderWithdrawing(txnHash, yieldProviderTxHash, yieldProviderGasFee) {
     return this.makeNearRpcChangeCall("update_redemption_yield_provider_withdrawing", {
       txn_hash: txnHash,
-      btc_txn_hash: btcTxnHash,
       yield_provider_gas_fee: yieldProviderGasFee,
       yield_provider_txn_hash: yieldProviderTxHash,
+    });
+  }
+
+  async updateRedemptionWithdrawnFromYieldProvider(txnHash) {
+    return this.makeNearRpcChangeCall("update_redemption_yield_provider_withdrawn", {
+      txn_hash: txnHash,
     });
   }
 
@@ -1160,8 +1168,11 @@ class Near {
     const btcPriceUsd = await cache.wrap(getPrice)("bitcoin", "usd");
     const nearPrice = await cache.wrap(getPrice)("near", "usd");
 
+    console.log("btcPriceUsd:", btcPriceUsd);
+    console.log("nearPrice:", nearPrice);
+
     // Convert sats to USD
-    const mintingFeeUsd = (mintingFeeSat / 100_000_000) * btcPriceUsd;
+    const mintingFeeUsd = Number(((mintingFeeSat / 100_000_000) * btcPriceUsd).toFixed(4));
 
     // Convert USD to NEAR (1 NEAR = $2.95 USD)
     const mintingFeeNear = mintingFeeUsd / nearPrice;
@@ -1169,6 +1180,7 @@ class Near {
     // Convert NEAR to Tgas (1 NEAR = 1000 Tgas)
     const mintingFeeTgas = mintingFeeNear * 1000;
 
+    console.log("mintingFeeNear:", mintingFeeNear);
     console.log("mintingFeeUsd:", mintingFeeUsd);
     console.log("mintingFeeTgas:", mintingFeeTgas);
 
