@@ -56,7 +56,10 @@ async function MintBridgeABtcToDestChain(near) {
           const signedTransaction = await ethereum.createMintBridgeABtcSignedTx(
             near,
             sender,
+            depositRecord.receiving_address,
+            depositRecord.btc_amount - depositRecord.yield_provider_gas_fee,
             txnHash,
+            depositRecord.minting_fee,
           );
           // Relay the transaction to EVM
           console.log(`${batchName} Relay transaction to EVM...`);

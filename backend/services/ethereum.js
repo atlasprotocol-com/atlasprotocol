@@ -44,16 +44,12 @@ class Ethereum {
   }
 
   async estimateMintingGasLimit(sender, receiver, amount, btcTxnHash) {
-      // Estimate gas for mintDeposit transaction using sender address
-      const gasLimit = await this.abtcContract.methods
-        .mintDeposit(
-          receiver,
-          amount,
-          btcTxnHash
-        )
-        .estimateGas({ from: sender });
+    // Estimate gas for mintDeposit transaction using sender address
+    const gasLimit = await this.abtcContract.methods
+      .mintDeposit(receiver, amount, btcTxnHash)
+      .estimateGas({ from: sender });
 
-      return Number(gasLimit);
+    return Number(gasLimit);
   }
 
   async satsToWei(sats, ethPriceBtc) {
@@ -63,24 +59,25 @@ class Ethereum {
     return weiAmount; // Remove decimals before converting to BigInt
   }
 
-  async calculateEvmGasFeeFromMintingFee(sender, receiver, amount, btcTxnHash, mintingFeeSat) {
-
+  async calculateEvmGasFeeFromMintingFee(
+    sender,
+    receiver,
+    amount,
+    btcTxnHash,
+    mintingFeeSat,
+  ) {
     const ethPriceBtc = await cache.wrap(getPrice)("ethereum", "btc");
     const ethPrice = await cache.wrap(getPrice)("ethereum", "usd");
-    
+
     // Convert mintingFeeSat (in satoshis) to wei
-    const mintingFeeWei = await this.satsToWei(mintingFeeSat, ethPriceBtc)
+    const mintingFeeWei = await this.satsToWei(mintingFeeSat, ethPriceBtc);
 
     // Get current gas price
     const { baseFeePerGas, maxPriorityFeePerGas } = await this.queryGasPrice();
 
     // Estimate gas for mintDeposit transaction
     const gasLimit = await this.abtcContract.methods
-      .mintDeposit(
-        receiver,
-        amount,
-        btcTxnHash
-      )
+      .mintDeposit(receiver, amount, btcTxnHash)
       .estimateGas({ from: sender });
 
     // Calculate required gas price to match minting fee
@@ -88,7 +85,7 @@ class Ethereum {
     // Therefore: gasPrice = mintingFeeWei / gasLimit
     const requiredGasPrice = mintingFeeWei / BigInt(gasLimit);
 
-    console.log((BigInt(gasLimit) * requiredGasPrice));
+    console.log(BigInt(gasLimit) * requiredGasPrice);
     // Calculate minting fee in USD
     const mintingFeeEth = Number(BigInt(gasLimit) * requiredGasPrice) / 1e18;
 
@@ -100,7 +97,49 @@ class Ethereum {
       gasLimit: Number(gasLimit),
       gasPrice: Number(requiredGasPrice),
       maxPriority: Number(requiredGasPrice) - Number(baseFeePerGas),
-      mintingFeeUsd: mintingFeeUsd
+      mintingFeeUsd: mintingFeeUsd,
+    };
+  }
+
+  async calculateEvmGasFeeFromMintingBridgeFee(
+    sender,
+    receiver,
+    amount,
+    btcTxnHash,
+    mintingFeeSat,
+  ) {
+    const ethPriceBtc = await cache.wrap(getPrice)("ethereum", "btc");
+    const ethPrice = await cache.wrap(getPrice)("ethereum", "usd");
+
+    // Convert mintingFeeSat (in satoshis) to wei
+    const mintingFeeWei = await this.satsToWei(mintingFeeSat, ethPriceBtc);
+
+    // Get current gas price
+    const { baseFeePerGas, maxPriorityFeePerGas } = await this.queryGasPrice();
+
+    // Estimate gas for mintDeposit transaction
+    const gasLimit = await this.abtcContract.methods
+      .mintBridge(receiver, amount, btcTxnHash)
+      .estimateGas({ from: sender });
+
+    // Calculate required gas price to match minting fee
+    // mintingFeeWei = gasLimit * gasPrice
+    // Therefore: gasPrice = mintingFeeWei / gasLimit
+    const requiredGasPrice = mintingFeeWei / BigInt(gasLimit);
+
+    console.log(BigInt(gasLimit) * requiredGasPrice);
+    // Calculate minting fee in USD
+    const mintingFeeEth = Number(BigInt(gasLimit) * requiredGasPrice) / 1e18;
+
+    console.log(mintingFeeEth);
+    const mintingFeeUsd = mintingFeeEth * ethPrice;
+
+    return {
+      baseFeePerGas: Number(baseFeePerGas),
+      gasLimit: Number(gasLimit),
+      gasPrice: Number(requiredGasPrice),
+      maxPriority: Number(requiredGasPrice) - Number(baseFeePerGas),
+      mintingFeeUsd: mintingFeeUsd,
     };
   }
 
@@ -115,7 +154,8 @@ class Ethereum {
 
     // Get the nonce & gas price
     const nonce = await this.web3.eth.getTransactionCount(sender);
-    const { maxFeePerGas, maxPriorityFeePerGas } = await this.queryGasPrice();
+    const { baseFeePerGas: maxFeePerGas, maxPriorityFeePerGas } =
+      await this.queryGasPrice();
 
     // Construct transaction
     const transactionData = {
@@ -139,10 +179,16 @@ class Ethereum {
     return { transaction, payload };
   }
 
-  async createMintaBtcSignedTx(near, sender, receiver, amount, btcTxnHash, mintingFeeSat) {
-
+  async createMintaBtcSignedTx(
+    near,
+    sender,
+    receiver,
+    amount,
+    btcTxnHash,
+    mintingFeeSat,
+  ) {
     // Log input parameters
-    console.log("sender:", sender); 
+    console.log("sender:", sender);
     console.log("receiver:", receiver);
     console.log("amount:", amount);
     console.log("btcTxnHash:", btcTxnHash);
@@ -151,8 +197,15 @@ class Ethereum {
     // Get the nonce & gas price
     const nonce = await this.web3.eth.getTransactionCount(sender);
 
-    const {baseFeePerGas, gasLimit, gasPrice, maxPriority, mintingFeeUsd} = await this.calculateEvmGasFeeFromMintingFee(sender, receiver, amount, btcTxnHash, mintingFeeSat);
-    
+    const { baseFeePerGas, gasLimit, gasPrice, maxPriority, mintingFeeUsd } =
+      await this.calculateEvmGasFeeFromMintingFee(
+        sender,
+        receiver,
+        amount,
+        btcTxnHash,
+        mintingFeeSat,
+      );
+
     console.log("baseFeePerGas:", baseFeePerGas);
     console.log("gasLimit:", gasLimit);
     console.log("gasPrice:", gasPrice);
@@ -202,7 +255,8 @@ class Ethereum {
     // console.log(`Getting nonce...`);
     const nonce = await this.web3.eth.getTransactionCount(sender);
 
-    const { maxFeePerGas, maxPriorityFeePerGas } = await this.queryGasPrice();
+    const { baseFeePerGas: maxFeePerGas, maxPriorityFeePerGas } =
+      await this.queryGasPrice();
 
     const payloadHeader = {
       txn_hash: txnHash,
@@ -245,7 +299,8 @@ class Ethereum {
     const nonce = await this.web3.eth.getTransactionCount(sender);
     console.log(`Nonce: ${nonce}`);
 
-    const { maxFeePerGas, maxPriorityFeePerGas } = await this.queryGasPrice();
+    const { baseFeePerGas: maxFeePerGas, maxPriorityFeePerGas } =
+      await this.queryGasPrice();
     console.log(`maxFeePerGas: ${maxFeePerGas}`);
     console.log(`maxPriorityFeePerGas: ${maxPriorityFeePerGas}`);
 
@@ -486,7 +541,7 @@ class Ethereum {
 
     return signature;
   }
-  
+
   async deriveEthAddress(rootPublicKey, accountId, derivationPath) {
     //const rootPublicKey = 'secp256k1:4NfTiv3UsGahebgTaHyD9vF8KYKMBnfd6kh94mK6xv8fGBiJB8TBtFMP5WWXz6B89Ac1fbpzPwAvoyQebemHFwx3';
 
@@ -502,13 +557,13 @@ class Ethereum {
   async createAcceptOwnershipTx(near, sender) {
     const nonce = await this.web3.eth.getTransactionCount(sender);
 
-    const { maxFeePerGas, maxPriorityFeePerGas } = await this.queryGasPrice();
+    const { baseFeePerGas, maxPriorityFeePerGas } = await this.queryGasPrice();
 
     const params = {
       chain_id: this.chainID.toString(),
       nonce: Number(nonce), // Convert BigInt to Number
-      gas: Math.min(this.gasLimit, Number(maxFeePerGas)), // assuming gasLimit is a number
-      max_fee_per_gas: Number(maxFeePerGas), // Convert BigInt to Number
+      gas: Math.min(this.gasLimit, Number(baseFeePerGas)), // assuming gasLimit is a number
+      max_fee_per_gas: Number(baseFeePerGas), // Convert BigInt to Number
       max_priority_fee_per_gas: Number(maxPriorityFeePerGas), // Convert BigInt to Number
     };
 

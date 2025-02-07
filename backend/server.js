@@ -205,7 +205,8 @@ app.get("/api/v1/atlas/redemptionFees", async (req, res) => {
     const protocolFee = globalParams.atlasRedemptionFeePercentage * amount;
 
     const data = {
-      estimatedGasFee: feeData.estimated_fee < 1000 ? 1000 : feeData.estimated_fee,
+      estimatedGasFee:
+        feeData.estimated_fee < 1000 ? 1000 : feeData.estimated_fee,
       atlasProtocolFee: protocolFee < 1000 ? 1000 : protocolFee,
       estimatedFeeRate: feeData.estimated_fee_rate,
     };
@@ -457,9 +458,9 @@ async function runBatch() {
   await SendBtcBackToUser(near, bitcoin);
   await UpdateAtlasBtcBackToUser(redemptions, near, bitcoin);
 
-  // await UpdateAtlasBtcBridgings(near);
-  // await MintBridgeABtcToDestChain(near);
-  // await UpdateAtlasBridgeAbtcMinted(bridgings, near);
+  await UpdateAtlasBtcBridgings(near);
+  await MintBridgeABtcToDestChain(near);
+  await UpdateAtlasBridgeAbtcMinted(bridgings, near);
 
   // Delay for 5 seconds before running the batch again
   await new Promise((resolve) => setTimeout(resolve, 5000));
