@@ -105,7 +105,9 @@ class Ethereum {
     sender,
     receiver,
     amount,
-    btcTxnHash,
+    originChainId,
+    originChainAddress,
+    originTxnHash,
     mintingFeeSat,
   ) {
     const ethPriceBtc = await cache.wrap(getPrice)("ethereum", "btc");
@@ -119,7 +121,13 @@ class Ethereum {
 
     // Estimate gas for mintDeposit transaction
     const gasLimit = await this.abtcContract.methods
-      .mintBridge(receiver, amount, btcTxnHash)
+      .mintBridge(
+        receiver,
+        amount,
+        originChainId,
+        originChainAddress,
+        originTxnHash,
+      )
       .estimateGas({ from: sender });
 
     // Calculate required gas price to match minting fee
@@ -127,11 +135,9 @@ class Ethereum {
     // Therefore: gasPrice = mintingFeeWei / gasLimit
     const requiredGasPrice = mintingFeeWei / BigInt(gasLimit);
 
-    console.log(BigInt(gasLimit) * requiredGasPrice);
     // Calculate minting fee in USD
     const mintingFeeEth = Number(BigInt(gasLimit) * requiredGasPrice) / 1e18;
 
-    console.log(mintingFeeEth);
     const mintingFeeUsd = mintingFeeEth * ethPrice;
 
     return {
@@ -250,20 +256,43 @@ class Ethereum {
     }
   }
 
-  async createMintBridgeABtcSignedTx(near, sender, txnHash) {
+  async createMintBridgeABtcSignedTx(
+    near,
+    txnHash,
+    sender,
+    receiver,
+    amount,
+    originChainId,
+    originChainAddress,
+    originTxnHash,
+    mintingFeeSat,
+  ) {
     // Get the nonce & gas price
     // console.log(`Getting nonce...`);
     const nonce = await this.web3.eth.getTransactionCount(sender);
 
-    const { baseFeePerGas: maxFeePerGas, maxPriorityFeePerGas } =
-      await this.queryGasPrice();
+    const { baseFeePerGas, gasLimit, gasPrice, maxPriority, mintingFeeUsd } =
+      await this.calculateEvmGasFeeFromMintingBridgeFee(
+        sender,
+        receiver,
+        amount,
+        originChainId,
+        originChainAddress,
+        originTxnHash,
+        mintingFeeSat,
+      );
+
+    console.log("baseFeePerGas:", baseFeePerGas);
+    console.log("gasLimit:", gasLimit);
+    console.log("gasPrice:", gasPrice);
+    console.log("mintingFeeUsd:", mintingFeeUsd);
 
     const payloadHeader = {
       txn_hash: txnHash,
       nonce: Number(nonce), // Convert BigInt to Number
-      gas: Math.min(this.gasLimit, Number(maxFeePerGas)), // assuming gasLimit is a number
-      max_fee_per_gas: Number(maxFeePerGas), // Convert BigInt to Number
-      max_priority_fee_per_gas: Number(maxPriorityFeePerGas), // Convert BigInt to Number
+      gas: gasLimit, // assuming gasLimit is a number
+      max_fee_per_gas: Math.max(gasPrice, baseFeePerGas), // Convert BigInt to Number
+      max_priority_fee_per_gas: maxPriority, // Convert BigInt to Number
     };
 
     try {

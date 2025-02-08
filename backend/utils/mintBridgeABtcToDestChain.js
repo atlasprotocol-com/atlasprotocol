@@ -28,6 +28,8 @@ async function MintBridgeABtcToDestChain(near) {
       // Destructure the result if it's valid
       const [txnHash, chainConfig] = result;
 
+      const bridgeRecord = await near.getBridgingByTxnHash(txnHash);
+
       try {
         if (chainConfig.network_type === NETWORK_TYPE.EVM) {
           const ethereum = new Ethereum(
@@ -55,8 +57,14 @@ async function MintBridgeABtcToDestChain(near) {
           console.log(`${batchName} Creating EVM and Sign payload...`);
           const signedTransaction = await ethereum.createMintBridgeABtcSignedTx(
             near,
-            sender,
             txnHash,
+            sender,
+            bridgeRecord.dest_chain_address,
+            bridgeRecord.abtc_amount,
+            bridgeRecord.origin_chain_id,
+            bridgeRecord.origin_chain_address,
+            bridgeRecord.txn_hash.split(",")[1],
+            0,
           );
           // Relay the transaction to EVM
           console.log(`${batchName} Relay transaction to EVM...`);
