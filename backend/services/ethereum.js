@@ -94,7 +94,7 @@ class Ethereum {
 
     return {
       baseFeePerGas: Number(baseFeePerGas),
-      gasLimit: Number(gasLimit),
+      gasLimit: Math.ceil(Number(gasLimit) * 1.1),
       gasPrice: Number(requiredGasPrice),
       maxPriority: Number(requiredGasPrice) - Number(baseFeePerGas),
       mintingFeeUsd: mintingFeeUsd,
@@ -142,7 +142,7 @@ class Ethereum {
 
     return {
       baseFeePerGas: Number(baseFeePerGas),
-      gasLimit: Number(gasLimit),
+      gasLimit: Math.ceil(Number(gasLimit) * 1.1),
       gasPrice: Number(requiredGasPrice),
       maxPriority: Number(requiredGasPrice) - Number(baseFeePerGas),
       mintingFeeUsd: mintingFeeUsd,

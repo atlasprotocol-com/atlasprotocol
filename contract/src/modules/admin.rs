@@ -55,7 +55,7 @@ impl Atlas {
         Self {
             deposits: IterableMap::new(b"d"),
             redemptions: IterableMap::new(b"r"),
-            bridgings: IterableMap::new(b"r"),
+            bridgings: IterableMap::new(b"b"),
             owner_id: atlas_owner_id,
             proposed_owner_id: None,
             admin_id: atlas_admin_id,

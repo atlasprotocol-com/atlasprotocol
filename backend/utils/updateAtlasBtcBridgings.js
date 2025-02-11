@@ -57,11 +57,11 @@ async function UpdateAtlasBtcBridgings(near) {
       console.log(`${batchName} startBlock: ${startBlock}`);
 
       const events = await ethereum.getPastBurnBridgingEventsInBatches(
-        // BigInt(startBlock),
-        // endBlock,
+        BigInt(startBlock - 100),
+        endBlock,
 
-        121507300,
-        121507310,
+        // 121507300,
+        // 121507310,
         blockRange(Number(chain.batchSize)),
       );
 

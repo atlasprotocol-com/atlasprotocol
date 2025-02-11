@@ -107,7 +107,14 @@ impl Atlas {
     }
 
     pub fn get_all_bridgings(&self) -> Vec<BridgingRecord> {
-        self.bridgings.values().cloned().collect()
+        let mut valid_records = Vec::new();
+    
+        for record in self.bridgings.values() {
+            // No need to match since we're not dealing with Results
+            valid_records.push(record.clone());
+        }
+        
+        valid_records
     }
 
     pub fn get_bridgings_count(&self) -> u64 {
@@ -553,4 +560,40 @@ impl Atlas {
             return false;
         }
     }
-}
+
+    pub fn rollback_bridging_status_by_txn_hash(&mut self, txn_hash: String) {
+        self.assert_not_paused();
+
+        // Validate input parameters
+        assert!(!txn_hash.is_empty(), "Transaction hash cannot be empty");
+
+        // Retrieve the bridging record based on txn_hash
+        if let Some(mut bridging) = self.bridgings.get(&txn_hash).cloned() {
+            if !bridging.origin_chain_address.is_empty()
+                && !bridging.origin_chain_id.is_empty()
+                && !bridging.dest_chain_address.is_empty()
+                && !bridging.dest_chain_id.is_empty()
+                && !bridging.remarks.is_empty()
+            {
+                match bridging.status {
+                    BRG_ABTC_BURNT => {
+                        bridging.remarks.clear();
+                    },
+                    BRG_ABTC_PENDING_BRIDGE_FROM_ORIGIN_TO_DEST => {
+                        bridging.status = BRG_ABTC_BURNT;
+                        bridging.remarks.clear();
+                    },
+                    _ => {
+                        // No action needed for other statuses
+                    }
+                }
+
+                // Update the bridging record in the map
+                self.bridgings.insert(txn_hash, bridging);
+            }
+        } else {
+            env::log_str("Bridging record not found for the given txn hash");
+        }
+    }
+
+ }
