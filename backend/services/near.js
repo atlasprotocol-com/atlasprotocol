@@ -935,108 +935,121 @@ class Near {
   ) {
     const events = [];
     const targetContractId = aBTCAddress;
+    const batchSize = 50;
+    let block_count = 0;
 
-    for (let blockHeight = startBlock; blockHeight <= endBlock; blockHeight++) {
+    while (startBlock <= endBlock) {
       try {
-        const block = await this.provider.block({ blockId: blockHeight });
-        for (const chunk of block.chunks) {
-          if (chunk.tx_root === Near.TRANSACTION_ROOT) {
-            //console.log(`No transactions in chunk ${chunk.chunk_hash}`);
-            continue;
-          }
+        // Define the end block for the current batch
+        const batchEndBlock = Math.min(startBlock + batchSize - 1, endBlock);
 
-          // Fetch the chunk using the chunk_hash
-          const chunkData = await this.provider.chunk(chunk.chunk_hash);
-          const transactions = chunkData.transactions;
+        console.log(`[NEAR] Processing batch from ${startBlock} to ${batchEndBlock}`);
 
-          const txnCount = (transactions && transactions.length) || 0;
-
-          if (txnCount === 0) {
-            //console.warn(`No transactions found in chunk ${chunk.chunk_hash}`);
-            continue;
-          }
-
-          for (const tx of transactions) {
-            // console.log(`Processing transaction ${tx.hash} in block ${blockHeight}`);
-            // Skip transactions that are not from the target contract address
-            if (tx.receiver_id !== targetContractId) {
-              // console.log(tx.receiver_id);
-              // console.log(targetContractId);
-              continue;
-            }
-
-            const txResult = await this.provider.txStatus(
-              tx.hash,
-              tx.signer_id,
-            );
-
-            // Loop through the receipts_outcome array to find logs with 'ft_burn_redeem' event
-            const receipt = txResult.receipts_outcome.find((outcome) =>
-              outcome.outcome.logs.some((log) => {
+        // Create an array of promises for fetching blocks in the current batch
+        const blockPromises = [];
+        for (let blockHeight = startBlock; blockHeight <= batchEndBlock; blockHeight++) {
+          blockPromises.push(
+            this.provider.block({ blockId: blockHeight })
+              .then(async (block) => {
                 try {
-                  console.log("log: ");
-                  console.log(log);
-                  // Parse the log and check if it contains the "ft_burn_redeem" event
-                  const event = JSON.parse(log.replace("EVENT_JSON:", ""));
-                  return event.event === "ft_burn_redeem";
-                } catch (e) {
-                  return false; // In case log is not a JSON string
+                  for (const chunk of block.chunks) {
+                    if (chunk.tx_root === Near.TRANSACTION_ROOT) {
+                      continue;
+                    }
+
+                    const chunkData = await this.provider.chunk(chunk.chunk_hash);
+                    const transactions = chunkData.transactions;
+
+                    if (!transactions || transactions.length === 0) {
+                      continue;
+                    }
+
+                    for (const tx of transactions) {
+                      if (tx.receiver_id !== targetContractId) {
+                        continue;
+                      }
+
+                      const txResult = await this.provider.txStatus(
+                        tx.hash,
+                        tx.signer_id,
+                      );
+
+                      const receipt = txResult.receipts_outcome.find((outcome) =>
+                        outcome.outcome.logs.some((log) => {
+                          try {
+                            const event = JSON.parse(log.replace("EVENT_JSON:", ""));
+                            return event.event === "ft_burn_redeem";
+                          } catch (e) {
+                            return false;
+                          }
+                        }),
+                      );
+
+                      if (receipt && receipt.outcome.status.SuccessValue === "") {
+                        const logEntry = receipt.outcome.logs.find((log) => {
+                          try {
+                            const event = JSON.parse(log.replace("EVENT_JSON:", ""));
+                            return event.event === "ft_burn_redeem";
+                          } catch (e) {
+                            return false;
+                          }
+                        });
+
+                        if (logEntry) {
+                          const event = JSON.parse(logEntry.replace("EVENT_JSON:", ""));
+                          const memo = JSON.parse(event.data[0].memo);
+                          const amount = event.data[0].amount;
+                          const wallet = memo.address;
+                          const btcAddress = memo.btcAddress;
+                          const transactionHash = txResult.transaction.hash;
+
+                          if (!address.isValidBTCAddress(btcAddress)) {
+                            console.error(
+                              `[${transactionHash}] Invalid address: ${btcAddress} in block ${blockHeight}`,
+                            );
+                            continue;
+                          }
+
+                          events.push({
+                            returnValues: {
+                              amount,
+                              wallet,
+                              btcAddress,
+                            },
+                            transactionHash,
+                            blockNumber: blockHeight,
+                            timestamp: Math.floor(block.header.timestamp / 1000000000),
+                            status: true,
+                          });
+                        }
+                      }
+                    }
+                  }
+                  block_count++;
+                  console.log(`[NEAR] Processed block count in current batch: ${block_count}`);
+                } catch (err) {
+                  console.error(`Error processing block: ${err}`);
                 }
-              }),
-            );
-
-            if (receipt && receipt.outcome.status.SuccessValue === "") {
-              // Extract the log containing the JSON event
-              const logEntry = receipt.outcome.logs.find((log) => {
-                try {
-                  const event = JSON.parse(log.replace("EVENT_JSON:", ""));
-                  return event.event === "ft_burn_redeem";
-                } catch (e) {
-                  return false;
-                }
-              });
-
-              if (logEntry) {
-                // Parse the JSON from the log entry
-                const event = JSON.parse(logEntry.replace("EVENT_JSON:", ""));
-
-                // Extract the memo field from the event data and parse it
-                const memo = JSON.parse(event.data[0].memo);
-                const amount = event.data[0].amount;
-                const wallet = memo.address;
-                const btcAddress = memo.btcAddress;
-                const transactionHash = txResult.transaction.hash;
-
-                var isValidAddress = address.isValidBTCAddress(btcAddress);
-                if (!isValidAddress) {
-                  console.error(
-                    `[${transactionHash}] Invalid address: ${btcAddress} in block ${blockHeight}`,
-                  );
-                  continue;
-                }
-
-                events.push({
-                  returnValues: {
-                    amount,
-                    wallet,
-                    btcAddress,
-                  },
-                  transactionHash,
-                  blockNumber: blockHeight,
-                  timestamp: Math.floor(block.header.timestamp / 1000000000),
-                  status: true,
-                });
-
-                return events;
-              }
-            }
-          }
+              })
+              .catch((err) => {
+                console.error(`Error fetching block ${blockHeight}: ${err}`);
+                return null;
+              })
+          );
         }
+
+        // Wait for all block fetch promises in the current batch to resolve
+        await Promise.all(blockPromises);
+
+        // Update start block for next batch
+        startBlock = batchEndBlock + 1;
+
       } catch (err) {
-        console.error(`${blockHeight} - ${err}`);
+        console.error(`Batch processing error: ${err}`);
         continue;
       }
     }
+    console.log("events:", events);
     return events;
   }
 

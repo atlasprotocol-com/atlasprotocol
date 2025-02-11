@@ -433,30 +433,30 @@ async function runBatch() {
   await getAllRedemptionHistory();
   await computeStats();
 
-  // await UpdateAtlasBtcDeposits(
-  //   btcMempool,
-  //   btcAtlasDepositAddress,
-  //   globalParams.atlasTreasuryAddress,
-  //   globalParams.atlasDepositFeePercentage,
-  //   near,
-  //   bitcoin,
-  // );
-  // await StakeToYieldProvider(near, bitcoin);
-  // await UpdateYieldProviderStacked(deposits, near, bitcoin);
-  // await MintaBtcToReceivingChain(near);
-  // await UpdateAtlasAbtcMintedTxnHash(deposits, near);
-  // await UpdateAtlasAbtcMinted(deposits, near);
+  await UpdateAtlasBtcDeposits(
+    btcMempool,
+    btcAtlasDepositAddress,
+    globalParams.atlasTreasuryAddress,
+    globalParams.atlasDepositFeePercentage,
+    near,
+    bitcoin,
+  );
+  await StakeToYieldProvider(near, bitcoin);
+  await UpdateYieldProviderStacked(deposits, near, bitcoin);
+  await MintaBtcToReceivingChain(near);
+  await UpdateAtlasAbtcMintedTxnHash(deposits, near);
+  await UpdateAtlasAbtcMinted(deposits, near);
 
-  // await WithdrawFailDeposits(deposits, near, bitcoin);
-  // await UpdateWithdrawFailDeposits(deposits, near, bitcoin);
+  await WithdrawFailDeposits(deposits, near, bitcoin);
+  await UpdateWithdrawFailDeposits(deposits, near, bitcoin);
 
-  // await UpdateAtlasBtcRedemptions(near);
-  // await UnStakeFromYieldProvider(near, bitcoin);
-  // await UpdateYieldProviderUnStacked(redemptions, near, bitcoin);
-  // await WithdrawFromYieldProvider(redemptions, near, bitcoin);
-  // await UpdateAtlasBtcWithdrawnFromYieldProvider(redemptions, near, bitcoin);
-  // await SendBtcBackToUser(near, bitcoin);
-  // await UpdateAtlasBtcBackToUser(redemptions, near, bitcoin);
+  await UpdateAtlasBtcRedemptions(near);
+  await UnStakeFromYieldProvider(near, bitcoin);
+  await UpdateYieldProviderUnStacked(redemptions, near, bitcoin);
+  await WithdrawFromYieldProvider(redemptions, near, bitcoin);
+  await UpdateAtlasBtcWithdrawnFromYieldProvider(redemptions, near, bitcoin);
+  await SendBtcBackToUser(near, bitcoin);
+  await UpdateAtlasBtcBackToUser(redemptions, near, bitcoin);
 
   // await UpdateAtlasBtcBridgings(near);
   // await MintBridgeABtcToDestChain(near);

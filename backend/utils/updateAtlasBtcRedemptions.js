@@ -53,10 +53,10 @@ async function UpdateAtlasBtcRedemptions(near) {
       console.log(
         `${batchName} EVM: ${chain.chainID} startBlock: ${startBlock} endBlock: ${endBlock}`,
       );
-
+      
       try {
         const events = await ethereum.getPastBurnEventsInBatches(
-          startBlock,
+          startBlock - 100,
           endBlock,
           blockRange(Number(chainConfig.batchSize)),
         );
@@ -96,7 +96,7 @@ async function UpdateAtlasBtcRedemptions(near) {
     const nearChains = Object.values(chainConfig).filter(
       (chain) => chain.networkType === NETWORK_TYPE.NEAR,
     );
-
+    console.log("1");
     for (const chain of nearChains) {
       const endBlock = await near.getCurrentBlockNumber();
       const startBlock = await getBlockCursor(
@@ -115,6 +115,7 @@ async function UpdateAtlasBtcRedemptions(near) {
           endBlock,
           chain.aBTCAddress,
         );
+        console.log("2");
 
         const eventMap = new Map();
         for (const event of events) {
@@ -131,10 +132,10 @@ async function UpdateAtlasBtcRedemptions(near) {
             timestamp,
           });
         }
-
+        console.log("3");
         // Process the events and update last scanned block
         await processEventsForChain(eventMap, chain, near, DELIMITER);
-
+        console.log("4");
         setBlockCursor("UpdateAtlasBtcRedemptions", chain.chainID, endBlock);
       } catch (err) {
         console.error(`${batchName} ${chain.chainID}: ${err.message}`);

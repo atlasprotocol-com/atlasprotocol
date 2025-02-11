@@ -356,6 +356,7 @@ export function useNearAbtcBridge({ contract }: { contract?: string } = {}) {
           amount,
           dest_chain_address: destinationAddress,
         },
+        deposit: "1", // 1 octa deposit
       });
 
       return result;
@@ -385,6 +386,7 @@ export function useNearAbtcBurnRedeem({
           amount,
           btc_address: btcAddress,
         },
+        deposit: "1", // 1 octa deposit
       });
 
       return result;
