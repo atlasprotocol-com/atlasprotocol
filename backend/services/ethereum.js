@@ -244,9 +244,15 @@ class Ethereum {
           );
           return near.provider.txStatus(txnhash, near.contract_id, "FINAL");
         },
-        { retries: 10 },
+        { retries: 10, factor: 5 },
       );
-      if (!tx || !tx.status || !tx.status.SuccessValue) throw err;
+      if (!tx || !tx.status || !tx.status.SuccessValue) {
+        const failure = JSON.stringify(tx && tx.status);
+        console.log(
+          `Tx Failure ###########################################: ${failure}`,
+        );
+        throw err;
+      }
 
       const value = Buffer.from(tx.status.SuccessValue, "base64").toString(
         "utf-8",
@@ -312,7 +318,13 @@ class Ethereum {
         },
         { retries: 10 },
       );
-      if (!tx || !tx.status || !tx.status.SuccessValue) throw err;
+      if (!tx || !tx.status || !tx.status.SuccessValue) {
+        const failure = JSON.stringify(tx && tx.status);
+        console.log(
+          `Tx Failure ###########################################: ${failure}`,
+        );
+        throw err;
+      }
 
       const value = Buffer.from(tx.status.SuccessValue, "base64").toString(
         "utf-8",
@@ -613,7 +625,13 @@ class Ethereum {
         },
         { retries: 10 },
       );
-      if (!tx || !tx.status || !tx.status.SuccessValue) throw err;
+      if (!tx || !tx.status || !tx.status.SuccessValue) {
+        const failure = JSON.stringify(tx && tx.status);
+        console.log(
+          `Tx Failure ###########################################: ${failure}`,
+        );
+        throw err;
+      }
 
       const value = Buffer.from(tx.status.SuccessValue, "base64").toString(
         "utf-8",

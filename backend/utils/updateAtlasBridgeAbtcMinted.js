@@ -60,19 +60,16 @@ async function UpdateAtlasBridgeAbtcMinted(allBridgings, near) {
           chainConfig.abiPath,
         );
 
-        // const startBlock =
-        //   await ethereum.getBlockNumberByTimestamp(earliestTimestamp);
-        // console.log(`${batchName} startBlock: ${startBlock}`);
+        const startBlock =
+          await ethereum.getBlockNumberByTimestamp(earliestTimestamp);
+        console.log(`${batchName} startBlock: ${startBlock}`);
 
-        // const endBlock = await ethereum.getCurrentBlockNumber();
-        // console.log(`${batchName} endBlock: ${endBlock}`);
+        const endBlock = await ethereum.getCurrentBlockNumber();
+        console.log(`${batchName} endBlock: ${endBlock}`);
 
         const events = await ethereum.getPastMintBridgeEventsInBatches(
-          // startBlock,
-          // endBlock,
-
-          23566030,
-          23566040,
+          startBlock,
+          endBlock,
           blockRange(Number(chainConfig.batchSize)),
         );
 

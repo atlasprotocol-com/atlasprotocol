@@ -64,7 +64,7 @@ async function MintBridgeABtcToDestChain(near) {
             bridgeRecord.origin_chain_id,
             bridgeRecord.origin_chain_address,
             bridgeRecord.txn_hash.split(",")[1],
-            0,
+            1000,
           );
           // Relay the transaction to EVM
           console.log(`${batchName} Relay transaction to EVM...`);

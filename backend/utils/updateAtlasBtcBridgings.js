@@ -57,11 +57,8 @@ async function UpdateAtlasBtcBridgings(near) {
       console.log(`${batchName} startBlock: ${startBlock}`);
 
       const events = await ethereum.getPastBurnBridgingEventsInBatches(
-        // BigInt(startBlock),
-        // endBlock,
-
-        121507300,
-        121507310,
+        BigInt(startBlock),
+        endBlock,
         blockRange(Number(chain.batchSize)),
       );
 
@@ -115,76 +112,76 @@ async function UpdateAtlasBtcBridgings(near) {
     console.error(`${batchName} EVM.ERROR ${error.message} | ${error.stack}`);
   }
 
-  // try {
-  //   const nearChains = Object.values(chainConfig).filter(
-  //     (chain) => chain.networkType === NETWORK_TYPE.NEAR,
-  //   );
-  //   for (const chain of nearChains) {
-  //     console.log(
-  //       `${batchName} Chain ID: ${chain.chainID}, aBTC: ${chain.aBTCAddress},RPC URL: ${chain.chainRpcUrl}`,
-  //     );
+  try {
+    const nearChains = Object.values(chainConfig).filter(
+      (chain) => chain.networkType === NETWORK_TYPE.NEAR,
+    );
+    for (const chain of nearChains) {
+      console.log(
+        `${batchName} Chain ID: ${chain.chainID}, aBTC: ${chain.aBTCAddress},RPC URL: ${chain.chainRpcUrl}`,
+      );
 
-  //     const endBlock = await near.getCurrentBlockNumber();
-  //     console.log(
-  //       `${batchName} Chain ID: ${chain.chainID}, endBlock: ${endBlock}`,
-  //     );
+      const endBlock = await near.getCurrentBlockNumber();
+      console.log(
+        `${batchName} Chain ID: ${chain.chainID}, endBlock: ${endBlock}`,
+      );
 
-  //     const startBlock = await getBlockCursor(
-  //       "UpdateAtlasBtcBridgings",
-  //       chain.chainID,
-  //       endBlock,
-  //     );
-  //     console.log(
-  //       `${batchName} Chain ID: ${chain.chainID}, startBlock: ${startBlock}`,
-  //     );
+      const startBlock = await getBlockCursor(
+        "UpdateAtlasBtcBridgings",
+        chain.chainID,
+        endBlock,
+      );
+      console.log(
+        `${batchName} Chain ID: ${chain.chainID}, startBlock: ${startBlock}`,
+      );
 
-  //     const events = await near.getPastBurnBridgingEventsInBatches(
-  //       startBlock,
-  //       endBlock,
-  //       chain.aBTCAddress,
-  //     );
+      const events = await near.getPastBurnBridgingEventsInBatches(
+        startBlock,
+        endBlock,
+        chain.aBTCAddress,
+      );
 
-  //     // Cache events and process
-  //     const records = [];
-  //     for (const event of events) {
-  //       const {
-  //         returnValues: { wallet, destChainId, destChainAddress, amount },
-  //         transactionHash,
-  //         timestamp,
-  //         status,
-  //       } = event; // Make sure blockNumber is part of the event object
+      // Cache events and process
+      const records = [];
+      for (const event of events) {
+        const {
+          returnValues: { wallet, destChainId, destChainAddress, amount },
+          transactionHash,
+          timestamp,
+          status,
+        } = event; // Make sure blockNumber is part of the event object
 
-  //       let bridgingTxnHash = `${chain.chainID}${DELIMITER.COMMA}${transactionHash}`;
+        let bridgingTxnHash = `${chain.chainID}${DELIMITER.COMMA}${transactionHash}`;
 
-  //       // Create the BridgingRecord object
-  //       const record = {
-  //         txn_hash: bridgingTxnHash,
-  //         origin_chain_id: chain.chainID,
-  //         origin_chain_address: wallet,
-  //         dest_chain_id: destChainId,
-  //         dest_chain_address: destChainAddress,
-  //         dest_txn_hash: "",
-  //         abtc_amount: Number(amount),
-  //         timestamp: timestamp,
-  //         status: 0,
-  //         remarks: "",
-  //         date_created: timestamp,
-  //         verified_count: 0,
-  //       };
+        // Create the BridgingRecord object
+        const record = {
+          txn_hash: bridgingTxnHash,
+          origin_chain_id: chain.chainID,
+          origin_chain_address: wallet,
+          dest_chain_id: destChainId,
+          dest_chain_address: destChainAddress,
+          dest_txn_hash: "",
+          abtc_amount: Number(amount),
+          timestamp: timestamp,
+          status: 0,
+          remarks: "",
+          date_created: timestamp,
+          verified_count: 0,
+        };
 
-  //       if (status) {
-  //         record.status = BRIDGING_STATUS.ABTC_BURNT;
-  //       }
+        if (status) {
+          record.status = BRIDGING_STATUS.ABTC_BURNT;
+        }
 
-  //       records.push(record);
-  //     }
+        records.push(record);
+      }
 
-  //     await processEventsForChain(records, near, BRIDGING_STATUS);
-  //     await setBlockCursor("UpdateAtlasBtcBridgings", chain.chainID, endBlock);
-  //   }
-  // } catch (error) {
-  //   console.error(`${batchName} NEAR.ERROR ${error.message} | ${error.stack}`);
-  // }
+      await processEventsForChain(records, near, BRIDGING_STATUS);
+      await setBlockCursor("UpdateAtlasBtcBridgings", chain.chainID, endBlock);
+    }
+  } catch (error) {
+    console.error(`${batchName} NEAR.ERROR ${error.message} | ${error.stack}`);
+  }
 
   console.log(`${batchName} completed successfully.`);
   flagsBatch.UpdateAtlasBtcBridgings = false;

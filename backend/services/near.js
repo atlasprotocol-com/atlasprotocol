@@ -31,7 +31,7 @@ class Near {
     network_id,
     gas,
     mpcContractId,
-    bitHiveContractId
+    bitHiveContractId,
   ) {
     this.chain_rpc = chain_rpc;
     this.atlas_account_id = atlas_account_id;
@@ -83,7 +83,7 @@ class Near {
           "get_all_bridgings",
           "get_first_valid_bridging_chain_config",
           "get_first_valid_user_deposit",
-          "get_first_valid_user_redemption"
+          "get_first_valid_user_redemption",
         ],
         changeMethods: [
           "insert_deposit_btc",
@@ -126,11 +126,14 @@ class Near {
         viewMethods: ["public_key"],
         changeMethods: ["sign"],
       });
-      
-      this.bitHiveContract = new Contract(this.account, this.bitHiveContractId, {
-        viewMethods: ["get_deposit", "view_account", "get_summary"]
-      });
-      
+
+      this.bitHiveContract = new Contract(
+        this.account,
+        this.bitHiveContractId,
+        {
+          viewMethods: ["get_deposit", "view_account", "get_summary"],
+        },
+      );
     } catch (error) {
       console.error("Failed to initialize NEAR contract:", error);
       throw error;
@@ -196,16 +199,16 @@ class Near {
     return this.makeNearRpcViewCall("get_all_redemptions", {});
   }
 
-    // Function to get all redemptions from NEAR contract
-    async getAllBridgings() {
-      return this.makeNearRpcViewCall("get_all_bridgings", {});
-    }
-  
-    async getBridgingByTxnHash(transactionHash) {
-      return this.makeNearRpcViewCall("get_bridging_by_txn_hash", {
-        txn_hash: transactionHash,
-      });
-    }
+  // Function to get all redemptions from NEAR contract
+  async getAllBridgings() {
+    return this.makeNearRpcViewCall("get_all_bridgings", {});
+  }
+
+  async getBridgingByTxnHash(transactionHash) {
+    return this.makeNearRpcViewCall("get_bridging_by_txn_hash", {
+      txn_hash: transactionHash,
+    });
+  }
 
   async getRedemptionByTxnHash(transactionHash) {
     return this.makeNearRpcViewCall("get_redemption_by_txn_hash", {
@@ -236,7 +239,7 @@ class Near {
   async getFirstValidDepositChainConfig() {
     return this.makeNearRpcViewCall("get_first_valid_deposit_chain_config", {});
   }
-  
+
   async getFirstValidUserDeposit() {
     return this.makeNearRpcViewCall("get_first_valid_user_deposit", {});
   }
@@ -255,29 +258,41 @@ class Near {
       timestamp: timestamp,
     });
   }
-  
+
   async updateDepositYieldProviderDeposited(btcTxnHash, timestamp) {
-    return this.makeNearRpcChangeCall("update_deposit_yield_provider_deposited", {
-      btc_txn_hash: btcTxnHash
-    });
+    return this.makeNearRpcChangeCall(
+      "update_deposit_yield_provider_deposited",
+      {
+        btc_txn_hash: btcTxnHash,
+      },
+    );
   }
 
   async updateDepositPendingYieldProviderDeposit(btcTxnHash) {
-    return this.makeNearRpcChangeCall("update_deposit_pending_yield_provider_deposit", {
-      btc_txn_hash: btcTxnHash
-    });
+    return this.makeNearRpcChangeCall(
+      "update_deposit_pending_yield_provider_deposit",
+      {
+        btc_txn_hash: btcTxnHash,
+      },
+    );
   }
 
   async updateRedemptionPendingYieldProviderUnstake(txnHash) {
-    return this.makeNearRpcChangeCall("update_redemption_pending_yield_provider_unstake", {
-      txn_hash: txnHash,
-    });
+    return this.makeNearRpcChangeCall(
+      "update_redemption_pending_yield_provider_unstake",
+      {
+        txn_hash: txnHash,
+      },
+    );
   }
 
   async updateRedemptionYieldProviderUnstaked(txnHash) {
-    return this.makeNearRpcChangeCall("update_redemption_yield_provider_unstaked", {
-      txn_hash: txnHash
-    });
+    return this.makeNearRpcChangeCall(
+      "update_redemption_yield_provider_unstaked",
+      {
+        txn_hash: txnHash,
+      },
+    );
   }
 
   async updateDepositRemarks(btcTxnHash, remarks) {
@@ -313,7 +328,7 @@ class Near {
     remarks,
     date_created,
     yieldProviderGasFee,
-    yieldProviderTxnHash
+    yieldProviderTxnHash,
   ) {
     return this.makeNearRpcChangeCall("insert_deposit_btc", {
       btc_txn_hash: btcTxnHash,
@@ -358,7 +373,12 @@ class Near {
     });
   }
 
-  async updateRedemptionPendingBtcMempool(redemptionTxnHash, btcTxnHash, estimatedFee, protocolFee) {
+  async updateRedemptionPendingBtcMempool(
+    redemptionTxnHash,
+    btcTxnHash,
+    estimatedFee,
+    protocolFee,
+  ) {
     console.log(redemptionTxnHash);
     console.log(btcTxnHash);
     return this.makeNearRpcChangeCall("update_redemption_pending_btc_mempool", {
@@ -378,36 +398,58 @@ class Near {
   async updateRedemptionYieldProviderTxnHash(txnHash, yield_provider_txn_hash) {
     console.log(txnHash);
     console.log(yield_provider_txn_hash);
-    return this.makeNearRpcChangeCall("update_redemption_yield_provider_txn_hash", {
-      txn_hash: txnHash,
-      yield_provider_txn_hash: yield_provider_txn_hash,
-    });
+    return this.makeNearRpcChangeCall(
+      "update_redemption_yield_provider_txn_hash",
+      {
+        txn_hash: txnHash,
+        yield_provider_txn_hash: yield_provider_txn_hash,
+      },
+    );
   }
 
-  async updateRedemptionYieldProviderUnstakeProcessing(txnHash, bithiveDepositTxHash) {
-    return this.makeNearRpcChangeCall("update_redemption_yield_provider_unstake_processing", {
-      txn_hash: txnHash,
-    });
+  async updateRedemptionYieldProviderUnstakeProcessing(
+    txnHash,
+    bithiveDepositTxHash,
+  ) {
+    return this.makeNearRpcChangeCall(
+      "update_redemption_yield_provider_unstake_processing",
+      {
+        txn_hash: txnHash,
+      },
+    );
   }
 
   async updateRedemptionPendingYieldProviderWithdraw(txnHash) {
-    return this.makeNearRpcChangeCall("update_redemption_pending_yield_provider_withdraw", {
-      txn_hash: txnHash,
-    });
+    return this.makeNearRpcChangeCall(
+      "update_redemption_pending_yield_provider_withdraw",
+      {
+        txn_hash: txnHash,
+      },
+    );
   }
 
-  async updateRedemptionYieldProviderWithdrawing(txnHash, yieldProviderTxHash, yieldProviderGasFee) {
-    return this.makeNearRpcChangeCall("update_redemption_yield_provider_withdrawing", {
-      txn_hash: txnHash,
-      yield_provider_gas_fee: yieldProviderGasFee,
-      yield_provider_txn_hash: yieldProviderTxHash,
-    });
+  async updateRedemptionYieldProviderWithdrawing(
+    txnHash,
+    yieldProviderTxHash,
+    yieldProviderGasFee,
+  ) {
+    return this.makeNearRpcChangeCall(
+      "update_redemption_yield_provider_withdrawing",
+      {
+        txn_hash: txnHash,
+        yield_provider_gas_fee: yieldProviderGasFee,
+        yield_provider_txn_hash: yieldProviderTxHash,
+      },
+    );
   }
 
   async updateRedemptionWithdrawnFromYieldProvider(txnHash) {
-    return this.makeNearRpcChangeCall("update_redemption_yield_provider_withdrawn", {
-      txn_hash: txnHash,
-    });
+    return this.makeNearRpcChangeCall(
+      "update_redemption_yield_provider_withdrawn",
+      {
+        txn_hash: txnHash,
+      },
+    );
   }
 
   async updateRedemptionRemarks(txnHash, remarks) {
@@ -471,7 +513,13 @@ class Near {
         },
         { retries: 10 },
       );
-      if (!tx || !tx.status || !tx.status.SuccessValue) throw err;
+      if (!tx || !tx.status || !tx.status.SuccessValue) {
+        const failure = JSON.stringify(tx && tx.status);
+        console.log(
+          `Tx Failure ###########################################: ${failure}`,
+        );
+        throw err;
+      }
 
       const value = Buffer.from(tx.status.SuccessValue, "base64").toString(
         "utf-8",
@@ -677,7 +725,7 @@ class Near {
     }
     return events;
   }
-  
+
   async getPastMintBridgeEventsInBatches(startBlock, endBlock) {
     const targetContractId = this.contract_id;
 
@@ -879,7 +927,7 @@ class Near {
       3,
     );
   }
-  
+
   async getPastBurnRedemptionEventsInBatches(
     startBlock,
     endBlock,
@@ -1109,7 +1157,13 @@ class Near {
         },
         { retries: 10 },
       );
-      if (!tx || !tx.status || !tx.status.SuccessValue) throw err;
+      if (!tx || !tx.status || !tx.status.SuccessValue) {
+        const failure = JSON.stringify(tx && tx.status);
+        console.log(
+          `Tx Failure ###########################################: ${failure}`,
+        );
+        throw err;
+      }
 
       const value = Buffer.from(tx.status.SuccessValue, "base64").toString(
         "utf-8",
@@ -1145,7 +1199,13 @@ class Near {
         },
         { retries: 10 },
       );
-      if (!tx || !tx.status || !tx.status.SuccessValue) throw err;
+      if (!tx || !tx.status || !tx.status.SuccessValue) {
+        const failure = JSON.stringify(tx && tx.status);
+        console.log(
+          `Tx Failure ###########################################: ${failure}`,
+        );
+        throw err;
+      }
 
       const value = Buffer.from(tx.status.SuccessValue, "base64").toString(
         "utf-8",
@@ -1157,7 +1217,7 @@ class Near {
   async updateYieldProviderTxnHash(btcTxnHash, yieldProviderTxnHash) {
     return this.makeNearRpcChangeCall("update_yield_provider_txn_hash", {
       btc_txn_hash: btcTxnHash,
-      yield_provider_txn_hash: yieldProviderTxnHash
+      yield_provider_txn_hash: yieldProviderTxnHash,
     });
   }
 
@@ -1172,7 +1232,9 @@ class Near {
     console.log("nearPrice:", nearPrice);
 
     // Convert sats to USD
-    const mintingFeeUsd = Number(((mintingFeeSat / 100_000_000) * btcPriceUsd).toFixed(4));
+    const mintingFeeUsd = Number(
+      ((mintingFeeSat / 100_000_000) * btcPriceUsd).toFixed(4),
+    );
 
     // Convert USD to NEAR (1 NEAR = $2.95 USD)
     const mintingFeeNear = mintingFeeUsd / nearPrice;
@@ -1186,7 +1248,7 @@ class Near {
 
     return {
       gasPrice: Math.floor(mintingFeeTgas), // Return Tgas as integer
-      mintingFeeUsd: Number(mintingFeeUsd)
+      mintingFeeUsd: Number(mintingFeeUsd),
     };
   }
 }

@@ -458,8 +458,8 @@ async function runBatch() {
   // await SendBtcBackToUser(near, bitcoin);
   // await UpdateAtlasBtcBackToUser(redemptions, near, bitcoin);
 
-  await UpdateAtlasBtcBridgings(near);
-  await MintBridgeABtcToDestChain(near);
+  // await UpdateAtlasBtcBridgings(near);
+  // await MintBridgeABtcToDestChain(near);
   await UpdateAtlasBridgeAbtcMinted(bridgings, near);
 
   // Delay for 5 seconds before running the batch again
