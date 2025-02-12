@@ -458,8 +458,8 @@ async function runBatch() {
   await SendBtcBackToUser(near, bitcoin);
   await UpdateAtlasBtcBackToUser(redemptions, near, bitcoin);
 
-  // await UpdateAtlasBtcBridgings(near);
-  // await MintBridgeABtcToDestChain(near);
+  await UpdateAtlasBtcBridgings(near);
+  await MintBridgeABtcToDestChain(near);
   await UpdateAtlasBridgeAbtcMinted(bridgings, near);
 
   // Delay for 5 seconds before running the batch again
@@ -476,12 +476,6 @@ app.listen(PORT, async () => {
   await fetchAndSetConstants(near); // Load constants
 
   console.log(`Server is running on port ${PORT}`);
-  // const derivationPath = "BITCOIN";
-  //   const { address, publicKey } = await bitcoin.deriveBTCAddress(
-  //     await near.nearMPCContract.public_key(),
-  //     near.contract_id,
-  //     derivationPath,
-  //   );
-  // console.log("Bitcoin address: " + address);
+  
   runBatch().catch(console.error);
 });

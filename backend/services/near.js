@@ -1026,7 +1026,7 @@ class Near {
                     }
                   }
                   block_count++;
-                  console.log(`[NEAR] Processed block count in current batch: ${block_count}`);
+                  
                 } catch (err) {
                   console.error(`Error processing block: ${err}`);
                 }
