@@ -179,10 +179,11 @@ export function Stake({ formattedBalance }: StakeProps) {
       params?.data?.evmAtlasAddress || "",
     );
 
+
     const mintingFeeEth = (mintingFee.gasEstimate * mintingFee.gasPrice) / 1e18;
-    console.log(mintingFeeEth)
+
     const mintingFeeBtc = mintingFeeEth * ethPriceBtc;
-    console.log("mintingFeeBtc", btcToSatoshi(mintingFeeBtc))
+
     setReviewData({
       ...data,
       amountSat: btcToSatoshi(data.amount),

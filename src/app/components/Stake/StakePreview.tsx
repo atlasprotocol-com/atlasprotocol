@@ -130,7 +130,7 @@ export function StakePreview({
           </p>
         </div>
       </div>
-      <Button className="mt-4 w-full" onClick={onConfirm} disabled={isPending}>
+      <Button className="mt-4 w-full" onClick={onConfirm} disabled={isPending || !mintingFee}>
         Stake
       </Button>
     </Dialog>

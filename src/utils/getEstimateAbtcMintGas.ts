@@ -28,35 +28,14 @@ export const getEstimateAbtcMintGas = async (
     const data = contract.methods.mintDeposit(userAddress, 0, btcTxnHash).encodeABI();
 
     const gasPriceBigInt = await web3.eth.getGasPrice();
-    const gasPrice = Number(gasPriceBigInt);
+    const gasPrice = Number(gasPriceBigInt) * 1.1;
 
     const gasEstimateBigInt = await web3.eth.estimateGas({
       to: contractAddress,
-      from: userAddress,
+      from: contractOwner,
       data: data,
     });
-    const gasEstimate = Number(gasEstimateBigInt);
-
-    // const gasEstimateBigInt = await web3.eth.estimateGas({
-    //   to: contractAddress,
-    //   from: contractOwner,
-    //   value: web3.utils.toWei('0', 'ether'), // Adjust value as needed
-    //   data: web3.eth.abi.encodeFunctionCall({
-    //     name: 'mintDeposit',
-    //     type: 'function',
-    //     inputs: [{
-    //       type: 'address',
-    //       name: 'to'
-    //     }, {
-    //       type: 'uint256',
-    //       name: 'amount'
-    //     }, {
-    //       type: 'string',
-    //       name: 'btcTxnHash'
-    //     }]
-    //   }, [userAddress, amount, btcTxnHash])
-    // });
-    // const gasEstimate = Number(gasEstimateBigInt);
+    const gasEstimate = Number(gasEstimateBigInt) * 1.1;
 
     return {
       gasEstimate,

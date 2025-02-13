@@ -63,41 +63,41 @@ class Ethereum {
     sender,
     receiver,
     amount,
-    btcTxnHash,
+    btcTxnHash, 
     mintingFeeSat,
   ) {
     const ethPriceBtc = await cache.wrap(getPrice)("ethereum", "btc");
     const ethPrice = await cache.wrap(getPrice)("ethereum", "usd");
 
     // Convert mintingFeeSat (in satoshis) to wei
-    const mintingFeeWei = await this.satsToWei(mintingFeeSat, ethPriceBtc);
+    const mintingFeeWei = Number(
+      await this.satsToWei(mintingFeeSat, ethPriceBtc),
+    );
 
     // Get current gas price
-    const { baseFeePerGas, maxPriorityFeePerGas } = await this.queryGasPrice();
+    const { baseFeePerGas: rawBaseFeePerGas } = await this.queryGasPrice();
+    const baseFeePerGas = Number(rawBaseFeePerGas) * 1.1;
 
     // Estimate gas for mintDeposit transaction
-    const gasLimit = await this.abtcContract.methods
+    const gasLimit = Math.ceil(Number(await this.abtcContract.methods
       .mintDeposit(receiver, amount, btcTxnHash)
-      .estimateGas({ from: sender });
+      .estimateGas({ from: sender })) * 1.1);
 
     // Calculate required gas price to match minting fee
     // mintingFeeWei = gasLimit * gasPrice
-    // Therefore: gasPrice = mintingFeeWei / gasLimit
-    const requiredGasPrice = mintingFeeWei / BigInt(gasLimit);
+    // Therefore: gasPrice = mintingFeeWei / gasLimit  
+    const requiredGasPrice = mintingFeeWei / gasLimit;
 
-    console.log(BigInt(gasLimit) * requiredGasPrice);
     // Calculate minting fee in USD
-    const mintingFeeEth = Number(BigInt(gasLimit) * requiredGasPrice) / 1e18;
-
-    console.log(mintingFeeEth);
+    const mintingFeeEth = gasLimit * requiredGasPrice / 1e18;
     const mintingFeeUsd = mintingFeeEth * ethPrice;
 
     return {
-      baseFeePerGas: Number(baseFeePerGas),
-      gasLimit: Math.ceil(Number(gasLimit) * 1.1),
-      gasPrice: Number(requiredGasPrice),
-      maxPriority: Number(requiredGasPrice) - Number(baseFeePerGas),
-      mintingFeeUsd: mintingFeeUsd,
+      baseFeePerGas: Math.ceil(baseFeePerGas),
+      gasLimit: Math.ceil(gasLimit),
+      gasPrice: Math.ceil(requiredGasPrice),
+      maxPriority: Math.ceil(requiredGasPrice - baseFeePerGas),
+      mintingFeeUsd: Math.ceil(mintingFeeUsd),
     };
   }
 
@@ -114,13 +114,16 @@ class Ethereum {
     const ethPrice = await cache.wrap(getPrice)("ethereum", "usd");
 
     // Convert mintingFeeSat (in satoshis) to wei
-    const mintingFeeWei = await this.satsToWei(mintingFeeSat, ethPriceBtc);
+    const mintingFeeWei = Number(
+      await this.satsToWei(mintingFeeSat, ethPriceBtc),
+    );
 
     // Get current gas price
-    const { baseFeePerGas, maxPriorityFeePerGas } = await this.queryGasPrice();
+    const { baseFeePerGas: rawBaseFeePerGas } = await this.queryGasPrice();
+    const baseFeePerGas = Number(rawBaseFeePerGas) * 1.1;
 
     // Estimate gas for mintDeposit transaction
-    const gasLimit = await this.abtcContract.methods
+    const gasLimit = Math.ceil(Number(await this.abtcContract.methods
       .mintBridge(
         receiver,
         amount,
@@ -128,24 +131,23 @@ class Ethereum {
         originChainAddress,
         originTxnHash,
       )
-      .estimateGas({ from: sender });
-
+      .estimateGas({ from: sender })) * 1.1);
+      
     // Calculate required gas price to match minting fee
     // mintingFeeWei = gasLimit * gasPrice
     // Therefore: gasPrice = mintingFeeWei / gasLimit
-    const requiredGasPrice = mintingFeeWei / BigInt(gasLimit);
+    const requiredGasPrice = mintingFeeWei / gasLimit;
 
     // Calculate minting fee in USD
-    const mintingFeeEth = Number(BigInt(gasLimit) * requiredGasPrice) / 1e18;
-
+    const mintingFeeEth = gasLimit * requiredGasPrice / 1e18;
     const mintingFeeUsd = mintingFeeEth * ethPrice;
 
     return {
-      baseFeePerGas: Number(baseFeePerGas),
-      gasLimit: Math.ceil(Number(gasLimit) * 1.1),
-      gasPrice: Number(requiredGasPrice),
-      maxPriority: Number(requiredGasPrice) - Number(baseFeePerGas),
-      mintingFeeUsd: mintingFeeUsd,
+      baseFeePerGas: Math.ceil(baseFeePerGas),
+      gasLimit: Math.ceil(gasLimit),
+      gasPrice: Math.ceil(requiredGasPrice),
+      maxPriority: Math.ceil(requiredGasPrice - baseFeePerGas),
+      mintingFeeUsd: Math.ceil(mintingFeeUsd),
     };
   }
 

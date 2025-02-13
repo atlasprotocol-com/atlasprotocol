@@ -27,7 +27,7 @@ export const getEstimateAbtcBurnGas = async (
     // const data = contract.methods.burnRedeem(amount, btcAddress).encodeABI();
 
     const gasPriceBigInt = await web3.eth.getGasPrice();
-    const gasPrice = Number(gasPriceBigInt);
+    const gasPrice = Number(gasPriceBigInt) * 1.1;
 
     
     const gasEstimateBigInt = await web3.eth.estimateGas({
@@ -35,7 +35,7 @@ export const getEstimateAbtcBurnGas = async (
       from: userAddress,
       data: data,
     });
-    const gasEstimate = Number(gasEstimateBigInt);
+    const gasEstimate = Number(gasEstimateBigInt) * 1.1;
 
     console.log("Gas price:", gasPrice);
     console.log("Gas estimate:", gasEstimate);
