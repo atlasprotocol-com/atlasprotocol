@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 
+import { titilliumWeb } from "./font";
 import "./globals.css";
 import Providers from "./providers";
-import { titilliumWeb } from "./font";
 
 export const metadata: Metadata = {
   title: "Atlas Protocol",
@@ -43,3 +43,5 @@ export default function RootLayout({
     </html>
   );
 }
+
+export const dynamic = "force-dynamic";

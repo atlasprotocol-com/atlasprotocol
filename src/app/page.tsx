@@ -211,3 +211,5 @@ const Home: React.FC<HomeProps> = () => {
 };
 
 export default Home;
+
+export const dynamic = "force-dynamic";
