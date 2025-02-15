@@ -4,10 +4,10 @@ const dotenv = require("dotenv");
 const { globalParams, updateGlobalParams } = require("./config/globalParams");
 const { getTransactionsAndComputeStats } = require("./utils/transactionStats");
 const { UpdateAtlasBtcDeposits } = require("./utils/updateAtlasBtcDeposits");
-const { WithdrawFailDeposits } = require("./utils/WithdrawFailDeposits");
+const { WithdrawFailDeposits } = require("./utils/withdrawFailDeposits");
 const {
   UpdateWithdrawFailDeposits,
-} = require("./utils/UpdateWithdrawFailDeposits");
+} = require("./utils/updateWithdrawFailDeposits");
 const {
   MintaBtcToReceivingChain,
 } = require("./utils/mintaBtcToReceivingChain");
@@ -476,6 +476,6 @@ app.listen(PORT, async () => {
   await fetchAndSetConstants(near); // Load constants
 
   console.log(`Server is running on port ${PORT}`);
-  
+
   runBatch().catch(console.error);
 });
