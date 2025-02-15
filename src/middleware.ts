@@ -41,7 +41,7 @@ export function middleware(request: NextRequest) {
     contentSecurityPolicyHeaderValue,
   );
 
-  // console.log("CSP Header: ", contentSecurityPolicyHeaderValue);
+  console.log("CSP Header: ", contentSecurityPolicyHeaderValue);
 
   return response;
 }
