@@ -13,7 +13,6 @@ import { maxDecimals } from "@/utils/maxDecimals";
 
 import { useGetGlobalParams } from "../../hooks/stats";
 import { useAddFeedback } from "../stores/feedback";
-import { number } from "bitcoinjs-lib/src/script";
 
 export function useGetAccountUTXO() {
   const { btcAddress: address, btcWallet } = useAppContext();
