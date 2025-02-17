@@ -47,25 +47,28 @@ export function RedeemPreview({
     "ether",
   );
 
-  const transactionFeeUsd = transactionFeeEth && ethPriceUsd
-    ? (Number(transactionFeeEth) * ethPriceUsd).toFixed(4)
-    : '--';
+  const transactionFeeUsd =
+    transactionFeeEth && ethPriceUsd
+      ? (Number(transactionFeeEth) * ethPriceUsd).toFixed(4)
+      : "--";
 
-  const redemptionFeeUsd = redemptionFeeEth && ethPriceUsd
-    ? (Number(redemptionFeeEth) * ethPriceUsd).toFixed(4)
-    : '--';
+  const redemptionFeeUsd =
+    redemptionFeeEth && ethPriceUsd
+      ? (Number(redemptionFeeEth) * ethPriceUsd).toFixed(4)
+      : "--";
 
-  const btcRedemptionFeeUsd = btcRedemptionFee && btcPriceUsd
-    ? ((btcRedemptionFee / 100000000) * btcPriceUsd).toFixed(2)
-    : '--';
+  const btcRedemptionFeeUsd =
+    btcRedemptionFee && btcPriceUsd
+      ? ((btcRedemptionFee / 100000000) * btcPriceUsd).toFixed(2)
+      : "--";
 
-  const atlasProtocolFeeUsd = atlasProtocolFee && btcPriceUsd
-    ? ((atlasProtocolFee / 100000000) * btcPriceUsd).toFixed(2)
-    : '--';
+  const atlasProtocolFeeUsd =
+    atlasProtocolFee && btcPriceUsd
+      ? ((atlasProtocolFee / 100000000) * btcPriceUsd).toFixed(2)
+      : "--";
 
-  const amountUsd = amount && btcPriceUsd
-    ? (amount * btcPriceUsd).toFixed(2)
-    : '--';
+  const amountUsd =
+    amount && btcPriceUsd ? (amount * btcPriceUsd).toFixed(2) : "--";
 
   return (
     <Dialog
@@ -80,7 +83,8 @@ export function RedeemPreview({
               Redemption Amount
             </p>
             <p className=" text-base font-semibold">
-              {amount || "--"} {ATLAS_BTC_TOKEN} <span className="text-sm text-neutral-7">(≈{amountUsd} USD)</span>
+              {amount || "--"} {ATLAS_BTC_TOKEN}{" "}
+              <span className="text-sm text-neutral-7">(≈{amountUsd} USD)</span>
             </p>
           </div>
           <div>
@@ -106,10 +110,12 @@ export function RedeemPreview({
               EVM Transaction Fee
             </p>
             <p className=" text-base font-semibold break-all ">
-              {transactionFeeEth || "--"} <br /> 
-              ETH 
-              <span className="text-sm text-neutral-7"><br />
-              (≈{transactionFeeUsd} USD)</span>
+              {transactionFeeEth || "--"} <br />
+              ETH
+              <span className="text-sm text-neutral-7">
+                <br />
+                (≈{transactionFeeUsd} USD)
+              </span>
             </p>
           </div>
           <div className="rounded-lg border border-neutral-5  dark:border-neutral-8 dark:bg-neutral-10 p-3 flex-1">
@@ -120,29 +126,31 @@ export function RedeemPreview({
               {maxDecimals(
                 satoshiToBtc(btcRedemptionFee ? btcRedemptionFee : 0),
                 8,
-              ) || "--"}{" "}<br />
+              ) || "--"}{" "}
+              <br />
               {BTC_TOKEN} <br />
               <span className="text-sm text-neutral-7">
-              (≈{btcRedemptionFeeUsd} USD)</span>
+                (≈{btcRedemptionFeeUsd} USD)
+              </span>
             </p>
           </div>
           <div className="rounded-lg border border-neutral-5  dark:border-neutral-8 dark:bg-neutral-10 p-3 flex-1">
-            <p className="text-caption text-sm font-semibold">
-              Protocol Fee
-            </p>
+            <p className="text-caption text-sm font-semibold">Protocol Fee</p>
             <p className=" text-base font-semibold break-all ">
               {maxDecimals(
                 satoshiToBtc(atlasProtocolFee ? atlasProtocolFee : 0),
                 8,
-              ) || "--"}{" "} <br />
+              ) || "--"}{" "}
+              <br />
               {BTC_TOKEN} <br />
               <span className="text-sm text-neutral-7">
-              (≈{atlasProtocolFeeUsd} USD)</span>
+                (≈{atlasProtocolFeeUsd} USD)
+              </span>
             </p>
           </div>
         </div>
       )}
-      <Button className="mt-4 w-full" onClick={onConfirm} disabled={isPending || !btcRedemptionFee}>
+      <Button className="mt-4 w-full" onClick={onConfirm} disabled={isPending}>
         Redeem
       </Button>
     </Dialog>
