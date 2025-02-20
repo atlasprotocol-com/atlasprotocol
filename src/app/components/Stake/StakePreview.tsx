@@ -16,6 +16,7 @@ export interface StakePreviewProps {
   mintingFee?: number;
   onConfirm?: () => void;
   isPending?: boolean;
+  isUTXOsReady?: boolean;
 }
 
 export function StakePreview({
@@ -29,38 +30,50 @@ export function StakePreview({
   stakingAmount,
   mintingFee,
   onConfirm,
-  isPending, 
+  isPending,
+  isUTXOsReady,
 }: StakePreviewProps) {
   const { BTC_TOKEN, ATLAS_BTC_TOKEN } = useAppContext();
   const { data: stats } = useGetStats();
   const btcPriceUsd = stats?.btcPriceUsd || 0;
 
-  const actualAtBTCReceived = stakingAmount && stakingFee && protocolFee!==undefined && mintingFee
-    ? Number(((stakingAmount - stakingFee - protocolFee - mintingFee) / 100000000).toFixed(8))
-    : "--";
+  const actualAtBTCReceived =
+    stakingAmount && stakingFee && protocolFee !== undefined && mintingFee
+      ? Number(
+          (
+            (stakingAmount - stakingFee - protocolFee - mintingFee) /
+            100000000
+          ).toFixed(8),
+        )
+      : "--";
 
   const stakingAmountBtc = stakingAmount ? stakingAmount / 100000000 : 0;
   const stakingFeeBtc = stakingFee ? stakingFee / 100000000 : 0;
 
-  const actualAtBTCReceivedUsd = actualAtBTCReceived !== '--' && btcPriceUsd
-    ? (actualAtBTCReceived * btcPriceUsd).toFixed(2)
-    : '--';
+  const actualAtBTCReceivedUsd =
+    actualAtBTCReceived !== "--" && btcPriceUsd
+      ? (actualAtBTCReceived * btcPriceUsd).toFixed(2)
+      : "--";
 
-  const stakingAmountUsd = stakingAmountBtc && btcPriceUsd
-    ? (stakingAmountBtc * btcPriceUsd).toFixed(2)
-    : '--';
+  const stakingAmountUsd =
+    stakingAmountBtc && btcPriceUsd
+      ? (stakingAmountBtc * btcPriceUsd).toFixed(2)
+      : "--";
 
-  const stakingFeeUsd = stakingFeeBtc && btcPriceUsd
-    ? (stakingFeeBtc * btcPriceUsd).toFixed(2)
-    : '--';
+  const stakingFeeUsd =
+    stakingFeeBtc && btcPriceUsd
+      ? (stakingFeeBtc * btcPriceUsd).toFixed(2)
+      : "--";
 
-  const protocolFeeUsd = protocolFee && btcPriceUsd
-    ? ((protocolFee / 100000000) * btcPriceUsd).toFixed(2)
-    : '--';
+  const protocolFeeUsd =
+    protocolFee && btcPriceUsd
+      ? ((protocolFee / 100000000) * btcPriceUsd).toFixed(2)
+      : "--";
 
-  const mintingFeeUsd = mintingFee && btcPriceUsd
-    ? ((mintingFee / 100000000) * btcPriceUsd).toFixed(2)
-    : '--';
+  const mintingFeeUsd =
+    mintingFee && btcPriceUsd
+      ? ((mintingFee / 100000000) * btcPriceUsd).toFixed(2)
+      : "--";
 
   return (
     <Dialog
@@ -73,7 +86,11 @@ export function StakePreview({
           <div className="w-[180px]">
             <p className="text-caption text-sm font-semibold">Stake Amount</p>
             <p className="text-base font-semibold">
-              {stakingAmountBtc || "--"}{BTC_TOKEN} <span className="text-sm text-neutral-7">(≈{stakingAmountUsd} USD)</span>
+              {stakingAmountBtc || "--"}
+              {BTC_TOKEN}{" "}
+              <span className="text-sm text-neutral-7">
+                (≈{stakingAmountUsd} USD)
+              </span>
             </p>
           </div>
           <div>
@@ -94,7 +111,10 @@ export function StakePreview({
         <div className="mt-4">
           <p className="text-caption text-sm font-semibold">Actual Received</p>
           <p className="text-base font-semibold break-all">
-            {actualAtBTCReceived} {ATLAS_BTC_TOKEN} <span className="text-sm text-neutral-7">(≈{actualAtBTCReceivedUsd} USD)</span>
+            {actualAtBTCReceived} {ATLAS_BTC_TOKEN}{" "}
+            <span className="text-sm text-neutral-7">
+              (≈{actualAtBTCReceivedUsd} USD)
+            </span>
           </p>
         </div>
       </div>
@@ -109,28 +129,49 @@ export function StakePreview({
           <p className="text-caption text-sm font-semibold">Staking Fee</p>
           <p className="text-base font-semibold break-all">
             {stakingFeeBtc.toFixed(8) || "--"} <br />
-            {BTC_TOKEN} <span className="text-sm text-neutral-7"><br />
-            (≈{stakingFeeUsd} USD)</span>
+            {BTC_TOKEN}{" "}
+            <span className="text-sm text-neutral-7">
+              <br />
+              (≈{stakingFeeUsd} USD)
+            </span>
           </p>
         </div>
         <div className="rounded-lg border border-neutral-5  dark:border-neutral-8 dark:bg-neutral-10 p-3 flex-1">
           <p className="text-caption text-sm font-semibold">Minting Fee</p>
           <p className="text-base font-semibold break-all">
-            {mintingFee ? (mintingFee / 100000000).toFixed(8) : "--"}<br />
-            {BTC_TOKEN} <span className="text-sm text-neutral-7"><br />
-            (≈{mintingFeeUsd} USD)</span>
+            {mintingFee ? (mintingFee / 100000000).toFixed(8) : "--"}
+            <br />
+            {BTC_TOKEN}{" "}
+            <span className="text-sm text-neutral-7">
+              <br />
+              (≈{mintingFeeUsd} USD)
+            </span>
           </p>
         </div>
         <div className="rounded-lg border border-neutral-5  dark:border-neutral-8 dark:bg-neutral-10 p-3 flex-1">
           <p className="text-caption text-sm font-semibold">Protocol Fee</p>
           <p className="text-base font-semibold break-all">
             {protocolFee ? (protocolFee / 100000000).toFixed(8) : "--"} <br />
-            {BTC_TOKEN} <span className="text-sm text-neutral-7"><br />
-            (≈{protocolFeeUsd} USD)</span>
+            {BTC_TOKEN}{" "}
+            <span className="text-sm text-neutral-7">
+              <br />
+              (≈{protocolFeeUsd} USD)
+            </span>
           </p>
         </div>
       </div>
-      <Button className="mt-4 w-full" onClick={onConfirm} disabled={isPending || !mintingFee}>
+      {!isUTXOsReady && (
+        <div className="mt-4">
+          <p className="text-caption text-base font-semibold">
+            There are pending transactions. Please wait for them to confirm.
+          </p>
+        </div>
+      )}
+      <Button
+        className="mt-4 w-full"
+        onClick={onConfirm}
+        disabled={!isUTXOsReady}
+      >
         Stake
       </Button>
     </Dialog>

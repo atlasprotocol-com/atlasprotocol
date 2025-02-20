@@ -13,13 +13,12 @@ import {
 import { useAddFeedback } from "@/app/stores/feedback";
 import { getNetworkConfig } from "@/config/network.config";
 import { useGetChainConfig } from "@/hooks";
-import { useGetGlobalParams } from "@/hooks/stats";
+import { useGetGlobalParams, useGetStats } from "@/hooks/stats";
 import { useBool } from "@/hooks/useBool";
 import { btcToSatoshi } from "@/utils/btcConversions";
+import { getEstimateAbtcMintGas } from "@/utils/getEstimateAbtcMintGas";
 import { validateBlockchainAddress } from "@/utils/validateAddress";
 import { WalletProvider } from "@/utils/wallet/wallet_provider";
-import { getEstimateAbtcMintGas } from '@/utils/getEstimateAbtcMintGas';
-import { useGetStats } from "@/hooks/stats";
 
 import { Button } from "../Button";
 import { InputField } from "../InputField";
@@ -169,7 +168,7 @@ export function Stake({ formattedBalance }: StakeProps) {
 
   const onSubmit = async (data: SchemaType) => {
     const amountSat = btcToSatoshi(data.amount);
-    
+
     const mintingFee = await getEstimateAbtcMintGas(
       chainConfigs[data.chainID].chainRpcUrl,
       chainConfigs[data.chainID].aBTCAddress,
@@ -183,7 +182,10 @@ export function Stake({ formattedBalance }: StakeProps) {
     setReviewData({
       ...data,
       amountSat: btcToSatoshi(data.amount),
-      mintingFee: Math.max(Number(process.env.NEXT_PUBLIC_DUST_LIMIT), mintingFee.mintingFeeSat),
+      mintingFee: Math.max(
+        Number(process.env.NEXT_PUBLIC_DUST_LIMIT),
+        mintingFee.mintingFeeSat,
+      ),
     });
     previewToggle.setTrue();
   };
@@ -403,6 +405,7 @@ export function Stake({ formattedBalance }: StakeProps) {
         receivingChain={previewDataDisplay.networkName}
         mintingFee={previewData?.mintingFee}
         onConfirm={handleConfirm}
+        isUTXOsReady={!(!accountUTXOs || accountUTXOs.length === 0)}
       />
     </>
   );
