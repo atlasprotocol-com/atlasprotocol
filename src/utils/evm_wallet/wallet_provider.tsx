@@ -4,9 +4,10 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useState,
 } from "react";
-import { useAccount, useSwitchChain } from "wagmi";
+import { useAccount, useDisconnect, useSwitchChain } from "wagmi";
 import Web3, { AbiItem } from "web3";
 
 import { useWeb3jsSigner } from "@/app/hooks";
@@ -29,6 +30,8 @@ interface EvmWalletContextType {
     amount: number,
     btcAddress: string,
   ) => Promise<void>;
+  isManualConnected: boolean;
+  setIsManualConnected: (isConnected: boolean) => void;
 }
 
 const EvmWalletContext = createContext<EvmWalletContextType | undefined>(
@@ -38,8 +41,10 @@ const EvmWalletContext = createContext<EvmWalletContextType | undefined>(
 export const EvmWalletProvider: FC<{ children: ReactNode }> = ({
   children,
 }) => {
+  const [isManualConnected, setIsManualConnected] = useState(false);
   const { address: evmAddress, chainId, isConnected } = useAccount();
   const { switchChainAsync } = useSwitchChain();
+  const { disconnect } = useDisconnect();
   const [gasPrice, setGasPrice] = useState<number | null>(null);
   const [estimatedGas, setEstimatedGas] = useState<number | null>(null);
 
@@ -157,6 +162,14 @@ export const EvmWalletProvider: FC<{ children: ReactNode }> = ({
     }
   };
 
+  // Disconnect the wallet if the user is not manually connected
+  // Wagmi try to connect the wallet automatically
+  useEffect(() => {
+    if (evmAddress && !isManualConnected) {
+      disconnect();
+    }
+  }, [disconnect, evmAddress, isManualConnected]);
+
   return (
     <EvmWalletContext.Provider
       value={{
@@ -166,6 +179,8 @@ export const EvmWalletProvider: FC<{ children: ReactNode }> = ({
         isEvmWalletConnected: isConnected,
         fetchGasDetails,
         burnRedeem,
+        isManualConnected,
+        setIsManualConnected,
       }}
     >
       {children}

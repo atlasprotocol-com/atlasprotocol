@@ -8,6 +8,7 @@ import injectedWalletIcon from "@/app/assets/browser-wallet-icon.png"; // Correc
 import { useError } from "@/app/context/Error/ErrorContext";
 import { useTerms } from "@/app/context/Terms/TermsContext";
 import { ErrorState } from "@/app/types/errors";
+import { useEvmWallet } from "@/utils/evm_wallet/wallet_provider";
 
 import { Button } from "../Button";
 import { Dialog } from "../Dialog";
@@ -27,6 +28,7 @@ export const ConnectEvmWalletModal: React.FC<ConnectEvmWalletModalProps> = ({
 }) => {
   const { disconnectAsync } = useDisconnect();
   const { connectors, connectAsync, isPending, status, error } = useConnect();
+  const evmc = useEvmWallet();
 
   const uniqueConnectors = useMemo(() => {
     return connectors.filter((connector) => connector.id !== "metaMaskSDK");
@@ -81,6 +83,8 @@ export const ConnectEvmWalletModal: React.FC<ConnectEvmWalletModalProps> = ({
 
       await disconnectAsync();
 
+      evmc.setIsManualConnected(true);
+
       await connectAsync({
         connector: selectedConnector,
         chainId: Number(selectedChainID),
@@ -88,6 +92,7 @@ export const ConnectEvmWalletModal: React.FC<ConnectEvmWalletModalProps> = ({
 
       onClose(true);
     } catch (error) {
+      evmc.setIsManualConnected(false);
       console.log(error);
       showError({
         error: {
