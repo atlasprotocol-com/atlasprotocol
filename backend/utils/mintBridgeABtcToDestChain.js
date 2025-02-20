@@ -55,16 +55,19 @@ async function MintBridgeABtcToDestChain(near) {
 
           // Create payload to deploy the contract
           console.log(`${batchName} Creating EVM and Sign payload...`);
+          console.log(`${batchName} Bridge record: ${JSON.stringify(bridgeRecord)}`);
+          const finalAbtcAmount = bridgeRecord.abtc_amount - bridgeRecord.yield_provider_gas_fee - bridgeRecord.protocol_fee - bridgeRecord.minting_fee_sat;
+          console.log(`${batchName} Final aBTC amount: ${finalAbtcAmount}`);
           const signedTransaction = await ethereum.createMintBridgeABtcSignedTx(
             near,
             txnHash,
             sender,
             bridgeRecord.dest_chain_address,
-            bridgeRecord.abtc_amount,
+            Number(finalAbtcAmount),
             bridgeRecord.origin_chain_id,
             bridgeRecord.origin_chain_address,
             bridgeRecord.txn_hash.split(",")[1],
-            1000,
+            bridgeRecord.minting_fee_sat,
           );
           // Relay the transaction to EVM
           console.log(`${batchName} Relay transaction to EVM...`);

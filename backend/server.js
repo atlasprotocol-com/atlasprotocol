@@ -56,7 +56,19 @@ const {
   UpdateAtlasBtcWithdrawnFromYieldProvider,
 } = require("./utils/updateAtlasBtcWithdrawnFromYieldProvider");
 const { SendBtcBackToUser } = require("./utils/sendBtcBackToUser");
-const { estimateRedemptionFees } = require("./services/bithive");
+const { estimateRedemptionFees, estimateBridgingFees } = require("./services/bithive");
+const {
+  UnstakeBridgingFeesFromYieldProvider,
+} = require("./utils/unstakeBridgingFeesFromYieldProvider");
+const {
+  UpdateAtlasBtcBridgingYieldProviderUnstaked,
+} = require("./utils/updateAtlasBtcBridgingYieldProviderUnstaked");
+const {
+  WithdrawBridgingFeesFromYieldProvider,
+} = require("./utils/withdrawBridgingFeesFromYieldProvider");
+const {
+  UpdateAtlasBtcBridgingYieldProviderWithdrawn,
+} = require("./utils/updateAtlasBtcBridgingYieldProviderWithdrawn");
 
 // Load environment variables from .env.local or .env based on NODE_ENV
 const envFile = process.env.NODE_ENV === "production" ? ".env" : ".env.local";
@@ -205,10 +217,34 @@ app.get("/api/v1/atlas/redemptionFees", async (req, res) => {
     const protocolFee = globalParams.atlasRedemptionFeePercentage * amount;
 
     const data = {
-      estimatedGasFee:
-        feeData.estimated_fee < 1000 ? 1000 : feeData.estimated_fee,
-      atlasProtocolFee: protocolFee < 1000 ? 1000 : protocolFee,
-      estimatedFeeRate: feeData.estimated_fee_rate,
+      estimatedRedemptionFee:
+        feeData.estimated_redemption_fee < process.env.DUST_LIMIT ? process.env.DUST_LIMIT : feeData.estimated_redemption_fee,
+      atlasProtocolFee: protocolFee < process.env.DUST_LIMIT ? process.env.DUST_LIMIT : protocolFee,
+      estimatedRedemptionFeeRate: feeData.estimated_redemption_fee_rate,
+    };
+
+    res.json({ data });
+  } catch (error) {
+    console.log("Error getting gas fee: " + error);
+    res.status(500).json({ error: "Error getting gas fee. " + error });
+  }
+});
+
+app.get("/api/v1/atlas/bridgingFees", async (req, res) => {
+  try {
+    const { amount } = req.query;
+
+    const feeData = await estimateBridgingFees(bitcoin, near, amount);
+
+    console.log("feeData", feeData);
+
+    const protocolFee = globalParams.atlasBridgingFeePercentage * amount;
+
+    const data = {
+      estimatedBridgingFee:
+        feeData.estimated_bridging_fee < process.env.DUST_LIMIT ? process.env.DUST_LIMIT : feeData.estimated_bridging_fee,
+      atlasProtocolFee: protocolFee === 0 ? 0 : (protocolFee < process.env.DUST_LIMIT ? process.env.DUST_LIMIT : protocolFee),
+      estimatedBridgingFeeRate: feeData.estimated_bridging_fee_rate,
     };
 
     res.json({ data });
@@ -462,6 +498,11 @@ async function runBatch() {
   await MintBridgeABtcToDestChain(near);
   await UpdateAtlasBridgeAbtcMinted(bridgings, near);
 
+  await UnstakeBridgingFeesFromYieldProvider(near, bitcoin);
+  await UpdateAtlasBtcBridgingYieldProviderUnstaked(bridgings, near);
+  await WithdrawBridgingFeesFromYieldProvider(near, bitcoin, globalParams.atlasTreasuryAddress);
+  await UpdateAtlasBtcBridgingYieldProviderWithdrawn(bridgings, near, bitcoin);
+
   // Delay for 5 seconds before running the batch again
   await new Promise((resolve) => setTimeout(resolve, 5000));
   return runBatch();
@@ -476,6 +517,6 @@ app.listen(PORT, async () => {
   await fetchAndSetConstants(near); // Load constants
 
   console.log(`Server is running on port ${PORT}`);
-
+  
   runBatch().catch(console.error);
 });

@@ -28,6 +28,12 @@ pub mod status {
     pub const BRG_ABTC_BURNT: u8 = 10;
     pub const BRG_ABTC_PENDING_BRIDGE_FROM_ORIGIN_TO_DEST: u8 = 11;
     pub const BRG_ABTC_MINTED_TO_DEST: u8 = 20;
+    pub const BRG_ABTC_PENDING_YIELD_PROVIDER_UNSTAKE: u8 = 31;
+    pub const BRG_ABTC_YIELD_PROVIDER_UNSTAKE_PROCESSING: u8 = 32;
+    pub const BRG_ABTC_YIELD_PROVIDER_UNSTAKED: u8 = 33;
+    pub const BRG_ABTC_PENDING_YIELD_PROVIDER_WITHDRAW: u8 = 34;
+    pub const BRG_ABTC_YIELD_PROVIDER_WITHDRAWING: u8 = 35;
+    pub const BRG_ABTC_YIELD_PROVIDER_WITHDRAWN: u8 = 36;
 }
 
 pub mod network_type {

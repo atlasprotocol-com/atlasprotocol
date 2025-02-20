@@ -5,15 +5,15 @@ interface RedemptionFeesAPIResponse {
 }
 
 interface RedemptionFeesAPI {
-  estimatedGasFee: number;
+  estimatedRedemptionFee: number;
   atlasProtocolFee: number;
-  estimatedFeeRate: number;
+  estimatedRedemptionFeeRate: number;
 }
 
 interface RedemptionFees {
-  estimatedGasFee: number;
+  estimatedRedemptionFee: number;
   atlasProtocolFee: number;
-  estimatedFeeRate: number;
+  estimatedRedemptionFeeRate: number;
 }
 
 export const getRedemptionFees = async (
@@ -35,9 +35,9 @@ export const getRedemptionFees = async (
     const redemptionFeesAPI: RedemptionFeesAPI = redemptionFeesAPIResponse.data;
 
     return {
-      estimatedGasFee: redemptionFeesAPI.estimatedGasFee,
+      estimatedRedemptionFee: redemptionFeesAPI.estimatedRedemptionFee,
       atlasProtocolFee: redemptionFeesAPI.atlasProtocolFee,
-      estimatedFeeRate: redemptionFeesAPI.estimatedFeeRate,
+      estimatedRedemptionFeeRate: redemptionFeesAPI.estimatedRedemptionFeeRate,
     };
   } catch (error) {
     console.error("Failed to fetch redemption fees:", error);

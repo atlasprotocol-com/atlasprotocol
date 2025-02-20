@@ -6,6 +6,7 @@ import { z } from "zod";
 
 import { useAppContext } from "@/app/context/app";
 import { useABtcBridge } from "@/app/hooks";
+import { useEstGasAtlasBurn } from "@/app/hooks/evm/estGas";
 import {
   useConnectMultiChain,
   useGetAtlasBTCBalanceMultiChain,
@@ -19,6 +20,8 @@ import { useBool } from "@/hooks/useBool";
 import { btcToSatoshi } from "@/utils/btcConversions";
 import { useNearAbtcBridge } from "@/utils/near";
 import { validateBlockchainAddress } from "@/utils/validateAddress";
+import { getTxBridgingFees } from "@/utils/getTxBridgingFees";
+import { getEstimateAbtcMintGas } from '@/utils/getEstimateAbtcMintGas';
 
 import { Button } from "../Button";
 import { InputField } from "../InputField";
@@ -67,6 +70,10 @@ export function Bridge() {
   const [previewData, setReviewData] = useState<
     | (SchemaType & {
         amountSat: number;
+        transactionFee?: number;
+        bridgingFeeSat?: number;
+        atlasProtocolFee?: number;
+        mintingFeeSat?: number;
       })
     | undefined
   >(undefined);
@@ -174,6 +181,14 @@ export function Bridge() {
       tokenAddress: selectedEVMChain?.aBTCAddress,
     });
 
+  const { data: gas, isLoading: gasEstimateLoading } = useEstGasAtlasBurn({
+    chainConfig: selectedChain,
+    amountSat: btcToSatoshi(watch("amount")),
+    userAddress: fromAddress || "",
+  });
+
+  
+
   const onSubmit = async (data: SchemaType) => {
     if (!params.data) return;
 
@@ -193,12 +208,47 @@ export function Bridge() {
       return;
     }
 
-    setReviewData({
-      ...data,
-      amountSat: btcToSatoshi(data.amount),
-    });
+    try {
+      const fees = await getTxBridgingFees(btcToSatoshi(data.amount));
 
-    previewToggle.setTrue();
+      console.log("fees", fees);
+      if (!fees) throw new Error("Failed to get bridging fees");
+
+      const { estimatedBridgingFee, atlasProtocolFee } = fees;
+
+      console.log("gas", gas);
+      const transactionFee = gas?.gasLimit || 0;
+
+      const toChainConfig = chainConfigs[data?.toChainID || ''];
+
+      const mintingFee = await getEstimateAbtcMintGas(
+        toChainConfig?.chainRpcUrl || '',
+        toChainConfig?.aBTCAddress || '',
+        watch("address"),
+        btcToSatoshi(watch("amount")),
+        "cd36e5e6072e3ea0ac92ad20f99ef8c736f78b3c287b43f0a8c3e8607fe6a337",
+        params?.data?.evmAtlasAddress || "",
+        toChainConfig?.networkType || ""
+      );
+
+      setReviewData({
+        ...data,
+        amountSat: btcToSatoshi(data.amount),
+        transactionFee,
+        bridgingFeeSat: estimatedBridgingFee,
+        atlasProtocolFee,
+        mintingFeeSat: mintingFee.mintingFeeSat,
+      });
+
+      previewToggle.setTrue();
+    } catch (error) {
+      console.error("Failed to fetch bridging fees:", error);
+      addFeedback({
+        type: "error",
+        content: "Failed to calculate fees. Please try again.",
+        title: "Error",
+      });
+    }
   };
 
   const onConfirm = async () => {
@@ -218,6 +268,8 @@ export function Bridge() {
           amount: previewData.amountSat.toString(),
           destChainAddress: previewData.address,
           destChainId: toSelectedChain?.chainID || "",
+          mintingFeeSat: previewData.mintingFeeSat,
+          bridgingFeeSat: previewData.bridgingFeeSat,
         });
       }
 
@@ -226,6 +278,8 @@ export function Bridge() {
           amount: previewData.amountSat.toString(),
           destinationAddress: previewData.address,
           destinationChain: toSelectedChain?.chainID || "",
+          mintingFeeSat: previewData.mintingFeeSat,
+          bridgingFeeSat: previewData.bridgingFeeSat,
         });
       }
       addFeedback({
@@ -416,7 +470,12 @@ export function Bridge() {
         fromChain={selectedChain?.networkName}
         toChain={toSelectedChain?.networkName}
         toAddress={previewData?.address}
+        transactionFee={previewData?.transactionFee}
+        bridgingFeeSat={previewData?.bridgingFeeSat}
+        atlasProtocolFee={previewData?.atlasProtocolFee}
+        mintingFeeSat={previewData?.mintingFeeSat}
         onConfirm={onConfirm}
+        networkType={selectedChain?.networkType}
       />
     </>
   );

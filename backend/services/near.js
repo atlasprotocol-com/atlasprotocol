@@ -84,6 +84,8 @@ class Near {
           "get_first_valid_bridging_chain_config",
           "get_first_valid_user_deposit",
           "get_first_valid_user_redemption",
+          "get_first_valid_bridging_fees_unstake",
+          "get_first_valid_bridging_fees_unstaked",
         ],
         changeMethods: [
           "insert_deposit_btc",
@@ -119,6 +121,13 @@ class Near {
           "create_abtc_accept_ownership_tx",
           "withdraw_fail_deposit_by_btc_tx_hash",
           "rollback_deposit_status_by_btc_txn_hash",
+          "update_bridging_fees_pending_yield_provider_unstake",
+          "update_bridging_fees_yield_provider_unstake_processing",
+          "update_bridging_fees_yield_provider_remarks",
+          "update_bridging_fees_yield_provider_unstaked",
+          "update_bridging_fees_pending_yield_provider_withdraw",
+          "update_bridging_fees_yield_provider_withdrawing",
+          "update_bridging_fees_yield_provider_withdrawn",
         ],
       });
 
@@ -886,6 +895,8 @@ class Near {
               const wallet = memo.address;
               const destChainId = memo.destChainId;
               const destChainAddress = memo.destChainAddress;
+              const mintingFeeSat = memo.mintingFeeSat;
+              const bridgingFeeSat = memo.bridgingFeeSat;
               const transactionHash = txResult.transaction.hash;
 
               var isValidAddress =
@@ -904,6 +915,8 @@ class Near {
                   wallet,
                   destChainId,
                   destChainAddress,
+                  mintingFeeSat,
+                  bridgingFeeSat,
                 },
                 transactionHash,
                 blockNumber: blockId,
@@ -1094,6 +1107,8 @@ class Near {
       status: record.status,
       remarks: record.remarks,
       date_created: record.date_created,
+      minting_fee_sat: record.minting_fee_sat,
+      yield_provider_gas_fee: record.yield_provider_gas_fee,
     });
   }
 
@@ -1127,10 +1142,64 @@ class Near {
   }
 
   async getFirstValidBridgingChainConfig() {
-    return this.makeNearRpcChangeCall(
+    return this.makeNearRpcViewCall(
       "get_first_valid_bridging_chain_config",
-      {},
     );
+  }
+
+  async getFirstValidBridgingFeesUnstake() {
+    return this.makeNearRpcViewCall(
+      "get_first_valid_bridging_fees_unstake",
+    );
+  }
+  
+  async updateBridgingFeesPendingYieldProviderUnstake(txnHash) {
+    return this.makeNearRpcChangeCall("update_bridging_fees_pending_yield_provider_unstake", {
+      txn_hash: txnHash,
+    });
+  }
+
+
+  async updateBridgingFeesYieldProviderRemarks(txnHash, remarks) {
+    return this.makeNearRpcChangeCall("update_bridging_fees_yield_provider_remarks", {
+      txn_hash: txnHash,
+      remarks: remarks,
+    });
+  }
+
+  async updateBridgingFeesYieldProviderUnstaked(txnHash) {
+    return this.makeNearRpcChangeCall("update_bridging_fees_yield_provider_unstaked", {
+      txn_hash: txnHash,
+    });
+  }
+
+  async getFirstValidBridgingFeesUnstaked() {
+    return this.makeNearRpcViewCall("get_first_valid_bridging_fees_unstaked", {});
+  }
+
+  async updateBridgingFeesPendingYieldProviderWithdraw(txnHash) {
+    return this.makeNearRpcChangeCall("update_bridging_fees_pending_yield_provider_withdraw", {
+      txn_hash: txnHash,
+    });
+  }
+
+  async updateBridgingFeesYieldProviderWithdrawing(txnHash, depositTxHash) {
+    return this.makeNearRpcChangeCall("update_bridging_fees_yield_provider_withdrawing", {
+      txn_hash: txnHash,
+      yield_provider_txn_hash: depositTxHash,
+    });
+  }
+
+  async updateBridgingFeesYieldProviderWithdrawn(txnHash) {
+    return this.makeNearRpcChangeCall("update_bridging_fees_yield_provider_withdrawn", {
+      txn_hash: txnHash,
+    });
+  }
+  
+  async updateBridgingFeesYieldProviderUnstakeProcessing(txnHash) {
+    return this.makeNearRpcChangeCall("update_bridging_fees_yield_provider_unstake_processing", {
+      txn_hash: txnHash,
+    });
   }
 
   async createMintBridgeABtcSignedTx(payloadHeader) {

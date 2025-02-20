@@ -1,5 +1,3 @@
-import web3 from "web3";
-
 import { useAppContext } from "@/app/context/app";
 import { useGetStats } from "@/hooks/stats";
 import { satoshiToBtc } from "@/utils/btcConversions";
@@ -12,7 +10,7 @@ export interface RedeemPreviewProps {
   open: boolean;
   onClose: () => void;
   feeRate?: number;
-  transactionFeeEth?: number;
+  transactionFee?: number;
   receivingAddress?: string;
   redeemChain?: string;
   amount?: number;
@@ -20,14 +18,14 @@ export interface RedeemPreviewProps {
   isPending?: boolean;
   btcRedemptionFee?: number;
   atlasProtocolFee?: number;
-  hideFee?: boolean;
+  networkType?: string;
 }
 
 export function RedeemPreview({
   open,
   onClose,
   feeRate,
-  transactionFeeEth,
+  transactionFee,
   receivingAddress,
   redeemChain,
   amount,
@@ -35,27 +33,17 @@ export function RedeemPreview({
   btcRedemptionFee,
   onConfirm,
   isPending,
-  hideFee,
+  networkType,
 }: RedeemPreviewProps) {
   const { BTC_TOKEN, ATLAS_BTC_TOKEN } = useAppContext();
   const { data: stats } = useGetStats();
   const btcPriceUsd = stats?.btcPriceUsd || 0;
   const ethPriceUsd = stats?.ethPriceUsd || 0;
+  const nearPriceUsd = stats?.nearPriceUsd || 0;
 
-  const redemptionFeeEth = web3.utils.fromWei(
-    feeRate?.toString() || 0,
-    "ether",
-  );
-
-  const transactionFeeUsd =
-    transactionFeeEth && ethPriceUsd
-      ? (Number(transactionFeeEth) * ethPriceUsd).toFixed(4)
-      : "--";
-
-  const redemptionFeeUsd =
-    redemptionFeeEth && ethPriceUsd
-      ? (Number(redemptionFeeEth) * ethPriceUsd).toFixed(4)
-      : "--";
+  const transactionFeeUsd = transactionFee && (networkType === "EVM" ? ethPriceUsd : nearPriceUsd)
+    ? (Number(transactionFee) * (networkType === "EVM" ? ethPriceUsd : nearPriceUsd)).toFixed(4)
+    : "--";
 
   const btcRedemptionFeeUsd =
     btcRedemptionFee && btcPriceUsd
@@ -69,6 +57,17 @@ export function RedeemPreview({
 
   const amountUsd =
     amount && btcPriceUsd ? (amount * btcPriceUsd).toFixed(2) : "--";
+  console.log("amount:", amount);
+  console.log("btcRedemptionFee:", btcRedemptionFee);
+  console.log("atlasProtocolFee:", atlasProtocolFee);
+  const totalFees = Number(btcRedemptionFee || 0) + Number(atlasProtocolFee || 0);
+  console.log("totalFees:", totalFees);
+  const actualReceived = amount && (totalFees || totalFees === 0)
+    ? Math.max(0, Number((amount - (totalFees / 100000000)).toFixed(8)))
+    : '--';
+  const actualReceivedUsd = actualReceived !== '--' && btcPriceUsd
+    ? (actualReceived * btcPriceUsd).toFixed(2)
+    : '--';
 
   return (
     <Dialog
@@ -102,16 +101,22 @@ export function RedeemPreview({
             {receivingAddress}
           </p>
         </div>
+        <div className="mt-4">
+          <p className="text-caption text-sm font-semibold">Amount to Receive (Estimated)</p>
+          <p className="text-base font-semibold break-all">
+            {actualReceived} {BTC_TOKEN} <span className="text-sm text-neutral-7">(≈{actualReceivedUsd} USD)</span>
+          </p>
+        </div>
       </div>
-      {hideFee ? null : (
+      
         <div className="mt-4 flex gap-4">
           <div className="rounded-lg border border-neutral-5  dark:border-neutral-8 dark:bg-neutral-10 p-3 flex-1">
             <p className="text-caption text-sm font-semibold">
-              EVM Transaction Fee
+              {networkType} Transaction Fee
             </p>
             <p className=" text-base font-semibold break-all ">
-              {transactionFeeEth || "--"} <br />
-              ETH
+              {transactionFee?.toFixed(8) || "--"} <br />
+              {networkType === "EVM" ? "ETH" : "NEAR"}
               <span className="text-sm text-neutral-7">
                 <br />
                 (≈{transactionFeeUsd} USD)
@@ -120,7 +125,7 @@ export function RedeemPreview({
           </div>
           <div className="rounded-lg border border-neutral-5  dark:border-neutral-8 dark:bg-neutral-10 p-3 flex-1">
             <p className="text-caption text-sm font-semibold">
-              {BTC_TOKEN} Unstaking Fee
+              {BTC_TOKEN} Unstaking Fee (Estimated)
             </p>
             <p className=" text-base font-semibold break-all ">
               {maxDecimals(
@@ -149,8 +154,12 @@ export function RedeemPreview({
             </p>
           </div>
         </div>
-      )}
-      <Button className="mt-4 w-full" onClick={onConfirm} disabled={isPending}>
+    
+      <Button
+        className="mt-4 w-full"
+        onClick={onConfirm}
+        disabled={isPending || !btcRedemptionFee}
+      >
         Redeem
       </Button>
     </Dialog>

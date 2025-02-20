@@ -70,7 +70,7 @@ async function UpdateAtlasBtcBridgings(near) {
       const records = [];
       for (const event of events) {
         const {
-          returnValues: { wallet, destChainId, destChainAddress, amount },
+          returnValues: { wallet, destChainId, destChainAddress, amount, mintingFeeSat, bridgingFeeSat },
           transactionHash,
           blockNumber,
         } = event; // Make sure blockNumber is part of the event object
@@ -94,6 +94,8 @@ async function UpdateAtlasBtcBridgings(near) {
           remarks: "",
           date_created: timestamp,
           verified_count: 0,
+          minting_fee_sat: Number(mintingFeeSat),
+          yield_provider_gas_fee: Number(bridgingFeeSat),
         };
 
         // Fetch the transaction receipt to check the status
@@ -136,16 +138,20 @@ async function UpdateAtlasBtcBridgings(near) {
       );
 
       const events = await near.getPastBurnBridgingEventsInBatches(
-        startBlock,
+        startBlock - 100,
         endBlock,
+        // 188108587 - 10,
+        // 188108597 + 10,
         chain.aBTCAddress,
       );
+      console.log(`${batchName} events: ${events.length}`);
+      console.log(`${batchName} events content:`, JSON.stringify(events, null, 2));
 
       // Cache events and process
       const records = [];
       for (const event of events) {
         const {
-          returnValues: { wallet, destChainId, destChainAddress, amount },
+          returnValues: { wallet, destChainId, destChainAddress, amount, mintingFeeSat, bridgingFeeSat },
           transactionHash,
           timestamp,
           status,
@@ -167,6 +173,8 @@ async function UpdateAtlasBtcBridgings(near) {
           remarks: "",
           date_created: timestamp,
           verified_count: 0,
+          minting_fee_sat: Number(mintingFeeSat),
+          yield_provider_gas_fee: Number(bridgingFeeSat),
         };
 
         if (status) {

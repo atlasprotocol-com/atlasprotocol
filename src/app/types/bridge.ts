@@ -11,6 +11,9 @@ export interface BridgeHistory {
   remarks: string;
   date_created: number;
   verified_count: number;
+  minting_fee_sat: number;
+  protocol_fee: number;
+  yield_provider_gas_fee: number;
 }
 
 // pub const BRG_ABTC_PENDING_BURNT: u8 = 0;

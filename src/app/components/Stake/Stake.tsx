@@ -94,7 +94,7 @@ export function Stake({ formattedBalance }: StakeProps) {
         ? 0
         : Math.floor(
             Math.max(
-              1000,
+              Number(process.env.NEXT_PUBLIC_DUST_LIMIT),
               (params?.data?.feeDepositPercentage || 0) *
                 (previewData?.amountSat || 0),
             ),
@@ -177,17 +177,13 @@ export function Stake({ formattedBalance }: StakeProps) {
       amountSat,
       "cd36e5e6072e3ea0ac92ad20f99ef8c736f78b3c287b43f0a8c3e8607fe6a337",
       params?.data?.evmAtlasAddress || "",
+      chainConfigs[data.chainID].networkType,
     );
-
-
-    const mintingFeeEth = (mintingFee.gasEstimate * mintingFee.gasPrice) / 1e18;
-
-    const mintingFeeBtc = mintingFeeEth * ethPriceBtc;
 
     setReviewData({
       ...data,
       amountSat: btcToSatoshi(data.amount),
-      mintingFee: Math.max(1000, btcToSatoshi(mintingFeeBtc)),
+      mintingFee: Math.max(Number(process.env.NEXT_PUBLIC_DUST_LIMIT), mintingFee.mintingFeeSat),
     });
     previewToggle.setTrue();
   };
@@ -221,7 +217,7 @@ export function Stake({ formattedBalance }: StakeProps) {
             ? 0
             : Math.floor(
                 Math.max(
-                  1000,
+                  Number(process.env.NEXT_PUBLIC_DUST_LIMIT),
                   (params?.data?.feeDepositPercentage || 0) *
                     (previewData?.amountSat || 0),
                 ),
@@ -287,7 +283,7 @@ export function Stake({ formattedBalance }: StakeProps) {
           ? 0
           : Math.floor(
               Math.max(
-                1000,
+                Number(process.env.NEXT_PUBLIC_DUST_LIMIT),
                 (params?.data?.feeDepositPercentage || 0) *
                   (previewData?.amountSat || 0),
               ),

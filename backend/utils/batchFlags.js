@@ -20,6 +20,10 @@ const flagsBatch = {
   UpdateYieldProviderStackedRunning: false,
   UpdateYieldProviderUnstakedRunning: false,
   UpdateAtlasBtcWithdrawnFromYieldProviderRunning: false,
+  UnstakeBridgingFeesFromYieldProviderRunning: false,
+  WithdrawBridgingFeesFromYieldProviderRunning: false,
+  UpdateAtlasBtcBridgingYieldProviderWithdrawnRunning: false,
+  UpdateAtlasBtcBridgingYieldProviderUnstakedRunning: false,
 };
 
 function blockRange(block, start = 1000, end = 2000) {

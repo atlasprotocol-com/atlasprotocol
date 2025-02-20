@@ -37,6 +37,8 @@ impl Atlas {
         status: u8,
         remarks: String,
         date_created: u64,
+        minting_fee_sat: u64,
+        yield_provider_gas_fee: u64,
     ) {
         self.assert_admin();
 
@@ -55,6 +57,11 @@ impl Atlas {
             remarks,
             date_created,
             verified_count: 0,
+            minting_fee_sat,
+            yield_provider_gas_fee,
+            yield_provider_txn_hash: "".to_string(),
+            yield_provider_status: BRG_ABTC_BURNT,
+            yield_provider_remarks: "".to_string(),
         };
 
         self.bridgings.insert(txn_hash, record);
@@ -264,7 +271,7 @@ impl Atlas {
                             }
 
                             // Ensure the BTC amount is properly converted to U256 (Ethereum uint256)
-                            let amount = U256::from(bridging.abtc_amount);
+                            let amount = U256::from(bridging.abtc_amount - bridging.protocol_fee - bridging.yield_provider_gas_fee - bridging.minting_fee_sat);
 
                             let to_address_str =
                                 chain_config.abtc_address.strip_prefix("0x").unwrap();
@@ -356,7 +363,7 @@ impl Atlas {
 
                             let args_json_string = json!({
                                 "account_id": bridging.dest_chain_address,
-                                "amount": bridging.abtc_amount.to_string(),
+                                "amount": (bridging.abtc_amount - bridging.protocol_fee - bridging.yield_provider_gas_fee - bridging.minting_fee_sat).to_string(),
                                 "origin_chain_id": bridging.origin_chain_id,
                                 "origin_chain_address": bridging.origin_chain_address,
                                 "origin_txn_hash": bridging.txn_hash
@@ -596,4 +603,304 @@ impl Atlas {
         }
     }
 
- }
+
+    pub fn rollback_bridging_yield_provider_status_by_txn_hash(&mut self, txn_hash: String) {
+        self.assert_not_paused();
+
+        // Validate input parameters
+        assert!(!txn_hash.is_empty(), "Transaction hash cannot be empty");
+
+        // Retrieve the bridging record based on txn_hash
+        if let Some(mut bridging) = self.bridgings.get(&txn_hash).cloned() {
+            if !bridging.origin_chain_address.is_empty()
+                && !bridging.origin_chain_id.is_empty()
+                && !bridging.dest_chain_address.is_empty()
+                && !bridging.dest_chain_id.is_empty()
+                //&& !bridging.yield_provider_remarks.is_empty()
+            {
+                match bridging.yield_provider_status {
+                    
+                    BRG_ABTC_BURNT => {
+                        bridging.yield_provider_remarks.clear();
+                    },
+                    BRG_ABTC_PENDING_YIELD_PROVIDER_UNSTAKE => {
+                        bridging.yield_provider_status = BRG_ABTC_BURNT;
+                        bridging.yield_provider_remarks.clear();
+                    },
+                    BRG_ABTC_YIELD_PROVIDER_UNSTAKED => {
+                        bridging.yield_provider_remarks.clear();
+                    },
+                    BRG_ABTC_PENDING_YIELD_PROVIDER_WITHDRAW => {
+                        bridging.yield_provider_status = BRG_ABTC_YIELD_PROVIDER_UNSTAKED;
+                        bridging.yield_provider_remarks.clear();
+                    },
+                    _ => {
+                        // No action needed for other statuses
+                    }
+                }
+
+                // Update the bridging record in the map
+                self.bridgings.insert(txn_hash, bridging);
+            }
+        } else {
+            env::log_str("Bridging record not found for the given txn hash");
+        }
+    }
+
+    pub fn get_first_valid_bridging_fees_unstake(&self) -> Option<(String, u64, u64, u64, u64)> {
+        for (key, bridging) in self.bridgings.iter() {
+            if bridging.origin_chain_id != ""
+                && bridging.origin_chain_address != ""
+                && bridging.dest_chain_id != ""
+                && bridging.dest_chain_address != ""
+                && bridging.yield_provider_status == BRG_ABTC_BURNT
+                && bridging.yield_provider_remarks == ""
+                && bridging.status == BRG_ABTC_MINTED_TO_DEST
+                && bridging.remarks == ""
+            {
+                // Get the chain config using bridging.dest_chain_id
+                if let Some(chain_config) = self
+                    .chain_configs
+                    .get_chain_config(bridging.dest_chain_id.clone())
+                {
+                    // Check if the verified_count meets or exceeds the validators_threshold
+                    if bridging.verified_count >= chain_config.validators_threshold {
+                        log!(
+                            "Found valid bridging record for unstaking fees with txn_hash: {}. Verified count ({}) meets threshold ({})",
+                            key,
+                            bridging.verified_count,
+                            chain_config.validators_threshold
+                        );
+                        
+                        return Some((
+                            key.clone(),
+                            bridging.abtc_amount,
+                            bridging.minting_fee_sat,
+                            bridging.protocol_fee,
+                            bridging.yield_provider_gas_fee
+                        ));
+                    }
+                }
+            }
+        }
+
+        None // If no matching bridging record is found, return None
+    }
+
+
+
+    pub fn get_first_valid_bridging_fees_unstaked(&self) -> Option<(String, u64, u64, u64, u64)> {
+        for (key, bridging) in self.bridgings.iter() {
+            if bridging.origin_chain_id != ""
+                && bridging.origin_chain_address != ""
+                && bridging.dest_chain_id != ""
+                && bridging.dest_chain_address != ""
+                && bridging.yield_provider_status == BRG_ABTC_YIELD_PROVIDER_UNSTAKED
+                && bridging.yield_provider_remarks == ""
+            {
+                // Get the chain config using bridging.dest_chain_id
+                if let Some(chain_config) = self
+                    .chain_configs
+                    .get_chain_config(bridging.dest_chain_id.clone())
+                {
+                    // Check if the verified_count meets or exceeds the validators_threshold
+                    if bridging.verified_count >= chain_config.validators_threshold {
+                        log!(
+                            "Found valid bridging record for unstaked fees with txn_hash: {}. Verified count ({}) meets threshold ({})",
+                            key,
+                            bridging.verified_count,
+                            chain_config.validators_threshold
+                        );
+
+                        return Some((
+                            key.clone(),
+                            bridging.abtc_amount,
+                            bridging.minting_fee_sat,
+                            bridging.protocol_fee,
+                            bridging.yield_provider_gas_fee
+                        ));
+                    }
+                }
+            }
+        }
+
+        None // If no matching bridging record is found, return None
+    }
+
+   
+
+    pub fn update_bridging_fees_pending_yield_provider_unstake(&mut self, txn_hash: String) {
+        self.assert_not_paused();
+        self.assert_admin();
+
+         // Validate input parameters
+         assert!(!txn_hash.is_empty(), "Transaction hash cannot be empty");
+
+        if let Some(bridging) = self.bridgings.get(&txn_hash) {
+            // Check if bridging record meets requirements
+            if bridging.yield_provider_status == BRG_ABTC_BURNT 
+                && bridging.status == BRG_ABTC_MINTED_TO_DEST
+                && bridging.yield_provider_remarks.is_empty() 
+                && bridging.remarks.is_empty() {
+                
+                // Get chain config and verify threshold
+                if let Some(chain_config) = self.chain_configs.get_chain_config(bridging.dest_chain_id.clone()) {
+                    if bridging.verified_count >= chain_config.validators_threshold {
+                        // Update the status
+                        let mut updated_bridging = bridging.clone();
+                        updated_bridging.yield_provider_status = BRG_ABTC_PENDING_YIELD_PROVIDER_UNSTAKE;
+                        self.bridgings.insert(txn_hash, updated_bridging);
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn update_bridging_fees_yield_provider_unstake_processing(&mut self, txn_hash: String) {
+        self.assert_not_paused();
+        self.assert_admin();
+
+        // Validate input parameters
+        assert!(!txn_hash.is_empty(), "Transaction hash cannot be empty");
+
+        if let Some(bridging) = self.bridgings.get(&txn_hash) {
+            // Check if bridging record meets requirements
+            if bridging.yield_provider_status == BRG_ABTC_PENDING_YIELD_PROVIDER_UNSTAKE 
+                && bridging.yield_provider_remarks.is_empty() {
+                
+                // Get chain config and verify threshold
+                if let Some(chain_config) = self.chain_configs.get_chain_config(bridging.dest_chain_id.clone()) {
+                    if bridging.verified_count >= chain_config.validators_threshold {
+                        // Update the status
+                        let mut updated_bridging = bridging.clone();
+                        updated_bridging.yield_provider_status = BRG_ABTC_YIELD_PROVIDER_UNSTAKE_PROCESSING;
+                        updated_bridging.timestamp = env::block_timestamp() / 1_000_000_000;
+                        
+                        self.bridgings.insert(txn_hash, updated_bridging);
+                    }
+                }
+            }
+        }
+    }
+    
+    pub fn update_bridging_fees_yield_provider_unstaked(&mut self, txn_hash: String) {
+        self.assert_not_paused();
+        self.assert_admin();
+
+        // Validate input parameters
+        assert!(!txn_hash.is_empty(), "Transaction hash cannot be empty");
+
+        if let Some(bridging) = self.bridgings.get(&txn_hash) {
+            // Check if bridging record meets requirements
+            if bridging.yield_provider_status == BRG_ABTC_YIELD_PROVIDER_UNSTAKE_PROCESSING 
+                && bridging.yield_provider_remarks.is_empty() {
+                
+                // Get chain config and verify threshold
+                if let Some(chain_config) = self.chain_configs.get_chain_config(bridging.dest_chain_id.clone()) {
+                    if bridging.verified_count >= chain_config.validators_threshold {
+                        // Update the status
+                        let mut updated_bridging = bridging.clone();
+                        updated_bridging.yield_provider_status = BRG_ABTC_YIELD_PROVIDER_UNSTAKED;
+                        self.bridgings.insert(txn_hash, updated_bridging);
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn update_bridging_fees_pending_yield_provider_withdraw(&mut self, txn_hash: String) {
+        self.assert_not_paused();
+        self.assert_admin();
+
+        // Validate input parameters
+        assert!(!txn_hash.is_empty(), "Transaction hash cannot be empty");
+
+        if let Some(bridging) = self.bridgings.get(&txn_hash) {
+            // Check if bridging record meets requirements
+            if bridging.yield_provider_status == BRG_ABTC_YIELD_PROVIDER_UNSTAKED 
+                && bridging.yield_provider_remarks.is_empty() {
+                
+                // Get chain config and verify threshold
+                if let Some(chain_config) = self.chain_configs.get_chain_config(bridging.dest_chain_id.clone()) {
+                    if bridging.verified_count >= chain_config.validators_threshold {
+                        // Update the status
+                        let mut updated_bridging = bridging.clone();
+                        updated_bridging.yield_provider_status = BRG_ABTC_PENDING_YIELD_PROVIDER_WITHDRAW;
+                        self.bridgings.insert(txn_hash, updated_bridging);
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn update_bridging_fees_yield_provider_withdrawing(&mut self, txn_hash: String, yield_provider_txn_hash: String) {
+        self.assert_not_paused();
+        self.assert_admin();
+
+        // Validate input parameters
+        assert!(!txn_hash.is_empty(), "Transaction hash cannot be empty");
+        assert!(!yield_provider_txn_hash.is_empty(), "Yield provider transaction hash cannot be empty");
+
+        if let Some(bridging) = self.bridgings.get(&txn_hash) {
+            // Check if bridging record meets requirements
+            if bridging.yield_provider_status == BRG_ABTC_PENDING_YIELD_PROVIDER_WITHDRAW 
+                && bridging.yield_provider_remarks.is_empty() {
+                
+                // Get chain config and verify threshold
+                if let Some(chain_config) = self.chain_configs.get_chain_config(bridging.dest_chain_id.clone()) {
+                    if bridging.verified_count >= chain_config.validators_threshold {
+                        // Update the status and yield provider txn hash
+                        let mut updated_bridging = bridging.clone();
+                        updated_bridging.yield_provider_status = BRG_ABTC_YIELD_PROVIDER_WITHDRAWING;
+                        updated_bridging.yield_provider_txn_hash = yield_provider_txn_hash;
+                        self.bridgings.insert(txn_hash, updated_bridging);
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn update_bridging_fees_yield_provider_withdrawn(&mut self, txn_hash: String) {
+        self.assert_not_paused();
+        self.assert_admin();
+
+        // Validate input parameters
+        assert!(!txn_hash.is_empty(), "Transaction hash cannot be empty");
+
+        if let Some(bridging) = self.bridgings.get(&txn_hash) {
+            // Check if bridging record meets requirements
+            if bridging.yield_provider_status == BRG_ABTC_YIELD_PROVIDER_WITHDRAWING 
+                && bridging.yield_provider_remarks.is_empty()
+                && !bridging.yield_provider_txn_hash.is_empty()
+                && bridging.yield_provider_gas_fee != 0 {
+                
+                // Get chain config and verify threshold
+                if let Some(chain_config) = self.chain_configs.get_chain_config(bridging.dest_chain_id.clone()) {
+                    if bridging.verified_count >= chain_config.validators_threshold {
+                        // Update the status
+                        let mut updated_bridging = bridging.clone();
+                        updated_bridging.yield_provider_status = BRG_ABTC_YIELD_PROVIDER_WITHDRAWN;
+                        self.bridgings.insert(txn_hash, updated_bridging);
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn update_bridging_fees_yield_provider_remarks(&mut self, txn_hash: String, remarks: String) {
+        self.assert_not_paused();
+        self.assert_admin();
+
+        // Validate input parameters
+        assert!(!txn_hash.is_empty(), "Transaction hash cannot be empty");
+        assert!(!remarks.is_empty(), "Remarks cannot be empty");
+
+        if let Some(mut bridging) = self.bridgings.get(&txn_hash).cloned() {
+            bridging.yield_provider_remarks = remarks;
+            self.bridgings.insert(txn_hash, bridging);
+        } else {
+            env::panic_str("Bridging record not found");
+        }
+    }
+    
+}

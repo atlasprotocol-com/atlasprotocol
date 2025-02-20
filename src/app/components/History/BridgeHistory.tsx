@@ -252,10 +252,15 @@ export function BridgeHistorySection() {
                         return (
                           <TableRow key={bridgeHistory.timestamp}>
                             <TableCell>
-                              {maxDecimals(
-                                satoshiToBtc(bridgeHistory.abtc_amount),
-                                8,
-                              )}
+                              <div title={`Total Amount: ${maxDecimals(satoshiToBtc(bridgeHistory.abtc_amount), 8)} BTC
+Protocol Fee: ${maxDecimals(satoshiToBtc(bridgeHistory.protocol_fee), 8)} BTC
+Bridging Fee: ${maxDecimals(satoshiToBtc(bridgeHistory.yield_provider_gas_fee + bridgeHistory.minting_fee_sat), 8)} BTC
+Net Amount: ${maxDecimals(satoshiToBtc(bridgeHistory.abtc_amount - bridgeHistory.protocol_fee - bridgeHistory.yield_provider_gas_fee - bridgeHistory.minting_fee_sat), 8)} BTC`}>
+                                {maxDecimals(
+                                  satoshiToBtc(bridgeHistory.abtc_amount - bridgeHistory.protocol_fee - bridgeHistory.yield_provider_gas_fee - bridgeHistory.minting_fee_sat),
+                                  8,
+                                )}
+                              </div>
                             </TableCell>
                             <TableCell>
                               {formatTimestamp(
