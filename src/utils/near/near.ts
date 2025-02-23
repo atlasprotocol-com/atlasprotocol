@@ -341,10 +341,14 @@ export function useNearAbtcBridge({ contract }: { contract?: string } = {}) {
       destinationAddress,
       destinationChain,
       amount,
+      mintingFeeSat,
+      bridgingFeeSat,
     }: {
       destinationAddress: string;
       destinationChain: string;
       amount: string;
+      mintingFeeSat?: number;
+      bridgingFeeSat?: number;
     }) => {
       if (!contract || !wallet) return undefined;
 
@@ -355,6 +359,8 @@ export function useNearAbtcBridge({ contract }: { contract?: string } = {}) {
           dest_chain_id: destinationChain,
           amount,
           dest_chain_address: destinationAddress,
+          minting_fee_sat: mintingFeeSat,
+          bridging_fee_sat: bridgingFeeSat,
         },
         deposit: "1", // 1 octa deposit
       });

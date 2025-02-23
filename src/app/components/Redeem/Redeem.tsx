@@ -121,23 +121,18 @@ export function Redeem({ btcAddress }: RedeemProps) {
 
   const { data: gasEstimate, isLoading: gasEstimateLoading } =
     useEstGasAtlasBurn({
-      chainConfig:
-        selectedChain?.networkType === "EVM" ? selectedChain : undefined,
+      chainConfig: selectedChain,
       amountSat: previewData?.amountSat,
       userAddress: fromAddress || "",
     });
 
   const { data: redeemFee } = useGetRedeemFee({
-    chainConfig:
-      selectedChain?.networkType === "EVM" ? selectedChain : undefined,
+    chainConfig: selectedChain,
     amountSat: previewData?.amountSat,
     userAddress: previewData?.address || "",
   });
 
-  const redemptionFee =
-    gasEstimate?.gasPrice && gasEstimate?.gasEstimate
-      ? (gasEstimate.gasPrice * gasEstimate.gasEstimate) / 10 ** 18
-      : 0;
+  const redemptionFee = gasEstimate?.gasLimit;
 
   const addressLabel =
     selectedChain?.networkType === "EVM" ? "EVM address" : "Near address";
@@ -378,12 +373,12 @@ export function Redeem({ btcAddress }: RedeemProps) {
         amount={previewData?.amount}
         receivingAddress={previewData?.address}
         redeemChain={selectedChain?.networkName}
-        transactionFeeEth={redemptionFee}
+        transactionFee={redemptionFee}
         feeRate={gasEstimate?.gasPrice}
         atlasProtocolFee={redeemFee?.atlasProtocolFee}
-        btcRedemptionFee={redeemFee?.estimatedGasFee}
+        btcRedemptionFee={redeemFee?.estimatedRedemptionFee}
         onConfirm={onConfirm}
-        hideFee={selectedChain?.networkType === "NEAR"}
+        networkType={selectedChain?.networkType}
       />
     </>
   );

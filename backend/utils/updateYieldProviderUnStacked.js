@@ -35,9 +35,8 @@ async function UpdateYieldProviderUnStacked(allRedemptions, near, bitcoinInstanc
         
         try {
           const get_summary = await near.bitHiveContract.get_summary();
-          const unstakeTime = new Date(txn.timestamp * 1000 + get_summary.withdrawal_waiting_time_ms);
+          const unstakeTime = new Date(txn.timestamp * 1000 + get_summary.withdrawal_waiting_time_ms + 60000); // give 1 minute buffer (60000ms = 1min)
           console.log("Unstake will be available at:", unstakeTime.toLocaleString());
-          
           const now = new Date();
           if (unstakeTime <= now) {
             await near.updateRedemptionYieldProviderUnstaked(txn.txn_hash);

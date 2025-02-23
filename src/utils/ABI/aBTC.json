@@ -178,6 +178,18 @@
 				"internalType": "uint256",
 				"name": "amount",
 				"type": "uint256"
+			},
+			{
+				"indexed": false,
+				"internalType": "uint256",
+				"name": "mintingFeeSat",
+				"type": "uint256"
+			},
+			{
+				"indexed": false,
+				"internalType": "uint256",
+				"name": "bridgingFeeSat",
+				"type": "uint256"
 			}
 		],
 		"name": "BurnBridge",
@@ -462,6 +474,16 @@
 				"internalType": "string",
 				"name": "destChainAddress",
 				"type": "string"
+			},
+			{
+				"internalType": "uint256",
+				"name": "mintingFeeSat",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "bridgingFeeSat",
+				"type": "uint256"
 			}
 		],
 		"name": "burnBridge",

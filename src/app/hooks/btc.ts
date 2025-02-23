@@ -26,7 +26,7 @@ export function useGetAccountUTXO() {
       }
     },
     enabled: !!(btcWallet?.getUtxos && address),
-    refetchInterval: 60000 * 5, // 5 minutes
+    refetchInterval: 30000, // 30 seconds
     retry: (failureCount) => {
       return failureCount <= 3;
     },

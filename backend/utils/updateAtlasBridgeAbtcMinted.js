@@ -68,7 +68,7 @@ async function UpdateAtlasBridgeAbtcMinted(allBridgings, near) {
         console.log(`${batchName} endBlock: ${endBlock}`);
 
         const events = await ethereum.getPastMintBridgeEventsInBatches(
-          startBlock,
+          startBlock - 1n,
           endBlock,
           blockRange(Number(chainConfig.batchSize)),
         );
@@ -116,7 +116,7 @@ async function UpdateAtlasBridgeAbtcMinted(allBridgings, near) {
         console.log(`${batchName} currentBlock: ${currentBlock}`);
 
         const events = await near.getPastMintBridgeEventsInBatches(
-          startBlock,
+          startBlock - 1,
           currentBlock,
         );
 
@@ -131,7 +131,7 @@ async function UpdateAtlasBridgeAbtcMinted(allBridgings, near) {
               await near.updateBridgingMinted(
                 bridging.txn_hash,
                 transactionHash,
-                timestamp,
+                Math.floor(timestamp / 1000000),
               );
               console.log(
                 `${batchName} Updated deposit for txn_hash: ${bridging.txn_hash} with transactionHash: ${transactionHash}`,

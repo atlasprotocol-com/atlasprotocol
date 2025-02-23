@@ -84,6 +84,11 @@ pub struct BridgingRecord {
     pub remarks: String,
     pub date_created: u64,
     pub verified_count: u8,
+    pub minting_fee_sat: u64,
+    pub yield_provider_gas_fee: u64,
+    pub yield_provider_txn_hash: String,
+    pub yield_provider_status: u8,
+    pub yield_provider_remarks: String,
 }
 
 #[derive(Serialize, Deserialize, Clone)]

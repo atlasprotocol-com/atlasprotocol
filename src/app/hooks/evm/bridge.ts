@@ -23,6 +23,16 @@ export const abi = [
         name: "destChainAddress",
         type: "string",
       },
+      {
+        internalType: "uint256",
+        name: "mintingFeeSat",
+        type: "uint256",
+      },
+      {
+        internalType: "uint256",
+        name: "bridgingFeeSat",
+        type: "uint256",
+      },
     ],
   },
 ] as const;
@@ -39,10 +49,14 @@ export function useABtcBridge({ tokenAddress }: UseBridgeOptions) {
       amount,
       destChainId,
       destChainAddress,
+      mintingFeeSat,
+      bridgingFeeSat,
     }: {
       amount: string;
       destChainId: string;
       destChainAddress: string;
+      mintingFeeSat?: number;
+      bridgingFeeSat?: number;
     }) => {
       if (!tokenAddress) {
         throw new Error("tokenAddress is required");
@@ -64,7 +78,7 @@ export function useABtcBridge({ tokenAddress }: UseBridgeOptions) {
         abi: abi,
         address: tokenAddress as any,
         functionName: "burnBridge" as const,
-        args: [BigInt(amount), destChainId, destChainAddress],
+        args: [BigInt(amount), destChainId, destChainAddress, BigInt(mintingFeeSat || 0), BigInt(bridgingFeeSat || 0)],
       });
     },
     [writeContractAsync, tokenAddress],
