@@ -35,9 +35,7 @@ export const RedemptionPreviewModal: React.FC<RedemptionPreviewModalProps> = ({
   const [redemptionBTCfees, setRedemptionBTCfees] = useState<number | null>(
     null,
   );
-  const [atlasProtocolFee, setAtlasProtocolFee] = useState<number | null>(
-    null,
-  );
+  const [atlasProtocolFee, setAtlasProtocolFee] = useState<number | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [isButtonDisabled, setIsButtonDisabled] = useState<boolean>(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -49,12 +47,10 @@ export const RedemptionPreviewModal: React.FC<RedemptionPreviewModalProps> = ({
 
     const fetchRedemptionFees = async () => {
       try {
-        const fees = await getTxRedemptionFees(
-          redemptionAmountSat,
-        );
+        const fees = await getTxRedemptionFees(redemptionAmountSat);
         console.log(fees);
         if (fees) {
-          setRedemptionBTCfees(fees.estimatedGasFee); // or whichever fee you need
+          setRedemptionBTCfees(fees.estimatedRedemptionFee); // or whichever fee you need
           setAtlasProtocolFee(fees.atlasProtocolFee);
           setIsButtonDisabled(false);
         } else {
@@ -72,8 +68,7 @@ export const RedemptionPreviewModal: React.FC<RedemptionPreviewModalProps> = ({
       }
     };
 
-      fetchRedemptionFees();
-   
+    fetchRedemptionFees();
   }, [redemptionAmountSat]);
 
   useEffect(() => {
