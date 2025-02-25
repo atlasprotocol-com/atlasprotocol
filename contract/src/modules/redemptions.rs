@@ -210,7 +210,7 @@ impl Atlas {
                 let btc_chain_id = if self.is_production_mode() {
                     BITCOIN.to_string()
                 } else {
-                    SIGNET.to_string()
+                    TESTNET4.to_string()
                 };
 
                 if let Some(btc_chain_config) = self
@@ -273,7 +273,7 @@ impl Atlas {
                 let btc_chain_id = if self.is_production_mode() {
                     BITCOIN.to_string()
                 } else {
-                    SIGNET.to_string()
+                    TESTNET4.to_string()
                 };
                 
                 if let Some(btc_chain_config) = self
@@ -1083,7 +1083,7 @@ impl Atlas {
             let btc_chain_id = if self.is_production_mode() {
                 BITCOIN.to_string()
             } else {
-                SIGNET.to_string()
+                TESTNET4.to_string()
             };
 
             // Check if the caller is an authorized validator for the bitcoin chain

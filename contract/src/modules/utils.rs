@@ -63,6 +63,7 @@ impl Atlas {
                 "BRG_ABTC_YIELD_PROVIDER_WITHDRAWN": BRG_ABTC_YIELD_PROVIDER_WITHDRAWN,
             },
             "network_type": {
+                "TESTNET4": TESTNET4,
                 "BITCOIN": BITCOIN,
                 "SIGNET": SIGNET,
                 "EVM": EVM,

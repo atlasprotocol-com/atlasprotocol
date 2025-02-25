@@ -47,7 +47,7 @@ export function BridgePreview({
     ? (Number(transactionFee) * (networkType === "EVM" ? ethPriceUsd : nearPriceUsd)).toFixed(4)
     : '--';
 
-  const totalBridgingFee = bridgingFeeSat ? bridgingFeeSat + (mintingFeeSat || 0) : 0;
+  const totalBridgingFee = bridgingFeeSat ? Number(bridgingFeeSat) + Number(mintingFeeSat || 0) : 0;
   const totalBridgingFeeUsd = totalBridgingFee && btcPriceUsd
     ? ((totalBridgingFee / 100000000) * btcPriceUsd).toFixed(2)
     : '--';

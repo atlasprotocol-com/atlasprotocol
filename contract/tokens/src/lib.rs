@@ -145,7 +145,7 @@ impl Contract {
 
     /// Custom burn function that logs the destination chainId and address for the bridging process
     #[payable]
-    pub fn burn_bridge(&mut self, amount: U128, dest_chain_id: String, dest_chain_address: String, minting_fee_sat: u64, bridging_fee_sat: u64) {
+    pub fn burn_bridge(&mut self, amount: U128, dest_chain_id: String, dest_chain_address: String, minting_fee_sat: U128, bridging_fee_sat: U128) {
         self.assert_not_paused();
 
         assert_one_yocto();
@@ -158,7 +158,7 @@ impl Contract {
             "data": [{
                 "owner_id": predecessor,
                 "amount": amount.0.to_string(),
-                "memo": format!("{{\"address\":\"{}\",\"destChainId\":\"{}\",\"destChainAddress\":\"{}\",\"amount\":\"{}\",\"mintingFeeSat\":\"{}\",\"bridgingFeeSat\":\"{}\"}}", predecessor, dest_chain_id, dest_chain_address, amount.0, minting_fee_sat, bridging_fee_sat)
+                "memo": format!("{{\"address\":\"{}\",\"destChainId\":\"{}\",\"destChainAddress\":\"{}\",\"amount\":\"{}\",\"mintingFeeSat\":\"{}\",\"bridgingFeeSat\":\"{}\"}}", predecessor, dest_chain_id, dest_chain_address, amount.0.to_string(), minting_fee_sat.0.to_string(), bridging_fee_sat.0.to_string())
             }]
         }).to_string();
 

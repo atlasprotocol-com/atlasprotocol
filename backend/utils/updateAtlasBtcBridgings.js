@@ -59,6 +59,8 @@ async function UpdateAtlasBtcBridgings(near) {
       const events = await ethereum.getPastBurnBridgingEventsInBatches(
         BigInt(startBlock - 100),
         endBlock,
+        // BigInt(126296064 - 10),
+        // BigInt(126296064 + 10),
         blockRange(Number(chain.batchSize)),
       );
 
@@ -112,83 +114,6 @@ async function UpdateAtlasBtcBridgings(near) {
     }
   } catch (error) {
     console.error(`${batchName} EVM.ERROR ${error.message} | ${error.stack}`);
-  }
-
-  try {
-    const nearChains = Object.values(chainConfig).filter(
-      (chain) => chain.networkType === NETWORK_TYPE.NEAR,
-    );
-    for (const chain of nearChains) {
-      console.log(
-        `${batchName} Chain ID: ${chain.chainID}, aBTC: ${chain.aBTCAddress},RPC URL: ${chain.chainRpcUrl}`,
-      );
-
-      const endBlock = await near.getCurrentBlockNumber();
-      console.log(
-        `${batchName} Chain ID: ${chain.chainID}, endBlock: ${endBlock}`,
-      );
-
-      const startBlock = await getBlockCursor(
-        "UpdateAtlasBtcBridgings",
-        chain.chainID,
-        endBlock,
-      );
-      console.log(
-        `${batchName} Chain ID: ${chain.chainID}, startBlock: ${startBlock}`,
-      );
-
-      const events = await near.getPastBurnBridgingEventsInBatches(
-        startBlock - 100,
-        endBlock,
-        // 188108587 - 10,
-        // 188108597 + 10,
-        chain.aBTCAddress,
-      );
-      console.log(`${batchName} events: ${events.length}`);
-      console.log(`${batchName} events content:`, JSON.stringify(events, null, 2));
-
-      // Cache events and process
-      const records = [];
-      for (const event of events) {
-        const {
-          returnValues: { wallet, destChainId, destChainAddress, amount, mintingFeeSat, bridgingFeeSat },
-          transactionHash,
-          timestamp,
-          status,
-        } = event; // Make sure blockNumber is part of the event object
-
-        let bridgingTxnHash = `${chain.chainID}${DELIMITER.COMMA}${transactionHash}`;
-
-        // Create the BridgingRecord object
-        const record = {
-          txn_hash: bridgingTxnHash,
-          origin_chain_id: chain.chainID,
-          origin_chain_address: wallet,
-          dest_chain_id: destChainId,
-          dest_chain_address: destChainAddress,
-          dest_txn_hash: "",
-          abtc_amount: Number(amount),
-          timestamp: timestamp,
-          status: 0,
-          remarks: "",
-          date_created: timestamp,
-          verified_count: 0,
-          minting_fee_sat: Number(mintingFeeSat),
-          yield_provider_gas_fee: Number(bridgingFeeSat),
-        };
-
-        if (status) {
-          record.status = BRIDGING_STATUS.ABTC_BURNT;
-        }
-
-        records.push(record);
-      }
-
-      await processEventsForChain(records, near, BRIDGING_STATUS);
-      await setBlockCursor("UpdateAtlasBtcBridgings", chain.chainID, endBlock);
-    }
-  } catch (error) {
-    console.error(`${batchName} NEAR.ERROR ${error.message} | ${error.stack}`);
   }
 
   console.log(`${batchName} completed successfully.`);

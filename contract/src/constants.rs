@@ -38,6 +38,7 @@ pub mod status {
 
 pub mod network_type {
     // different network types chain for validators
+    pub const TESTNET4: &'static str = "TESTNET4";
     pub const SIGNET: &'static str = "SIGNET";
     pub const BITCOIN: &'static str = "BITCOIN";
     pub const EVM: &'static str = "EVM";

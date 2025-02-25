@@ -46,12 +46,22 @@ export function validateBlockchainAddress({
 
 export function validateBTCAddress(addressInput: string): boolean {
   try {
-    address.toOutputScript(
+    // Convert address to output script
+    const outputScript = address.toOutputScript(
       addressInput,
-      network === Network.SIGNET ? networks.testnet : networks.bitcoin,
+      network === Network.SIGNET || network === Network.TESTNET4 ? networks.testnet : networks.bitcoin
     );
 
-    return true;
+    // Get address type from first byte of output script
+    const firstByte = outputScript[0];
+
+    // Check if segwit (starts with 0x00 or 0x01) or taproot (starts with 0x51)
+    if (firstByte === 0x00 || firstByte === 0x01 || firstByte === 0x51) {
+      return true;
+    }
+
+    return false;
+
   } catch (error) {
     return false;
   }

@@ -24,6 +24,8 @@ const flagsBatch = {
   WithdrawBridgingFeesFromYieldProviderRunning: false,
   UpdateAtlasBtcBridgingYieldProviderWithdrawnRunning: false,
   UpdateAtlasBtcBridgingYieldProviderUnstakedRunning: false,
+  RetrieveAndProcessPastNearEventsRunning: false,
+  RetrieveAndProcessPastEvmEventsRunning: false,
 };
 
 function blockRange(block, start = 1000, end = 2000) {

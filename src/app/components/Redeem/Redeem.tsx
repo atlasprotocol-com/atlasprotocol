@@ -79,7 +79,7 @@ export function Redeem({ btcAddress }: RedeemProps) {
 
   const filteredChainConfigs = useMemo(() => {
     return Object.values(chainConfigs || {}).filter(
-      (chainConfig) => chainConfig.chainID !== "SIGNET",
+      (chainConfig) => chainConfig.chainID !== "SIGNET" && !chainConfig.chainID.endsWith("TESTNET4"),
     );
   }, [chainConfigs]);
 

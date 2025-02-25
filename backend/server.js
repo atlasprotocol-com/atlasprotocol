@@ -69,6 +69,13 @@ const {
 const {
   UpdateAtlasBtcBridgingYieldProviderWithdrawn,
 } = require("./utils/updateAtlasBtcBridgingYieldProviderWithdrawn");
+const {
+  RetrieveAndProcessPastNearEvents,
+} = require("./utils/retrieveAndProcessPastNearEvents");
+
+const {
+  RetrieveAndProcessPastEvmEvents,
+} = require("./utils/retrieveAndProcessPastEvmEvents");
 
 // Load environment variables from .env.local or .env based on NODE_ENV
 const envFile = process.env.NODE_ENV === "production" ? ".env" : ".env.local";
@@ -480,13 +487,13 @@ async function runBatch() {
   await StakeToYieldProvider(near, bitcoin);
   await UpdateYieldProviderStacked(deposits, near, bitcoin);
   await MintaBtcToReceivingChain(near);
-  await UpdateAtlasAbtcMintedTxnHash(deposits, near);
-  await UpdateAtlasAbtcMinted(deposits, near);
+  // await UpdateAtlasAbtcMintedTxnHash(deposits, near); // Not needed
+  await UpdateAtlasAbtcMinted(deposits, near); 
 
   await WithdrawFailDeposits(deposits, near, bitcoin);
   await UpdateWithdrawFailDeposits(deposits, near, bitcoin);
 
-  await UpdateAtlasBtcRedemptions(near);
+  // await UpdateAtlasBtcRedemptions(near); // Not needed
   await UnStakeFromYieldProvider(near, bitcoin);
   await UpdateYieldProviderUnStacked(redemptions, near, bitcoin);
   await WithdrawFromYieldProvider(redemptions, near, bitcoin);
@@ -494,14 +501,17 @@ async function runBatch() {
   await SendBtcBackToUser(near, bitcoin);
   await UpdateAtlasBtcBackToUser(redemptions, near, bitcoin);
 
-  await UpdateAtlasBtcBridgings(near);
+  // // await UpdateAtlasBtcBridgings(near); // Not needed
   await MintBridgeABtcToDestChain(near);
-  await UpdateAtlasBridgeAbtcMinted(bridgings, near);
+  // // await UpdateAtlasBridgeAbtcMinted(bridgings, near); // Not needed
 
   await UnstakeBridgingFeesFromYieldProvider(near, bitcoin);
-  await UpdateAtlasBtcBridgingYieldProviderUnstaked(bridgings, near);
-  await WithdrawBridgingFeesFromYieldProvider(near, bitcoin, globalParams.atlasTreasuryAddress);
+  await UpdateAtlasBtcBridgingYieldProviderUnstaked(bridgings, near, bitcoin);
+  await WithdrawBridgingFeesFromYieldProvider(near, bitcoin, bridgings, globalParams.atlasTreasuryAddress);
   await UpdateAtlasBtcBridgingYieldProviderWithdrawn(bridgings, near, bitcoin);
+
+  await RetrieveAndProcessPastEvmEvents(near, deposits, redemptions, bridgings);
+  await RetrieveAndProcessPastNearEvents(near);
 
   // Delay for 5 seconds before running the batch again
   await new Promise((resolve) => setTimeout(resolve, 5000));

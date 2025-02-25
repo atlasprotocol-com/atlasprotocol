@@ -31,12 +31,15 @@ async function UpdateYieldProviderStacked(allDeposits, near, bitcoinInstance) {
           deposit.remarks === "",
       );
 
+     
+
       for (let i = 0; i < filteredTxns.length; i++) {
         const txn = filteredTxns[i];
         const { deposit } = await relayer.user.getDeposit({
           publicKey: publicKeyString,
           txHash: txn.yield_provider_txn_hash,
         });
+        console.log("deposit: ", deposit);
         if (!deposit) {
           console.error(
             `Deposit not found for txHash: ${txn.yield_provider_txn_hash}`,

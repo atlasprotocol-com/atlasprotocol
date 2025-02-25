@@ -52,7 +52,7 @@ async function UpdateAtlasBtcBridgingYieldProviderWithdrawn(
 
         console.log(deposit);
         if (
-          [BITHIVE_STATUS.WITHDRAW_CONFIRMED].includes(
+          [BITHIVE_STATUS.DEPOSIT_CONFIRMED_INVALID, BITHIVE_STATUS.DEPOSIT_CONFIRMED].includes(
             deposit.status,
           )
         ) {

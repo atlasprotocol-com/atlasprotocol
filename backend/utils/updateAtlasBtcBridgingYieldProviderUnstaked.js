@@ -4,8 +4,9 @@ const { getConstants } = require("../constants");
 
 const { flagsBatch } = require("./batchFlags");
 
-async function UpdateAtlasBtcBridgingYieldProviderUnstaked(allBridgings, near) {
+async function UpdateAtlasBtcBridgingYieldProviderUnstaked(allBridgings, near, bitcoinInstance) {
   const batchName = `Batch UpdateAtlasBtcBridgingYieldProviderUnstaked`;
+  const relayer = createRelayerClient({ url: process.env.BITHIVE_RELAYER_URL });
 
   // Check if a previous batch is still running
   if (flagsBatch.UpdateAtlasBtcBridgingYieldProviderUnstakedRunning) {
@@ -18,6 +19,10 @@ async function UpdateAtlasBtcBridgingYieldProviderUnstaked(allBridgings, near) {
       flagsBatch.UpdateAtlasBtcBridgingYieldProviderUnstakedRunning = true;
       const { BRIDGING_STATUS } = getConstants(); // Access constants dynamically
       
+      const { address, publicKey } = await bitcoinInstance.deriveBTCAddress(near);
+
+      const publicKeyString = publicKey.toString("hex");
+
       // Filter bridgings that need to be processed
       const bridgings = allBridgings.filter(
         bridging => bridging.yield_provider_status === BRIDGING_STATUS.ABTC_YIELD_PROVIDER_UNSTAKE_PROCESSING
@@ -27,19 +32,15 @@ async function UpdateAtlasBtcBridgingYieldProviderUnstaked(allBridgings, near) {
       console.log("bridgings", bridgings);
       bridgings.forEach(async (bridging) => {
         try {
-          const get_summary = await near.bitHiveContract.get_summary();
-          const unstakeTime = new Date(bridging.timestamp * 1000 + get_summary.withdrawal_waiting_time_ms + 60000); // give 1 minute buffer
-          console.log("Unstake will be available at:", unstakeTime.toLocaleString());
-          
-          const now = new Date();
-          if (unstakeTime <= now) {
-            await near.updateBridgingFeesYieldProviderUnstaked(bridging.txn_hash);
-          }
+          await relayer.unstake.waitUntilConfirmed({ amount: Number(bridging.minting_fee_sat + bridging.yield_provider_gas_fee + bridging.protocol_fee), publicKey: publicKeyString }, { timeout: 3000 }); 
+          await near.updateBridgingFeesYieldProviderUnstaked(bridging.txn_hash);
 
         } catch (error) {
           const remarks = `Error updating bridging yield provider unstaked: ${error} - ${error.reason}`;
           console.error(remarks);
-          await near.updateBridgingFeesYieldProviderRemarks(bridging.txn_hash, remarks);
+          // if (!error.toString().includes("Waiting for Unstake action timeout")) {
+          //   await near.updateBridgingFeesYieldProviderRemarks(bridging.txn_hash, remarks);
+          // }
           return;
         }
       });

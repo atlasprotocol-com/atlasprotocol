@@ -4,8 +4,6 @@ const { getConstants } = require("../constants");
 
 const { flagsBatch } = require("./batchFlags");
 
-
-
 async function UpdateYieldProviderUnStacked(allRedemptions, near, bitcoinInstance) {
   const batchName = `Batch H UpdateYieldProviderUnStacked`;
   const relayer = createRelayerClient({ url: process.env.BITHIVE_RELAYER_URL });
@@ -32,20 +30,17 @@ async function UpdateYieldProviderUnStacked(allRedemptions, near, bitcoinInstanc
       );
 
       filteredTxns.forEach(async (txn) => {
-        
+        console.log(txn);
         try {
-          const get_summary = await near.bitHiveContract.get_summary();
-          const unstakeTime = new Date(txn.timestamp * 1000 + get_summary.withdrawal_waiting_time_ms + 60000); // give 1 minute buffer (60000ms = 1min)
-          console.log("Unstake will be available at:", unstakeTime.toLocaleString());
-          const now = new Date();
-          if (unstakeTime <= now) {
-            await near.updateRedemptionYieldProviderUnstaked(txn.txn_hash);
-          }
-
+          await relayer.unstake.waitUntilConfirmed({ amount: txn.abtc_amount, publicKey: publicKeyString }, { timeout: 3000 }); // 3 seconds
+          await near.updateRedemptionYieldProviderUnstaked(txn.txn_hash);
+          
         } catch (error) {
           const remarks = `Error updating yield provider unstacked: ${error} - ${error.reason}`;
           console.error(remarks);
-          //await near.updateRedemptionRemarks(txn.txn_hash, remarks);
+          // if (!error.toString().includes("Waiting for Unstake action timeout")) {
+          //   await near.updateRedemptionRemarks(txn.txn_hash, remarks);
+          // }
           return;
         }
       });

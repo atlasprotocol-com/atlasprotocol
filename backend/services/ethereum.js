@@ -390,7 +390,7 @@ class Ethereum {
 
   // Function to get the current block number
   async getCurrentBlockNumber() {
-    return await this.web3.eth.getBlockNumber();
+    return Number(await this.web3.eth.getBlockNumber());
   }
 
   // Get block number by timestamp using binary search
@@ -420,64 +420,86 @@ class Ethereum {
     return await this.web3.eth.getBlock(blockNumber);
   }
 
-  // Function to get past events in batches
-  // TO-DO: Create indexer so do not need to fetch all Burn Events for every run
-  async getPastBurnEventsInBatches(startBlock, endBlock, batchSize) {
-    console.log(`Fetching Events in batches... ${startBlock} -> ${endBlock}`);
+  // // Function to get past events in batches
+  // // TO-DO: Create indexer so do not need to fetch all Burn Events for every run
+  // async getPastBurnEventsInBatches(startBlock, endBlock, batchSize) {
+  //   console.log(`Fetching Events in batches... ${startBlock} -> ${endBlock}`);
 
-    return this._scanEvents(
+  //   return this._scanEvents(
+  //     EVENT_NAME.BURN_REDEEM,
+  //     startBlock,
+  //     endBlock,
+  //     batchSize,
+  //   );
+  // }
+
+  // // Function to get past events in batches
+  // // TO-DO: Create indexer so do not need to fetch all Burn Events for every run
+  // async getPastBurnBridgingEventsInBatches(
+  //   startBlock,
+  //   endBlock,
+  //   batchSize,
+  //   wallet,
+  // ) {
+  //   console.log(
+  //     `Fetching Events in batches... ${startBlock} -> ${endBlock} | ${batchSize}`,
+  //   );
+
+  //   return this._scanEvents(
+  //     EVENT_NAME.BURN_BRIDGE,
+  //     startBlock,
+  //     endBlock,
+  //     batchSize,
+  //     wallet,
+  //   );
+  // }
+
+  // async getPastMintEventsInBatches(startBlock, endBlock, batchSize) {
+  //   console.log(`Fetching Events in batches... ${startBlock} -> ${endBlock}`);
+
+  //   return this._scanEvents(
+  //     EVENT_NAME.MINT_DEPOSIT,
+  //     startBlock,
+  //     endBlock,
+  //     batchSize,
+  //   );
+  // }
+
+  // async getPastMintBridgeEventsInBatches(startBlock, endBlock, batchSize) {
+  //   console.log(`Fetching Events in batches... ${startBlock} -> ${endBlock}`);
+
+  //   return this._scanEvents(
+  //     EVENT_NAME.MINT_BRIDGE,
+  //     startBlock,
+  //     endBlock,
+  //     batchSize,
+  //   );
+  // }
+
+  // New combined function that can handle all event types
+  async getPastEventsInBatches(startBlock, endBlock, batchSize, wallet) {
+    console.log(`Fetching all events in batches... ${startBlock} -> ${endBlock}`);
+
+    const eventTypes = [
       EVENT_NAME.BURN_REDEEM,
-      startBlock,
-      endBlock,
-      batchSize,
-    );
-  }
-
-  // Function to get past events in batches
-  // TO-DO: Create indexer so do not need to fetch all Burn Events for every run
-  async getPastBurnBridgingEventsInBatches(
-    startBlock,
-    endBlock,
-    batchSize,
-    wallet,
-  ) {
-    console.log(
-      `Fetching Events in batches... ${startBlock} -> ${endBlock} | ${batchSize}`,
-    );
-
-    return this._scanEvents(
       EVENT_NAME.BURN_BRIDGE,
+      EVENT_NAME.MINT_DEPOSIT, 
+      EVENT_NAME.MINT_BRIDGE
+    ];
+
+    const allEvents = await this._scanEvents(
+      eventTypes,
       startBlock,
-      endBlock,
+      endBlock, 
       batchSize,
-      wallet,
+      wallet
     );
-  }
 
-  async getPastMintEventsInBatches(startBlock, endBlock, batchSize) {
-    console.log(`Fetching Events in batches... ${startBlock} -> ${endBlock}`);
-
-    return this._scanEvents(
-      EVENT_NAME.MINT_DEPOSIT,
-      startBlock,
-      endBlock,
-      batchSize,
-    );
-  }
-
-  async getPastMintBridgeEventsInBatches(startBlock, endBlock, batchSize) {
-    console.log(`Fetching Events in batches... ${startBlock} -> ${endBlock}`);
-
-    return this._scanEvents(
-      EVENT_NAME.MINT_BRIDGE,
-      startBlock,
-      endBlock,
-      batchSize,
-    );
+    return allEvents;
   }
 
   async _scanEvents(
-    eventName,
+    eventTypes,
     startBlock,
     endBlock,
     batchSize,
@@ -500,17 +522,28 @@ class Ethereum {
     for (let i = 0; i < chunk.length; i++) {
       const found = await Promise.all(
         chunk[i].map(async (x) => {
-          console.log(`---------- ${eventName}: ${x.from} -> ${x.to}`);
-          const filters = { fromBlock: BigInt(x.from), toBlock: BigInt(x.to) };
-          // wallet is indexed so we can filter by wallet
-          if (wallet) filters.wallet = wallet;
+          try {
+            console.log(`---------- Scanning blocks: ${x.from} -> ${x.to}`);
+            const filters = { fromBlock: BigInt(x.from), toBlock: BigInt(x.to) };
 
-          const items = await this.abtcContract.getPastEvents(
-            eventName,
-            filters,
-          );
+            if (wallet) filters.wallet = wallet;
 
-          return items;
+            let allEvents = [];
+            const eventPromises = eventTypes.map(eventName => 
+              this.abtcContract.getPastEvents(eventName, filters)
+                .catch(err => {
+                  console.error(`Error fetching events for ${eventName}:`, err);
+                  return [];
+                })
+            );
+            
+            const results = await Promise.all(eventPromises);
+            allEvents = results.flat();
+            return allEvents;
+          } catch (err) {
+            console.error(`Error scanning blocks ${x.from} -> ${x.to}:`, err);
+            return [];
+          }
         }),
       );
       events.push(..._.flatten(found));

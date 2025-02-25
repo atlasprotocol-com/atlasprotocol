@@ -215,7 +215,7 @@ impl Atlas {
             let chain_id = if self.is_production_mode() {
                 BITCOIN.to_string()
             } else {
-                SIGNET.to_string()
+                TESTNET4.to_string()
             };
 
             if let Some(chain_config) = self.chain_configs.get_chain_config(chain_id.clone()) {
@@ -355,7 +355,7 @@ impl Atlas {
             let btc_chain_id = if self.is_production_mode() {
                 BITCOIN.to_string()
             } else {
-                SIGNET.to_string()
+                TESTNET4.to_string()
             };
 
             if let Some(btc_chain_config) =
@@ -604,7 +604,6 @@ impl Atlas {
                         deposit.remarks.clear();
                     }
                     DEP_BTC_PENDING_MINTED_INTO_ABTC => {
-                        deposit.status = DEP_BTC_YIELD_PROVIDER_DEPOSITED;
                         deposit.retry_count += 1;
                         deposit.remarks.clear();
                     }
@@ -944,7 +943,7 @@ impl Atlas {
             let chain_id = if self.is_production_mode() {
                 BITCOIN.to_string()
             } else {
-                SIGNET.to_string()
+                TESTNET4.to_string()
             };
 
             // Use the is_validator function to check if the caller is authorized for the bitcoin deposit

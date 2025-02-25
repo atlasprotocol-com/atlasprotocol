@@ -142,7 +142,7 @@ export function Bridge() {
 
   const filteredChainConfigs = useMemo(() => {
     return Object.values(chainConfigs || {}).filter(
-      (chainConfig) => chainConfig.chainID !== "SIGNET",
+      (chainConfig) => chainConfig.chainID !== "SIGNET" && !chainConfig.chainID.endsWith("TESTNET4"),
     );
   }, [chainConfigs]);
 
@@ -278,8 +278,8 @@ export function Bridge() {
           amount: previewData.amountSat.toString(),
           destinationAddress: previewData.address,
           destinationChain: toSelectedChain?.chainID || "",
-          mintingFeeSat: previewData.mintingFeeSat,
-          bridgingFeeSat: previewData.bridgingFeeSat,
+          mintingFeeSat: previewData.mintingFeeSat?.toString(),
+          bridgingFeeSat: previewData.bridgingFeeSat?.toString(),
         });
       }
       addFeedback({
