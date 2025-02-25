@@ -1,8 +1,8 @@
 import Web3 from "web3";
 import { AbiItem } from "web3-utils";
 
-import aBTCABI from "@/utils/ABI/aBTC.json";
 import { NEAR_GAS } from "@/app/types/nearGas";
+import aBTCABI from "@/utils/ABI/aBTC.json";
 
 interface GasEstimateResult {
   gasEstimate: number;
@@ -43,7 +43,7 @@ export const getEstimateAbtcBurnGas = async (
         data: data,
       });
       gasEstimate = Number(gasEstimateBigInt) * 1.3;
-      gasLimit = (gasPrice * gasEstimate) / 10 ** 18
+      gasLimit = (gasPrice * gasEstimate) / 10 ** 18;
 
       console.log("EVM - gasLimit:", gasLimit);
     } else if (networkType === "NEAR") {
@@ -54,10 +54,10 @@ export const getEstimateAbtcBurnGas = async (
       gasEstimate = gasEstimateTgas * 1e12;
 
       const burningFeeYocto = gasEstimate * gasPriceYocto;
-  
+
       // Convert yoctoNEAR to NEAR (1 NEAR = 10^18 yoctoNEAR)
       gasLimit = burningFeeYocto / 1e24;
-      
+
       console.log("NEAR - gasLimit:", gasLimit);
     }
     return {
