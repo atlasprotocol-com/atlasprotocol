@@ -55,6 +55,7 @@ export function useConnectBTCWallet({
         setPublicKeyNoCoord(publicKeyNoCoord.toString("hex"));
         onSuccessfulConnectRef();
       } catch (error: any) {
+        console.error(error);
         if (
           error instanceof WalletError &&
           error.getType() === WalletErrorType.ConnectionCancelled

@@ -1,11 +1,9 @@
-import bitgetWalletIcon from "./icons/bitget-wallet.svg";
 import metamaskIcon from "./icons/metamask.png";
 import okxIcon from "./icons/okx.svg";
 import rabbyIcon from "./icons/rabby.png";
 import tomoIcon from "./icons/tomo.svg";
-import { BitgetWallet, bitgetWalletProvider } from "./providers/bitget_wallet";
-import { OKXWallet, okxProvider } from "./providers/okx_wallet";
 import { TomoWallet, tomoProvider } from "./providers/tomo_wallet";
+import { UnisatWallet, unisatProvider } from "./providers/unisat_wallet";
 import { Network } from "./wallet_provider";
 
 interface IntegratedWallet {
@@ -23,13 +21,21 @@ export const BROWSER_INJECTED_WALLET_NAME = "Browser";
 
 export const walletList: IntegratedWallet[] = [
   {
-    name: "OKX",
+    name: "Unisat",
     icon: okxIcon,
-    wallet: OKXWallet,
-    provider: okxProvider,
-    linkToDocs: "https://www.okx.com/web3",
+    wallet: UnisatWallet,
+    provider: unisatProvider,
+    linkToDocs: "https://unisat.io/",
     supportedNetworks: [Network.MAINNET, Network.SIGNET, Network.TESTNET],
   },
+  // {
+  //   name: "OKX",
+  //   icon: okxIcon,
+  //   wallet: OKXWallet,
+  //   provider: okxProvider,
+  //   linkToDocs: "https://www.okx.com/web3",
+  //   supportedNetworks: [Network.MAINNET, Network.SIGNET, Network.TESTNET],
+  // },
   // {
   //   name: BROWSER_INJECTED_WALLET_NAME,
   //   icon: "",
@@ -54,14 +60,14 @@ export const walletList: IntegratedWallet[] = [
   //   linkToDocs: "https://onekey.so/download",
   //   supportedNetworks: [Network.MAINNET, Network.SIGNET],
   // },
-  {
-    name: "Bitget Wallet",
-    icon: bitgetWalletIcon,
-    wallet: BitgetWallet,
-    provider: bitgetWalletProvider,
-    linkToDocs: "https://web3.bitget.com",
-    supportedNetworks: [Network.MAINNET, Network.SIGNET],
-  },
+  // {
+  //   name: "Bitget Wallet",
+  //   icon: bitgetWalletIcon,
+  //   wallet: BitgetWallet,
+  //   provider: bitgetWalletProvider,
+  //   linkToDocs: "https://web3.bitget.com",
+  //   supportedNetworks: [Network.MAINNET, Network.SIGNET],
+  // },
   // {
   //   name: "Keystone",
   //   icon: keystoneIcon,

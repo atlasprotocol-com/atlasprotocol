@@ -258,6 +258,7 @@ export function Stake({ formattedBalance }: StakeProps) {
       refetchMempoolFeeRates();
       btcRefreshBalance();
     } catch (error: Error | any) {
+      console.error(error);
       addFeedback({
         title: "Error",
         content: error?.message || "An error occurred",
