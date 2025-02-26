@@ -4,10 +4,10 @@ const dotenv = require("dotenv");
 const { globalParams, updateGlobalParams } = require("./config/globalParams");
 const { getTransactionsAndComputeStats } = require("./utils/transactionStats");
 const { UpdateAtlasBtcDeposits } = require("./utils/updateAtlasBtcDeposits");
-const { WithdrawFailDeposits } = require("./utils/WithdrawFailDeposits");
+const { WithdrawFailDeposits } = require("./utils/withdrawFailDeposits");
 const {
   UpdateWithdrawFailDeposits,
-} = require("./utils/UpdateWithdrawFailDeposits");
+} = require("./utils/updateWithdrawFailDeposits");
 const {
   MintaBtcToReceivingChain,
 } = require("./utils/mintaBtcToReceivingChain");
@@ -18,7 +18,9 @@ const { SendBtcBackToUser } = require("./utils/sendBtcBackToUser");
 const {
   UpdateAtlasBtcBackToUser,
 } = require("./utils/updateAtlasBtcBackToUser");
-const { UpdateAtlasAbtcMintedTxnHash } = require("./utils/UpdateAtlasAbtcMintedTxnHash");
+const {
+  UpdateAtlasAbtcMintedTxnHash,
+} = require("./utils/UpdateAtlasAbtcMintedTxnHash");
 const { UpdateAtlasAbtcMinted } = require("./utils/updateAtlasAbtcMinted");
 
 const {
