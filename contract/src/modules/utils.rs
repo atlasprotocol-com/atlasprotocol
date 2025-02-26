@@ -8,9 +8,9 @@ use serde_json::json;
 use serde_json::Value;
 
 use crate::constants::delimiter::COMMA;
+use crate::constants::near_gas::*;
 use crate::constants::network_type::*;
 use crate::constants::status::*;
-use crate::constants::near_gas::*;
 
 #[near_bindgen]
 impl Atlas {
@@ -179,14 +179,5 @@ impl Atlas {
     pub fn accept_chain_configs_owner(&mut self) {
         self.assert_not_paused();
         self.chain_configs.accept_chain_configs_owner();
-    }
-
-    pub fn get_last_unstaking_time(&self) -> u64 {
-        self.global_params.get_last_unstaking_time()
-    }
-
-    pub fn update_last_unstaking_time(&mut self, timestamp: u64) {
-        self.assert_admin();
-        self.global_params.update_last_unstaking_time(timestamp);
     }
 }
