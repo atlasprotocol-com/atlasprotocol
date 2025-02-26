@@ -43,7 +43,8 @@ async function processEventsForChain(
 
 async function processMintDepositEvent(event, near) {
   
-  const { transactionHash, btcTxnHash } = event;
+  const { btcTxnHash } = event.returnValues;
+  const { transactionHash } = event;
   const { DEPOSIT_STATUS } = getConstants();
   console.log("MintDeposit event details:");
   console.log("- BTC Transaction Hash:", btcTxnHash);
