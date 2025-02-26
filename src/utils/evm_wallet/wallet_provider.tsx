@@ -68,6 +68,7 @@ export const EvmWalletProvider: FC<{ children: ReactNode }> = ({
               evmAddress,
               amount,
               btcAddress,
+              chainConfig.networkType,
             );
           if (success) {
             setGasPrice(gasPrice);
