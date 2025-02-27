@@ -54,7 +54,7 @@
       "network_name": "Optimism Sepolia",
       "chain_rpc_url": "https://sepolia.optimism.io",
       "explorer_url": "https://sepolia-optimism.etherscan.io/",
-      "abtc_address": "0xE64c0cDAD8F4372689Ccc032475A3B2c9b6d6B38",
+      "abtc_address": "0x635BF162203E295D3f5439A070a4F4294ADB9052",
       "native_currency_name": "ETH",
       "native_currency_decimals": 18,
       "native_currency_symbol": "ETH",

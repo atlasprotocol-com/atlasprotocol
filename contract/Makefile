@@ -29,16 +29,20 @@ redeploy:
 	near call $(CONTRACT_ID).velar.testnet add_validator '{"account_id": "velar.testnet", "chain_id": "421614"}' --accountId velar.testnet;
 	near call $(CONTRACT_ID).velar.testnet add_validator '{"account_id": "velar.testnet", "chain_id": "11155420"}' --accountId velar.testnet;
 	near call $(CONTRACT_ID).velar.testnet add_validator '{"account_id": "velar.testnet", "chain_id": "NEAR_TESTNET"}' --accountId velar.testnet;
+	near call $(CONTRACT_ID).velar.testnet add_validator '{"account_id": "velar.testnet", "chain_id": "TESTNET4"}' --accountId velar.testnet;
 
 	near call $(CONTRACT_ID).velar.testnet add_validator '{"account_id": "yeowlin.testnet", "chain_id": "SIGNET"}' --accountId velar.testnet;
 	near call $(CONTRACT_ID).velar.testnet add_validator '{"account_id": "yeowlin.testnet", "chain_id": "421614"}' --accountId velar.testnet;
 	near call $(CONTRACT_ID).velar.testnet add_validator '{"account_id": "yeowlin.testnet", "chain_id": "11155420"}' --accountId velar.testnet;
 	near call $(CONTRACT_ID).velar.testnet add_validator '{"account_id": "yeowlin.testnet", "chain_id": "NEAR_TESTNET"}' --accountId velar.testnet;
+	near call $(CONTRACT_ID).velar.testnet add_validator '{"account_id": "yeowlin.testnet", "chain_id": "TESTNET4"}' --accountId velar.testnet;
 
 	near call $(CONTRACT_ID).velar.testnet add_validator '{"account_id": "buglungtung.testnet", "chain_id": "SIGNET"}' --accountId velar.testnet;
 	near call $(CONTRACT_ID).velar.testnet add_validator '{"account_id": "buglungtung.testnet", "chain_id": "421614"}' --accountId velar.testnet;
 	near call $(CONTRACT_ID).velar.testnet add_validator '{"account_id": "buglungtung.testnet", "chain_id": "11155420"}' --accountId velar.testnet;
 	near call $(CONTRACT_ID).velar.testnet add_validator '{"account_id": "buglungtung.testnet", "chain_id": "NEAR_TESTNET"}' --accountId velar.testnet;
+	near call $(CONTRACT_ID).velar.testnet add_validator '{"account_id": "buglungtung.testnet", "chain_id": "TESTNET4"}' --accountId velar.testnet;
+
 
 redeploy-near-ft:
 	cd tokens && ./build.sh
