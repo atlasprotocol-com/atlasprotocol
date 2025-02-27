@@ -2,6 +2,7 @@ import metamaskIcon from "./icons/metamask.png";
 import okxIcon from "./icons/okx.svg";
 import rabbyIcon from "./icons/rabby.png";
 import tomoIcon from "./icons/tomo.svg";
+import unisatIcon from "./icons/unisat.svg";
 import { TomoWallet, tomoProvider } from "./providers/tomo_wallet";
 import { UnisatWallet, unisatProvider } from "./providers/unisat_wallet";
 import { Network } from "./wallet_provider";
@@ -22,7 +23,7 @@ export const BROWSER_INJECTED_WALLET_NAME = "Browser";
 export const walletList: IntegratedWallet[] = [
   {
     name: "Unisat",
-    icon: okxIcon,
+    icon: unisatIcon,
     wallet: UnisatWallet,
     provider: unisatProvider,
     linkToDocs: "https://unisat.io/",
