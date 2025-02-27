@@ -105,7 +105,7 @@ export function Stake({ formattedBalance }: StakeProps) {
 
   const filteredChainConfigs = useMemo(() => {
     return Object.values(chainConfigs || {}).filter(
-      (chainConfig) => chainConfig.chainID !== "SIGNET",
+      (chainConfig) => chainConfig.chainID !== "SIGNET" && chainConfig.chainID !== "TESTNET4",
     );
   }, [chainConfigs]);
 
