@@ -150,7 +150,8 @@ export function Bridge() {
     return Object.values(chainConfigs || {}).filter(
       (chainConfig) =>
         chainConfig.chainID !== "SIGNET" &&
-        chainConfig.chainID !== selectedChain?.chainID,
+        chainConfig.chainID !== selectedChain?.chainID &&
+        !chainConfig.chainID.endsWith("TESTNET4"),
     );
   }, [chainConfigs, selectedChain?.chainID]);
 
