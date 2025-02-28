@@ -46,9 +46,9 @@ const LazyRedeem = React.lazy(() =>
 const LazyBridge = React.lazy(() =>
   import("./components/Bridge").then((mod) => ({ default: mod.Bridge })),
 );
-const LazyPoints = React.lazy(() =>
-  import("./components/Points").then((mod) => ({ default: mod.Points })),
-);
+// const LazyPoints = React.lazy(() =>
+//   import("./components/Points").then((mod) => ({ default: mod.Points })),
+// );
 
 const LazyStakeHistory = React.lazy(() =>
   import("./components/History").then((mod) => ({ default: mod.StakeHistory })),
@@ -136,7 +136,7 @@ const Home: React.FC<HomeProps> = () => {
                         <TabsTrigger value="stake">Stake</TabsTrigger>
                         <TabsTrigger value="redeem">Redeem</TabsTrigger>
                         <TabsTrigger value="bridging">Bridge</TabsTrigger>
-                        <TabsTrigger value="points">Points</TabsTrigger>
+                        {/* <TabsTrigger value="points">Points</TabsTrigger> */}
                       </TabsList>
                       <Suspense fallback={<LoadingSection />}>
                         <TabsContent value="stake">
@@ -163,9 +163,9 @@ const Home: React.FC<HomeProps> = () => {
                       <TabsContent value="bridging">
                         <LazyBridge />
                       </TabsContent>
-                      <TabsContent value="points">
+                      {/* <TabsContent value="points">
                         <LazyPoints />
-                      </TabsContent>
+                      </TabsContent> */}
                     </TabsRoot>
                   </div>
                 </Card>
