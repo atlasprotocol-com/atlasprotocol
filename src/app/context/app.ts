@@ -16,7 +16,7 @@ export interface AppContextType {
 export const ATLAS_BTC_TOKEN = "atBTC";
 
 export const defaultAppContext: AppContextType = {
-  BTC_TOKEN: "sBTC",
+  BTC_TOKEN: "tBTC",
   ATLAS_BTC_TOKEN: ATLAS_BTC_TOKEN,
   btcWallet: undefined,
   btcAddress: undefined,
