@@ -43,6 +43,8 @@ export type WalletInfo = {
  */
 
 export abstract class WalletProvider {
+  public name: string | undefined;
+
   /**
    * Connects to the wallet and returns the instance of the wallet provider.
    * Currently only supports "native segwit" and "taproot" address types.

@@ -23,6 +23,7 @@ const INTERNAL_NETWORK_NAMES = {
 };
 
 export class BitgetWallet extends WalletProvider {
+  readonly name: string = "Bitget Wallet";
   private bitcoinNetworkProvider: any;
   private networkEnv: Network | undefined;
 

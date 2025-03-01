@@ -11,6 +11,7 @@ import {
   toNetwork,
 } from "@/utils/wallet";
 import { WalletError, WalletErrorType } from "@/utils/wallet/errors";
+import { walletList } from "@/utils/wallet/list";
 import { WalletProvider } from "@/utils/wallet/wallet_provider";
 
 import { useCallbackRef } from "./useCallbackRef";
@@ -33,6 +34,7 @@ export function useConnectBTCWallet({
 
   const handleConnectBTC = useCallback(
     async (walletProvider: WalletProvider) => {
+      console.log("walletProvider", walletProvider);
       try {
         await walletProvider.connectWallet();
         const address = await walletProvider.getAddress();
@@ -54,6 +56,10 @@ export function useConnectBTCWallet({
         setAddress(address);
         setPublicKeyNoCoord(publicKeyNoCoord.toString("hex"));
         onSuccessfulConnectRef();
+        localStorage.setItem(
+          "ATLAS_CONNECTED_WALLET",
+          walletProvider.name || "",
+        );
       } catch (error: any) {
         console.error(error);
         if (
@@ -81,7 +87,22 @@ export function useConnectBTCWallet({
     setBTCWalletNetwork(undefined);
     setPublicKeyNoCoord("");
     setAddress("");
+    localStorage.removeItem("ATLAS_CONNECTED_WALLET");
   }, []);
+
+  useEffect(() => {
+    try {
+      const connectedWallet = localStorage.getItem("ATLAS_CONNECTED_WALLET");
+      const wallet = walletList.find(
+        (wallet) => wallet.name === connectedWallet,
+      );
+      if (connectedWallet && wallet) {
+        handleConnectBTC(new wallet.wallet());
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  }, [handleConnectBTC]);
 
   useEffect(() => {
     if (btcWallet) {

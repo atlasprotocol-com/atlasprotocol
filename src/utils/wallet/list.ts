@@ -27,7 +27,12 @@ export const walletList: IntegratedWallet[] = [
     wallet: UnisatWallet,
     provider: unisatProvider,
     linkToDocs: "https://unisat.io/",
-    supportedNetworks: [Network.MAINNET, Network.SIGNET, Network.TESTNET, Network.TESTNET4],
+    supportedNetworks: [
+      Network.MAINNET,
+      Network.SIGNET,
+      Network.TESTNET,
+      Network.TESTNET4,
+    ],
   },
   // {
   //   name: "OKX",

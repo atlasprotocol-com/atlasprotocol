@@ -44,6 +44,7 @@ type KeystoneWalletInfo = {
 };
 
 export class KeystoneWallet extends WalletProvider {
+  readonly name: string = "Keystone";
   private keystoneWaleltInfo: KeystoneWalletInfo | undefined;
   private viewSdk: typeof sdk;
   private dataSdk: KeystoneSDK;

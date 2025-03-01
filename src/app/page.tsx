@@ -1,6 +1,6 @@
 "use client";
 
-import React, { Suspense, useState } from "react";
+import React, { Suspense, useEffect, useState } from "react";
 
 import { network } from "@/config/network.config";
 import { useBreakpoint } from "@/hooks/useBreakpoint";
@@ -93,8 +93,21 @@ const Home: React.FC<HomeProps> = () => {
     setConnectModalOpen(true);
   };
 
-  const [tabValue, setTabValue] = React.useState("stake");
+  const [tabValue, setTabValue] = React.useState<string | null>(null);
+
   const { match: isDesktop, isReady: isBreakpointReady } = useBreakpoint("lg");
+
+  useEffect(() => {
+    if (tabValue) {
+      localStorage.setItem("ATLAS_MAIN_TAB", tabValue);
+    }
+  }, [tabValue]);
+
+  useEffect(() => {
+    const savedTab = localStorage.getItem("ATLAS_MAIN_TAB");
+
+    setTabValue(savedTab || "stake");
+  }, []);
 
   return (
     <AppContext.Provider
@@ -132,7 +145,7 @@ const Home: React.FC<HomeProps> = () => {
                         defaultValue="stake"
                         dirDisplay={isDesktop ? "vertical" : "horizontal"}
                         onValueChange={(value) => setTabValue(value)}
-                        value={tabValue}
+                        value={tabValue || ""}
                       >
                         <TabsList>
                           <TabsTrigger value="stake">Stake</TabsTrigger>
