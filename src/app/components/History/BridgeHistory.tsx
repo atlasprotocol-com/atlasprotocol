@@ -1,4 +1,5 @@
 import { useEffect, useMemo } from "react";
+import { BsExclamationDiamondFill, BsInfoCircleFill } from "react-icons/bs";
 import InfiniteScroll from "react-infinite-scroll-component";
 import { useLocalStorage } from "usehooks-ts";
 
@@ -23,18 +24,49 @@ import {
   TableHeader,
   TableRow,
 } from "../Table";
+import { Tooltip, TooltipContent, TooltipTrigger } from "../Tooltip";
 
 const BridgeHistoryKey = "atlas-protocol-bridge";
 
-// Get the local storage key for delegations
 const getBridgeHistoriesLocalStorageKey = (pk: string) => {
   return pk ? `${BridgeHistoryKey}-${pk}` : "";
 };
+
+export interface BridgeHistoryWithAmountInfo extends BridgeHistory {
+  amountInfo: {
+    totalAmount: string;
+    protocolFee: string;
+    bridgingFee: string;
+    netAmount: string;
+  };
+}
 
 export function BridgeHistorySection() {
   const selectedAddress = useBridgeStore((state) => state.selectedAddress);
   const { data: chainConfigs = {} } = useGetChainConfig();
   const { BTC_TOKEN } = useAppContext();
+
+  function getBridgeAmountInfo(bridgeHistory: BridgeHistory) {
+    return {
+      totalAmount: maxDecimals(satoshiToBtc(bridgeHistory.abtc_amount), 8),
+      protocolFee: maxDecimals(satoshiToBtc(bridgeHistory.protocol_fee), 8),
+      bridgingFee: maxDecimals(
+        satoshiToBtc(
+          bridgeHistory.yield_provider_gas_fee + bridgeHistory.minting_fee_sat,
+        ),
+        8,
+      ),
+      netAmount: maxDecimals(
+        satoshiToBtc(
+          bridgeHistory.abtc_amount -
+            bridgeHistory.protocol_fee -
+            bridgeHistory.yield_provider_gas_fee -
+            bridgeHistory.minting_fee_sat,
+        ),
+        8,
+      ),
+    };
+  }
 
   const {
     data: bridgeHistories,
@@ -42,7 +74,6 @@ export function BridgeHistorySection() {
     hasNextPage: hasNextBridgeHistoriesPage,
     isFetchingNextPage: isFetchingNextBridgeHistoriesPage,
   } = useGetBridgeHistory({
-    // address: "0x2564186c643B292d6A4215f5C33Aa69b213414dd",
     address: selectedAddress,
   });
 
@@ -64,10 +95,15 @@ export function BridgeHistorySection() {
 
   // Sort the combined bridgeHistories by startTimestamp, newest records first
   const sortedBridgeHistoriesData = useMemo(() => {
-    return combinedBridgeHistoriesData.sort(
-      (a, b) =>
-        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
-    );
+    return combinedBridgeHistoriesData
+      .sort(
+        (a, b) =>
+          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
+      )
+      .map((bridgeHistory) => ({
+        ...bridgeHistory,
+        amountInfo: getBridgeAmountInfo(bridgeHistory),
+      }));
   }, [combinedBridgeHistoriesData]);
 
   // Clean up the local storage bridge
@@ -131,6 +167,9 @@ export function BridgeHistorySection() {
                   const chainStartExplorerURL = chainStart?.explorerURL;
 
                   const txnHash = bridgeHistory.txn_hash?.split(",")[1];
+
+                  const originChain =
+                    chainConfigs[bridgeHistory.origin_chain_id];
 
                   return (
                     <div
@@ -236,6 +275,8 @@ export function BridgeHistorySection() {
                         <TableHead>Receiving Address</TableHead>
                         <TableHead>Source Tx Hash</TableHead>
                         <TableHead>Destination Tx Hash</TableHead>
+                        <TableHead>Origin Chain</TableHead>
+                        <TableHead>Origin Address</TableHead>
                         <TableHead>Status</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -248,16 +289,58 @@ export function BridgeHistorySection() {
 
                         const chainStartExplorerURL = chainStart?.explorerURL;
 
+                        const originChain =
+                          chainConfigs[bridgeHistory.origin_chain_id];
+
                         const txnHash = bridgeHistory.txn_hash?.split(",")[1];
                         return (
                           <TableRow key={bridgeHistory.timestamp}>
                             <TableCell>
-                              <div title={`Total Amount: ${maxDecimals(satoshiToBtc(bridgeHistory.abtc_amount), 8)} BTC
-Protocol Fee: ${maxDecimals(satoshiToBtc(bridgeHistory.protocol_fee), 8)} BTC
-Bridging Fee: ${maxDecimals(satoshiToBtc(bridgeHistory.yield_provider_gas_fee + bridgeHistory.minting_fee_sat), 8)} BTC
-Net Amount: ${maxDecimals(satoshiToBtc(bridgeHistory.abtc_amount - bridgeHistory.protocol_fee - bridgeHistory.yield_provider_gas_fee - bridgeHistory.minting_fee_sat), 8)} BTC`}>
+                              <div className="flex  gap-1">
+                                <div className="flex  gap-1">
+                                  <Tooltip>
+                                    <TooltipTrigger>
+                                      <span>
+                                        <BsInfoCircleFill />
+                                      </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>
+                                        Total Amount:{" "}
+                                        {bridgeHistory.amountInfo.totalAmount}{" "}
+                                        {BTC_TOKEN}
+                                      </p>
+                                      <p>
+                                        Protocol Fee:{" "}
+                                        {bridgeHistory.amountInfo.protocolFee}{" "}
+                                        {BTC_TOKEN}
+                                      </p>
+                                      <p>
+                                        Bridging Fee:{" "}
+                                        {bridgeHistory.amountInfo.bridgingFee}{" "}
+                                        {BTC_TOKEN}
+                                      </p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </div>
                                 {maxDecimals(
-                                  satoshiToBtc(bridgeHistory.abtc_amount - bridgeHistory.protocol_fee - bridgeHistory.yield_provider_gas_fee - bridgeHistory.minting_fee_sat),
+                                  satoshiToBtc(
+                                    bridgeHistory.abtc_amount -
+                                      bridgeHistory.protocol_fee -
+                                      bridgeHistory.yield_provider_gas_fee -
+                                      bridgeHistory.minting_fee_sat,
+                                  ),
+                                  8,
+                                )}
+                              </div>
+                              <div>
+                                {maxDecimals(
+                                  satoshiToBtc(
+                                    bridgeHistory.abtc_amount -
+                                      bridgeHistory.protocol_fee -
+                                      bridgeHistory.yield_provider_gas_fee -
+                                      bridgeHistory.minting_fee_sat,
+                                  ),
                                   8,
                                 )}
                               </div>
@@ -295,10 +378,28 @@ Net Amount: ${maxDecimals(satoshiToBtc(bridgeHistory.abtc_amount - bridgeHistory
                                 "-"
                               )}
                             </TableCell>
+                            <TableCell>{originChain?.networkName}</TableCell>
                             <TableCell>
-                              <span className=" px-2 py-0.5 bg-secondary-200 dark:bg-secondary-900 text-secondary-800 dark:text-secondary-700 rounded-[30px] justify-center items-center gap-px inline-flex text-[12px] font-semibold">
-                                {getStatusMessage(bridgeHistory.status)}
-                              </span>
+                              {trim(bridgeHistory.origin_chain_address)}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex gap-1">
+                                {bridgeHistory.remarks && (
+                                  <Tooltip>
+                                    <TooltipTrigger>
+                                      <span className="text-red-500">
+                                        <BsExclamationDiamondFill />
+                                      </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      {bridgeHistory.remarks}
+                                    </TooltipContent>
+                                  </Tooltip>
+                                )}
+                                <span className=" px-2 py-0.5 bg-secondary-200 dark:bg-secondary-900 text-secondary-800 dark:text-secondary-700 rounded-[30px] justify-center items-center gap-px inline-flex text-[12px] font-semibold">
+                                  {getStatusMessage(bridgeHistory.status)}
+                                </span>
+                              </div>
                             </TableCell>
                           </TableRow>
                         );

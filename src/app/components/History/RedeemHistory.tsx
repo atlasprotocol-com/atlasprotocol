@@ -1,4 +1,5 @@
 import { useEffect, useMemo } from "react";
+import { BsExclamationDiamondFill } from "react-icons/bs";
 import InfiniteScroll from "react-infinite-scroll-component";
 import { useLocalStorage } from "usehooks-ts";
 
@@ -24,6 +25,7 @@ import {
   TableHeader,
   TableRow,
 } from "../Table";
+import { Tooltip, TooltipContent, TooltipTrigger } from "../Tooltip";
 
 export function RedeemHistory() {
   const { btcPublicKeyNoCoord, btcAddress, BTC_TOKEN } = useAppContext();
@@ -124,9 +126,10 @@ export function RedeemHistory() {
                   const chain =
                     chainConfigs[redeemHistory.abtcRedemptionChainId];
 
-                  const netAmount = redeemHistory.abtcAmount - 
-                    redeemHistory.protocolFee - 
-                    redeemHistory.yieldProviderGasFee - 
+                  const netAmount =
+                    redeemHistory.abtcAmount -
+                    redeemHistory.protocolFee -
+                    redeemHistory.yieldProviderGasFee -
                     redeemHistory.btcRedemptionFee;
 
                   return (
@@ -158,8 +161,7 @@ export function RedeemHistory() {
                           Amount
                         </p>
                         <p>
-                          {maxDecimals(satoshiToBtc(netAmount), 8)}{" "}
-                          {BTC_TOKEN}
+                          {maxDecimals(satoshiToBtc(netAmount), 8)} {BTC_TOKEN}
                         </p>
                       </div>
                       <div className="flex justify-between text-sm mt-1">
@@ -239,19 +241,22 @@ export function RedeemHistory() {
                         const chain =
                           chainConfigs[redeemHistory.abtcRedemptionChainId];
 
-                        const netAmount = redeemHistory.abtcAmount - 
-                          redeemHistory.protocolFee - 
-                          redeemHistory.yieldProviderGasFee - 
+                        const netAmount =
+                          redeemHistory.abtcAmount -
+                          redeemHistory.protocolFee -
+                          redeemHistory.yieldProviderGasFee -
                           redeemHistory.btcRedemptionFee;
 
                         return (
                           <TableRow key={redeemHistory.timestamp}>
                             <TableCell>
-                              <div title={`Total Amount: ${maxDecimals(satoshiToBtc(redeemHistory.abtcAmount), 8)} BTC
+                              <div
+                                title={`Total Amount: ${maxDecimals(satoshiToBtc(redeemHistory.abtcAmount), 8)} BTC
 Protocol Fee: ${maxDecimals(satoshiToBtc(redeemHistory.protocolFee), 8)} BTC
 Yield Provider Gas Fee: ${maxDecimals(satoshiToBtc(redeemHistory.yieldProviderGasFee), 8)} BTC
 BTC Redemption Fee: ${maxDecimals(satoshiToBtc(redeemHistory.btcRedemptionFee), 8)} BTC
-Net Amount: ${maxDecimals(satoshiToBtc(netAmount), 8)} BTC`}>
+Net Amount: ${maxDecimals(satoshiToBtc(netAmount), 8)} BTC`}
+                              >
                                 {maxDecimals(satoshiToBtc(netAmount), 8)}
                               </div>
                             </TableCell>
@@ -270,7 +275,11 @@ Net Amount: ${maxDecimals(satoshiToBtc(netAmount), 8)} BTC`}>
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="text-primary hover:underline"
-                                title={redeemHistory.txnHash.includes(",") ? redeemHistory.txnHash.split(",")[1] : redeemHistory.txnHash}
+                                title={
+                                  redeemHistory.txnHash.includes(",")
+                                    ? redeemHistory.txnHash.split(",")[1]
+                                    : redeemHistory.txnHash
+                                }
                               >
                                 {trim(
                                   redeemHistory.txnHash.includes(",")
@@ -295,9 +304,23 @@ Net Amount: ${maxDecimals(satoshiToBtc(netAmount), 8)} BTC`}>
                               )}
                             </TableCell>
                             <TableCell>
-                              <span className=" px-2 py-0.5 bg-secondary-200 dark:bg-secondary-900 text-secondary-800 dark:text-secondary-700 rounded-[30px] justify-center items-center gap-px inline-flex text-[12px] font-semibold">
-                                {getStatusMessage(redeemHistory.status)}
-                              </span>
+                              <div className="flex gap-1">
+                                {redeemHistory.remarks && (
+                                  <Tooltip>
+                                    <TooltipTrigger>
+                                      <span className="text-red-500">
+                                        <BsExclamationDiamondFill />
+                                      </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      {redeemHistory.remarks}
+                                    </TooltipContent>
+                                  </Tooltip>
+                                )}
+                                <span className=" px-2 py-0.5 bg-secondary-200 dark:bg-secondary-900 text-secondary-800 dark:text-secondary-700 rounded-[30px] justify-center items-center gap-px inline-flex text-[12px] font-semibold">
+                                  {getStatusMessage(redeemHistory.status)}
+                                </span>
+                              </div>
                             </TableCell>
                           </TableRow>
                         );

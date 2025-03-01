@@ -23,6 +23,7 @@ import {
   TabsRoot,
   TabsTrigger,
 } from "./components/Tabs";
+import { TooltipProvider } from "./components/Tooltip";
 import { useError } from "./context/Error/ErrorContext";
 import { useTerms } from "./context/Terms/TermsContext";
 import { AppContext, defaultAppContext } from "./context/app";
@@ -106,105 +107,109 @@ const Home: React.FC<HomeProps> = () => {
         btcRefreshBalance: refetchBalance,
       }}
     >
-      <main
-        className={`relative h-full min-h-svh w-full ${network === Network.MAINNET ? "main-app-mainnet" : "main-app-testnet"}`}
-      >
-        <Header
-          onConnect={handleConnectModal}
-          onDisconnect={handleDisconnectBTC}
-          address={address}
-          balanceSat={btcWalletBalanceSat}
-        />
-        <div className="container mx-auto flex justify-center py-6">
-          <div className="container flex flex-col gap-6">
-            <div className="flex gap-4 flex-col lg:flex-row">
-              <div className="flex-1 flex flex-col gap-4">
-                <Stats />
-                <Card>
-                  <div
-                    className={`py-6 ${
-                      isBreakpointReady ? "opacity-100" : "opacity-0"
-                    }`}
-                  >
-                    <TabsRoot
-                      defaultValue="stake"
-                      dirDisplay={isDesktop ? "vertical" : "horizontal"}
-                      onValueChange={(value) => setTabValue(value)}
-                      value={tabValue}
+      <TooltipProvider>
+        <main
+          className={`relative h-full min-h-svh w-full ${network === Network.MAINNET ? "main-app-mainnet" : "main-app-testnet"}`}
+        >
+          <Header
+            onConnect={handleConnectModal}
+            onDisconnect={handleDisconnectBTC}
+            address={address}
+            balanceSat={btcWalletBalanceSat}
+          />
+          <div className="container mx-auto flex justify-center py-6">
+            <div className="container flex flex-col gap-6">
+              <div className="flex gap-4 flex-col lg:flex-row">
+                <div className="flex-1 flex flex-col gap-4">
+                  <Stats />
+                  <Card>
+                    <div
+                      className={`py-6 ${
+                        isBreakpointReady ? "opacity-100" : "opacity-0"
+                      }`}
                     >
-                      <TabsList>
-                        <TabsTrigger value="stake">Stake</TabsTrigger>
-                        <TabsTrigger value="redeem">Redeem</TabsTrigger>
-                        <TabsTrigger value="bridging">Bridge</TabsTrigger>
-                        {/* <TabsTrigger value="points">Points</TabsTrigger> */}
-                      </TabsList>
-                      <Suspense fallback={<LoadingSection />}>
-                        <TabsContent value="stake">
-                          <RequireConnectWallet
-                            required={!address}
-                            onConnect={handleConnectModal}
-                            renderContent={
-                              <LazyStake
-                                btcWallet={btcWallet}
-                                formattedBalance={formattedBalance}
-                                btcBalanceSat={btcWalletBalanceSat}
-                              />
-                            }
-                          />
+                      <TabsRoot
+                        defaultValue="stake"
+                        dirDisplay={isDesktop ? "vertical" : "horizontal"}
+                        onValueChange={(value) => setTabValue(value)}
+                        value={tabValue}
+                      >
+                        <TabsList>
+                          <TabsTrigger value="stake">Stake</TabsTrigger>
+                          <TabsTrigger value="redeem">Redeem</TabsTrigger>
+                          <TabsTrigger value="bridging">Bridge</TabsTrigger>
+                          {/* <TabsTrigger value="points">Points</TabsTrigger> */}
+                        </TabsList>
+                        <Suspense fallback={<LoadingSection />}>
+                          <TabsContent value="stake">
+                            <RequireConnectWallet
+                              required={!address}
+                              onConnect={handleConnectModal}
+                              renderContent={
+                                <LazyStake
+                                  btcWallet={btcWallet}
+                                  formattedBalance={formattedBalance}
+                                  btcBalanceSat={btcWalletBalanceSat}
+                                />
+                              }
+                            />
+                          </TabsContent>
+                          <TabsContent value="redeem">
+                            <RequireConnectWallet
+                              required={!address}
+                              onConnect={handleConnectModal}
+                              renderContent={
+                                <LazyRedeem btcAddress={address} />
+                              }
+                            />
+                          </TabsContent>
+                        </Suspense>
+                        <TabsContent value="bridging">
+                          <LazyBridge />
                         </TabsContent>
-                        <TabsContent value="redeem">
-                          <RequireConnectWallet
-                            required={!address}
-                            onConnect={handleConnectModal}
-                            renderContent={<LazyRedeem btcAddress={address} />}
-                          />
-                        </TabsContent>
-                      </Suspense>
-                      <TabsContent value="bridging">
-                        <LazyBridge />
-                      </TabsContent>
-                      {/* <TabsContent value="points">
+                        {/* <TabsContent value="points">
                         <LazyPoints />
                       </TabsContent> */}
-                    </TabsRoot>
-                  </div>
-                </Card>
-              </div>
-              {btcWallet && (
-                <div className="flex-shrink-0 lg:w-[400px] lg:h-full">
-                  <Holdings balanceSat={btcWalletBalanceSat} />
+                      </TabsRoot>
+                    </div>
+                  </Card>
                 </div>
-              )}
-            </div>
+                {btcWallet && (
+                  <div className="flex-shrink-0 lg:w-[400px] lg:h-full">
+                    <Holdings balanceSat={btcWalletBalanceSat} />
+                  </div>
+                )}
+              </div>
 
-            <div>
-              <Suspense fallback={<LoadingSection />}>
-                {tabValue === "stake" && <LazyStakeHistory />}
+              <div>
+                <Suspense fallback={<LoadingSection />}>
+                  {tabValue === "stake" && <LazyStakeHistory />}
 
-                {tabValue === "redeem" && <LazyRedeemHistory />}
+                  {tabValue === "redeem" && <LazyRedeemHistory />}
 
-                {tabValue === "bridging" && <LazyBridgeHistory />}
-              </Suspense>
+                  {tabValue === "bridging" && <LazyBridgeHistory />}
+                </Suspense>
+              </div>
             </div>
           </div>
-        </div>
 
-        <ConnectModal
-          open={connectModalOpen}
-          onClose={setConnectModalOpen}
-          onConnect={handleConnectBTC}
-          connectDisabled={!!address}
-        />
-        <ErrorModal
-          open={isErrorOpen}
-          errorMessage={error.message}
-          errorState={error.errorState}
-          errorTime={error.errorTime}
-          onClose={hideError}
-          onRetry={retryErrorAction}
-        />
-        <TermsModal open={isTermsOpen} onClose={closeTerms} />
-      </main>
+          <ConnectModal
+            open={connectModalOpen}
+            onClose={setConnectModalOpen}
+            onConnect={handleConnectBTC}
+            connectDisabled={!!address}
+          />
+          <ErrorModal
+            open={isErrorOpen}
+            errorMessage={error.message}
+            errorState={error.errorState}
+            errorTime={error.errorTime}
+            onClose={hideError}
+            onRetry={retryErrorAction}
+          />
+          <TermsModal open={isTermsOpen} onClose={closeTerms} />
+        </main>
+      </TooltipProvider>
       <Footer />
     </AppContext.Provider>
   );

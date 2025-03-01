@@ -1,10 +1,12 @@
 import { useEffect, useMemo } from "react";
+import { BsExclamationDiamondFill, BsInfoCircleFill } from "react-icons/bs";
 import InfiniteScroll from "react-infinite-scroll-component";
 import { useLocalStorage } from "usehooks-ts";
 
 import { useAppContext } from "@/app/context/app";
 import { useGetStakingHistory } from "@/app/hooks/history";
 import { getStatusMessage, Stakes } from "@/app/types/stakes";
+import { getNetworkConfig } from "@/config/network.config";
 import { useGetChainConfig } from "@/hooks";
 import { satoshiToBtc } from "@/utils/btcConversions";
 import { formatTimestamp } from "@/utils/getFormattedTimestamp";
@@ -12,7 +14,6 @@ import { calculateStakingHistoriesDiff } from "@/utils/local_storage/calculateSt
 import { getStakingHistoriesLocalStorageKey } from "@/utils/local_storage/getStakingHistoriesLocalStorageKey";
 import { maxDecimals } from "@/utils/maxDecimals";
 import { trim } from "@/utils/trim";
-import { getNetworkConfig } from "@/config/network.config";
 
 import { Card } from "../Card";
 import { LoadingTableList } from "../Loading/Loading";
@@ -24,7 +25,17 @@ import {
   TableHeader,
   TableRow,
 } from "../Table";
+import { Tooltip, TooltipContent, TooltipTrigger } from "../Tooltip";
 
+interface StakeHistoryWithAmountInfo extends Stakes {
+  amountInfo: {
+    totalAmount: number;
+    protocolFee: number;
+    mintingFee: number;
+    yieldProviderGasFee: number;
+    netAmount: number;
+  };
+}
 
 export function StakeHistory() {
   const { btcPublicKeyNoCoord, btcAddress, BTC_TOKEN } = useAppContext();
@@ -57,11 +68,18 @@ export function StakeHistory() {
   }, [stakingHistories, stakingHistoriesLocalStorage]);
 
   // Sort the combined stakingHistories by startTimestamp, newest records first
-  const sortedStakingHistoriesData = useMemo(() => {
-    return combinedStakingHistoriesData.sort(
-      (a, b) =>
-        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
-    );
+  const sortedStakingHistoriesData = useMemo<
+    StakeHistoryWithAmountInfo[]
+  >(() => {
+    return combinedStakingHistoriesData
+      .sort(
+        (a, b) =>
+          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
+      )
+      .map((stakingHistory) => ({
+        ...stakingHistory,
+        amountInfo: getStakeAmountInfo(stakingHistory),
+      }));
   }, [combinedStakingHistoriesData]);
 
   // Clean up the local storage staking
@@ -89,6 +107,31 @@ export function StakeHistory() {
     setStakingHistoriesLocalStorage,
     stakingHistoriesLocalStorage,
   ]);
+
+  function getStakeAmountInfo(stakingHistory: Stakes) {
+    return {
+      totalAmount: maxDecimals(
+        satoshiToBtc(
+          stakingHistory.btcAmount +
+            stakingHistory.protocolFee +
+            stakingHistory.mintingFee,
+        ),
+        8,
+      ),
+      protocolFee: maxDecimals(satoshiToBtc(stakingHistory.protocolFee), 8),
+      mintingFee: maxDecimals(satoshiToBtc(stakingHistory.mintingFee), 8),
+      yieldProviderGasFee: maxDecimals(
+        satoshiToBtc(stakingHistory.yieldProviderGasFee),
+        8,
+      ),
+      netAmount: maxDecimals(
+        satoshiToBtc(
+          stakingHistory.btcAmount - stakingHistory.yieldProviderGasFee,
+        ),
+        8,
+      ),
+    };
+  }
 
   return (
     <Card>
@@ -232,11 +275,54 @@ export function StakeHistory() {
                         return (
                           <TableRow key={stakingHistory.timestamp}>
                             <TableCell>
-                              <div title={`Total Amount: ${maxDecimals(satoshiToBtc(stakingHistory.btcAmount + stakingHistory.protocolFee + stakingHistory.mintingFee), 8)} BTC
-Protocol Fee: ${maxDecimals(satoshiToBtc(stakingHistory.protocolFee), 8)} BTC
-Minting Fee: ${maxDecimals(satoshiToBtc(stakingHistory.mintingFee), 8)} BTC
-Yield Provider Gas Fee: ${maxDecimals(satoshiToBtc(stakingHistory.yieldProviderGasFee), 8)} BTC
-Net Amount: ${maxDecimals(satoshiToBtc(stakingHistory.btcAmount - stakingHistory.yieldProviderGasFee), 8)} BTC`}>
+                              <div className="flex  gap-1">
+                                <div className="flex  gap-1">
+                                  <Tooltip>
+                                    <TooltipTrigger>
+                                      <span>
+                                        <BsInfoCircleFill />
+                                      </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <div>
+                                        <p>
+                                          Total Amount:{" "}
+                                          {
+                                            stakingHistory.amountInfo
+                                              .totalAmount
+                                          }{" "}
+                                          {BTC_TOKEN}
+                                        </p>
+                                        <p>
+                                          Protocol Fee:{" "}
+                                          {
+                                            stakingHistory.amountInfo
+                                              .protocolFee
+                                          }{" "}
+                                          {BTC_TOKEN}
+                                        </p>
+                                        <p>
+                                          Minting Fee:{" "}
+                                          {stakingHistory.amountInfo.mintingFee}{" "}
+                                          {BTC_TOKEN}
+                                        </p>
+                                        <p>
+                                          Yield Provider Gas Fee:{" "}
+                                          {
+                                            stakingHistory.amountInfo
+                                              .yieldProviderGasFee
+                                          }{" "}
+                                          {BTC_TOKEN}
+                                        </p>
+                                        <p>
+                                          Net Amount:{" "}
+                                          {stakingHistory.amountInfo.netAmount}{" "}
+                                          {BTC_TOKEN}
+                                        </p>
+                                      </div>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </div>
                                 {maxDecimals(
                                   satoshiToBtc(
                                     stakingHistory.btcAmount -
@@ -284,9 +370,23 @@ Net Amount: ${maxDecimals(satoshiToBtc(stakingHistory.btcAmount - stakingHistory
                               )}
                             </TableCell>
                             <TableCell>
-                              <span className=" px-2 py-0.5 bg-secondary-200 dark:bg-secondary-900 text-secondary-800 dark:text-secondary-700 rounded-[30px] justify-center items-center gap-px inline-flex text-[12px] font-semibold">
-                                {getStatusMessage(stakingHistory.status)}
-                              </span>
+                              <div className="flex gap-1">
+                                {stakingHistory.remarks && (
+                                  <Tooltip>
+                                    <TooltipTrigger>
+                                      <span className="text-red-500">
+                                        <BsExclamationDiamondFill />
+                                      </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      {stakingHistory.remarks}
+                                    </TooltipContent>
+                                  </Tooltip>
+                                )}
+                                <span className=" px-2 py-0.5 bg-secondary-200 dark:bg-secondary-900 text-secondary-800 dark:text-secondary-700 rounded-[30px] justify-center items-center gap-px inline-flex text-[12px] font-semibold">
+                                  {getStatusMessage(stakingHistory.status)}
+                                </span>
+                              </div>
                             </TableCell>
                           </TableRow>
                         );
