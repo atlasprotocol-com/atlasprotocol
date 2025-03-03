@@ -116,10 +116,15 @@ function detectNetwork(rpcUrl) {
   return "";
 }
 
+function isEnableSubquery() {
+  return (process.env.SUBQUERY_ENABLE || "false").toLowerCase() === "true";
+}
+
 module.exports = {
   getMintDepositEntities,
   getBurnRedeemEntity,
   getMintBridgeEntity,
   getBurnBridgeEntity,
   detectNetwork,
+  isEnableSubquery,
 };

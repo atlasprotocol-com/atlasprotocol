@@ -15,7 +15,12 @@ const {
 
 const batchName = "---------- RetrieveAndProcessPastNearEvents ----------";
 
-async function RetrieveAndProcessPastNearEvents(near) {
+async function RetrieveAndProcessPastNearEvents(
+  near,
+  deposits,
+  redemptions,
+  bridgings,
+) {
   if (flagsBatch.RetrieveAndProcessPastNearEvents) {
     console.log(`${batchName} is not completed yet. Will skip this run.`);
     return;
@@ -52,9 +57,9 @@ async function RetrieveAndProcessPastNearEvents(near) {
       const events = await near.getPastEventsInBatches(
         startBlock - 10,
         endBlock,
-        
-      // 188551586 - 10,
-      // 188551586 + 10,
+
+        // 188551586 - 10,
+        // 188551586 + 10,
         chain.aBTCAddress,
       );
 
@@ -62,14 +67,12 @@ async function RetrieveAndProcessPastNearEvents(near) {
 
       // Process all events in a single loop
       for (const event of events) {
-
         try {
           const timestamp = event.timestamp;
           console.log(event);
           if (event.type === "mint_redemption") {
             await processMintDepositEvent(event, near);
           } else if (event.type === "burn_bridging") {
-            
             await processBurnBridgeEvent(
               {
                 returnValues: {

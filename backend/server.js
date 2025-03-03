@@ -56,7 +56,10 @@ const {
   UpdateAtlasBtcWithdrawnFromYieldProvider,
 } = require("./utils/updateAtlasBtcWithdrawnFromYieldProvider");
 const { SendBtcBackToUser } = require("./utils/sendBtcBackToUser");
-const { estimateRedemptionFees, estimateBridgingFees } = require("./services/bithive");
+const {
+  estimateRedemptionFees,
+  estimateBridgingFees,
+} = require("./services/bithive");
 const {
   UnstakeBridgingFeesFromYieldProvider,
 } = require("./utils/unstakeBridgingFeesFromYieldProvider");
@@ -225,8 +228,13 @@ app.get("/api/v1/atlas/redemptionFees", async (req, res) => {
 
     const data = {
       estimatedRedemptionFee:
-        feeData.estimated_redemption_fee < process.env.DUST_LIMIT ? process.env.DUST_LIMIT : feeData.estimated_redemption_fee,
-      atlasProtocolFee: protocolFee < process.env.DUST_LIMIT ? process.env.DUST_LIMIT : protocolFee,
+        feeData.estimated_redemption_fee < process.env.DUST_LIMIT
+          ? process.env.DUST_LIMIT
+          : feeData.estimated_redemption_fee,
+      atlasProtocolFee:
+        protocolFee < process.env.DUST_LIMIT
+          ? process.env.DUST_LIMIT
+          : protocolFee,
       estimatedRedemptionFeeRate: feeData.estimated_redemption_fee_rate,
     };
 
@@ -249,8 +257,15 @@ app.get("/api/v1/atlas/bridgingFees", async (req, res) => {
 
     const data = {
       estimatedBridgingFee:
-        feeData.estimated_bridging_fee < process.env.DUST_LIMIT ? process.env.DUST_LIMIT : feeData.estimated_bridging_fee,
-      atlasProtocolFee: protocolFee === 0 ? 0 : (protocolFee < process.env.DUST_LIMIT ? process.env.DUST_LIMIT : protocolFee),
+        feeData.estimated_bridging_fee < process.env.DUST_LIMIT
+          ? process.env.DUST_LIMIT
+          : feeData.estimated_bridging_fee,
+      atlasProtocolFee:
+        protocolFee === 0
+          ? 0
+          : protocolFee < process.env.DUST_LIMIT
+            ? process.env.DUST_LIMIT
+            : protocolFee,
       estimatedBridgingFeeRate: feeData.estimated_bridging_fee_rate,
     };
 
@@ -488,7 +503,7 @@ async function runBatch() {
   await UpdateYieldProviderStacked(deposits, near, bitcoin);
   await MintaBtcToReceivingChain(near);
   // await UpdateAtlasAbtcMintedTxnHash(deposits, near); // Not needed
-  await UpdateAtlasAbtcMinted(deposits, near); 
+  await UpdateAtlasAbtcMinted(deposits, near);
 
   await WithdrawFailDeposits(deposits, near, bitcoin);
   await UpdateWithdrawFailDeposits(deposits, near, bitcoin);
@@ -507,11 +522,16 @@ async function runBatch() {
 
   await UnstakeBridgingFeesFromYieldProvider(near, bitcoin);
   await UpdateAtlasBtcBridgingYieldProviderUnstaked(bridgings, near, bitcoin);
-  await WithdrawBridgingFeesFromYieldProvider(near, bitcoin, bridgings, globalParams.atlasTreasuryAddress);
+  await WithdrawBridgingFeesFromYieldProvider(
+    near,
+    bitcoin,
+    bridgings,
+    globalParams.atlasTreasuryAddress,
+  );
   await UpdateAtlasBtcBridgingYieldProviderWithdrawn(bridgings, near, bitcoin);
 
-  await RetrieveAndProcessPastEvmEvents(near, deposits, redemptions, bridgings);
-  await RetrieveAndProcessPastNearEvents(near);
+  // await RetrieveAndProcessPastEvmEvents(near, deposits, redemptions, bridgings);
+  // await RetrieveAndProcessPastNearEvents(near);
 
   // Delay for 5 seconds before running the batch again
   await new Promise((resolve) => setTimeout(resolve, 5000));
@@ -527,6 +547,6 @@ app.listen(PORT, async () => {
   await fetchAndSetConstants(near); // Load constants
 
   console.log(`Server is running on port ${PORT}`);
-  
+
   runBatch().catch(console.error);
 });

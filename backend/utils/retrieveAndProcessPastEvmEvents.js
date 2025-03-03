@@ -16,6 +16,11 @@ const {
   processBurnBridgeEvent,
   processMintBridgeEvent,
 } = require("../helpers/eventProcessor");
+const {
+  detectNetwork,
+  getMintDepositEntities,
+  isEnableSubquery,
+} = require("../services/subquery");
 
 const batchName = `Batch RetrieveAndProcessPastEvmEvents`;
 
@@ -34,8 +39,7 @@ async function RetrieveAndProcessPastEvmEvents(
     console.log(`${batchName} Start run ...`);
     flagsBatch.RetrieveAndProcessPastEvmEventsRunning = true;
 
-    const { NETWORK_TYPE, DELIMITER, DEPOSIT_STATUS, BRIDGING_STATUS } =
-      getConstants();
+    const { NETWORK_TYPE, DELIMITER } = getConstants();
     const chainConfig = getAllChainConfig();
 
     const evmChains = Object.values(chainConfig).filter(
@@ -45,6 +49,19 @@ async function RetrieveAndProcessPastEvmEvents(
     // Process each EVM chain in batches
     for (const chain of evmChains) {
       console.log(`${batchName} EVM: ${chain.chainID}`);
+
+      const network = detectNetwork(chainConfig.chainRpcUrl);
+      if (isEnableSubquery() && network) {
+        await doWithSubquery(
+          chain,
+          network,
+          near,
+          allDeposits,
+          allRedemptions,
+          allBridgings,
+        );
+        continue;
+      }
 
       const web3 = new Web3(chain.chainRpcUrl);
       const ethereum = new Ethereum(
@@ -91,12 +108,23 @@ async function RetrieveAndProcessPastEvmEvents(
             }
 
             if (event.event === "BurnRedeem") {
-              await processBurnRedeemEvent(event, near, chain.chainID, DELIMITER, timestamp);
+              await processBurnRedeemEvent(
+                event,
+                near,
+                chain.chainID,
+                DELIMITER,
+                timestamp,
+              );
               continue;
             }
 
             if (event.event === "BurnBridge") {
-              await processBurnBridgeEvent(event, near, chain.chainID, timestamp);
+              await processBurnBridgeEvent(
+                event,
+                near,
+                chain.chainID,
+                timestamp,
+              );
               continue;
             }
 
@@ -124,6 +152,53 @@ async function RetrieveAndProcessPastEvmEvents(
     console.error(`${batchName}: ${err.message}`);
   } finally {
     flagsBatch.RetrieveAndProcessPastEvmEventsRunning = false;
+  }
+}
+
+async function doWithSubquery(
+  network,
+  near,
+  allDeposits,
+  allRedemptions,
+  allBridgings,
+) {
+  await doWithSubqueryForDeposits(network, near, allDeposits);
+}
+
+async function doWithSubqueryForDeposits(chain, network, near, allDeposits) {
+  // Filter deposits that need to be processed
+  const filteredTxns = allDeposits.filter(
+    (deposit) =>
+      deposit.status === DEPOSIT_STATUS.BTC_PENDING_MINTED_INTO_ABTC &&
+      deposit.minted_txn_hash === "" &&
+      deposit.remarks === "" &&
+      deposit.receiving_chain_id === chain.chainID,
+  );
+  const records = await getMintDepositEntities(
+    network,
+    deposits.map((deposit) => deposit.btc_txn_hash),
+  );
+
+  const recordMaps = records.reduce(
+    (maps, record) => ({ ...maps, [record.btcTxnHash]: record }),
+    {},
+  );
+
+  for (let deposit of filteredTxns) {
+    if (recordMaps[deposit.btc_txn_hash]) {
+      const record = recordMaps[deposit.btc_txn_hash];
+      console.log(
+        `[SUBQUERY.DEPOSIT ${chain.chainID}] ${record.btcTxnHash} --> ${record.id}`,
+      );
+
+      try {
+        await near.updateDepositMintedTxnHash(record.btcTxnHash, record.id);
+      } catch (error) {
+        const remarks = `[${batchName}] ${deposit.btc_txn_hash}: ${error.message}`;
+        console.error(remarks);
+        await near.updateDepositRemarks(deposit.btc_txn_hash, remarks);
+      }
+    }
   }
 }
 
