@@ -271,12 +271,12 @@ export function BridgeHistorySection() {
                       <TableRow>
                         <TableHead>Amount</TableHead>
                         <TableHead>Date</TableHead>
-                        <TableHead>Receiving Chain</TableHead>
-                        <TableHead>Receiving Address</TableHead>
-                        <TableHead>Source Tx Hash</TableHead>
-                        <TableHead>Destination Tx Hash</TableHead>
                         <TableHead>Origin Chain</TableHead>
                         <TableHead>Origin Address</TableHead>
+                        <TableHead>Source Tx Hash</TableHead>
+                        <TableHead>Receiving Chain</TableHead>
+                        <TableHead>Receiving Address</TableHead>
+                        <TableHead>Destination Tx Hash</TableHead>
                         <TableHead>Status</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -333,26 +333,15 @@ export function BridgeHistorySection() {
                                   8,
                                 )}
                               </div>
-                              <div>
-                                {maxDecimals(
-                                  satoshiToBtc(
-                                    bridgeHistory.abtc_amount -
-                                      bridgeHistory.protocol_fee -
-                                      bridgeHistory.yield_provider_gas_fee -
-                                      bridgeHistory.minting_fee_sat,
-                                  ),
-                                  8,
-                                )}
-                              </div>
                             </TableCell>
                             <TableCell>
                               {formatTimestamp(
                                 bridgeHistory.date_created.toString(),
                               )}
                             </TableCell>
-                            <TableCell>{chain.networkName}</TableCell>
+                            <TableCell>{originChain?.networkName}</TableCell>
                             <TableCell>
-                              {trim(bridgeHistory.dest_chain_address)}
+                              {trim(bridgeHistory.origin_chain_address)}
                             </TableCell>
                             <TableCell>
                               <a
@@ -363,6 +352,10 @@ export function BridgeHistorySection() {
                               >
                                 {txnHash ? trim(txnHash) : "-"}
                               </a>
+                            </TableCell>
+                            <TableCell>{chain.networkName}</TableCell>
+                            <TableCell>
+                              {trim(bridgeHistory.dest_chain_address)}
                             </TableCell>
                             <TableCell>
                               {bridgeHistory.dest_txn_hash ? (
@@ -377,10 +370,6 @@ export function BridgeHistorySection() {
                               ) : (
                                 "-"
                               )}
-                            </TableCell>
-                            <TableCell>{originChain?.networkName}</TableCell>
-                            <TableCell>
-                              {trim(bridgeHistory.origin_chain_address)}
                             </TableCell>
                             <TableCell>
                               <div className="flex gap-1">
