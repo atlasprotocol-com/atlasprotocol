@@ -26,7 +26,7 @@ const {
 } = require("./utils/updateAtlasBtcBackToUser");
 const {
   UpdateAtlasAbtcMintedTxnHash,
-} = require("./utils/UpdateAtlasAbtcMintedTxnHash");
+} = require("./utils/updateAtlasAbtcMintedTxnHash");
 const { UpdateAtlasAbtcMinted } = require("./utils/updateAtlasAbtcMinted");
 const {
   UpdateYieldProviderStacked,
