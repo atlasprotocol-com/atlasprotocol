@@ -12,11 +12,16 @@ const configs = {
     uri: process.env.SUBQUERY_NEAR_URI,
   },
 };
-if (!configs.arbitrum.uri) throw new Error("Missing SUBQUERY_ARBITRUM_URI");
-if (!configs.optimism.uri) throw new Error("Missing SUBQUERY_OPTIMISM_URI");
-if (!configs.near.uri) throw new Error("Missing SUBQUERY_NEAR_URI");
+
+function validate() {
+  if (!configs.arbitrum.uri) throw new Error("Missing SUBQUERY_ARBITRUM_URI");
+  if (!configs.optimism.uri) throw new Error("Missing SUBQUERY_OPTIMISM_URI");
+  if (!configs.near.uri) throw new Error("Missing SUBQUERY_NEAR_URI");
+}
 
 async function request({ network, query, variables, returningKey }) {
+  validate();
+
   if (!configs[network]) throw new Error(`Invalid network: ${network}`);
   if (!returningKey) throw new Error(`Missing returning key`);
 
@@ -117,7 +122,12 @@ function detectNetwork(rpcUrl) {
 }
 
 function isEnableSubquery() {
-  return (process.env.SUBQUERY_ENABLE || "false").toLowerCase() === "true";
+  try {
+    validate();
+    return (process.env.SUBQUERY_ENABLE || "false").toLowerCase() === "true";
+  } catch {
+    return false;
+  }
 }
 
 module.exports = {
@@ -127,4 +137,5 @@ module.exports = {
   getBurnBridgeEntity,
   detectNetwork,
   isEnableSubquery,
+  validate,
 };
