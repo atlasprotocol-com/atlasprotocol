@@ -130,6 +130,90 @@ function isEnableSubquery() {
   }
 }
 
+async function get(network) {
+  const [mindeposits, burnredeems, mintbridges, burnbridges] =
+    await Promise.all([
+      (async () => {
+        const query = `
+      query getMintDepositEntities {
+        mintDepositEntities(first: 1000) {
+          nodes {
+            id
+            accountAddress
+            btcTxnHash
+            btcAmount
+            timestamp
+          }
+        }
+      }`;
+        const variables = {};
+        const returningKey = "data.mintDepositEntities.nodes";
+
+        return request({ network, query, variables, returningKey });
+      })(),
+      (async () => {
+        const query = `
+      query getBurnRedeemEntity {
+        burnRedeemEntities(first: 1000) {
+          nodes {
+            id
+            accountAddress
+            btcAmount
+            timestamp
+          }
+        }
+      }`;
+        const variables = {};
+        const returningKey = "data.burnRedeemEntities.nodes";
+
+        return request({ network, query, variables, returningKey });
+      })(),
+      (async () => {
+        const query = `
+      query getMintBridgeEntity {
+        mintBridgeEntities(first: 1000) {
+          nodes {
+            id
+            accountAddress
+            btcAmount
+            originChainId
+            originChainAddress
+            originTxnHash
+            timestamp
+          }
+        }
+      }`;
+        const variables = {};
+        const returningKey = "data.mintBridgeEntities.nodes";
+
+        return request({ network, query, variables, returningKey });
+      })(),
+      (async () => {
+        const query = `
+      query getBurnBridgeEntity {
+        burnBridgeEntities(first: 1000) {
+          nodes {
+            id
+            accountAddress
+            btcAmount
+            destChainId
+            destChainAddress
+            mintingFeeSat
+            bridgingFeeSat
+            timestamp
+          }
+        }
+      }`;
+        const variables = {};
+        const returningKey = "data.burnBridgeEntities.nodes";
+
+        return request({ network, query, variables, returningKey });
+      })(),
+    ]);
+
+  return { mindeposits, burnredeems, mintbridges, burnbridges };
+}
+
 module.exports = {
   getMintDepositEntities,
   getBurnRedeemEntity,
@@ -138,4 +222,5 @@ module.exports = {
   detectNetwork,
   isEnableSubquery,
   validate,
+  get,
 };

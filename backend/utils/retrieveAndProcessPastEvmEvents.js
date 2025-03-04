@@ -50,18 +50,28 @@ async function RetrieveAndProcessPastEvmEvents(
     for (const chain of evmChains) {
       console.log(`${batchName} EVM: ${chain.chainID}`);
 
-      const network = detectNetwork(chainConfig.chainRpcUrl);
-      if (isEnableSubquery() && network) {
-        await doWithSubquery(
-          chain,
-          network,
-          near,
-          allDeposits,
-          allRedemptions,
-          allBridgings,
-        );
-        continue;
+      if (isEnableSubquery()) {
+        const network = detectNetwork(chain.chainRpcUrl);
+
+        if (network) {
+          console.log(
+            `[SUBQUERY ${chain.chainID} ${network}] --------- ENABLED ---------`,
+          );
+
+          await doWithSubquery(
+            chain,
+            network,
+            near,
+            allDeposits,
+            allRedemptions,
+            allBridgings,
+          );
+          continue;
+        }
       }
+
+      console.log(`[SUBQUERY ${chain.chainID}] --------- DISABLED ---------`);
+      return;
 
       const web3 = new Web3(chain.chainRpcUrl);
       const ethereum = new Ethereum(
@@ -149,23 +159,26 @@ async function RetrieveAndProcessPastEvmEvents(
 
     console.log(`${batchName} completed successfully.`);
   } catch (err) {
-    console.error(`${batchName}: ${err.message}`);
+    console.error(`${batchName}: ${err.message} | ${err.stack}`);
   } finally {
     flagsBatch.RetrieveAndProcessPastEvmEventsRunning = false;
   }
 }
 
 async function doWithSubquery(
+  chain,
   network,
   near,
   allDeposits,
   allRedemptions,
   allBridgings,
 ) {
-  await doWithSubqueryForDeposits(network, near, allDeposits);
+  await doWithSubqueryForDeposits(chain, network, near, allDeposits);
 }
 
 async function doWithSubqueryForDeposits(chain, network, near, allDeposits) {
+  const { DEPOSIT_STATUS } = getConstants();
+
   // Filter deposits that need to be processed
   const filteredTxns = allDeposits.filter(
     (deposit) =>
@@ -176,13 +189,16 @@ async function doWithSubqueryForDeposits(chain, network, near, allDeposits) {
   );
   const records = await getMintDepositEntities(
     network,
-    deposits.map((deposit) => deposit.btc_txn_hash),
+    filteredTxns.map((deposit) => deposit.btc_txn_hash),
   );
 
   const recordMaps = records.reduce(
     (maps, record) => ({ ...maps, [record.btcTxnHash]: record }),
     {},
   );
+
+  console.log("----------------->", recordMaps);
+  console.log("----------------->", filteredTxns);
 
   for (let deposit of filteredTxns) {
     if (recordMaps[deposit.btc_txn_hash]) {
