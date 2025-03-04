@@ -1039,7 +1039,7 @@ class Near {
   //                   }
   //                 }
   //                 block_count++;
-                  
+
   //               } catch (err) {
   //                 console.error(`Error processing block: ${err}`);
   //               }
@@ -1142,64 +1142,83 @@ class Near {
   }
 
   async getFirstValidBridgingChainConfig() {
-    return this.makeNearRpcViewCall(
-      "get_first_valid_bridging_chain_config",
-    );
+    return this.makeNearRpcViewCall("get_first_valid_bridging_chain_config");
   }
 
   async getFirstValidBridgingFeesUnstake() {
-    return this.makeNearRpcViewCall(
-      "get_first_valid_bridging_fees_unstake",
+    return this.makeNearRpcViewCall("get_first_valid_bridging_fees_unstake");
+  }
+
+  async updateBridgingFeesPendingYieldProviderUnstake(txnHash) {
+    return this.makeNearRpcChangeCall(
+      "update_bridging_fees_pending_yield_provider_unstake",
+      {
+        txn_hash: txnHash,
+      },
     );
   }
-  
-  async updateBridgingFeesPendingYieldProviderUnstake(txnHash) {
-    return this.makeNearRpcChangeCall("update_bridging_fees_pending_yield_provider_unstake", {
-      txn_hash: txnHash,
-    });
-  }
-
 
   async updateBridgingFeesYieldProviderRemarks(txnHash, remarks) {
-    return this.makeNearRpcChangeCall("update_bridging_fees_yield_provider_remarks", {
-      txn_hash: txnHash,
-      remarks: remarks,
-    });
+    return this.makeNearRpcChangeCall(
+      "update_bridging_fees_yield_provider_remarks",
+      {
+        txn_hash: txnHash,
+        remarks: remarks,
+      },
+    );
   }
 
   async updateBridgingFeesYieldProviderUnstaked(txnHash) {
-    return this.makeNearRpcChangeCall("update_bridging_fees_yield_provider_unstaked", {
-      txn_hash: txnHash,
-    });
+    return this.makeNearRpcChangeCall(
+      "update_bridging_fees_yield_provider_unstaked",
+      {
+        txn_hash: txnHash,
+      },
+    );
   }
 
   async getFirstValidBridgingFeesUnstaked() {
-    return this.makeNearRpcViewCall("get_first_valid_bridging_fees_unstaked", {});
+    return this.makeNearRpcViewCall(
+      "get_first_valid_bridging_fees_unstaked",
+      {},
+    );
   }
 
   async updateBridgingFeesPendingYieldProviderWithdraw(txnHash) {
-    return this.makeNearRpcChangeCall("update_bridging_fees_pending_yield_provider_withdraw", {
-      txn_hash: txnHash,
-    });
+    return this.makeNearRpcChangeCall(
+      "update_bridging_fees_pending_yield_provider_withdraw",
+      {
+        txn_hash: txnHash,
+      },
+    );
   }
 
   async updateBridgingFeesYieldProviderWithdrawing(txnHash, depositTxHash) {
-    return this.makeNearRpcChangeCall("update_bridging_fees_yield_provider_withdrawing", {
-      txn_hash: txnHash,
-      yield_provider_txn_hash: depositTxHash,
-    });
+    return this.makeNearRpcChangeCall(
+      "update_bridging_fees_yield_provider_withdrawing",
+      {
+        txn_hash: txnHash,
+        yield_provider_txn_hash: depositTxHash,
+      },
+    );
   }
 
   async updateBridgingFeesYieldProviderWithdrawn(txnHash) {
-    return this.makeNearRpcChangeCall("update_bridging_fees_yield_provider_withdrawn", {
-      txn_hash: txnHash,
-    });
+    return this.makeNearRpcChangeCall(
+      "update_bridging_fees_yield_provider_withdrawn",
+      {
+        txn_hash: txnHash,
+      },
+    );
   }
-  
+
   async updateBridgingFeesYieldProviderUnstakeProcessing(txnHash) {
-    return this.makeNearRpcChangeCall("update_bridging_fees_yield_provider_unstake_processing", {
-      txn_hash: txnHash,
-    });
+    return this.makeNearRpcChangeCall(
+      "update_bridging_fees_yield_provider_unstake_processing",
+      {
+        txn_hash: txnHash,
+      },
+    );
   }
 
   async createMintBridgeABtcSignedTx(payloadHeader) {
@@ -1334,7 +1353,12 @@ class Near {
     };
   }
 
-  async getPastEventsInBatches(startBlock, endBlock, atBtcContractId, eventType = 'all') {
+  async getPastEventsInBatches(
+    startBlock,
+    endBlock,
+    atBtcContractId,
+    eventType = "all",
+  ) {
     const events = [];
     const targetContractId = this.contract_id;
 
@@ -1346,13 +1370,20 @@ class Near {
         // Define the end block for the current batch
         const batchEndBlock = Math.min(startBlock + batchSize - 1, endBlock);
 
-        console.log(`[NEAR] Processing batch from ${startBlock} to ${batchEndBlock}`);
+        console.log(
+          `[NEAR] Processing batch from ${startBlock} to ${batchEndBlock}`,
+        );
 
         // Create an array of promises for fetching blocks in the current batch
         const blockPromises = [];
-        for (let blockHeight = startBlock; blockHeight <= batchEndBlock; blockHeight++) {
+        for (
+          let blockHeight = startBlock;
+          blockHeight <= batchEndBlock;
+          blockHeight++
+        ) {
           blockPromises.push(
-            this.provider.block({ blockId: blockHeight })
+            this.provider
+              .block({ blockId: blockHeight })
               .then(async (block) => {
                 try {
                   for (const chunk of block.chunks) {
@@ -1360,7 +1391,9 @@ class Near {
                       continue;
                     }
 
-                    const chunkData = await this.provider.chunk(chunk.chunk_hash);
+                    const chunkData = await this.provider.chunk(
+                      chunk.chunk_hash,
+                    );
                     const transactions = chunkData.transactions;
 
                     if (!transactions || transactions.length === 0) {
@@ -1368,11 +1401,13 @@ class Near {
                     }
 
                     for (const tx of transactions) {
-                      
-                      if (tx.receiver_id !== targetContractId && tx.receiver_id !== atBtcContractId) {
+                      if (
+                        tx.receiver_id !== targetContractId &&
+                        tx.receiver_id !== atBtcContractId
+                      ) {
                         continue;
                       }
-                      
+
                       const txResult = await this.provider.txStatus(
                         tx.hash,
                         tx.signer_id,
@@ -1387,101 +1422,115 @@ class Near {
                           try {
                             if (!log.startsWith("EVENT_JSON:")) continue;
 
-                            const eventJson = JSON.parse(log.replace("EVENT_JSON:", ""));
+                            const eventJson = JSON.parse(
+                              log.replace("EVENT_JSON:", ""),
+                            );
                             const eventName = eventJson.event;
 
                             // Filter by event type if specified
-                            if (eventType !== 'all') {
+                            if (eventType !== "all") {
                               const eventMap = {
-                                'mint': 'ft_mint',
-                                'mint_bridge': 'ft_mint_bridge', 
-                                'redemption': 'ft_burn_redeem',
-                                'bridging': 'ft_burn_bridge'
+                                mint: "ft_mint",
+                                mint_bridge: "ft_mint_bridge",
+                                redemption: "ft_burn_redeem",
+                                bridging: "ft_burn_bridge",
                               };
                               if (eventName !== eventMap[eventType]) continue;
                             }
 
-                            const event = JSON.parse(log.replace("EVENT_JSON:", ""));
+                            const event = JSON.parse(
+                              log.replace("EVENT_JSON:", ""),
+                            );
                             const memo = JSON.parse(event.data[0].memo);
                             const transactionHash = txResult.transaction.hash;
-                            const timestamp = Math.floor(block.header.timestamp / 1000000000);
+                            const timestamp = Math.floor(
+                              block.header.timestamp / 1000000000,
+                            );
 
                             let processedEvent = null;
 
                             switch (eventName) {
                               case "ft_mint":
                                 processedEvent = {
-                                  type: 'mint_redemption',
+                                  type: "mint_redemption",
                                   btcTxnHash: memo.btc_txn_hash,
-                                  transactionHash
+                                  transactionHash,
                                 };
                                 break;
 
                               case "ft_mint_bridge":
                                 processedEvent = {
-                                  type: 'mint_bridge',
+                                  type: "mint_bridge",
                                   address: memo.address,
                                   originChainId: memo.originChainId,
                                   originChainAddress: memo.originChainAddress,
                                   originTxnHash: memo.originTxnHash,
                                   transactionHash,
-                                  timestamp
+                                  timestamp,
                                 };
                                 break;
 
                               case "ft_burn_redeem":
-                                if (!address.isValidBTCAddress(memo.btcAddress)) {
+                                if (
+                                  !address.isValidBTCAddress(memo.btcAddress)
+                                ) {
                                   console.error(
-                                    `[${transactionHash}] Invalid BTC address: ${memo.btcAddress} in block ${blockHeight}`
+                                    `[${transactionHash}] Invalid BTC address: ${memo.btcAddress} in block ${blockHeight}`,
                                   );
                                   continue;
                                 }
                                 processedEvent = {
-                                  type: 'burn_redemption',
+                                  type: "burn_redemption",
                                   returnValues: {
                                     amount: event.data[0].amount,
                                     wallet: memo.address,
-                                    btcAddress: memo.btcAddress
+                                    btcAddress: memo.btcAddress,
                                   },
                                   transactionHash,
                                   blockNumber: blockHeight,
                                   timestamp,
-                                  status: true
+                                  status: true,
                                 };
                                 break;
 
                               case "ft_burn_bridge":
-                                const isValidAddress = 
-                                  address.isValidEthereumAddress(memo.destChainAddress) ||
-                                  address.isValidNearAddress(memo.destChainAddress);
+                                const isValidAddress =
+                                  address.isValidEthereumAddress(
+                                    memo.destChainAddress,
+                                  ) ||
+                                  address.isValidNearAddress(
+                                    memo.destChainAddress,
+                                  );
 
                                 if (!isValidAddress) {
                                   console.error(
-                                    `[${transactionHash}] Invalid destination address: ${memo.destChainAddress} in block ${blockHeight}`
+                                    `[${transactionHash}] Invalid destination address: ${memo.destChainAddress} in block ${blockHeight}`,
                                   );
                                   continue;
                                 }
                                 processedEvent = {
-                                  type: 'burn_bridging',
+                                  type: "burn_bridging",
                                   returnValues: {
                                     amount: event.data[0].amount,
                                     wallet: memo.address,
                                     destChainId: memo.destChainId,
                                     destChainAddress: memo.destChainAddress,
                                     mintingFeeSat: memo.mintingFeeSat,
-                                    bridgingFeeSat: memo.bridgingFeeSat
+                                    bridgingFeeSat: memo.bridgingFeeSat,
                                   },
                                   transactionHash,
                                   blockNumber: blockHeight,
                                   timestamp,
-                                  status: true
+                                  status: true,
                                 };
                                 break;
                             }
 
                             if (processedEvent) {
-                              console.log(`${blockHeight} -> ${chunk.chunk_hash} -> ${processedEvent.transactionHash}`);
-                              console.log('Found event:', processedEvent);
+                              console.log(
+                                `${blockHeight} -> ${chunk.chunk_hash} -> ${processedEvent.transactionHash}`,
+                              );
+                              console.log("Found event:", processedEvent);
                               events.push(processedEvent);
                             }
                           } catch (e) {
@@ -1493,7 +1542,6 @@ class Near {
                     }
                   }
                   block_count++;
-                  
                 } catch (err) {
                   console.error(`Error processing block: ${err}`);
                 }
@@ -1501,7 +1549,7 @@ class Near {
               .catch((err) => {
                 console.error(`Error fetching block ${blockHeight}: ${err}`);
                 return null;
-              })
+              }),
           );
         }
 
@@ -1510,7 +1558,6 @@ class Near {
 
         // Update start block for next batch
         startBlock = batchEndBlock + 1;
-
       } catch (err) {
         console.error(`Batch processing error: ${err}`);
         continue;

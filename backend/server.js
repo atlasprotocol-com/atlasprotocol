@@ -1,6 +1,11 @@
 /* eslint-disable import/order */
 
 const dotenv = require("dotenv");
+
+// Load environment variables from .env.local or .env based on NODE_ENV
+const envFile = process.env.NODE_ENV === "production" ? ".env" : ".env.local";
+dotenv.config({ path: envFile });
+
 const { globalParams, updateGlobalParams } = require("./config/globalParams");
 const { getTransactionsAndComputeStats } = require("./utils/transactionStats");
 const { UpdateAtlasBtcDeposits } = require("./utils/updateAtlasBtcDeposits");
@@ -80,10 +85,6 @@ const {
   RetrieveAndProcessPastEvmEvents,
 } = require("./utils/retrieveAndProcessPastEvmEvents");
 
-// Load environment variables from .env.local or .env based on NODE_ENV
-const envFile = process.env.NODE_ENV === "production" ? ".env" : ".env.local";
-dotenv.config({ path: envFile });
-
 const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
@@ -95,6 +96,7 @@ app.use(helmet());
 const { Bitcoin } = require("./services/bitcoin");
 const { Near } = require("./services/near");
 const { Ethereum } = require("./services/ethereum");
+const { getTxsOfNetwork } = require("./services/subquery");
 
 // Configuration for BTC connection
 const btcConfig = {
@@ -482,6 +484,15 @@ app.get("/api/derived-address", async (req, res) => {
       .status(500)
       .json({ error: "Failed to derive address", details: error.message });
   }
+});
+
+app.get("/subquery", async (req, res) => {
+  const data = {
+    arbitrum: await getTxsOfNetwork("arbitrum"),
+    optimism: await getTxsOfNetwork("optimism"),
+    near: await getTxsOfNetwork("near"),
+  };
+  res.json(data);
 });
 
 async function runBatch() {

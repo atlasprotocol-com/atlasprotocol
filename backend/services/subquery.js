@@ -53,13 +53,14 @@ async function getMintDepositEntities(network, transactions) {
   return request({ network, query, variables, returningKey });
 }
 
-async function getBurnRedeemEntity(network, transactions) {
+async function getBurnRedeemEntities(network, transactions) {
   const query = `
   query getBurnRedeemEntity($transactions: [String!]) {
-    burnRedeemEntities(filter: {btcTxnHash: {in: $transactions}}) {
+    burnRedeemEntities(filter: {id: {notIn: $transactions}}) {
       nodes {
         id
         accountAddress
+        btcAddress
         btcAmount
         timestamp
       }
@@ -71,7 +72,7 @@ async function getBurnRedeemEntity(network, transactions) {
   return request({ network, query, variables, returningKey });
 }
 
-async function getMintBridgeEntity(network, transactions) {
+async function getMintBridgeEntities(network, transactions) {
   const query = `
   query getMintBridgeEntity($transactions: [String!]) {
     mintBridgeEntities(filter: {btcTxnHash: {in: $transactions}}) {
@@ -92,7 +93,7 @@ async function getMintBridgeEntity(network, transactions) {
   return request({ network, query, variables, returningKey });
 }
 
-async function getBurnBridgeEntity(network, transactions) {
+async function getBurnBridgeEntities(network, transactions) {
   const query = `
   query getBurnBridgeEntity($transactions: [String!]) {
     burnBridgeEntities(filter: {btcTxnHash: {in: $transactions}}) {
@@ -130,7 +131,7 @@ function isEnableSubquery() {
   }
 }
 
-async function get(network) {
+async function getTxsOfNetwork(network) {
   const [mindeposits, burnredeems, mintbridges, burnbridges] =
     await Promise.all([
       (async () => {
@@ -158,6 +159,7 @@ async function get(network) {
           nodes {
             id
             accountAddress
+            btcAddress
             btcAmount
             timestamp
           }
@@ -216,11 +218,11 @@ async function get(network) {
 
 module.exports = {
   getMintDepositEntities,
-  getBurnRedeemEntity,
-  getMintBridgeEntity,
-  getBurnBridgeEntity,
+  getBurnRedeemEntities,
+  getMintBridgeEntities,
+  getBurnBridgeEntities,
   detectNetwork,
   isEnableSubquery,
   validate,
-  get,
+  getTxsOfNetwork,
 };
