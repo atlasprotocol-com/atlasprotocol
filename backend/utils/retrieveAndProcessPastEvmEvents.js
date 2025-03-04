@@ -197,9 +197,6 @@ async function doWithSubqueryForDeposits(chain, network, near, allDeposits) {
     {},
   );
 
-  console.log("----------------->", recordMaps);
-  console.log("----------------->", filteredTxns);
-
   for (let deposit of filteredTxns) {
     if (recordMaps[deposit.btc_txn_hash]) {
       const record = recordMaps[deposit.btc_txn_hash];
