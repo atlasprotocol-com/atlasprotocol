@@ -71,7 +71,6 @@ async function RetrieveAndProcessPastEvmEvents(
       }
 
       console.log(`[SUBQUERY ${chain.chainID}] --------- DISABLED ---------`);
-      return;
 
       const web3 = new Web3(chain.chainRpcUrl);
       const ethereum = new Ethereum(
