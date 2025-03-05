@@ -46,23 +46,32 @@ export function validateBlockchainAddress({
 
 export function validateBTCAddress(addressInput: string): boolean {
   try {
-    // Convert address to output script
-    const outputScript = address.toOutputScript(
-      addressInput,
-      network === Network.SIGNET || network === Network.TESTNET4 ? networks.testnet : networks.bitcoin
-    );
+    // Basic BTC address format validation
+    const mainnetRegex = /^(bc1)[a-zA-HJ-NP-Z0-9]{39,59}$/;
+    const testnetRegex = /^(tb1)[a-zA-HJ-NP-Z0-9]{39,59}$/;
 
-    // Get address type from first byte of output script
-    const firstByte = outputScript[0];
-
-    // Check if segwit (starts with 0x00 or 0x01) or taproot (starts with 0x51)
-    if (firstByte === 0x00 || firstByte === 0x01 || firstByte === 0x51) {
-      return true;
+    // Validate address format based on network
+    if (network === Network.MAINNET) {
+      if (!mainnetRegex.test(addressInput)) {
+        return false;
+      }
+    } else {
+      if (!testnetRegex.test(addressInput)) {
+        return false;
+      }
     }
 
-    return false;
+    // Additional validation - check if address has valid checksum
+    // by attempting to decode it
+    try {
+      address.fromBech32(addressInput);
+      return true;
+    } catch {
+      return false;
+    }
 
   } catch (error) {
+    console.error("Error in validateBTCAddress", error);
     return false;
   }
 }

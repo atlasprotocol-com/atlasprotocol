@@ -20,6 +20,9 @@ export interface RedeemPreviewProps {
   onConfirm?: () => void;
   isPending?: boolean;
   networkType?: string;
+  fromSymbol?: string;
+  toSymbol?: string;
+  
 }
 
 export function BridgePreview({
@@ -36,17 +39,27 @@ export function BridgePreview({
   onConfirm,
   isPending,
   networkType,
+  fromSymbol,
+  toSymbol,
 }: RedeemPreviewProps) {
   const { BTC_TOKEN, ATLAS_BTC_TOKEN } = useAppContext();
   const { data: stats } = useGetStats();
   const btcPriceUsd = stats?.btcPriceUsd || 0;
   const ethPriceUsd = stats?.ethPriceUsd || 0;
   const nearPriceUsd = stats?.nearPriceUsd || 0;
+  const polPriceUsd = stats?.polPriceUsd || 0;
   
-  const transactionFeeUsd = transactionFee && (networkType === "EVM" ? ethPriceUsd : nearPriceUsd)
-    ? (Number(transactionFee) * (networkType === "EVM" ? ethPriceUsd : nearPriceUsd)).toFixed(4)
+  console.log("toSymbol:", toSymbol);
+  console.log("polPriceUsd:", polPriceUsd);
+  console.log("transactionFee:", transactionFee);
+  const transactionFeeUsd = transactionFee && toSymbol
+    ? (Number(transactionFee) * (
+      fromSymbol === "ETH" ? ethPriceUsd :
+      fromSymbol === "NEAR" ? nearPriceUsd :
+      fromSymbol === "POL" ? polPriceUsd : ethPriceUsd
+    )).toFixed(8)
     : '--';
-
+  console.log("transactionFeeUsd:", transactionFeeUsd);
   const totalBridgingFee = bridgingFeeSat ? Number(bridgingFeeSat) + Number(mintingFeeSat || 0) : 0;
   const totalBridgingFeeUsd = totalBridgingFee && btcPriceUsd
     ? ((totalBridgingFee / 100000000) * btcPriceUsd).toFixed(2)
@@ -111,7 +124,7 @@ export function BridgePreview({
             </p>
             <p className=" text-base font-semibold break-all ">
               {transactionFee?.toFixed(8) || "--"} <br /> 
-              {networkType === "EVM" ? "ETH" : "NEAR"}
+              {fromSymbol}
               <span className="text-sm text-neutral-7"><br />
               (≈{transactionFeeUsd} USD)</span>
             </p>

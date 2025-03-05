@@ -7,6 +7,9 @@ Compile NEAR contract (CLI)
 dos2unix ./build.sh
 ./build.sh
 
+To migrate to new version of smart contract
+near call atlas_testnet4_v.velar.testnet update_contract --base64 $(base64 -w 0 target/wasm32-unknown-unknown/release/atlas_protocol.wasm) --accountId velar.testnet --gas 300000000000000
+
 If want to delete NEAR smart contract
 near call atlas_dev.velar.testnet clear_all_deposits --accountId velar.testnet
 near call atlas_dev.velar.testnet clear_all_redemptions --accountId velar.testnet
@@ -354,3 +357,100 @@ near view atlas_audit_2_v.velar.testnet get_validators_by_txn_hash '{"txn_hash":
 
 near call atlas_audit_2_v.velar.testnet check_bridging_records_integrity {} --accountId velar.testnet
 near call atlas_audit_2_v.velar.testnet check_redemption_records_integrity {} --accountId velar.testnet
+
+near call atlas_audit_2_v.velar.testnet rollback_bridging_status_by_txn_hash '{"txn_hash": "11155420,0xce7a78a53a90ec9c03e26513ad9369a0723f10052dbe14b1e3d07f8a0079984d"}' --accountId velar.testnet
+near call atlas_audit_2_v.velar.testnet rollback_bridging_yield_provider_status_by_txn_hash '{"txn_hash": "421614,0xab494789a3675a0fd9a2d6d315154446ec373ba3e514a7e1874745aeafc3b8e3"}' --accountId velar.testnet
+near call atlas_audit_2_v.velar.testnet get_first_valid_bridging_fees_unstake {} --accountId velar.testnet
+near view atlas_audit_2_v.velar.testnet get_all_global_params
+
+
+near call atlas_audit_2_v.velar.testnet rollback_bridging_yield_provider_status_by_txn_hash '{"txn_hash": "421614,0x6d2d7b03d85732256341dbc94a3a74afa3632d645e219613c7f4598ffd2d5d0c"}' --accountId velar.testnet
+near call atlas_audit_2_v.velar.testnet rollback_bridging_yield_provider_status_by_txn_hash '{"txn_hash": "421614,0x3cdde3b5895bf1b62c860eb69d77c13b97c9d78c9ee97f0bd525e6d39b630ae5"}' --accountId velar.testnet
+
+near call atlas_audit_2_v.velar.testnet update_bridging_timestamp '{"txn_hash": "421614,0x6d2d7b03d85732256341dbc94a3a74afa3632d645e219613c7f4598ffd2d5d0c", "timestamp": 1739898430}' --accountId velar.testnet
+
+
+near call atlas_audit_2_v.velar.testnet update_bridging_remarks '{"txn_hash": "421614,0x03cddc2f41b91ffdf2e5096126d2699247d46a18c03c1f831aeafeff181b41e9", "remarks": "test"}' --accountId velar.testnet
+
+
+near deploy atbtc_testnet4_v2.velar.testnet res/atbtc.wasm
+near call atbtc_testnet4_v2.velar.testnet new '{
+  "owner_id": "atlas_testnet4_v2.velar.testnet",
+  "metadata": {
+    "spec": "ft-1.0.0",
+    "name": "Atlas BTC",
+    "symbol": "atBTC",
+    "icon": "data:image/svg+xml,%3Csvg%20xmlns=%27http://www.w3.org/2000/svg%27%20width=%27100%27%20height=%27100%27%20viewBox=%270%200%20100%20100%27%3E%3Crect%20width=%27100%25%27%20height=%27100%25%27%20fill=%27%23e67e22%27/%3E%3Ctext%20x=%2750%25%27%20y=%2750%25%27%20font-family=%27Tahoma%27%20font-size=%2720%27%20font-weight=%27bold%27%20fill=%27white%27%20text-anchor=%27middle%27%20dominant-baseline=%27middle%27%3EatBTC%3C/text%3E%3C/svg%3E",
+    "reference": null,
+    "reference_hash": null,
+    "decimals": 8
+  }
+}' --accountId velar.testnet
+
+
+near call atlas_testnet4_v2.velar.testnet clear_all_deposits --accountId velar.testnet
+near call atlas_testnet4_v2.velar.testnet clear_all_redemptions --accountId velar.testnet
+near call atlas_testnet4_v2.velar.testnet clear_all_bridgings --accountId velar.testnet
+near call atlas_testnet4_v2.velar.testnet clear_all_validators --accountId velar.testnet
+near call atlas_testnet4_v2.velar.testnet clear_all_verifications --accountId velar.testnet
+near call atlas_testnet4_v2.velar.testnet clear_all_chain_configs --accountId velar.testnet
+near delete-account atlas_testnet4_v.velar.testnet velar.testnet
+near create-account atlas_testnet4_v2.velar.testnet --masterAccount velar.testnet --initialBalance 10
+near deploy atlas_testnet4_v2.velar.testnet res/atlas_protocol.wasm
+near deploy atlas_testnet4_v.velar.testnet res/atlas_protocol.wasm --initFunction migrate --initGas 300000000000000
+
+near call atlas_testnet4_v2.velar.testnet new '{"atlas_owner_id": "velar.testnet", "atlas_admin_id": "yeowlin.testnet", "global_params_owner_id": "velar.testnet", "chain_configs_owner_id": "velar.testnet", "treasury_address": "tb1pa4xwtgs3672h38rqdveyk5w9jqczfhjxh89j8erdlr59yj92qs8szyvw53", "production_mode": false}' --accountId velar.testnet
+near call atlas_testnet4_v2.velar.testnet set_chain_configs_from_json '{"new_json_data": '"$(jq -Rs '.' < chain_chains_manual.json)"'}' --accountId velar.testnet
+near call atlas_testnet4_v2.velar.testnet add_validator '{"account_id": "velar.testnet", "chain_id": "TESTNET4"}' --accountId velar.testnet
+near call atlas_testnet4_v2.velar.testnet add_validator '{"account_id": "velar.testnet", "chain_id": "421614"}' --accountId velar.testnet
+near call atlas_testnet4_v2.velar.testnet add_validator '{"account_id": "velar.testnet", "chain_id": "11155420"}' --accountId velar.testnet
+near call atlas_testnet4_v2.velar.testnet add_validator '{"account_id": "velar.testnet", "chain_id": "NEAR_TESTNET"}' --accountId velar.testnet
+near call atlas_testnet4_v2.velar.testnet add_validator '{"account_id": "velar.testnet", "chain_id": "66633666"}' --accountId velar.testnet
+near call atlas_testnet4_v2.velar.testnet add_validator '{"account_id": "velar.testnet", "chain_id": "80002"}' --accountId velar.testnet
+near call atlas_testnet4_v2.velar.testnet add_validator '{"account_id": "velar.testnet", "chain_id": "11155111"}' --accountId velar.testnet
+
+near view atlas_testnet4_v2.velar.testnet get_all_validators
+near view atlas_testnet4_v2.velar.testnet get_all_global_params
+
+near view atlas_testnet4_v2.velar.testnet get_all_deposits
+near call atlas_testnet4_v2.velar.testnet rollback_deposit_status_by_btc_txn_hash '{"btc_txn_hash": "5ee79be531d49ea5fab4dc8f4c112fae99bbbdd5b933050002f5dff0ebea9881"}' --accountId velar.testnet
+near call atlas_testnet4_v2.velar.testnet rollback_redemption_status_by_txn_hash '{"txn_hash": "11155420,0x626bfe7bd4f91c2924f9a0039b3d381b7568887945480e905438875817ae43c1"}' --accountId velar.testnet
+near call atlas_testnet4_v2.velar.testnet rollback_bridging_yield_provider_status_by_txn_hash '{"txn_hash": "421614,0x7e898766750e7f1da033bd7734019bd7e352d6ac541ebc5a71abdb44bcac5717"}' --accountId velar.testnet
+near call atlas_testnet4_v2.velar.testnet rollback_bridging_status_by_txn_hash '{"txn_hash": "NEAR_TESTNET,86hMeHFbAuJP79kja17QfM87fNUgk1EntecgxhXcRbJJ"}' --accountId velar.testnet
+near call atlas_testnet4_v2.velar.testnet update_bridging_timestamp '{"txn_hash": "NEAR_TESTNET,86hMeHFbAuJP79kja17QfM87fNUgk1EntecgxhXcRbJJ", "timestamp": 1740451011}' --accountId velar.testnet
+near view atlas_testnet4_v2.velar.testnet get_redemptions_for_yield_provider_by_status_and_timestamp '{"status": 10, "timestamp": 1740564473871}'
+near call atlas_testnet4_v2.velar.testnet update_redemption_yield_provider_unstake_processing '{"txn_hash": "NEAR_TESTNET,jsvzKpY8GQwWLxvBNgiwhrnhaeArhQEBbiLV8wJqnrH"}' --accountId yeowlin.testnet
+near call atlas_testnet4_v2.velar.testnet rollback_redemption_status_by_txn_hash '{"txn_hash": "NEAR_TESTNET,jsvzKpY8GQwWLxvBNgiwhrnhaeArhQEBbiLV8wJqnrH"}' --accountId velar.testnet
+near call atlas_testnet4_v2.velar.testnet update_bridging_fees_yield_provider_unstake_processing '{"421614,0xfc3c09c4ad02a80068e05e0e74356bcb5e00507707e0ad31e3111e1338817659"}' --accountId yeowlin.testnet
+near call atlas_testnet4_v2.velar.testnet update_fee_bridging_bps '{"fee_bridging_bps": 300}' --accountId velar.testnet
+
+near call atlas_testnet4_v2.velar.testnet rollback_bridging_yield_provider_status_by_txn_hash '{"txn_hash": "NEAR_TESTNET,98WuRYgbvf1sQJb8ooV4DQBZf3ULksKWP4tmFJarLMag"}' --accountId velar.testnet
+near call atlas_testnet4_v2.velar.testnet rollback_redemption_status_by_txn_hash '{"txn_hash": "421614,0x95f60ce373a4f741de4c5bf3628f784da84288b7ce3b7f796cc81b2c587cf828"}' --accountId velar.testnet
+near call atlas_testnet4_v2.velar.testnet rollback_redemption_status_by_txn_hash '{"txn_hash": "421614,0x75b6c7cc578e299c508b2cb26b98300f7eb60cc5dcc1c8d307fa2a4c46c5c822"}' --accountId velar.testnet
+near call atlas_testnet4_v2.velar.testnet rollback_redemption_status_by_txn_hash '{"txn_hash": "421614,0x4178e41750a9157c75ad0080b09f35a4b89fe97fa837deda5a3e74c76f2a04d9"}' --accountId velar.testnet
+
+
+near call atlas_testnet4_v2.velar.testnet update_fee_bridging_bps '{"fee_bridging_bps": 300}' --accountId velar.testnet
+near call atlas_testnet4_v2.velar.testnet update_fee_redemption_bps '{"fee_redemption_bps": 300}' --accountId velar.testnet
+near call atlas_testnet4_v2.velar.testnet update_fee_deposit_bps '{"fee_deposit_bps": 0}' --accountId velar.testnet 
+near call atlas_testnet4_v2.velar.testnet update_redemption_pending_btc_mempool '{
+  "txn_hashes": ["421614,0x8f8d79726044fde35122e493e46c03817f440597a5052a4d4e796baa56b633e3"] ,
+  "btc_txn_hash": "d9ad2c14be7772d715b39bf1b1c5fad41a257b01ec05d6afa8800b07af9d18bc"
+}' --accountId yeowlin.testnet
+near view atlas_testnet4_v2.velar.testnet  verify_redemption_txn_hash_in_merkle_root '{"merkle_root": "6326423bfd858be18fbdae2515cbccc1d3135e7f4d91f3aa9305a57c1a99a207", "btc_txn_hash": "a8a25f778e9b5df3e35a845f8bd6543c56c83b607e4473ebfdf7d0f04888e01b", "txn_hash_to_verify": "421614,0x285e9c9c66353f1f31df45a29c8b4ab0ba89bb041f79537fe8bbaa9d2ea6b429"}'
+
+
+near view atlas_testnet4_20250226.velar.testnet get_all_deposits
+
+near call atlas_testnet4_v2.velar.testnet clear_all_bridgings --accountId velar.testnet
+
+near call atlas_testnet4_v2.velar.testnet rollback_bridging_yield_provider_status_by_txn_hash '{"txn_hash": "421614,0x776acf26f0feb17284f80c35e38ff21ec9d7f9df3192e04ffd01851681b9fe8e"}' --accountId velar.testnet
+near call atlas_testnet4_v2.velar.testnet rollback_bridging_yield_provider_status_by_txn_hash '{"txn_hash": "11155420,0xb519417a3d1e74bee2b9c56f7ccca1cd8c91343e742c5574df73b0f8a5de310f"}' --accountId velar.testnet
+
+near view atlas_testnet4_v2.velar.testnet verify_bridging_txn_hash_in_merkle_root '{"merkle_root": "00a7013e82f1776e6d333018bf8b3cc6fcd62d43c406f32f882dc66883408380", "treasury_btc_txn_hash": "19af10b5b990a5ccdb1853f245c9e69679975b327c63070937f4dfb15252ced3", "txn_hash_to_verify": "421614,0x2d9000c133a9441190f10c4be6c7a57cbedc0f9c1f9b11d132381534a7a38596"}'
+near call atlas_testnet4_v2.velar.testnet rollback_redemption_status_by_txn_hash '{"txn_hash": "11155420,0xb757663d3a38482cce588093ed68feb12d506c9e1525131b241d1d86b84e211d"}' --accountId velar.testnet
+near call atlas_testnet4_v2.velar.testnet rollback_redemption_status_by_txn_hash '{"txn_hash": "421614,0x748858d70424988fbf8625e86859a47bdc049d762f75cd29260f12ac79ee25f3"}' --accountId velar.testnet
+near call atlas_testnet4_v2.velar.testnet rollback_bridging_status_by_txn_hash '{"txn_hash": "421614,0x6c69fdfa26ea96834ca40786ca1a9e85bab967ec5051efd6a70bc2836ab57f87"}' --accountId velar.testnet
+near call atlas_testnet4_v2.velar.testnet set_chain_configs_from_json '{"new_json_data": '"$(jq -Rs '.' < chain_chains_manual.json)"'}' --accountId velar.testnet
+near call atlas_testnet4_v2.velar.testnet rollback_deposit_status_by_btc_txn_hash '{"btc_txn_hash": "fbc98081a17e2350d79e8e7fc70bfe67276e6c98090f5e1f06f8b4d6f42f5a49"}' --accountId velar.testnet
+near call atlas_testnet4_v2.velar.testnet rollback_bridging_status_by_txn_hash '{"txn_hash": "421614,0x3cef84fabb0cc2b887cd38a11f5280ec73768093f8f087ca7c7f622bbb532950"}' --accountId velar.testnet

@@ -18,6 +18,7 @@ pub struct GlobalParams {
     owner_id: AccountId,
     proposed_owner_id: Option<AccountId>, // Proposed owner for two-step ownership transfer
     max_retry_count: u8,
+    last_unstaking_time: u64, // Timestamp of the last unstaking operation
 }
 
 impl GlobalParams {
@@ -46,6 +47,7 @@ impl GlobalParams {
             owner_id: owner_id,
             proposed_owner_id: None,
             max_retry_count: 3,
+            last_unstaking_time: 0, // Initialize with 0 timestamp
         }
     }
 
@@ -214,6 +216,14 @@ impl GlobalParams {
             "Max retry count must be greater than ZERO"
         );
         self.max_retry_count = max_retry_count;
+    }
+
+    pub fn get_last_unstaking_time(&self) -> u64 {
+        self.last_unstaking_time
+    }
+
+    pub fn update_last_unstaking_time(&mut self, timestamp: u64) {
+        self.last_unstaking_time = timestamp;
     }
 
     pub fn owner_id(&self) -> &AccountId {

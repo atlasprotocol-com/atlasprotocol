@@ -580,7 +580,7 @@ impl Atlas {
             if !deposit.btc_sender_address.is_empty()
                 && !deposit.receiving_chain_id.is_empty()
                 && !deposit.receiving_address.is_empty()
-                && !deposit.remarks.is_empty()
+                //&& !deposit.remarks.is_empty()
                 //&& deposit.retry_count < max_retry_count
             {
                 // If receiving chain ID is EVM and receiving address is not a valid EVM address, do not rollback
@@ -604,6 +604,7 @@ impl Atlas {
                         deposit.remarks.clear();
                     }
                     DEP_BTC_PENDING_MINTED_INTO_ABTC => {
+                        deposit.status = DEP_BTC_YIELD_PROVIDER_DEPOSITED;
                         deposit.retry_count += 1;
                         deposit.remarks.clear();
                     }

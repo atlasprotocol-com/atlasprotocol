@@ -6,7 +6,8 @@ use near_sdk::near_bindgen;
 use near_sdk::AccountId;
 use serde_json::json;
 use serde_json::Value;
-
+use near_sdk::{env, log, Promise, NearToken, Gas};
+use sha2::{Sha256, Digest};
 use crate::constants::delimiter::COMMA;
 use crate::constants::near_gas::*;
 use crate::constants::network_type::*;
@@ -61,6 +62,9 @@ impl Atlas {
                 "BRG_ABTC_PENDING_YIELD_PROVIDER_WITHDRAW": BRG_ABTC_PENDING_YIELD_PROVIDER_WITHDRAW,
                 "BRG_ABTC_YIELD_PROVIDER_WITHDRAWING": BRG_ABTC_YIELD_PROVIDER_WITHDRAWING,
                 "BRG_ABTC_YIELD_PROVIDER_WITHDRAWN": BRG_ABTC_YIELD_PROVIDER_WITHDRAWN,
+                "BRG_ABTC_YIELD_PROVIDER_FEE_SENDING_TO_TREASURY": BRG_ABTC_YIELD_PROVIDER_FEE_SENDING_TO_TREASURY,
+                "BRG_ABTC_SENDING_FEE_TO_TREASURY": BRG_ABTC_SENDING_FEE_TO_TREASURY,
+                "BRG_ABTC_FEE_SENT_TO_TREASURY": BRG_ABTC_FEE_SENT_TO_TREASURY,
             },
             "network_type": {
                 "TESTNET4": TESTNET4,
@@ -179,5 +183,90 @@ impl Atlas {
     pub fn accept_chain_configs_owner(&mut self) {
         self.assert_not_paused();
         self.chain_configs.accept_chain_configs_owner();
+    }
+
+    pub fn get_last_unstaking_time(&self) -> u64 {
+        self.global_params.get_last_unstaking_time()
+    }
+
+    pub fn update_last_unstaking_time(&mut self, timestamp: u64) {
+        self.assert_admin();
+        self.global_params.update_last_unstaking_time(timestamp);
+    }
+
+    pub fn create_atlas_signed_payload(
+        &mut self,
+        payload: Vec<u8>,  // Passing the payload
+    ) -> Promise {
+
+        self.assert_admin();
+
+        let caller = env::predecessor_account_id();
+        let owner = env::current_account_id();
+
+        log!("Caller: {}", caller);
+        log!("Owner: {}", owner);
+        
+        let args = json!({
+            "request": {
+                "payload": payload,
+                "path": "BITCOIN",
+                "key_version": 0
+            }
+        })
+        .to_string()
+        .into_bytes();
+        
+        // Return the promise for the first matching record
+        return Promise::new(self.global_params.get_mpc_contract()).function_call(
+            "sign".to_owned(),
+            args,
+            NearToken::from_yoctonear(50),
+            Gas::from_tgas(275),
+        );
+
+
+    }
+
+    pub fn calculate_merkle_root(txn_hashes: Vec<String>) -> String {
+        // Sort transaction hashes to maintain consistent order
+        let mut sorted_hashes = txn_hashes.clone();
+        sorted_hashes.sort();
+
+        // Convert transaction hashes to Merkle leaves
+        let mut merkle_leaves: Vec<[u8; 32]> = sorted_hashes
+            .iter()
+            .map(|hash| {
+                let mut hasher = Sha256::new();
+                hasher.update(hash.as_bytes());
+                let result = hasher.finalize();
+                let mut array = [0u8; 32];
+                array.copy_from_slice(&result);
+                array
+            })
+            .collect();
+
+        // Build the Merkle tree
+        while merkle_leaves.len() > 1 {
+            let mut next_level = Vec::new();
+            for chunk in merkle_leaves.chunks(2) {
+                let mut hasher = Sha256::new();
+                if chunk.len() == 2 {
+                    hasher.update(&chunk[0]);
+                    hasher.update(&chunk[1]);
+                } else {
+                    hasher.update(&chunk[0]);
+                    hasher.update(&chunk[0]); // Duplicate last node if odd number
+                }
+                let result = hasher.finalize();
+                let mut array = [0u8; 32];
+                array.copy_from_slice(&result);
+                next_level.push(array);
+            }
+            merkle_leaves = next_level;
+        }
+
+        // Return the calculated Merkle root as a hexadecimal string
+        hex::encode(&merkle_leaves[0])
     }
 }

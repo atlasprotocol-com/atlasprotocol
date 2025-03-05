@@ -48,7 +48,9 @@ const redeemFormSchema = z.object({
     })
     .refine(
       (value) => {
-        return validateBTCAddress(value);
+        const isValid = validateBTCAddress(value);
+        console.log("isValid", isValid);
+        return isValid;
       },
       {
         message: "Invalid BTC address",

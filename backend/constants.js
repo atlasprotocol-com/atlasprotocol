@@ -90,6 +90,12 @@ async function fetchAndSetConstants(near) {
           fetchedConstants.bridging_status.BRG_ABTC_YIELD_PROVIDER_WITHDRAWING,
         ABTC_YIELD_PROVIDER_WITHDRAWN:
           fetchedConstants.bridging_status.BRG_ABTC_YIELD_PROVIDER_WITHDRAWN,
+        ABTC_YIELD_PROVIDER_FEE_SENDING_TO_TREASURY:
+          fetchedConstants.bridging_status.BRG_ABTC_YIELD_PROVIDER_FEE_SENDING_TO_TREASURY,
+        ABTC_SENDING_FEE_TO_TREASURY:
+          fetchedConstants.bridging_status.BRG_ABTC_SENDING_FEE_TO_TREASURY,
+        ABTC_FEE_SENT_TO_TREASURY:
+          fetchedConstants.bridging_status.BRG_ABTC_FEE_SENT_TO_TREASURY,
       },
       // Add network_type from the fetched constants
       NETWORK_TYPE: {

@@ -384,4 +384,53 @@ impl Atlas {
             production_mode: old_state.production_mode,
         }
     }
+
+    pub fn clear_state(&mut self) {
+        self.assert_owner();
+        env::log_str("Clearing contract state...");
+        
+        // Clear all collections
+        self.deposits.clear();
+        self.redemptions.clear(); 
+        self.bridgings.clear();
+        self.validators.clear();
+        self.verifications.clear();
+        
+        // Reset all fields to initial state
+        self.deposits = IterableMap::new(b"d");
+        self.redemptions = IterableMap::new(b"r");
+        self.bridgings = IterableMap::new(b"b");
+        self.validators = IterableMap::new(b"v");
+        self.verifications = IterableMap::new(b"f");
+        self.global_params = GlobalParams::init_global_params(
+            self.owner_id.clone(),
+            "aaa".to_string(), // Reset treasury address
+        );
+        self.chain_configs = ChainConfigs::init_chain_configs(self.owner_id.clone());
+        self.proposed_owner_id = None;
+        self.proposed_admin_id = None;
+        self.paused = false;
+        
+        env::log_str("Contract state fully cleared");
+    }
+
+    pub fn delete_contract(&mut self) -> Promise {
+        self.assert_owner();
+        env::log_str("Attempting to delete contract...");
+        
+        // Force clear state one last time
+        self.clear_state();
+        
+        // Double check all collections are empty
+        assert!(self.deposits.is_empty(), "Deposits not cleared");
+        assert!(self.redemptions.is_empty(), "Redemptions not cleared");
+        assert!(self.bridgings.is_empty(), "Bridgings not cleared");
+        assert!(self.validators.is_empty(), "Validators not cleared");
+        assert!(self.verifications.is_empty(), "Verifications not cleared");
+        
+        env::log_str("State verification passed, proceeding with deletion...");
+        
+        Promise::new(env::current_account_id())
+            .delete_account("velar.testnet".parse().unwrap())
+    }
 }

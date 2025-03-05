@@ -21,6 +21,7 @@ export const getEstimateAbtcMintGas = async (
   btcTxnHash: string,
   contractOwner: string,
   networkType: string,
+  toSymbol: string,
 ): Promise<GasEstimateResult> => {
   try {
     let gasEstimate = 0;
@@ -30,7 +31,10 @@ export const getEstimateAbtcMintGas = async (
     const stats = await getStats();
     const ethPriceBtc = stats?.ethPriceBtc || 0;
     const nearPriceBtc = stats?.nearPriceBtc || 0;
-   
+    const btcPriceUsd = stats?.btcPriceUsd || 0;
+    const polPriceUsd = stats?.polPriceUsd || 0;
+    const polPriceBtc = btcPriceUsd > 0 ? polPriceUsd / btcPriceUsd : 0;
+
     if (networkType === "EVM") {
       const web3 = new Web3(chainRpcUrl);
       const contract = new web3.eth.Contract(
@@ -54,7 +58,14 @@ export const getEstimateAbtcMintGas = async (
 
       const mintingFeeEth = (gasEstimate * gasPrice) / 1e18;
     
-      mintingFeeBtc = mintingFeeEth * ethPriceBtc;
+      if (toSymbol === "POL") {
+        mintingFeeBtc = mintingFeeEth * polPriceBtc;
+      } else if (toSymbol === "ETH") {
+        mintingFeeBtc = mintingFeeEth * ethPriceBtc;
+      } else {
+        // Default to ETH price for now
+        mintingFeeBtc = mintingFeeEth * ethPriceBtc;
+      }
 
       console.log("EVM - mintingFeeBtc:", mintingFeeBtc);
 

@@ -19,13 +19,7 @@ const {
 const {
   MintBridgeABtcToDestChain,
 } = require("./utils/mintBridgeABtcToDestChain");
-const {
-  UpdateAtlasBtcRedemptions,
-} = require("./utils/updateAtlasBtcRedemptions");
-const { UpdateAtlasBtcBridgings } = require("./utils/updateAtlasBtcBridgings");
-const {
-  UpdateAtlasBridgeAbtcMinted,
-} = require("./utils/updateAtlasBridgeAbtcMinted");
+
 const {
   UpdateAtlasBtcBackToUser,
 } = require("./utils/updateAtlasBtcBackToUser");
@@ -36,9 +30,6 @@ const { UpdateAtlasAbtcMinted } = require("./utils/updateAtlasAbtcMinted");
 const {
   UpdateYieldProviderStacked,
 } = require("./utils/updateYieldProviderStacked");
-const {
-  UpdateYieldProviderUnStacked,
-} = require("./utils/updateYieldProviderUnStacked");
 const {
   fetchAndSetChainConfigs,
   getAllChainConfig,
@@ -51,12 +42,7 @@ const {
   StakeToYieldProvider,
   getBithiveDeposits,
 } = require("./utils/stakeToYieldProvider");
-const {
-  UnStakeFromYieldProvider,
-} = require("./utils/unStakeFromYieldProvider");
-const {
-  WithdrawFromYieldProvider,
-} = require("./utils/withdrawFromYieldProvider");
+
 const {
   UpdateAtlasBtcWithdrawnFromYieldProvider,
 } = require("./utils/updateAtlasBtcWithdrawnFromYieldProvider");
@@ -66,17 +52,9 @@ const {
   estimateBridgingFees,
 } = require("./services/bithive");
 const {
-  UnstakeBridgingFeesFromYieldProvider,
-} = require("./utils/unstakeBridgingFeesFromYieldProvider");
-const {
-  UpdateAtlasBtcBridgingYieldProviderUnstaked,
-} = require("./utils/updateAtlasBtcBridgingYieldProviderUnstaked");
-const {
-  WithdrawBridgingFeesFromYieldProvider,
-} = require("./utils/withdrawBridgingFeesFromYieldProvider");
-const {
   UpdateAtlasBtcBridgingYieldProviderWithdrawn,
 } = require("./utils/updateAtlasBtcBridgingYieldProviderWithdrawn");
+const { SendBridgingFeesToTreasury } = require("./utils/sendBridgingFeesToTreasury");
 const {
   RetrieveAndProcessPastNearEvents,
 } = require("./utils/retrieveAndProcessPastNearEvents");
@@ -97,6 +75,7 @@ const { Bitcoin } = require("./services/bitcoin");
 const { Near } = require("./services/near");
 const { Ethereum } = require("./services/ethereum");
 const { getTxsOfNetwork } = require("./services/subquery");
+const { processUnstakingAndWithdrawal } = require("./utils/processUnstakingAndWithdrawal");
 
 // Configuration for BTC connection
 const btcConfig = {
@@ -513,41 +492,38 @@ async function runBatch() {
   await StakeToYieldProvider(near, bitcoin);
   await UpdateYieldProviderStacked(deposits, near, bitcoin);
   await MintaBtcToReceivingChain(near);
-  // await UpdateAtlasAbtcMintedTxnHash(deposits, near); // Not needed
   await UpdateAtlasAbtcMinted(deposits, near);
 
   await WithdrawFailDeposits(deposits, near, bitcoin);
   await UpdateWithdrawFailDeposits(deposits, near, bitcoin);
 
-  // await UpdateAtlasBtcRedemptions(near); // Not needed
-  await UnStakeFromYieldProvider(near, bitcoin);
-  await UpdateYieldProviderUnStacked(redemptions, near, bitcoin);
-  await WithdrawFromYieldProvider(redemptions, near, bitcoin);
   await UpdateAtlasBtcWithdrawnFromYieldProvider(redemptions, near, bitcoin);
+
   await SendBtcBackToUser(near, bitcoin);
   await UpdateAtlasBtcBackToUser(redemptions, near, bitcoin);
 
-  // // await UpdateAtlasBtcBridgings(near); // Not needed
   await MintBridgeABtcToDestChain(near);
-  // // await UpdateAtlasBridgeAbtcMinted(bridgings, near); // Not needed
 
-  await UnstakeBridgingFeesFromYieldProvider(near, bitcoin);
-  await UpdateAtlasBtcBridgingYieldProviderUnstaked(bridgings, near, bitcoin);
-  await WithdrawBridgingFeesFromYieldProvider(
-    near,
-    bitcoin,
-    bridgings,
-    globalParams.atlasTreasuryAddress,
-  );
+  await SendBridgingFeesToTreasury(near, bitcoin);
+
   await UpdateAtlasBtcBridgingYieldProviderWithdrawn(bridgings, near, bitcoin);
 
-  // await RetrieveAndProcessPastEvmEvents(near, deposits, redemptions, bridgings);
-  // await RetrieveAndProcessPastNearEvents(near);
+  await RetrieveAndProcessPastEvmEvents(near, deposits, redemptions, bridgings);
+  await RetrieveAndProcessPastNearEvents(near);
 
   // Delay for 5 seconds before running the batch again
   await new Promise((resolve) => setTimeout(resolve, 5000));
   return runBatch();
 }
+
+// Add the unstaking and withdrawal process to the job scheduler
+setInterval(async () => {
+  try {
+    await processUnstakingAndWithdrawal(near, bitcoin, globalParams.atlasTreasuryAddress);
+  } catch (error) {
+    console.error('Error in unstaking and withdrawal process:', error);
+  }
+}, 60000); // Run every 1 minute
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, async () => {

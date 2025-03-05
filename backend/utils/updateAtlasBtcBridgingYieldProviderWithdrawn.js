@@ -34,8 +34,7 @@ async function UpdateAtlasBtcBridgingYieldProviderWithdrawn(
         bridging.yield_provider_txn_hash !== "" &&
         bridging.yield_provider_gas_fee !== 0
     );
-    console.log(filteredTxns);
-
+  
     const { publicKey } = await bitcoinInstance.deriveBTCAddress(near);
     const publicKeyString = publicKey.toString("hex");
     let i = 0;
@@ -50,9 +49,12 @@ async function UpdateAtlasBtcBridgingYieldProviderWithdrawn(
           txHash: txn.yield_provider_txn_hash,
         });
 
-        console.log(deposit);
         if (
-          [BITHIVE_STATUS.DEPOSIT_CONFIRMED_INVALID, BITHIVE_STATUS.DEPOSIT_CONFIRMED].includes(
+          [
+            BITHIVE_STATUS.WITHDRAW_CONFIRMED,
+            BITHIVE_STATUS.DEPOSIT_CONFIRMED,
+            BITHIVE_STATUS.DEPOSIT_CONFIRMED_INVALID
+          ].includes(
             deposit.status,
           )
         ) {

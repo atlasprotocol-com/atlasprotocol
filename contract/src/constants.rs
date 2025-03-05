@@ -34,6 +34,9 @@ pub mod status {
     pub const BRG_ABTC_PENDING_YIELD_PROVIDER_WITHDRAW: u8 = 34;
     pub const BRG_ABTC_YIELD_PROVIDER_WITHDRAWING: u8 = 35;
     pub const BRG_ABTC_YIELD_PROVIDER_WITHDRAWN: u8 = 36;
+    pub const BRG_ABTC_YIELD_PROVIDER_FEE_SENDING_TO_TREASURY: u8 = 37;
+    pub const BRG_ABTC_SENDING_FEE_TO_TREASURY: u8 = 38;
+    pub const BRG_ABTC_FEE_SENT_TO_TREASURY: u8 = 39;
 }
 
 pub mod network_type {

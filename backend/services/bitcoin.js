@@ -156,8 +156,8 @@ class Bitcoin {
       change,
     };
   }
-  
-  async createPayload(near, sender, redemptionTxnHash) {
+
+  async createSendBridgingFeesTransaction(near, sender) {
     // Fetch UTXOs for the sender
     const utxos = await this.fetchUTXOs(sender);
 
@@ -167,9 +167,51 @@ class Bitcoin {
     // Prepare the payload header to send to the NEAR contract
     const payloadHeader = {
       sender: sender,
-      txn_hash: redemptionTxnHash,
       utxos: utxos,
       fee_rate: feeRate,
+    };
+
+    // Call the NEAR contract method to create the transaction
+    const result = await near.createSendBridgingFeesTransaction(payloadHeader);
+
+    // Destructure the result from the NEAR contract
+    const {
+      psbt,
+      utxos: selectedUtxos, 
+      estimated_fee: estimatedFee,
+      protocol_fee: protocolFee,
+      receive_amount: receiveAmount,
+      change,
+      yield_provider_gas_fee: yieldProviderGasFee,
+      txn_hashes: txnHashes,
+    } = result;
+
+    // Return the necessary information as a JSON object
+    return {
+      psbt,
+      utxos: selectedUtxos,
+      estimatedFee,
+      protocolFee,  
+      receiveAmount,
+      change,
+      yieldProviderGasFee,
+      txnHashes
+    };
+  }
+  
+  async createPayload(near, sender, txnHashes) {
+    // Fetch UTXOs for the sender
+    const utxos = await this.fetchUTXOs(sender);
+
+    // Fetch the current fee rate from an external source
+    const feeRate = await this.fetchFeeRate() + 1;
+
+    // Prepare the payload header to send to the NEAR contract
+    const payloadHeader = {
+      sender: sender,
+      utxos: utxos,
+      fee_rate: feeRate,
+      txn_hashes: txnHashes,
     };
 
     // Call the NEAR contract method to create the transaction
@@ -198,15 +240,14 @@ class Bitcoin {
     };
   }
 
-  async requestSignatureToMPC(near, btcPayload, publicKey, txn_hash) {
+  async requestSignatureToMPC(near, btcPayload, publicKey) {
     const { psbt, utxos } = btcPayload;
 
     // Bitcoin needs to sign multiple utxos, so we need to pass a signer function
     const sign = async (tx) => {
       const btcPayload = Array.from(ethers.getBytes(tx));
 
-      const result = await near.createRedeemAbtcSignedPayload(
-        txn_hash,
+      const result = await near.createAtlasSignedPayload(
         btcPayload,
         psbt,
       );
@@ -223,7 +264,6 @@ class Bitcoin {
     }
 
     psbt.finalizeAllInputs();
-    console.log("PSBT Fee:", psbt.getFee());
     return psbt.extractTransaction().toHex();
   }
 
@@ -567,23 +607,34 @@ class Bitcoin {
 
       let inputOptions;
 
-      // Check if the UTXO is a SegWit transaction
-      if (transaction.outs[utxo.vout].script.includes("0014")) {
-        // SegWit input (witnessUtxo)
+      // Check script type based on prefix
+      if (transaction.outs[utxo.vout].script.includes("5120")) {
+        // Taproot input (P2TR)
         inputOptions = {
           hash: utxo.txid,
           index: utxo.vout,
           witnessUtxo: {
-            script: transaction.outs[utxo.vout].script, // Script for the specific output
-            value: utxo.value, // Value of the UTXO in satoshis
+            script: transaction.outs[utxo.vout].script,
+            value: utxo.value,
           },
+          tapInternalKey: transaction.outs[utxo.vout].script.slice(2), // Remove 5120 prefix
         };
-      } else {
-        // Non-SegWit input (nonWitnessUtxo)
+      } else if (transaction.outs[utxo.vout].script.includes("0014")) {
+        // SegWit input (P2WPKH)
         inputOptions = {
           hash: utxo.txid,
           index: utxo.vout,
-          nonWitnessUtxo: Buffer.from(transaction.toHex(), "hex"), // Full transaction hex for non-SegWit inputs
+          witnessUtxo: {
+            script: transaction.outs[utxo.vout].script,
+            value: utxo.value,
+          },
+        };
+      } else {
+        // Legacy input (P2PKH)
+        inputOptions = {
+          hash: utxo.txid,
+          index: utxo.vout,
+          nonWitnessUtxo: Buffer.from(transaction.toHex(), "hex"),
         };
       }
 
@@ -600,7 +651,7 @@ class Bitcoin {
       const btcPayload = Array.from(ethers.getBytes(tx));
 
       const result =
-        await near.createDepositBithiveSignedPayload(btcPayload);
+        await near.createAtlasSignedPayload(btcPayload);
 
       const big_r = result.big_r.affine_point;
       const big_s = result.s.scalar;
@@ -621,7 +672,7 @@ class Bitcoin {
 
     // // Sign the message using NEAR MPC
     const payload = Array.from(msgHash);
-    const result = await near.createWithdrawalBithiveUnstakeMessageSignedPayload(payload);
+    const result = await near.createAtlasSignedPayload(payload);
     
     const big_r = result.big_r.affine_point;
     const big_s = result.s.scalar;

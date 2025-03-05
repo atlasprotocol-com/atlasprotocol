@@ -229,7 +229,8 @@ export function Bridge() {
         btcToSatoshi(watch("amount")),
         "cd36e5e6072e3ea0ac92ad20f99ef8c736f78b3c287b43f0a8c3e8607fe6a337",
         params?.data?.evmAtlasAddress || "",
-        toChainConfig?.networkType || ""
+        toChainConfig?.networkType || "",
+        toChainConfig?.nativeCurrency?.symbol || ""
       );
 
       setReviewData({
@@ -477,6 +478,8 @@ export function Bridge() {
         mintingFeeSat={previewData?.mintingFeeSat}
         onConfirm={onConfirm}
         networkType={selectedChain?.networkType}
+        fromSymbol={selectedChain?.nativeCurrency?.symbol}
+        toSymbol={toSelectedChain?.nativeCurrency?.symbol}
       />
     </>
   );

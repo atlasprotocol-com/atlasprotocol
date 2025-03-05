@@ -6,33 +6,31 @@ import {
   mainnet,
   optimism,
   optimismSepolia,
+  Chain
 } from "wagmi/chains";
 import { injected, metaMask } from "wagmi/connectors";
 import { defineChain } from "viem";
 
-const juChainTestnet = defineChain({
-  id: 66633666,
-  name: "JuChain Testnet",
-  network: "juchain-testnet",
-  nativeCurrency: {
-    decimals: 18,
-    name: "JU",
-    symbol: "JU",
-  },
-  rpcUrls: {
-    default: { http: ["https://testnet-rpc.juchain.org"] },
-    public: { http: ["https://testnet-rpc.juchain.org"] },
-  },
-  blockExplorers: {
-    default: {
-      name: "JuChain Explorer",
-      url: "http://explorer-testnet.juchain.org",
-    },
-  },
-});
+import customChains from "./wagmi_custom_chains.json";
+
+// Convert JSON chain definitions to viem chain objects
+const customChainObjects = Object.entries(customChains).map(([_, chainData]) => 
+  defineChain(chainData as Chain)
+);
+
+// Combine built-in chains with custom chains
+const allChains = [
+  mainnet,
+  optimism,
+  optimismSepolia,
+  arbitrum,
+  arbitrumSepolia,
+  base,
+  ...customChainObjects
+] as const;
 
 export const wagmiConfig = createConfig({
-  chains: [mainnet, optimism, optimismSepolia, arbitrum, arbitrumSepolia, base, juChainTestnet],
+  chains: allChains,
   connectors: [
     injected(),
     metaMask({
@@ -42,13 +40,7 @@ export const wagmiConfig = createConfig({
     }),
     // safe(),
   ],
-  transports: {
-    [mainnet.id]: http(),
-    [optimism.id]: http(),
-    [base.id]: http(),
-    [arbitrum.id]: http(),
-    [optimismSepolia.id]: http(),
-    [arbitrumSepolia.id]: http(),
-    [juChainTestnet.id]: http(),
-  },
+  transports: Object.fromEntries(
+    allChains.map(chain => [chain.id, http()])
+  ),
 });

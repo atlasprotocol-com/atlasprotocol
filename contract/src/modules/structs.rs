@@ -89,6 +89,9 @@ pub struct BridgingRecord {
     pub yield_provider_txn_hash: String,
     pub yield_provider_status: u8,
     pub yield_provider_remarks: String,
+    pub treasury_btc_txn_hash: String,
+    pub treasury_verified_count: u8,
+    pub minted_txn_hash_verified_count: u8,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -123,5 +126,5 @@ pub struct CreatePayloadResult {
     pub protocol_fee: u64,
     pub receive_amount: u64,
     pub change: u64,
-    pub yield_provider_gas_fee: u64,
+    pub txn_hashes: Vec<String>,
 }

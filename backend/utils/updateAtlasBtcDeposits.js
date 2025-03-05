@@ -82,7 +82,7 @@ async function UpdateAtlasBtcDeposits(
             console.log(`Updated Deposit with BTC txn hash ${btcTxnHash}`);
           }
         } else {
-          console.log("New record found");
+          
           // Insert new deposit record
 
           const btcSenderAddress = await bitcoin.getBtcSenderAddress(txn);
@@ -97,7 +97,7 @@ async function UpdateAtlasBtcDeposits(
           } = await bitcoin.getChainAndAddressFromTxnHash(txn);
 
           if (receivingChainID && receivingAddress) {
-
+            console.log("New record found");
             console.log("receivingChainID:", receivingChainID);
             console.log("receivingAddress:", receivingAddress);
             console.log("btcTxnHash:", btcTxnHash);
@@ -134,11 +134,7 @@ async function UpdateAtlasBtcDeposits(
             );
 
             console.log(`Inserted Deposit with BTC txn hash ${btcTxnHash}`);
-          } else {
-            console.log(
-              `Skipping deposit record for BTC txn hash ${btcTxnHash}: missing receiving chain/address`,
-            );
-          }
+          } 
         }
       } catch (error) {
         console.error(`Error processing BTC txn hash ${btcTxnHash}:`, error);

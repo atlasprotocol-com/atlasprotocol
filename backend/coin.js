@@ -5,13 +5,15 @@ async function getPrice(coin, currency = "usd") {
   const coinMap = {
     'bitcoin': 'BTC',
     'ethereum': 'ETH',
-    'near': 'NEAR'
+    'near': 'NEAR',
+    'polygon': 'POL'
   };
   const currencyMap = {
     'btc': 'BTC',
     'usd': 'USDT',
     'eth': 'ETH',
-    'near': 'NEAR'
+    'near': 'NEAR',
+    'polygon': 'POL'
   };
 
   const symbol = `${coinMap[coin]}${currencyMap[currency]}`;

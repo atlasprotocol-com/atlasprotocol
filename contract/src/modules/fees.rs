@@ -14,8 +14,8 @@ impl Atlas {
         }
 
         let fee = (amount as u128 * redemption_percentage / 10000) as u64;
-        if fee < 1000 {
-            1000
+        if fee < 650 {
+            650
         } else {
             fee
         }
@@ -30,8 +30,8 @@ impl Atlas {
         }
 
         let fee = (amount as u128 * deposit_percentage / 10000) as u64;
-        if fee < 1000 {
-            1000
+        if fee < 650 {
+            650
         } else {
             fee
         }
@@ -46,8 +46,8 @@ impl Atlas {
         }
 
         let fee = (amount as u128 * bridging_percentage / 10000) as u64;
-        if fee < 1000 {
-            1000
+        if fee < 650 {
+            650
         } else {
             fee
         }

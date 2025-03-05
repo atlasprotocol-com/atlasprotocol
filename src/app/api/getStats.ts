@@ -16,6 +16,7 @@ interface StatsAPI {
     eth_price_usd: number;
     near_price_usd: number;
     near_price_btc: number;
+    pol_price_usd: number;
     deposits: {
       count: number;
     };
@@ -44,5 +45,6 @@ export const getStats = async (): Promise<StakingStats> => {
     ethPriceUsd: statsAPI.metadata?.eth_price_usd || 0,
     nearPriceUsd: statsAPI.metadata?.near_price_usd || 0,
     nearPriceBtc: statsAPI.metadata?.near_price_btc || 0,
+    polPriceUsd: statsAPI.metadata?.pol_price_usd || 0,
   };
 };

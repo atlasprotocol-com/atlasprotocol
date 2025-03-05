@@ -4,9 +4,8 @@ const { getConstants } = require("../constants");
 
 const { flagsBatch } = require("./batchFlags");
 
-async function SendBtcBackToUser(near, bitcoinInstance) {
+async function SendBtcBackToUser(near, bitcoinInstance, batchSize = 10) {
   const batchName = `Batch H SendBtcBackToUser`;
-  const { NETWORK_TYPE } = getConstants();
 
   // Check if a previous batch is still running
   if (flagsBatch.SendBtcBackToUserRunning) {
@@ -15,16 +14,10 @@ async function SendBtcBackToUser(near, bitcoinInstance) {
   }
 
   try {
-    console.log(`${batchName}. Start run...`);
+    console.log(`${batchName}. Start run... Processing ${batchSize} records`);
     flagsBatch.SendBtcBackToUserRunning = true;
-
-    // Filter eligible redemptions
-    const txn_hash = await near.getFirstValidRedemption();
-
-    if (txn_hash) {
-        // Otherwise, run the original logic
-        await processRedemption(txn_hash, near, bitcoinInstance);
-    }
+    
+    await processSendBtcBackToUser(near, bitcoinInstance, batchSize);
 
     console.log(`${batchName} completed successfully.`);
   } catch (error) {
@@ -34,52 +27,69 @@ async function SendBtcBackToUser(near, bitcoinInstance) {
   }
 }
 
-// Helper function to process a single redemption transaction
-async function processRedemption(txn_hash, near, bitcoinInstance) {
+// Helper function to process a batch of redemption transactions
+async function processSendBtcBackToUser(near, bitcoinInstance, batchSize) {
   try {
-    console.log(`\nProcessing txns for txn hash: ${txn_hash}`);
+    // Get batch of records to process
+    const redemptions = await near.getRedemptionsToSendBtc(batchSize);
+    
+    if (!redemptions || redemptions.length === 0) {
+      console.log("No redemptions to process");
+      return;
+    }
+
+    console.log(`Processing ${redemptions.length} redemptions`);
+    const txnHashes = redemptions.map(redemption => redemption.txn_hash);
+    console.log('Transaction hashes to process:', txnHashes);
 
     const { address, publicKey } = await bitcoinInstance.deriveBTCAddress(near);
-    // Derive BTC address
     console.log(`BTC sender address: ${address}`);
 
-    // Create payload only once
-    const payload = await bitcoinInstance.createPayload(near, address, txn_hash);
+      try {
+        // Create payload only once
+        const payload = await bitcoinInstance.createPayload(near, address, txnHashes);
 
-    console.log("payload", payload);
+        // Create the PSBT from the base64 payload and add UTXOs
+        const psbt = btc.Psbt.fromBase64(payload.psbt);
 
-    // Create the PSBT from the base64 payload and add UTXOs
-    const psbt = btc.Psbt.fromBase64(payload.psbt);
-    await bitcoinInstance.addUtxosToPsbt(psbt, payload.utxos);
+        await bitcoinInstance.addUtxosToPsbt(psbt, payload.utxos);
 
-    // Update the payload with the new PSBT
-    const updatedPayload = {
-      ...payload,
-      psbt: psbt,
-    };
+        // Update the payload with the new PSBT
+        const updatedPayload = {
+          ...payload,
+          psbt: psbt,
+        };
 
-    // Request MPC signature and relay the transaction
-    const signedTransaction = await bitcoinInstance.requestSignatureToMPC(
-      near,
-      updatedPayload,
-      publicKey,
-      txn_hash,
-    );
+        // Request MPC signature and relay the transaction
+        const signedTransaction = await bitcoinInstance.requestSignatureToMPC(
+          near,
+          updatedPayload,
+          publicKey,
+        );
 
-    console.log("Signed Transaction:", signedTransaction);
+        console.log("Signed Transaction:", signedTransaction);
+        
+        // Relay the signed transaction
+        const relayedtxHash = await bitcoinInstance.relayTransaction(signedTransaction);
+        console.log("Relayed tx hash:", relayedtxHash);
 
-    // Relay the signed transaction
-    const relayedtxHash = await bitcoinInstance.relayTransaction(signedTransaction);
+    
+        await near.updateRedemptionPendingBtcMempool(txnHashes, relayedtxHash);
+      
 
-    await near.updateRedemptionPendingBtcMempool(txn_hash, relayedtxHash, payload.estimatedFee, payload.protocolFee);
-
-    console.log(`Sent BTC back to user for txn hash: ${txn_hash}`);
+        console.log(`Sent BTC back to user for txn hash: ${txnHashes}`);
+      } catch (error) {
+        console.error(`Error sending BTC back to user:`, error);
+        for (const txnHash of txnHashes) {
+          await near.updateRedemptionRemarks(
+            txnHash,
+            `Error processing txn: ${error.message} - ${error.reason}`,
+          );
+        }
+      }
   } catch (error) {
-    console.error(`Error processing txn with hash ${txn_hash}:`, error);
-    await near.updateRedemptionRemarks(
-      txn_hash,
-      `Error processing txn: ${error.message} - ${error.reason}`,
-    );
+    console.error("Error in processSendBtcBackToUser:", error);
+    throw error;
   }
 }
 

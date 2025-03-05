@@ -177,6 +177,7 @@ export function Stake({ formattedBalance }: StakeProps) {
       "cd36e5e6072e3ea0ac92ad20f99ef8c736f78b3c287b43f0a8c3e8607fe6a337",
       params?.data?.evmAtlasAddress || "",
       chainConfigs[data.chainID].networkType,
+      chainConfigs[data.chainID].nativeCurrency?.symbol || ""
     );
 
     setReviewData({

@@ -7,5 +7,6 @@ export interface StakingStats {
   ethPriceUsd?: number;
   nearPriceUsd?: number;
   nearPriceBtc?: number;
+  polPriceUsd?: number;
 }
 
