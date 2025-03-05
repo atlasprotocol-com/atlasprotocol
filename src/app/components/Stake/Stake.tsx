@@ -169,26 +169,42 @@ export function Stake({ formattedBalance }: StakeProps) {
   const onSubmit = async (data: SchemaType) => {
     const amountSat = btcToSatoshi(data.amount);
 
-    const mintingFee = await getEstimateAbtcMintGas(
-      chainConfigs[data.chainID].chainRpcUrl,
-      chainConfigs[data.chainID].aBTCAddress,
-      data.address,
-      amountSat,
-      "cd36e5e6072e3ea0ac92ad20f99ef8c736f78b3c287b43f0a8c3e8607fe6a337",
-      params?.data?.evmAtlasAddress || "",
-      chainConfigs[data.chainID].networkType,
-      chainConfigs[data.chainID].nativeCurrency?.symbol || ""
-    );
-
+    // Set initial data and open preview immediately
     setReviewData({
       ...data,
       amountSat: btcToSatoshi(data.amount),
-      mintingFee: Math.max(
-        Number(process.env.NEXT_PUBLIC_DUST_LIMIT),
-        mintingFee.mintingFeeSat,
-      ),
+      mintingFee: Number(process.env.NEXT_PUBLIC_DUST_LIMIT), // Set initial minting fee
     });
     previewToggle.setTrue();
+
+    try {
+      const mintingFee = await getEstimateAbtcMintGas(
+        chainConfigs[data.chainID].chainRpcUrl,
+        chainConfigs[data.chainID].aBTCAddress,
+        data.address,
+        amountSat,
+        "cd36e5e6072e3ea0ac92ad20f99ef8c736f78b3c287b43f0a8c3e8607fe6a337",
+        params?.data?.evmAtlasAddress || "",
+        chainConfigs[data.chainID].networkType,
+        chainConfigs[data.chainID].nativeCurrency?.symbol || ""
+      );
+
+      // Update preview data with actual minting fee
+      setReviewData(prev => ({
+        ...prev!,
+        mintingFee: Math.max(
+          Number(process.env.NEXT_PUBLIC_DUST_LIMIT),
+          mintingFee.mintingFeeSat,
+        ),
+      }));
+    } catch (error) {
+      console.error("Failed to fetch minting fee:", error);
+      addFeedback({
+        type: "error",
+        content: "Failed to calculate minting fee. Please try again.",
+        title: "Error",
+      });
+    }
   };
 
   const handleConfirm = async () => {

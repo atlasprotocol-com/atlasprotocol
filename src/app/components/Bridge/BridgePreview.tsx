@@ -158,7 +158,7 @@ export function BridgePreview({
             </p>
           </div>
         </div>
-      <Button className="mt-4 w-full" onClick={onConfirm} disabled={isPending}>
+      <Button className="mt-4 w-full" onClick={onConfirm} disabled={isPending || !mintingFeeSat}>
         Process
       </Button>
     </Dialog>

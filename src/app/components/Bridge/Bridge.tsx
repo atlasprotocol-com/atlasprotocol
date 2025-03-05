@@ -209,40 +209,41 @@ export function Bridge() {
       return;
     }
 
+    // Set initial data and open preview immediately
+    setReviewData({
+      ...data,
+      amountSat: btcToSatoshi(data.amount),
+    });
+    previewToggle.setTrue();
+
     try {
-      const fees = await getTxBridgingFees(btcToSatoshi(data.amount));
-
-      console.log("fees", fees);
-      if (!fees) throw new Error("Failed to get bridging fees");
-
-      const { estimatedBridgingFee, atlasProtocolFee } = fees;
-
-      console.log("gas", gas);
-      const transactionFee = gas?.gasLimit || 0;
-
       const toChainConfig = chainConfigs[data?.toChainID || ''];
-
+      const amountSat = btcToSatoshi(data.amount);
+      const fees = await getTxBridgingFees(amountSat);
       const mintingFee = await getEstimateAbtcMintGas(
         toChainConfig?.chainRpcUrl || '',
         toChainConfig?.aBTCAddress || '',
         watch("address"),
-        btcToSatoshi(watch("amount")),
+        amountSat,
         "cd36e5e6072e3ea0ac92ad20f99ef8c736f78b3c287b43f0a8c3e8607fe6a337",
         params?.data?.evmAtlasAddress || "",
         toChainConfig?.networkType || "",
         toChainConfig?.nativeCurrency?.symbol || ""
-      );
+      )
 
-      setReviewData({
-        ...data,
-        amountSat: btcToSatoshi(data.amount),
+      if (!fees) throw new Error("Failed to get bridging fees");
+
+      const { estimatedBridgingFee, atlasProtocolFee } = fees;
+      const transactionFee = gas?.gasLimit || 0;
+
+      // Update preview data with additional information
+      setReviewData(prev => ({
+        ...prev!,
         transactionFee,
         bridgingFeeSat: estimatedBridgingFee,
         atlasProtocolFee,
         mintingFeeSat: mintingFee.mintingFeeSat,
-      });
-
-      previewToggle.setTrue();
+      }));
     } catch (error) {
       console.error("Failed to fetch bridging fees:", error);
       addFeedback({
