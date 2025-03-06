@@ -14,7 +14,7 @@
       "batch_size": 0,
       "gas_limit": 0,
       "abi_path": "",
-      "validators_threshold": 1
+      "validators_threshold": 2
     },
     {
       "chain_id": "NEAR_TESTNET",
@@ -22,7 +22,7 @@
       "network_name": "NEAR testnet",
       "chain_rpc_url": "https://rpc.testnet.fastnear.com",
       "explorer_url": "https://testnet.nearblocks.io/",
-      "abtc_address": "atbtc_testnet4_v2.velar.testnet",
+      "abtc_address": "atbtc.atlas_public_testnet.testnet",
       "native_currency_name": "NEAR",
       "native_currency_decimals": 18,
       "native_currency_symbol": "NEAR",
@@ -30,7 +30,7 @@
       "batch_size": 10000,
       "gas_limit": 0,
       "abi_path": "",
-      "validators_threshold": 1
+      "validators_threshold": 2
     },
     {
       "chain_id": "421614",
@@ -38,7 +38,7 @@
       "network_name": "Arbitrum Sepolia",
       "chain_rpc_url": "https://sepolia-rollup.arbitrum.io/rpc",
       "explorer_url": "https://sepolia.arbiscan.io/",
-      "abtc_address": "0xD2cEfE14B3040599346cA56e47968d1D33123Fef",
+      "abtc_address": "0xC3799bD41505fb8a0b335Ef7Ba52A8486f331b4F",
       "native_currency_name": "ETH",
       "native_currency_decimals": 18,
       "native_currency_symbol": "ETH",
@@ -46,7 +46,7 @@
       "batch_size": 50000,
       "gas_limit": 10000000,
       "abi_path": "../../contract/artifacts/atBTC.abi",
-      "validators_threshold": 1
+      "validators_threshold": 2
     },
     {
       "chain_id": "11155420",
@@ -54,7 +54,7 @@
       "network_name": "Optimism Sepolia",
       "chain_rpc_url": "https://sepolia.optimism.io",
       "explorer_url": "https://sepolia-optimism.etherscan.io/",
-      "abtc_address": "0x490B1fCd4aF766004020d0e47C350D43E7CF91a1",
+      "abtc_address": "0x85Cc212a5fAa33E74EFD8b91eC3dD97BDa8eEc31",
       "native_currency_name": "ETH",
       "native_currency_decimals": 18,
       "native_currency_symbol": "ETH",
@@ -62,7 +62,7 @@
       "batch_size": 10000,
       "gas_limit": 10000000,
       "abi_path": "../../contract/artifacts/atBTC.abi",
-      "validators_threshold": 1
+      "validators_threshold": 2
     },
     {
       "chain_id": "66633666",
@@ -70,7 +70,7 @@
       "network_name": "JuChain Testnet",
       "chain_rpc_url": "https://testnet-rpc.juchain.org",
       "explorer_url": "http://explorer-testnet.juchain.org/",
-      "abtc_address": "0xcB1bcA5efa96d9390093c91C5574CDD892E81ffC",
+      "abtc_address": "0xe61b90915E0CeE906a0461616C46Da73e4AD7dcd",
       "native_currency_name": "JU",
       "native_currency_decimals": 18,
       "native_currency_symbol": "JU",
@@ -78,7 +78,7 @@
       "batch_size": 10000,
       "gas_limit": 10000000,
       "abi_path": "../../contract/artifacts/atBTC.abi",
-      "validators_threshold": 1
+      "validators_threshold": 2
     },
     {
       "chain_id": "80002",
@@ -86,7 +86,7 @@
       "network_name": "Polygon Amoy",
       "chain_rpc_url": "https://rpc.ankr.com/polygon_amoy",
       "explorer_url": "https://amoy.polygonscan.com/",
-      "abtc_address": "0x7728DFb1F6dfA23c82cE4a3f84D914dB5EF5AD7d",
+      "abtc_address": "0xe61b90915E0CeE906a0461616C46Da73e4AD7dcd",
       "native_currency_name": "POL",
       "native_currency_decimals": 18,
       "native_currency_symbol": "POL",
@@ -94,7 +94,7 @@
       "batch_size": 10000,
       "gas_limit": 10000000,
       "abi_path": "../../contract/artifacts/atBTC.abi",
-      "validators_threshold": 1
+      "validators_threshold": 2
     },
     {
       "chain_id": "11155111",
@@ -102,7 +102,7 @@
       "network_name": "Sepolia",
       "chain_rpc_url": "https://eth-sepolia.g.alchemy.com/v2/M2SECgI-qVpztFsBxr4E1XA9kVwA0MNz",
       "explorer_url": "https://sepolia.etherscan.io/",
-      "abtc_address": "0x6aaab43e0D45267d6D667F7181b3E2D9653e6b2e",
+      "abtc_address": "0x2516b801c521e34394C4e9229650e40FA4b5f50c",
       "native_currency_name": "ETH",
       "native_currency_decimals": 18,
       "native_currency_symbol": "ETH",
@@ -110,7 +110,7 @@
       "batch_size": 10000,
       "gas_limit": 10000000,
       "abi_path": "../../contract/artifacts/atBTC.abi",
-      "validators_threshold": 1
+      "validators_threshold": 2
     }
   ]
 }

@@ -454,3 +454,50 @@ near call atlas_testnet4_v2.velar.testnet rollback_bridging_status_by_txn_hash '
 near call atlas_testnet4_v2.velar.testnet set_chain_configs_from_json '{"new_json_data": '"$(jq -Rs '.' < chain_chains_manual.json)"'}' --accountId velar.testnet
 near call atlas_testnet4_v2.velar.testnet rollback_deposit_status_by_btc_txn_hash '{"btc_txn_hash": "fbc98081a17e2350d79e8e7fc70bfe67276e6c98090f5e1f06f8b4d6f42f5a49"}' --accountId velar.testnet
 near call atlas_testnet4_v2.velar.testnet rollback_bridging_status_by_txn_hash '{"txn_hash": "421614,0x3cef84fabb0cc2b887cd38a11f5280ec73768093f8f087ca7c7f622bbb532950"}' --accountId velar.testnet
+
+near view v1.atlas_public_testnet.testnet get_all_global_params
+near call v1.atlas_public_testnet.testnet update_treasury_address '{"treasury_address": "tb1qa54le8k7eavpf7cqfzxa7fs7kwa39sme28r34u"}' --accountId atlas_public_testnet.testnet
+
+near view v1.atlas_public_testnet.testnet get_all_deposits
+near call v1.atlas_public_testnet.testnet rollback_redemption_status_by_txn_hash '{"txn_hash": "421614,0x74f5c0e405f0f634b01209c3720cc0b7277c370a155ce0ed3b2361b302412840"}' --accountId atlas_public_testnet.testnet
+
+
+
+near call v1.atlas_public_testnet.testnet set_chain_configs_from_json '{"new_json_data": '"$(jq -Rs '.' < chain_chains_manual.json)"'}' --accountId atlas_public_testnet.testnet
+near call v1.atlas_public_testnet.testnet add_validator '{"account_id": "atlas_public_testnet_validator_2.testnet", "chain_id": "TESTNET4"}' --accountId atlas_public_testnet.testnet
+near call v1.atlas_public_testnet.testnet add_validator '{"account_id": "atlas_public_testnet_validator_2.testnet", "chain_id": "421614"}' --accountId atlas_public_testnet.testnet
+near call v1.atlas_public_testnet.testnet add_validator '{"account_id": "atlas_public_testnet_validator_2.testnet", "chain_id": "11155420"}' --accountId atlas_public_testnet.testnet
+near call v1.atlas_public_testnet.testnet add_validator '{"account_id": "atlas_public_testnet_validator_2.testnet", "chain_id": "NEAR_TESTNET"}' --accountId atlas_public_testnet.testnet
+near call v1.atlas_public_testnet.testnet add_validator '{"account_id": "atlas_public_testnet_validator_2.testnet", "chain_id": "66633666"}' --accountId atlas_public_testnet.testnet
+near call v1.atlas_public_testnet.testnet add_validator '{"account_id": "atlas_public_testnet_validator_2.testnet", "chain_id": "80002"}' --accountId atlas_public_testnet.testnet
+near call v1.atlas_public_testnet.testnet add_validator '{"account_id": "atlas_public_testnet_validator_2.testnet", "chain_id": "11155111"}' --accountId atlas_public_testnet.testnet
+ 
+
+near call v1.atlas_public_testnet.testnet rollback_deposit_status_by_btc_txn_hash '{"btc_txn_hash": "94347d80b924c8a7d605db903aefdece3a7956d5b83df5b67d013374c3d26714"}' --accountId atlas_public_testnet.testnet
+near call v1.atlas_public_testnet.testnet update_fee_bridging_bps '{"fee_bridging_bps": 300}' --accountId atlas_public_testnet.testnet
+near call v1.atlas_public_testnet.testnet update_fee_redemption_bps '{"fee_redemption_bps": 300}' --accountId atlas_public_testnet.testnet
+
+
+
+
+
+
+
+
+
+near deploy v1.atlas_public_testnet.testnet res/atlas_protocol.wasm
+
+near create-account atbtc.atlas_public_testnet.testnet --masterAccount atlas_public_testnet.testnet --initialBalance 10
+near deploy atbtc.atlas_public_testnet.testnet res/atbtc.wasm
+near call atbtc.atlas_public_testnet.testnet new '{
+  "owner_id": "v1.atlas_public_testnet.testnet",
+  "metadata": {
+    "spec": "ft-1.0.0",
+    "name": "Atlas BTC",
+    "symbol": "atBTC",
+    "icon": "data:image/svg+xml,%3Csvg%20xmlns=%27http://www.w3.org/2000/svg%27%20width=%27100%27%20height=%27100%27%20viewBox=%270%200%20100%20100%27%3E%3Crect%20width=%27100%25%27%20height=%27100%25%27%20fill=%27%23e67e22%27/%3E%3Ctext%20x=%2750%25%27%20y=%2750%25%27%20font-family=%27Tahoma%27%20font-size=%2720%27%20font-weight=%27bold%27%20fill=%27white%27%20text-anchor=%27middle%27%20dominant-baseline=%27middle%27%3EatBTC%3C/text%3E%3C/svg%3E",
+    "reference": null,
+    "reference_hash": null,
+    "decimals": 8
+  }
+}' --accountId atlas_public_testnet.testnet

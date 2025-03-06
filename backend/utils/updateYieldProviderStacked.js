@@ -41,7 +41,7 @@ async function UpdateYieldProviderStacked(allDeposits, near, bitcoinInstance) {
         });
         console.log("deposit: ", deposit);
         if (!deposit) {
-          console.error(
+          console.log(
             `Deposit not found for txHash: ${txn.yield_provider_txn_hash}`,
           );
           continue;
@@ -51,7 +51,7 @@ async function UpdateYieldProviderStacked(allDeposits, near, bitcoinInstance) {
           deposit.status === BITHIVE_STATUS.DEPOSIT_CONFIRMED ||
           deposit.status === BITHIVE_STATUS.DEPOSIT_CONFIRMED_INVALID;
         if (!ok) {
-          console.error(
+          console.log(
             `Deposit status ${deposit.status} of txHash: ${txn.yield_provider_txn_hash} is not valid`,
           );
           continue;
@@ -59,7 +59,7 @@ async function UpdateYieldProviderStacked(allDeposits, near, bitcoinInstance) {
         await near.updateDepositYieldProviderDeposited(txn.btc_txn_hash);
       }
     } catch (error) {
-      console.error("Error updating stake to yield provider deposited:", error);
+      console.log("Error updating stake to yield provider deposited:", error);
     } finally {
       flagsBatch.UpdateYieldProviderStackedRunning = false;
     }

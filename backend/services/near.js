@@ -132,6 +132,7 @@ class Near {
           "update_last_unstaking_time",
           "create_send_bridging_fees_transaction",
           "update_bridging_sending_fee_to_treasury",
+          "set_chain_configs_from_json",
         ],
       });
 
@@ -1540,6 +1541,12 @@ class Near {
 
   async getBridgingRecordsToSendBtc() {
     return this.makeNearRpcViewCall("get_bridging_records_to_send_btc", {});
+  }
+
+  async set_chain_configs_from_json(params) {
+    return this.makeNearRpcChangeCall("set_chain_configs_from_json", {
+      new_json_data: params.new_json_data,
+    });
   }
 }
 

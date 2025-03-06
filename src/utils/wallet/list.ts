@@ -50,14 +50,14 @@ export const walletList: IntegratedWallet[] = [
   //   linkToDocs: "",
   //   supportedNetworks: [Network.MAINNET, Network.SIGNET],
   // },
-  {
-    name: "Tomo",
-    icon: tomoIcon,
-    wallet: TomoWallet,
-    provider: tomoProvider,
-    linkToDocs: "https://tomo.inc/",
-    supportedNetworks: [Network.MAINNET, Network.SIGNET],
-  },
+  // {
+  //   name: "Tomo",
+  //   icon: tomoIcon,
+  //   wallet: TomoWallet,
+  //   provider: tomoProvider,
+  //   linkToDocs: "https://tomo.inc/",
+  //   supportedNetworks: [Network.MAINNET, Network.SIGNET],
+  // },
   // {
   //   name: "OneKey",
   //   icon: oneKeyIcon,

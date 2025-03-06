@@ -262,3 +262,4 @@ next-env.d.ts
 
 .env
 backend/utils/btcLastProcessedConfirmedTime.json
+contract/tokens/solidity_contract/artifacts/

@@ -667,8 +667,8 @@ class Ethereum {
       chain_id: this.chainID.toString(),
       nonce: Number(nonce), // Convert BigInt to Number
       gas: Number(gasLimit), // assuming gasLimit is a number
-      max_fee_per_gas: Number(baseFeePerGas), // Convert BigInt to Number
-      max_priority_fee_per_gas: Number(maxPriorityFeePerGas), // Convert BigInt to Number
+      max_fee_per_gas: Math.max(Number(baseFeePerGas * BigInt(11) / BigInt(10)), Number(maxPriorityFeePerGas)), // Convert BigInt to Number
+      max_priority_fee_per_gas: Math.max(Number(maxPriorityFeePerGas * BigInt(11) / BigInt(10)), Number(maxPriorityFeePerGas)), // Convert BigInt to Number
     };
 
     try {

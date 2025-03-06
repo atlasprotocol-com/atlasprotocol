@@ -36,6 +36,7 @@
     "@near-wallet-selector/modal-ui": "8.9.13",
     "@near-wallet-selector/my-near-wallet": "8.9.13",
     "@near-wallet-selector/sender": "8.9.13",
+    "@openzeppelin/contracts": "^5.2.0",
     "@radix-ui/react-dialog": "1.1.2",
     "@radix-ui/react-popover": "^1.1.6",
     "@radix-ui/react-select": "2.1.2",
