@@ -22,7 +22,7 @@ interface RedemptionAPI {
   btc_receiving_address: string;
   abtc_amount: number; // aBTC amount in satoshis
   timestamp: string;
-  status: string;
+  status: number;
   remarks: string;
   btc_txn_hash: string;
   protocol_fee: number;

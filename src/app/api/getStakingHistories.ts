@@ -23,7 +23,7 @@ interface StakingAPI {
   btc_amount: number;
   minted_txn_hash: string;
   timestamp: string;
-  status: string;
+  status: number;
   remarks: string;
   yield_provider_gas_fee: number
   protocol_fee: number
