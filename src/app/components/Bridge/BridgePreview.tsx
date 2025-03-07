@@ -49,9 +49,9 @@ export function BridgePreview({
   const nearPriceUsd = stats?.nearPriceUsd || 0;
   const polPriceUsd = stats?.polPriceUsd || 0;
   
-  console.log("toSymbol:", toSymbol);
-  console.log("polPriceUsd:", polPriceUsd);
-  console.log("transactionFee:", transactionFee);
+
+  console.log("mintingFeeSat:", mintingFeeSat);
+
   const transactionFeeUsd = transactionFee && toSymbol
     ? (Number(transactionFee) * (
       fromSymbol === "ETH" ? ethPriceUsd :
@@ -59,7 +59,7 @@ export function BridgePreview({
       fromSymbol === "POL" ? polPriceUsd : ethPriceUsd
     )).toFixed(8)
     : '--';
-  console.log("transactionFeeUsd:", transactionFeeUsd);
+
   const totalBridgingFee = bridgingFeeSat ? Number(bridgingFeeSat) + Number(mintingFeeSat || 0) : 0;
   const totalBridgingFeeUsd = totalBridgingFee && btcPriceUsd
     ? ((totalBridgingFee / 100000000) * btcPriceUsd).toFixed(2)
@@ -91,7 +91,7 @@ export function BridgePreview({
         <div className="flex gap-2">
           <div className="w-[180px]">
             <p className="text-caption text-sm font-semibold">From</p>
-            <p className=" text-base font-semibold">{fromChain || "--"}</p>
+            <p className="text-base font-semibold">{fromChain || "--"}</p>
           </div>
           <div>
             <p className="text-caption text-sm font-semibold">To</p>
@@ -100,7 +100,7 @@ export function BridgePreview({
         </div>
         <div className="mt-4">
           <p className="text-caption text-sm font-semibold">Bridging Amount</p>
-          <p className=" text-base font-semibold break-all ">
+          <p className="text-base font-semibold break-all">
             {amount || "--"} {ATLAS_BTC_TOKEN} <span className="text-sm text-neutral-7">(≈{amountUsd} USD)</span>
           </p>
         </div>
@@ -108,57 +108,83 @@ export function BridgePreview({
           <p className="text-caption text-sm font-semibold">
             {ATLAS_BTC_TOKEN} Receiving Address
           </p>
-          <p className=" text-base font-semibold break-all ">{toAddress}</p>
+          <p className="text-base font-semibold break-all">{toAddress || "--"}</p>
         </div>
         <div className="mt-4">
           <p className="text-caption text-sm font-semibold">Amount to Receive</p>
           <p className="text-base font-semibold break-all">
-            {actualReceived} {ATLAS_BTC_TOKEN} <span className="text-sm text-neutral-7">(≈{actualReceivedUsd} USD)</span>
+            {actualReceived !== '--' ? (
+              <>
+                {actualReceived} {ATLAS_BTC_TOKEN} <span className="text-sm text-neutral-7">(≈{actualReceivedUsd} USD)</span>
+              </>
+            ) : (
+              <span className="text-neutral-7">Loading...</span>
+            )}
           </p>
         </div>
       </div>
       <div className="mt-4 flex gap-4">
-        <div className="rounded-lg border border-neutral-5  dark:border-neutral-8 dark:bg-neutral-10 p-3 flex-1">
+        <div className="rounded-lg border border-neutral-5 dark:border-neutral-8 dark:bg-neutral-10 p-3 flex-1">
           <p className="text-caption text-sm font-semibold">
-              {networkType} Transaction Fee
-            </p>
-            <p className=" text-base font-semibold break-all ">
-              {transactionFee?.toFixed(8) || "--"} <br /> 
-              {fromSymbol}
-              <span className="text-sm text-neutral-7"><br />
-              (≈{transactionFeeUsd} USD)</span>
-            </p>
-          </div>
-          <div className="rounded-lg border border-neutral-5  dark:border-neutral-8 dark:bg-neutral-10 p-3 flex-1">
-            <p className="text-caption text-sm font-semibold">
-              {BTC_TOKEN} Bridging Fee
-            </p>
-            <p className=" text-base font-semibold break-all ">
-              {maxDecimals(
-                satoshiToBtc(totalBridgingFee),
-                8,
-              ) || "--"}{" "}<br />
-              {BTC_TOKEN} <br />
-              <span className="text-sm text-neutral-7">
-              (≈{totalBridgingFeeUsd} USD)</span>
-            </p>
-          </div>
-          <div className="rounded-lg border border-neutral-5  dark:border-neutral-8 dark:bg-neutral-10 p-3 flex-1">
-            <p className="text-caption text-sm font-semibold">
-              Protocol Fee
-            </p>
-            <p className=" text-base font-semibold break-all ">
-              {maxDecimals(
-                satoshiToBtc(atlasProtocolFee ? atlasProtocolFee : 0),
-                8,
-              ) || "--"}{" "} <br />
-              {BTC_TOKEN} <br />
-              <span className="text-sm text-neutral-7">
-              (≈{atlasProtocolFeeUsd} USD)</span>
-            </p>
-          </div>
+            {networkType} Transaction Fee
+          </p>
+          <p className="text-base font-semibold break-all">
+            {transactionFee ? (
+              <>
+                {transactionFee.toFixed(8)} <br />
+                {fromSymbol}
+                <span className="text-sm text-neutral-7">
+                  <br />
+                  (≈{transactionFeeUsd} USD)
+                </span>
+              </>
+            ) : (
+              <span className="text-neutral-7">Loading...</span>
+            )}
+          </p>
         </div>
-      <Button className="mt-4 w-full" onClick={onConfirm} disabled={isPending || !mintingFeeSat}>
+        <div className="rounded-lg border border-neutral-5 dark:border-neutral-8 dark:bg-neutral-10 p-3 flex-1">
+          <p className="text-caption text-sm font-semibold">
+            {BTC_TOKEN} Bridging Fee
+          </p>
+          <p className="text-base font-semibold break-all">
+            {totalBridgingFee ? (
+              <>
+                {maxDecimals(satoshiToBtc(totalBridgingFee), 8)} <br />
+                {BTC_TOKEN} <br />
+                <span className="text-sm text-neutral-7">
+                  (≈{totalBridgingFeeUsd} USD)
+                </span>
+              </>
+            ) : (
+              <span className="text-neutral-7">Loading...</span>
+            )}
+          </p>
+        </div>
+        <div className="rounded-lg border border-neutral-5 dark:border-neutral-8 dark:bg-neutral-10 p-3 flex-1">
+          <p className="text-caption text-sm font-semibold">
+            Protocol Fee
+          </p>
+          <p className="text-base font-semibold break-all">
+            {atlasProtocolFee ? (
+              <>
+                {maxDecimals(satoshiToBtc(atlasProtocolFee), 8)} <br />
+                {BTC_TOKEN} <br />
+                <span className="text-sm text-neutral-7">
+                  (≈{atlasProtocolFeeUsd} USD)
+                </span>
+              </>
+            ) : (
+              <span className="text-neutral-7">Loading...</span>
+            )}
+          </p>
+        </div>
+      </div>
+      <Button 
+        className="mt-4 w-full" 
+        onClick={onConfirm} 
+        disabled={isPending || !mintingFeeSat || !transactionFee || !bridgingFeeSat || !atlasProtocolFee}
+      >
         Process
       </Button>
     </Dialog>

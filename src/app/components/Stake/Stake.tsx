@@ -1,6 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMemo, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
+import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
 
 import { useAppContext } from "@/app/context/app";
@@ -16,9 +17,11 @@ import { useGetChainConfig } from "@/hooks";
 import { useGetGlobalParams, useGetStats } from "@/hooks/stats";
 import { useBool } from "@/hooks/useBool";
 import { btcToSatoshi } from "@/utils/btcConversions";
-import { getEstimateAbtcMintGas } from "@/utils/getEstimateAbtcMintGas";
+import { useEstimateAbtcMintGas } from "@/utils/getEstimateAbtcMintGas";
+import { getStakingHistoriesLocalStorageKey } from "@/utils/local_storage/getStakingHistoriesLocalStorageKey";
 import { validateBlockchainAddress } from "@/utils/validateAddress";
 import { WalletProvider } from "@/utils/wallet/wallet_provider";
+import { Stakes, DepositStatus } from "@/app/types/stakes";
 
 import { Button } from "../Button";
 import { InputField } from "../InputField";
@@ -57,9 +60,16 @@ export function Stake({ formattedBalance }: StakeProps) {
   const { mempoolApiUrl } = getNetworkConfig();
   const params = useGetGlobalParams();
   const { addFeedback } = useAddFeedback();
-  const { BTC_TOKEN, btcRefreshBalance } = useAppContext();
+  const { BTC_TOKEN, btcRefreshBalance, btcPublicKeyNoCoord } = useAppContext();
   const { data: stats } = useGetStats();
   const ethPriceBtc = stats?.ethPriceBtc || 0;
+
+  const stakingHistoriesLocalStorageKey = getStakingHistoriesLocalStorageKey(
+    btcPublicKeyNoCoord || "",
+  );
+
+  const [stakingHistoriesLocalStorage, setStakingHistoriesLocalStorage] =
+    useLocalStorage<Stakes[]>(stakingHistoriesLocalStorageKey, []);
 
   const {
     data: mempoolFeeRates,
@@ -166,6 +176,8 @@ export function Stake({ formattedBalance }: StakeProps) {
     mode: "onBlur",
   });
 
+  const { estimateGas } = useEstimateAbtcMintGas();
+
   const onSubmit = async (data: SchemaType) => {
     const amountSat = btcToSatoshi(data.amount);
 
@@ -178,7 +190,7 @@ export function Stake({ formattedBalance }: StakeProps) {
     previewToggle.setTrue();
 
     try {
-      const mintingFee = await getEstimateAbtcMintGas(
+      const mintingFee = await estimateGas(
         chainConfigs[data.chainID].chainRpcUrl,
         chainConfigs[data.chainID].aBTCAddress,
         data.address,
@@ -225,25 +237,45 @@ export function Stake({ formattedBalance }: StakeProps) {
         throw new Error("Staking fee not loaded");
       }
 
+      const protocolFee = params?.data?.feeDepositPercentage === 0
+        ? 0
+        : Math.floor(
+            Math.max(
+              Number(process.env.NEXT_PUBLIC_DUST_LIMIT),
+              (params?.data?.feeDepositPercentage || 0) * (previewData?.amountSat || 0),
+            ),
+          );
+
       const txHash = await sign.mutateAsync({
         availableUTXOs: accountUTXOs,
         feeRate: mempoolFeeRates?.feeRates?.defaultFeeRate,
         stakingAmountSat: previewData?.amountSat,
         stakingReceivingAddress: previewData?.address,
         stakingReceivingChainID: previewData?.chainID,
-        protocolFeeSat:
-          params?.data?.feeDepositPercentage === 0
-            ? 0
-            : Math.floor(
-                Math.max(
-                  Number(process.env.NEXT_PUBLIC_DUST_LIMIT),
-                  (params?.data?.feeDepositPercentage || 0) *
-                    (previewData?.amountSat || 0),
-                ),
-              ),
+        protocolFeeSat: protocolFee,
         mintingFeeSat: previewData?.mintingFee,
         treasuryAddress: params?.data?.treasuryAddress || "",
       });
+
+      // Add dummy record to local storage
+      const newRecord: Stakes = {
+        timestamp: Math.floor(Date.now() / 1000).toString(),
+        btcAmount: previewData.amountSat - protocolFee - protocolFee,
+        protocolFee: protocolFee,
+        mintingFee: previewData.mintingFee,
+        yieldProviderGasFee: stakingFee?.amount,
+        receivingChainId: previewData.chainID,
+        receivingAddress: previewData.address,
+        btcTxnHash: txHash,
+        minted_txn_hash: "",
+        status: DepositStatus.BTC_PENDING_DEPOSIT_MEMPOOL,
+        remarks: "",
+        btcSenderAddress: "",
+      };
+
+      console.log("newRecord", newRecord);
+
+      setStakingHistoriesLocalStorage([newRecord, ...stakingHistoriesLocalStorage]);
 
       addFeedback({
         title: "Success",

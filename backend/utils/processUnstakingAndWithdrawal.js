@@ -70,7 +70,7 @@ async function processUnstakingAndWithdrawal(
     );
 
     // If there are pending withdrawals, process them first
-    if (pendingRedemptions.length || pendingBridgings.length) {
+    if (pendingRedemptions.length > 0 || pendingBridgings.length > 0) {
       try {
         for (const redemption of pendingRedemptions) {
           await near.updateRedemptionPendingYieldProviderWithdraw(
@@ -195,7 +195,7 @@ async function processUnstakingAndWithdrawal(
           await near.updateBridgingFeesYieldProviderWithdrawing(
             bridging.txn_hash,
             depositTxHash,
-            averageGasPerRecord
+            0
           );
         }
       } catch (error) {
@@ -238,7 +238,7 @@ async function processUnstakingAndWithdrawal(
       const shouldProcessBridgings = newBridgings.length >= Number(process.env.MIN_BRIDGING_RECORDS_TO_SEND_BTC);
       const shouldProcessRedemptions = newRedemptions.length > 0;
 
-      if (shouldProcessBridgings || shouldProcessRedemptions) {
+      if (shouldProcessRedemptions || (shouldProcessBridgings && shouldProcessRedemptions)) {
         let totalNewAmount = 0;
 
         // Process redemptions if conditions met

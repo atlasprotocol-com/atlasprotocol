@@ -7,7 +7,7 @@ export interface Redemptions {
   btcReceivingAddress: string;
   abtcAmount: number;
   timestamp: string;
-  status: string;
+  status: number;
   remarks: string;
   btcTxnHash: string;
   protocolFee: number;

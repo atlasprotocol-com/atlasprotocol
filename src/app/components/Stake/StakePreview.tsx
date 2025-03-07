@@ -41,7 +41,7 @@ export function StakePreview({
     stakingAmount && stakingFee && protocolFee !== undefined && mintingFee
       ? Number(
           (
-            (stakingAmount - stakingFee - protocolFee - mintingFee) /
+            (Number(stakingAmount) - Number(stakingFee) - Number(protocolFee) - Number(mintingFee)) /
             100000000
           ).toFixed(8),
         )

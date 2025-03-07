@@ -48,22 +48,22 @@ export function BridgeHistorySection() {
 
   function getBridgeAmountInfo(bridgeHistory: BridgeHistory) {
     return {
-      totalAmount: maxDecimals(satoshiToBtc(bridgeHistory.abtc_amount), 8),
-      protocolFee: maxDecimals(satoshiToBtc(bridgeHistory.protocol_fee), 8),
+      totalAmount: maxDecimals(satoshiToBtc(bridgeHistory.abtc_amount), 10),
+      protocolFee: maxDecimals(satoshiToBtc(bridgeHistory.protocol_fee), 10),
       bridgingFee: maxDecimals(
         satoshiToBtc(
-          bridgeHistory.yield_provider_gas_fee + bridgeHistory.minting_fee_sat,
+          Number(bridgeHistory.yield_provider_gas_fee) + Number(bridgeHistory.minting_fee_sat),
         ),
-        8,
+        10,
       ),
       netAmount: maxDecimals(
         satoshiToBtc(
-          bridgeHistory.abtc_amount -
-            bridgeHistory.protocol_fee -
-            bridgeHistory.yield_provider_gas_fee -
-            bridgeHistory.minting_fee_sat,
+          Number(bridgeHistory.abtc_amount) -
+            Number(bridgeHistory.protocol_fee) -
+            Number(bridgeHistory.yield_provider_gas_fee) -
+            Number(bridgeHistory.minting_fee_sat),
         ),
-        8,
+        10,
       ),
     };
   }
@@ -74,7 +74,7 @@ export function BridgeHistorySection() {
     hasNextPage: hasNextBridgeHistoriesPage,
     isFetchingNextPage: isFetchingNextBridgeHistoriesPage,
   } = useGetBridgeHistory({
-    address: selectedAddress,
+    address: selectedAddress || undefined,
   });
 
   const bridgeHistoriesLocalStorageKey = getBridgeHistoriesLocalStorageKey(
@@ -136,7 +136,11 @@ export function BridgeHistorySection() {
     <Card>
       <h3 className="text-2xl font-bold">Bridge History</h3>
       <div className="mt-4">
-        {sortedBridgeHistoriesData.length === 0 ? (
+        {!selectedAddress ? (
+          <div className="text-base font-normal text-neutral-7 text-center py-4 flex-col justify-center items-center gap-2 flex">
+            <p className="text-center">Please connect your wallet and select a chain to view bridge history</p>
+          </div>
+        ) : sortedBridgeHistoriesData.length === 0 ? (
           <div className="text-base font-normal text-neutral-7 text-center py-4 flex-col justify-center items-center gap-2 flex">
             <p className="text-center">No history found</p>
           </div>

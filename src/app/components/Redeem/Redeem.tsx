@@ -2,6 +2,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { SelectValue } from "@radix-ui/react-select";
 import { useMemo, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
+import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
 
 import { useAppContext } from "@/app/context/app";
@@ -22,6 +23,8 @@ import { useBool } from "@/hooks/useBool";
 import { btcToSatoshi } from "@/utils/btcConversions";
 import { useNearAbtcBurnRedeem } from "@/utils/near";
 import { validateBTCAddress } from "@/utils/validateAddress";
+import { getRedemptionHistoriesLocalStorageKey } from "@/utils/local_storage/getRedemptionHistoriesLocalStorageKey";
+import { Redemptions, RedemptionStatus } from "@/app/types/redemptions";
 
 import { Button } from "../Button";
 import { InputField } from "../InputField";
@@ -65,7 +68,7 @@ export interface RedeemProps {
 }
 
 export function Redeem({ btcAddress }: RedeemProps) {
-  const { ATLAS_BTC_TOKEN } = useAppContext();
+  const { ATLAS_BTC_TOKEN, btcPublicKeyNoCoord } = useAppContext();
   const { addFeedback } = useAddFeedback();
   const evmWalletModal = useBool();
   const previewToggle = useBool(false);
@@ -75,6 +78,13 @@ export function Redeem({ btcAddress }: RedeemProps) {
       })
     | undefined
   >(undefined);
+
+  const redemptionHistoriesLocalStorageKey = getRedemptionHistoriesLocalStorageKey(
+    btcPublicKeyNoCoord || "",
+  );
+
+  const [redemptionHistoriesLocalStorage, setRedemptionHistoriesLocalStorage] =
+    useLocalStorage<Redemptions[]>(redemptionHistoriesLocalStorageKey, []);
 
   const params = useGetGlobalParams();
   const { data: chainConfigs = {} } = useGetChainConfig();
@@ -209,6 +219,24 @@ export function Redeem({ btcAddress }: RedeemProps) {
         });
 
         evmTxHash = r.transactionHash;
+
+        // Add dummy record to local storage
+        const newRecord: Redemptions = {
+          txnHash: selectedChain.chainID + "," + evmTxHash,
+          abtcRedemptionAddress: fromAddress,
+          abtcRedemptionChainId: selectedChain.chainID,
+          btcReceivingAddress: previewData.address,
+          abtcAmount: previewData.amountSat,
+          timestamp: Math.floor(Date.now() / 1000).toString(),
+          status: RedemptionStatus.ABTC_BURNT,
+          remarks: "",
+          btcTxnHash: "",
+          protocolFee: redeemFee?.atlasProtocolFee || 0,
+          yieldProviderGasFee: 0,
+          btcRedemptionFee: 0,
+        };
+
+        setRedemptionHistoriesLocalStorage([newRecord, ...redemptionHistoriesLocalStorage]);
 
         refetchABTCBalance();
       }

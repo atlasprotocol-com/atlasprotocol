@@ -3,6 +3,7 @@ import { SelectValue } from "@radix-ui/react-select";
 import { useEffect, useMemo, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { z } from "zod";
+import { useLocalStorage } from "usehooks-ts";
 
 import { useAppContext } from "@/app/context/app";
 import { useABtcBridge } from "@/app/hooks";
@@ -14,6 +15,7 @@ import {
 import { useBridgeStore } from "@/app/stores/bridge";
 import { useAddFeedback } from "@/app/stores/feedback";
 import { ChainConfig } from "@/app/types/chainConfig";
+import { BridgeHistory, BridgeStatus } from "@/app/types/bridge";
 import { useGetChainConfig } from "@/hooks";
 import { useGetGlobalParams } from "@/hooks/stats";
 import { useBool } from "@/hooks/useBool";
@@ -21,7 +23,7 @@ import { btcToSatoshi } from "@/utils/btcConversions";
 import { useNearAbtcBridge } from "@/utils/near";
 import { validateBlockchainAddress } from "@/utils/validateAddress";
 import { getTxBridgingFees } from "@/utils/getTxBridgingFees";
-import { getEstimateAbtcMintGas } from '@/utils/getEstimateAbtcMintGas';
+import { useEstimateAbtcMintGas } from "@/utils/getEstimateAbtcMintGas";
 
 import { Button } from "../Button";
 import { InputField } from "../InputField";
@@ -64,6 +66,7 @@ export interface RedeemProps {
 export function Bridge() {
   const { ATLAS_BTC_TOKEN } = useAppContext();
   const setBridgeStore = useBridgeStore((state) => state.set);
+  const selectedAddress = useBridgeStore((state) => state.selectedAddress);
   const { addFeedback } = useAddFeedback();
   const evmWalletModal = useBool();
   const previewToggle = useBool(false);
@@ -77,6 +80,10 @@ export function Bridge() {
       })
     | undefined
   >(undefined);
+
+  const bridgeHistoriesLocalStorageKey = `atlas-protocol-bridge-${selectedAddress || ""}`;
+  const [bridgeHistoriesLocalStorage, setBridgeHistoriesLocalStorage] = 
+    useLocalStorage<BridgeHistory[]>(bridgeHistoriesLocalStorageKey, []);
 
   const params = useGetGlobalParams();
   const { data: chainConfigs = {} } = useGetChainConfig();
@@ -146,6 +153,14 @@ export function Bridge() {
     );
   }, [chainConfigs]);
 
+  // Set first chain option when component mounts
+  useEffect(() => {
+    if (filteredChainConfigs.length > 0 && !fromChainID) {
+      setValue("fromChainID", filteredChainConfigs[0].chainID);
+      trigger("fromChainID");
+    }
+  }, [filteredChainConfigs, fromChainID, setValue, trigger]);
+
   const filteredChainToConfigs = useMemo(() => {
     return Object.values(chainConfigs || {}).filter(
       (chainConfig) =>
@@ -182,13 +197,13 @@ export function Bridge() {
       tokenAddress: selectedEVMChain?.aBTCAddress,
     });
 
+  const { estimateGas } = useEstimateAbtcMintGas();
+
   const { data: gas, isLoading: gasEstimateLoading } = useEstGasAtlasBurn({
     chainConfig: selectedChain,
     amountSat: btcToSatoshi(watch("amount")),
     userAddress: fromAddress || "",
   });
-
-  
 
   const onSubmit = async (data: SchemaType) => {
     if (!params.data) return;
@@ -216,11 +231,25 @@ export function Bridge() {
     });
     previewToggle.setTrue();
 
+    // Load bridging fees first
     try {
       const toChainConfig = chainConfigs[data?.toChainID || ''];
       const amountSat = btcToSatoshi(data.amount);
       const fees = await getTxBridgingFees(amountSat);
-      const mintingFee = await getEstimateAbtcMintGas(
+
+      if (!fees) throw new Error("Failed to get bridging fees");
+
+      const { estimatedBridgingFee, atlasProtocolFee } = fees;
+      
+      // Update bridging fees
+      setReviewData(prev => ({
+        ...prev!,
+        bridgingFeeSat: estimatedBridgingFee,
+        atlasProtocolFee,
+      }));
+
+      // Load minting fee using the hook
+      const mintingFee = await estimateGas(
         toChainConfig?.chainRpcUrl || '',
         toChainConfig?.aBTCAddress || '',
         watch("address"),
@@ -229,19 +258,11 @@ export function Bridge() {
         params?.data?.evmAtlasAddress || "",
         toChainConfig?.networkType || "",
         toChainConfig?.nativeCurrency?.symbol || ""
-      )
+      );
 
-      if (!fees) throw new Error("Failed to get bridging fees");
-
-      const { estimatedBridgingFee, atlasProtocolFee } = fees;
-      const transactionFee = gas?.gasLimit || 0;
-
-      // Update preview data with additional information
+      // Update minting fee
       setReviewData(prev => ({
         ...prev!,
-        transactionFee,
-        bridgingFeeSat: estimatedBridgingFee,
-        atlasProtocolFee,
         mintingFeeSat: mintingFee.mintingFeeSat,
       }));
     } catch (error) {
@@ -253,6 +274,16 @@ export function Bridge() {
       });
     }
   };
+
+  // Update transaction fee when gas data changes
+  useEffect(() => {
+    if (gas?.gasLimit && previewToggle.value) {
+      setReviewData(prev => ({
+        ...prev!,
+        transactionFee: gas.gasLimit,
+      }));
+    }
+  }, [gas?.gasLimit, previewToggle.value]);
 
   const onConfirm = async () => {
     try {
@@ -285,6 +316,28 @@ export function Bridge() {
           bridgingFeeSat: previewData.bridgingFeeSat?.toString(),
         });
       }
+
+      // Add the record to local storage
+      const newBridgeHistory: BridgeHistory = {
+        txn_hash: selectedChain.chainID + "," + evmTxHash,
+        origin_chain_id: selectedChain.chainID,
+        origin_chain_address: fromAddress || "",
+        dest_chain_id: toSelectedChain.chainID,
+        dest_chain_address: previewData.address,
+        dest_txn_hash: "",
+        abtc_amount: previewData.amountSat,
+        timestamp: Math.floor(Date.now() / 1000),
+        status: BridgeStatus.ABTC_BURNT,
+        remarks: "",
+        date_created: Math.floor(Date.now() / 1000),
+        verified_count: 0,
+        minting_fee_sat: previewData.mintingFeeSat || 0,
+        protocol_fee: previewData.atlasProtocolFee || 0,
+        yield_provider_gas_fee: previewData.bridgingFeeSat || 0,
+      };
+
+      setBridgeHistoriesLocalStorage([newBridgeHistory, ...bridgeHistoriesLocalStorage]);
+
       addFeedback({
         type: "success",
         content: (
@@ -463,7 +516,7 @@ export function Bridge() {
       />
 
       <BridgePreview
-        isPending={disabled}
+        isPending={disabled || gasEstimateLoading}
         open={previewToggle.value}
         onClose={() => {
           previewToggle.toggle();
