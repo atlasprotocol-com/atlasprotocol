@@ -17,7 +17,7 @@ interface StakingHistoryProps {
   btcAmount: number;
   minted_txn_hash: string;
   timestamp: string;
-  status: string;
+  status: number;
   remarks: string;
 }
 
