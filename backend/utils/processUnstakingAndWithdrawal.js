@@ -168,11 +168,32 @@ async function processUnstakingAndWithdrawal(
         let yieldProviderWithdrawalFee = finalisedPsbt.getFee();
         console.log("finalisedPsbt.getFee() ", yieldProviderWithdrawalFee);
 
-        const averageGasPerRecord = Math.ceil(
-          yieldProviderWithdrawalFee / (pendingRedemptions.length + pendingBridgings.length),
-        );
+        const totalRecords = pendingRedemptions.length + pendingBridgings.length;
+        const baseGasPerRecord = Math.floor(yieldProviderWithdrawalFee / totalRecords);
+        const remainder = yieldProviderWithdrawalFee % totalRecords;
+        
+        console.log("Total records:", totalRecords);
+        console.log("Base gas per record:", baseGasPerRecord);
+        console.log("Remainder to distribute:", remainder);
 
-        console.log("averageGasPerRecord:", averageGasPerRecord);
+        // Create arrays to hold the actual gas distribution
+        const redemptionGasFees = new Array(pendingRedemptions.length).fill(baseGasPerRecord);
+        const bridgingGasFees = new Array(pendingBridgings.length).fill(baseGasPerRecord);
+
+        // Distribute the remainder one by one across records
+        for (let i = 0; i < remainder; i++) {
+            if (i < pendingRedemptions.length) {
+                redemptionGasFees[i]++;
+            } else {
+                bridgingGasFees[i - pendingRedemptions.length]++;
+            }
+        }
+
+        // Verify total distribution equals original fee
+        const totalDistributed = redemptionGasFees.reduce((a, b) => a + b, 0) + 
+                               bridgingGasFees.reduce((a, b) => a + b, 0);
+        console.log("Total gas distributed:", totalDistributed);
+        console.log("Original withdrawal fee:", yieldProviderWithdrawalFee);
 
         // Submit the finalized PSBT for broadcasting and relaying
         const { txHash: yieldProviderWithdrawalTxHash } =
@@ -182,20 +203,20 @@ async function processUnstakingAndWithdrawal(
 
         console.log("Withdrawal txHash:", yieldProviderWithdrawalTxHash);
 
-        // Update records
-        for (const redemption of pendingRedemptions) {
+        // Update records with individual gas fees
+        for (let i = 0; i < pendingRedemptions.length; i++) {
           await near.updateRedemptionYieldProviderWithdrawing(
-            redemption.txn_hash,
+            pendingRedemptions[i].txn_hash,
             depositTxHash,
-            averageGasPerRecord,
+            redemptionGasFees[i],
           );
         }
 
-        for (const bridging of pendingBridgings) {
+        for (let i = 0; i < pendingBridgings.length; i++) {
           await near.updateBridgingFeesYieldProviderWithdrawing(
-            bridging.txn_hash,
+            pendingBridgings[i].txn_hash,
             depositTxHash,
-            averageGasPerRecord
+            bridgingGasFees[i]
           );
         }
       } catch (error) {

@@ -486,6 +486,14 @@ async function runBatch() {
   await getAllRedemptionHistory();
   await computeStats();
 
+  await RetrieveAndProcessPastEvmEvents(near, deposits, redemptions, bridgings);
+  await RetrieveAndProcessPastNearEvents(
+    near,
+    deposits,
+    redemptions,
+    bridgings,
+  );
+
   await UpdateAtlasBtcDeposits(
     btcMempool,
     btcAtlasDepositAddress,
@@ -512,14 +520,6 @@ async function runBatch() {
   await SendBridgingFeesToTreasury(near, bitcoin);
 
   await UpdateAtlasBtcBridgingYieldProviderWithdrawn(bridgings, near, bitcoin);
-
-  await RetrieveAndProcessPastEvmEvents(near, deposits, redemptions, bridgings);
-  await RetrieveAndProcessPastNearEvents(
-    near,
-    deposits,
-    redemptions,
-    bridgings,
-  );
 
   // Delay for 5 seconds before running the batch again
   await new Promise((resolve) => setTimeout(resolve, 5000));

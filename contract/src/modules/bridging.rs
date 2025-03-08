@@ -984,7 +984,6 @@ impl Atlas {
             };
         }
 
-        // Calculate total required amount (protocol fees + minting fees + yield provider gas fees)
         let total_required_amount = total_protocol_fees + total_minting_fees + total_bridging_gas_fees - total_yield_provider_gas_fees;
 
         // Sort UTXOs in ascending order (smallest first)
@@ -1103,7 +1102,6 @@ impl Atlas {
         // Get all bridging records with the given btc_txn_hash
         let txn_hashes: Vec<String> = self.bridgings
             .values()
-            .filter(|bridging| bridging.treasury_btc_txn_hash == treasury_btc_txn_hash)
             .map(|bridging| bridging.txn_hash.clone())
             .collect();
 
@@ -1210,4 +1208,20 @@ impl Atlas {
             .map(|bridging| bridging.clone())
             .collect()
     }
+
+    // pub fn update_bridging_yield_provider_gas_fee(&mut self, txn_hash: String, gas_fee: u64) {
+    //     self.assert_not_paused();
+    //     self.assert_owner();
+
+    //     // Validate input parameters
+    //     assert!(!txn_hash.is_empty(), "Transaction hash cannot be empty");
+
+    //     if let Some(mut bridging) = self.bridgings.get(&txn_hash).cloned() {
+    //         bridging.yield_provider_gas_fee = gas_fee;
+    //         self.bridgings.insert(txn_hash.clone(), bridging);
+    //         log!("Updated yield provider gas fee for transaction {}", txn_hash);
+    //     } else {
+    //         env::panic_str("Bridging record not found");
+    //     }
+    // }
 }
