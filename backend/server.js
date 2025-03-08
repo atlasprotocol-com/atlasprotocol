@@ -345,6 +345,7 @@ app.get("/api/v1/staker/redemptionHistories", async (req, res) => {
         bridging_gas_fee_sat: record.bridging_gas_fee_sat,
         btc_redemption_fee: record.btc_redemption_fee,
         protocol_fee: record.protocol_fee,
+        yield_provider_gas_fee: record.yield_provider_gas_fee,
       }));
 
     const pagination = {
