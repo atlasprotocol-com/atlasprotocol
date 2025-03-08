@@ -60,8 +60,10 @@ export function BridgePreview({
     )).toFixed(8)
     : '--';
 
-  const totalBridgingFee = bridgingFeeSat ? Number(bridgingFeeSat) + Number(mintingFeeSat || 0) : 0;
-  const totalBridgingFeeUsd = totalBridgingFee && btcPriceUsd
+  // Show loading state if either fee is not available
+  const isBridgingFeesLoading = bridgingFeeSat === undefined || mintingFeeSat === undefined;
+  const totalBridgingFee = !isBridgingFeesLoading ? Number(bridgingFeeSat || 0) + Number(mintingFeeSat || 0) : 0;
+  const totalBridgingFeeUsd = !isBridgingFeesLoading && btcPriceUsd
     ? ((totalBridgingFee / 100000000) * btcPriceUsd).toFixed(2)
     : '--';
 
@@ -73,7 +75,7 @@ export function BridgePreview({
     ? (amount * btcPriceUsd).toFixed(2)
     : '--';
 
-  const actualReceived = amount && (totalBridgingFee || totalBridgingFee === 0) && (atlasProtocolFee || atlasProtocolFee === 0)
+  const actualReceived = amount && !isBridgingFeesLoading && (atlasProtocolFee || atlasProtocolFee === 0)
     ? Number((amount - (totalBridgingFee / 100000000) - (atlasProtocolFee / 100000000)).toFixed(8))
     : '--';
 
@@ -148,7 +150,7 @@ export function BridgePreview({
             {BTC_TOKEN} Bridging Fee
           </p>
           <p className="text-base font-semibold break-all">
-            {totalBridgingFee ? (
+            {!isBridgingFeesLoading ? (
               <>
                 {maxDecimals(satoshiToBtc(totalBridgingFee), 8)} <br />
                 {BTC_TOKEN} <br />
@@ -183,7 +185,7 @@ export function BridgePreview({
       <Button 
         className="mt-4 w-full" 
         onClick={onConfirm} 
-        disabled={isPending || !mintingFeeSat || !transactionFee || !bridgingFeeSat || !atlasProtocolFee}
+        disabled={isPending || isBridgingFeesLoading || !transactionFee || !atlasProtocolFee}
       >
         Process
       </Button>

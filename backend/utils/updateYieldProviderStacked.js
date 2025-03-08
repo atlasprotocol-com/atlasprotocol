@@ -49,7 +49,8 @@ async function UpdateYieldProviderStacked(allDeposits, near, bitcoinInstance) {
 
         const ok =
           deposit.status === BITHIVE_STATUS.DEPOSIT_CONFIRMED ||
-          deposit.status === BITHIVE_STATUS.DEPOSIT_CONFIRMED_INVALID;
+          deposit.status === BITHIVE_STATUS.DEPOSIT_CONFIRMED_INVALID ||
+          deposit.status === BITHIVE_STATUS.WITHDRAW_CONFIRMED;
         if (!ok) {
           console.log(
             `Deposit status ${deposit.status} of txHash: ${txn.yield_provider_txn_hash} is not valid`,

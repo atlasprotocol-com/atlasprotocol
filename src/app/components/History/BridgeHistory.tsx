@@ -52,7 +52,7 @@ export function BridgeHistorySection() {
       protocolFee: maxDecimals(satoshiToBtc(bridgeHistory.protocol_fee), 10),
       bridgingFee: maxDecimals(
         satoshiToBtc(
-          Number(bridgeHistory.yield_provider_gas_fee) + Number(bridgeHistory.minting_fee_sat),
+          Number(bridgeHistory.bridging_gas_fee_sat) + Number(bridgeHistory.minting_fee_sat),
         ),
         10,
       ),
@@ -60,7 +60,7 @@ export function BridgeHistorySection() {
         satoshiToBtc(
           Number(bridgeHistory.abtc_amount) -
             Number(bridgeHistory.protocol_fee) -
-            Number(bridgeHistory.yield_provider_gas_fee) -
+            Number(bridgeHistory.bridging_gas_fee_sat) -
             Number(bridgeHistory.minting_fee_sat),
         ),
         10,
@@ -331,7 +331,7 @@ export function BridgeHistorySection() {
                                   satoshiToBtc(
                                     bridgeHistory.abtc_amount -
                                       bridgeHistory.protocol_fee -
-                                      bridgeHistory.yield_provider_gas_fee -
+                                      bridgeHistory.bridging_gas_fee_sat -
                                       bridgeHistory.minting_fee_sat,
                                   ),
                                   8,

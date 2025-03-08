@@ -44,7 +44,7 @@ impl Atlas {
         remarks: String,
         date_created: u64,
         minting_fee_sat: u64,
-        yield_provider_gas_fee: u64,
+        bridging_gas_fee_sat: u64,
     ) {
         self.assert_admin();
 
@@ -64,7 +64,9 @@ impl Atlas {
             date_created,
             verified_count: 0,
             minting_fee_sat,
-            yield_provider_gas_fee,
+            bridging_gas_fee_sat,
+            actual_gas_fee_sat: 0,
+            yield_provider_gas_fee: 0,
             yield_provider_txn_hash: "".to_string(),
             yield_provider_status: BRG_ABTC_BURNT,
             yield_provider_remarks: "".to_string(),
@@ -883,8 +885,7 @@ impl Atlas {
                         let mut updated_bridging = bridging.clone();
                         updated_bridging.yield_provider_status = BRG_ABTC_YIELD_PROVIDER_WITHDRAWING;
                         updated_bridging.yield_provider_txn_hash = yield_provider_txn_hash;
-                        // No need to clone since we're just doing arithmetic on a u64
-                        updated_bridging.yield_provider_gas_fee = bridging.yield_provider_gas_fee - average_gas_used;
+                        updated_bridging.yield_provider_gas_fee = average_gas_used;
                         self.bridgings.insert(txn_hash, updated_bridging);
                     }
                 }
@@ -947,6 +948,7 @@ impl Atlas {
         let mut txn_hashes_to_process = Vec::new();
         let mut total_protocol_fees = 0u64;
         let mut total_minting_fees = 0u64;
+        let mut total_bridging_gas_fees = 0u64;
         let mut total_yield_provider_gas_fees = 0u64;
 
         // Collect all eligible bridging records
@@ -961,6 +963,7 @@ impl Atlas {
                         // Add to running totals
                         total_protocol_fees += bridging.protocol_fee;
                         total_minting_fees += bridging.minting_fee_sat;
+                        total_bridging_gas_fees += bridging.bridging_gas_fee_sat;
                         total_yield_provider_gas_fees += bridging.yield_provider_gas_fee;
                         
                         txn_hashes_to_process.push(txn_hash.clone());
@@ -982,7 +985,7 @@ impl Atlas {
         }
 
         // Calculate total required amount (protocol fees + minting fees + yield provider gas fees)
-        let total_required_amount = total_protocol_fees + total_minting_fees + total_yield_provider_gas_fees;
+        let total_required_amount = total_protocol_fees + total_minting_fees + total_bridging_gas_fees - total_yield_provider_gas_fees;
 
         // Sort UTXOs in ascending order (smallest first)
         let mut sorted_utxos = utxos.clone();
@@ -1026,7 +1029,7 @@ impl Atlas {
         let estimated_fee = tx_size * fee_rate;
 
         // Only proceed if the total yield provider gas fees can cover the estimated fee
-        if total_yield_provider_gas_fees < estimated_fee {
+        if (total_bridging_gas_fees - total_yield_provider_gas_fees) < estimated_fee {
             return CreatePayloadResult {
                 psbt: String::new(),
                 utxos: vec![],
@@ -1068,6 +1071,7 @@ impl Atlas {
         for txn_hash in &txn_hashes_to_process {
             if let Some(mut bridging) = self.bridgings.get(txn_hash).cloned() {
                 bridging.yield_provider_status = BRG_ABTC_YIELD_PROVIDER_FEE_SENDING_TO_TREASURY;
+                bridging.actual_gas_fee_sat = estimated_fee.checked_div(txn_hashes_to_process.len() as u64).unwrap_or(0);
                 self.bridgings.insert(txn_hash.clone(), bridging);
             }
         }

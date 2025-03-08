@@ -333,7 +333,7 @@ export function Bridge() {
         verified_count: 0,
         minting_fee_sat: previewData.mintingFeeSat || 0,
         protocol_fee: previewData.atlasProtocolFee || 0,
-        yield_provider_gas_fee: previewData.bridgingFeeSat || 0,
+        bridging_gas_fee_sat: previewData.bridgingFeeSat || 0,
       };
 
       setBridgeHistoriesLocalStorage([newBridgeHistory, ...bridgeHistoriesLocalStorage]);

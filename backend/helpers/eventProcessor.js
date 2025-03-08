@@ -144,7 +144,7 @@ async function processBurnBridgeEvent(
     date_created: timestamp,
     verified_count: 0,
     minting_fee_sat: Number(mintingFeeSat),
-    yield_provider_gas_fee: Number(bridgingFeeSat),
+    bridging_gas_fee_sat: Number(bridgingFeeSat),
   };
 
   await processEventsForChain([record], near, BRIDGING_STATUS);

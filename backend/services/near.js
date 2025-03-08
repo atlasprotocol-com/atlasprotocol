@@ -1096,7 +1096,7 @@ class Near {
       remarks: record.remarks,
       date_created: record.date_created,
       minting_fee_sat: record.minting_fee_sat,
-      yield_provider_gas_fee: record.yield_provider_gas_fee,
+      bridging_gas_fee_sat: record.bridging_gas_fee_sat,
     });
   }
 

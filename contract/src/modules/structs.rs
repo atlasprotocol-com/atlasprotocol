@@ -85,6 +85,8 @@ pub struct BridgingRecord {
     pub date_created: u64,
     pub verified_count: u8,
     pub minting_fee_sat: u64,
+    pub bridging_gas_fee_sat: u64,
+    pub actual_gas_fee_sat: u64,
     pub yield_provider_gas_fee: u64,
     pub yield_provider_txn_hash: String,
     pub yield_provider_status: u8,

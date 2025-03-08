@@ -94,7 +94,7 @@ async function processUnstakingAndWithdrawal(
             sum +
             record.minting_fee_sat +
             record.protocol_fee +
-            record.yield_provider_gas_fee,
+            record.bridging_gas_fee_sat,
           0,
         );
 
@@ -195,7 +195,7 @@ async function processUnstakingAndWithdrawal(
           await near.updateBridgingFeesYieldProviderWithdrawing(
             bridging.txn_hash,
             depositTxHash,
-            0
+            averageGasPerRecord
           );
         }
       } catch (error) {
@@ -238,7 +238,7 @@ async function processUnstakingAndWithdrawal(
       const shouldProcessBridgings = newBridgings.length >= Number(process.env.MIN_BRIDGING_RECORDS_TO_SEND_BTC);
       const shouldProcessRedemptions = newRedemptions.length > 0;
 
-      if (shouldProcessRedemptions || (shouldProcessBridgings && shouldProcessRedemptions)) {
+      if (shouldProcessRedemptions || shouldProcessBridgings) {
         let totalNewAmount = 0;
 
         // Process redemptions if conditions met
@@ -268,7 +268,7 @@ async function processUnstakingAndWithdrawal(
               sum +
               record.minting_fee_sat +
               record.protocol_fee +
-              record.yield_provider_gas_fee,
+              record.bridging_gas_fee_sat,
             0,
           );
           totalNewAmount += totalNewFeesAmount;

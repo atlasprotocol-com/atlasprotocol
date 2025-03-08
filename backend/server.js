@@ -342,7 +342,7 @@ app.get("/api/v1/staker/redemptionHistories", async (req, res) => {
         status: record.status,
         remarks: record.remarks,
         btc_txn_hash: record.btc_txn_hash,
-        yield_provider_gas_fee: record.yield_provider_gas_fee,
+        bridging_gas_fee_sat: record.bridging_gas_fee_sat,
         btc_redemption_fee: record.btc_redemption_fee,
         protocol_fee: record.protocol_fee,
       }));

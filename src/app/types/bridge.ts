@@ -13,7 +13,7 @@ export interface BridgeHistory {
   verified_count: number;
   minting_fee_sat: number;
   protocol_fee: number;
-  yield_provider_gas_fee: number;
+  bridging_gas_fee_sat: number;
 }
 
 // pub const BRG_ABTC_PENDING_BURNT: u8 = 0;
