@@ -91,6 +91,15 @@ export function Stake({ formattedBalance }: StakeProps) {
     | undefined
   >(undefined);
 
+  const protocolFee = params?.data?.feeDepositPercentage === 0
+    ? 0
+    : Math.floor(
+        Math.max(
+          Number(process.env.NEXT_PUBLIC_DUST_LIMIT),
+          (params?.data?.feeDepositPercentage || 0) * (previewData?.amountSat || 0),
+        ),
+      );
+
   const stakingFee = useGetStakingFee({
     feeRate: mempoolFeeRates?.feeRates?.defaultFeeRate,
     inputUTXOs: accountUTXOs,
@@ -98,16 +107,7 @@ export function Stake({ formattedBalance }: StakeProps) {
     receivingChainID: previewData?.chainID,
     stakingAmountSat: previewData?.amountSat,
     mintingFeeSat: previewData?.mintingFee,
-    protocolFeeSat:
-      params?.data?.feeDepositPercentage === 0
-        ? 0
-        : Math.floor(
-            Math.max(
-              Number(process.env.NEXT_PUBLIC_DUST_LIMIT),
-              (params?.data?.feeDepositPercentage || 0) *
-                (previewData?.amountSat || 0),
-            ),
-          ),
+    protocolFeeSat: protocolFee,
     treasuryAddress: params?.data?.treasuryAddress || "",
   });
 
@@ -237,15 +237,6 @@ export function Stake({ formattedBalance }: StakeProps) {
         throw new Error("Staking fee not loaded");
       }
 
-      const protocolFee = params?.data?.feeDepositPercentage === 0
-        ? 0
-        : Math.floor(
-            Math.max(
-              Number(process.env.NEXT_PUBLIC_DUST_LIMIT),
-              (params?.data?.feeDepositPercentage || 0) * (previewData?.amountSat || 0),
-            ),
-          );
-
       const txHash = await sign.mutateAsync({
         availableUTXOs: accountUTXOs,
         feeRate: mempoolFeeRates?.feeRates?.defaultFeeRate,
@@ -260,7 +251,7 @@ export function Stake({ formattedBalance }: StakeProps) {
       // Add dummy record to local storage
       const newRecord: Stakes = {
         timestamp: Math.floor(Date.now() / 1000).toString(),
-        btcAmount: previewData.amountSat - protocolFee - protocolFee,
+        btcAmount: previewData.amountSat - protocolFee -(previewData.mintingFee || 0)  ,
         protocolFee: protocolFee,
         mintingFee: previewData.mintingFee,
         yieldProviderGasFee: stakingFee?.amount,
@@ -330,24 +321,9 @@ export function Stake({ formattedBalance }: StakeProps) {
       address: previewData.address,
       feeRate: mempoolFeeRates?.feeRates?.defaultFeeRate,
       stakingFee: stakingFee?.amount,
-      protocolFeeSat:
-        params?.data?.feeDepositPercentage === 0
-          ? 0
-          : Math.floor(
-              Math.max(
-                Number(process.env.NEXT_PUBLIC_DUST_LIMIT),
-                (params?.data?.feeDepositPercentage || 0) *
-                  (previewData?.amountSat || 0),
-              ),
-            ),
+      protocolFeeSat: protocolFee,
     };
-  }, [
-    chainConfigs,
-    mempoolFeeRates?.feeRates?.defaultFeeRate,
-    params?.data?.feeDepositPercentage,
-    previewData,
-    stakingFee?.amount,
-  ]);
+  }, [chainConfigs, mempoolFeeRates?.feeRates?.defaultFeeRate, previewData, protocolFee, stakingFee?.amount]);
 
   const disabled =
     isSubmitting ||
