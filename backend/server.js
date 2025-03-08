@@ -54,7 +54,9 @@ const {
 const {
   UpdateAtlasBtcBridgingYieldProviderWithdrawn,
 } = require("./utils/updateAtlasBtcBridgingYieldProviderWithdrawn");
-const { SendBridgingFeesToTreasury } = require("./utils/sendBridgingFeesToTreasury");
+const {
+  SendBridgingFeesToTreasury,
+} = require("./utils/sendBridgingFeesToTreasury");
 const {
   RetrieveAndProcessPastNearEvents,
 } = require("./utils/retrieveAndProcessPastNearEvents");
@@ -75,7 +77,9 @@ const { Bitcoin } = require("./services/bitcoin");
 const { Near } = require("./services/near");
 const { Ethereum } = require("./services/ethereum");
 const { getTxsOfNetwork } = require("./services/subquery");
-const { processUnstakingAndWithdrawal } = require("./utils/processUnstakingAndWithdrawal");
+const {
+  processUnstakingAndWithdrawal,
+} = require("./utils/processUnstakingAndWithdrawal");
 
 // Configuration for BTC connection
 const btcConfig = {
@@ -510,7 +514,12 @@ async function runBatch() {
   await UpdateAtlasBtcBridgingYieldProviderWithdrawn(bridgings, near, bitcoin);
 
   await RetrieveAndProcessPastEvmEvents(near, deposits, redemptions, bridgings);
-  await RetrieveAndProcessPastNearEvents(near);
+  await RetrieveAndProcessPastNearEvents(
+    near,
+    deposits,
+    redemptions,
+    bridgings,
+  );
 
   // Delay for 5 seconds before running the batch again
   await new Promise((resolve) => setTimeout(resolve, 5000));
@@ -520,9 +529,13 @@ async function runBatch() {
 // Add the unstaking and withdrawal process to the job scheduler
 setInterval(async () => {
   try {
-    await processUnstakingAndWithdrawal(near, bitcoin, globalParams.atlasTreasuryAddress);
+    await processUnstakingAndWithdrawal(
+      near,
+      bitcoin,
+      globalParams.atlasTreasuryAddress,
+    );
   } catch (error) {
-    console.error('Error in unstaking and withdrawal process:', error);
+    console.error("Error in unstaking and withdrawal process:", error);
   }
 }, 60000); // Run every 1 minute
 

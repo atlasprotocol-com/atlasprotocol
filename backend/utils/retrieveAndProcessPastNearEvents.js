@@ -12,14 +12,20 @@ const {
   processBurnBridgeEvent,
   processMintBridgeEvent,
 } = require("../helpers/eventProcessor");
+const {
+  detectNetwork,
+  getMintDepositEntities,
+  isEnableSubquery,
+  getBurnRedeemEntities,
+} = require("../services/subquery");
 
 const batchName = "---------- RetrieveAndProcessPastNearEvents ----------";
 
 async function RetrieveAndProcessPastNearEvents(
   near,
-  deposits,
-  redemptions,
-  bridgings,
+  allDeposits,
+  allRedemptions,
+  allBridgings,
 ) {
   if (flagsBatch.RetrieveAndProcessPastNearEvents) {
     console.log(`${batchName} is not completed yet. Will skip this run.`);
@@ -42,6 +48,26 @@ async function RetrieveAndProcessPastNearEvents(
       console.log(
         `${batchName} Chain ID: ${chain.chainID}, aBTC: ${chain.aBTCAddress}, RPC URL: ${chain.chainRpcUrl}`,
       );
+
+      if (isEnableSubquery()) {
+        const network = detectNetwork(chain.chainRpcUrl);
+
+        if (network) {
+          console.log(
+            `[SUBQUERY ${chain.chainID} ${network}] --------- ENABLED ---------`,
+          );
+
+          await doWithSubquery(
+            chain,
+            network,
+            near,
+            allDeposits,
+            allRedemptions,
+            allBridgings,
+          );
+          continue;
+        }
+      }
 
       const endBlock = await near.getCurrentBlockNumber();
       console.log(`${batchName} endBlock: ${endBlock}`);
@@ -134,6 +160,97 @@ async function RetrieveAndProcessPastNearEvents(
 
   console.log(`${batchName} completed successfully.`);
   flagsBatch.RetrieveAndProcessPastNearEvents = false;
+}
+
+async function doWithSubquery(
+  chain,
+  network,
+  near,
+  allDeposits,
+  allRedemptions,
+  allBridgings,
+) {
+  // await doWithSubqueryForDeposits(chain, network, near, allDeposits);
+  await doWithSubqueryForRedeems(chain, network, near, allRedemptions);
+}
+
+async function doWithSubqueryForDeposits(chain, network, near, allDeposits) {
+  const { DEPOSIT_STATUS } = getConstants();
+
+  // Filter deposits that need to be processed
+  const filteredTxns = allDeposits.filter(
+    (deposit) =>
+      deposit.status === DEPOSIT_STATUS.BTC_PENDING_MINTED_INTO_ABTC &&
+      deposit.minted_txn_hash === "" &&
+      deposit.remarks === "" &&
+      deposit.receiving_chain_id === chain.chainID,
+  );
+  const records = await getMintDepositEntities(
+    network,
+    filteredTxns.map((deposit) => deposit.btc_txn_hash),
+  );
+
+  const recordMaps = records.reduce(
+    (maps, record) => ({ ...maps, [record.btcTxnHash]: record }),
+    {},
+  );
+
+  for (let deposit of filteredTxns) {
+    if (recordMaps[deposit.btc_txn_hash]) {
+      const record = recordMaps[deposit.btc_txn_hash];
+      console.log(
+        `[SUBQUERY.DEPOSIT ${network} ${chain.chainID}] ${record.btcTxnHash} --> ${record.id}`,
+      );
+
+      try {
+        await near.updateDepositMintedTxnHash(record.btcTxnHash, record.id);
+      } catch (error) {
+        const remarks = `[${batchName}] ${deposit.btc_txn_hash}: ${error.message}`;
+        console.error(remarks);
+        await near.updateDepositRemarks(deposit.btc_txn_hash, remarks);
+      }
+    }
+  }
+}
+
+async function doWithSubqueryForRedeems(chain, network, near, allRedemptions) {
+  const { DELIMITER } = getConstants();
+
+  const ids = allRedemptions
+    .map((redeem) => {
+      const parts = redeem.txn_hash.split(",");
+      return parts.length > 1 ? parts[1] : null;
+    })
+    .filter(Boolean);
+  if (ids.length === 0) {
+    console.log(`[SUBQUERY.DEPOSIT ${network} ${chain.chainID}] NO_REDEEM_IDS`);
+    return;
+  }
+
+  const records = await getBurnRedeemEntities(network, ids);
+
+  for (let redeemp of records) {
+    const txhash = `${chain.chainID}${DELIMITER.COMMA}${redeemp.id}`;
+    const redemptionRecord = await near.getRedemptionByTxnHash(txhash);
+    const timestamp =
+      Number(redeemp.timestamp) || Math.round(Date.now() / 1000);
+
+    if (!redemptionRecord) {
+      await near.insertRedemptionAbtc(
+        txhash,
+        redeemp.accountAddress,
+        chain.chainID,
+        redeemp.btcAddress,
+        Number(redeemp.btcAmount),
+        timestamp,
+        timestamp,
+      );
+
+      console.log(
+        `[SUBQUERY.REDEEMP ${network} ${chain.chainID}] ${redeemp.btcAddress} --> ${redeemp.id}`,
+      );
+    }
+  }
 }
 
 module.exports = { RetrieveAndProcessPastNearEvents };

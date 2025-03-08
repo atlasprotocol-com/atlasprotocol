@@ -235,6 +235,8 @@ async function doWithSubqueryForRedeems(chain, network, near, allRedemptions) {
   for (let redeemp of records) {
     const txhash = `${chain.chainID}${DELIMITER.COMMA}${redeemp.id}`;
     const redemptionRecord = await near.getRedemptionByTxnHash(txhash);
+    const timestamp =
+      Number(redeemp.timestamp) || Math.round(Date.now() / 1000);
 
     if (!redemptionRecord) {
       await near.insertRedemptionAbtc(
@@ -243,8 +245,8 @@ async function doWithSubqueryForRedeems(chain, network, near, allRedemptions) {
         chain.chainID,
         redeemp.btcAddress,
         Number(redeemp.btcAmount),
-        Number(redeemp.timestamp),
-        Number(redeemp.timestamp),
+        timestamp,
+        timestamp,
       );
 
       console.log(
