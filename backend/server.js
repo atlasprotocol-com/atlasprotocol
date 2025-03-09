@@ -526,19 +526,6 @@ async function runBatch() {
   return runBatch();
 }
 
-// Add the unstaking and withdrawal process to the job scheduler
-setInterval(async () => {
-  try {
-    await processUnstakingAndWithdrawal(
-      near,
-      bitcoin,
-      globalParams.atlasTreasuryAddress,
-    );
-  } catch (error) {
-    console.error("Error in unstaking and withdrawal process:", error);
-  }
-}, 60000); // Run every 1 minute
-
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, async () => {
   await near.init();
@@ -550,4 +537,17 @@ app.listen(PORT, async () => {
   console.log(`Server is running on port ${PORT}`);
 
   runBatch().catch(console.error);
+
+  // Add the unstaking and withdrawal process to the job scheduler
+  setInterval(async () => {
+    try {
+      await processUnstakingAndWithdrawal(
+        near,
+        bitcoin,
+        globalParams.atlasTreasuryAddress,
+      );
+    } catch (error) {
+      console.error("Error in unstaking and withdrawal process:", error);
+    }
+  }, 60000); // Run every 1 minute
 });
