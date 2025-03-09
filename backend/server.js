@@ -534,7 +534,7 @@ app.listen(PORT, async () => {
   await fetchAndSetChainConfigs(near);
   await fetchAndSetConstants(near); // Load constants
 
-  console.log(`Server is running on port ${PORT}`);
+  console.log(`Server is running on port ${PORT} | ${nearConfig.contractId}`);
 
   runBatch().catch(console.error);
 
