@@ -319,11 +319,11 @@ export function Stake({ formattedBalance }: StakeProps) {
       amount: previewData.amountSat,
       networkName: chainConfig?.networkName,
       address: previewData.address,
-      feeRate: mempoolFeeRates?.feeRates?.defaultFeeRate,
+      feeRate: (mempoolFeeRates?.feeRates?.minFeeRate || 0) + 1,
       stakingFee: stakingFee?.amount,
       protocolFeeSat: protocolFee,
     };
-  }, [chainConfigs, mempoolFeeRates?.feeRates?.defaultFeeRate, previewData, protocolFee, stakingFee?.amount]);
+  }, [chainConfigs, mempoolFeeRates?.feeRates?.minFeeRate, previewData, protocolFee, stakingFee?.amount]);
 
   const disabled =
     isSubmitting ||
