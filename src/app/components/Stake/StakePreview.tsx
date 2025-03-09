@@ -47,7 +47,7 @@ export function StakePreview({
         )
       : "--";
 
-  const stakingAmountBtc = stakingAmount ? stakingAmount / 100000000 : 0;
+  const stakingAmountBtc = stakingAmount ? (stakingAmount + Number(stakingFee)) / 100000000 : 0;
   const stakingFeeBtc = stakingFee ? stakingFee / 100000000 : 0;
 
   const actualAtBTCReceivedUsd =
@@ -84,10 +84,12 @@ export function StakePreview({
       <div className="rounded-lg border border-neutral-5 dark:border-neutral-8 dark:bg-neutral-10 p-3">
         <div className="flex gap-2">
           <div className="w-[180px]">
-            <p className="text-caption text-sm font-semibold">Stake Amount</p>
+            <p className="text-caption text-sm font-semibold">{BTC_TOKEN} Sent</p>
             <p className="text-base font-semibold">
-              {stakingAmountBtc || "--"}
+              
+              {stakingAmountBtc || "--"}{" "}
               {BTC_TOKEN}{" "}
+              <br />
               <span className="text-sm text-neutral-7">
                 (≈{stakingAmountUsd} USD)
               </span>
@@ -109,7 +111,7 @@ export function StakePreview({
           </p>
         </div>
         <div className="mt-4">
-          <p className="text-caption text-sm font-semibold">Actual Received</p>
+          <p className="text-caption text-sm font-semibold">Net Staked {BTC_TOKEN}</p>
           <p className="text-base font-semibold break-all">
             {actualAtBTCReceived} {ATLAS_BTC_TOKEN}{" "}
             <span className="text-sm text-neutral-7">
@@ -126,10 +128,9 @@ export function StakePreview({
           </p>
         </div>
         <div className="rounded-lg border border-neutral-5  dark:border-neutral-8 dark:bg-neutral-10 p-3 flex-1">
-          <p className="text-caption text-sm font-semibold">Staking Fee</p>
+          <p className="text-caption text-sm font-semibold">BTC Network Fee (Atlas)</p>
           <p className="text-base font-semibold break-all">
-            {stakingFeeBtc.toFixed(8) || "--"} <br />
-            {BTC_TOKEN}{" "}
+            {stakingFeeBtc.toFixed(8) || "--"} {BTC_TOKEN}{" "}
             <span className="text-sm text-neutral-7">
               <br />
               (≈{stakingFeeUsd} USD)
@@ -137,11 +138,23 @@ export function StakePreview({
           </p>
         </div>
         <div className="rounded-lg border border-neutral-5  dark:border-neutral-8 dark:bg-neutral-10 p-3 flex-1">
-          <p className="text-caption text-sm font-semibold">Minting Fee</p>
+          <p className="text-caption text-sm font-semibold">BTC Network Fee (Staking Provider)</p>
           <p className="text-base font-semibold break-all">
-            {mintingFee ? (mintingFee / 100000000).toFixed(8) : "--"}
-            <br />
-            {BTC_TOKEN}{" "}
+            {stakingFeeBtc.toFixed(8) || "--"} {BTC_TOKEN}{" "}
+            <span className="text-sm text-neutral-7">
+              <br />
+              (≈{stakingFeeUsd} USD)
+            </span>
+          </p>
+        </div>
+        
+      </div>
+      <div className="mt-4 flex gap-4">
+      <div className="rounded-lg border border-neutral-5  dark:border-neutral-8 dark:bg-neutral-10 p-3 flex-1">
+          <p className="text-caption text-sm font-semibold">Destination Chain Network Fee</p>
+          <p className="text-base font-semibold break-all">
+            {mintingFee ? (mintingFee / 100000000).toFixed(8) : "--"}{" "}
+            {BTC_TOKEN}
             <span className="text-sm text-neutral-7">
               <br />
               (≈{mintingFeeUsd} USD)
@@ -151,8 +164,8 @@ export function StakePreview({
         <div className="rounded-lg border border-neutral-5  dark:border-neutral-8 dark:bg-neutral-10 p-3 flex-1">
           <p className="text-caption text-sm font-semibold">Protocol Fee</p>
           <p className="text-base font-semibold break-all">
-            {protocolFee ? (protocolFee / 100000000).toFixed(8) : "--"} <br />
-            {BTC_TOKEN}{" "}
+            {protocolFee ? (protocolFee / 100000000).toFixed(8) : "--"} {" "}
+            {BTC_TOKEN}
             <span className="text-sm text-neutral-7">
               <br />
               (≈{protocolFeeUsd} USD)
