@@ -3,9 +3,9 @@ import { BsExclamationDiamondFill, BsInfoCircleFill } from "react-icons/bs";
 import InfiniteScroll from "react-infinite-scroll-component";
 import { useLocalStorage } from "usehooks-ts";
 
-import { useAppContext } from "@/app/context/app";
+import { ATLAS_BTC_TOKEN, useAppContext } from "@/app/context/app";
 import { useGetStakingHistory } from "@/app/hooks/history";
-import { getStatusMessage, Stakes } from "@/app/types/stakes";
+import { DepositStatus, getStatusMessage, Stakes } from "@/app/types/stakes";
 import { getNetworkConfig } from "@/config/network.config";
 import { useGetChainConfig } from "@/hooks";
 import { satoshiToBtc } from "@/utils/btcConversions";
@@ -36,6 +36,25 @@ interface StakeHistoryWithAmountInfo extends Stakes {
     netAmount: number;
   };
 }
+
+const getStatusTooltipContent = (status: any) => {
+  switch (status) {
+    case DepositStatus.BTC_PENDING_DEPOSIT_MEMPOOL:
+      return "Your deposit into Atlas is pending on the BTC network.  This step requires 1 confirmation on BTC Testnet4";
+    case DepositStatus.BTC_DEPOSITED_INTO_ATLAS:
+      return "Your deposit into Atlas has been confirmed and will next be sent to Yield Provider.";
+    case DepositStatus.BTC_PENDING_YIELD_PROVIDER_DEPOSIT:
+      return "Your deposit into the yield provider protocol is pending on the BTC network.  This provider requires 7 confirmations on BTC Testnet4, so time can vary significantly.";
+    case DepositStatus.BTC_YIELD_PROVIDER_DEPOSITED:
+      return "Your deposit has been confirmed with the yield provider.";
+    case DepositStatus.BTC_PENDING_MINTED_INTO_ABTC:
+      return `Your ${ATLAS_BTC_TOKEN} is being minted on the destination chain.`;
+    case DepositStatus.BTC_MINTED_INTO_ABTC:
+      return `Your ${ATLAS_BTC_TOKEN} can now be found in your destination wallet.`;
+    default:
+      return "";
+  }
+};
 
 export function StakeHistory() {
   const { btcPublicKeyNoCoord, btcAddress, BTC_TOKEN } = useAppContext();
@@ -383,6 +402,20 @@ export function StakeHistory() {
                                     </TooltipContent>
                                   </Tooltip>
                                 )}
+                                <Tooltip>
+                                  <TooltipTrigger>
+                                    <span>
+                                      <BsInfoCircleFill />
+                                    </span>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <div className="max-w-[300px]">
+                                      {getStatusTooltipContent(
+                                        stakingHistory.status,
+                                      )}
+                                    </div>
+                                  </TooltipContent>
+                                </Tooltip>
                                 <span className=" px-2 py-0.5 bg-secondary-200 dark:bg-secondary-900 text-secondary-800 dark:text-secondary-700 rounded-[30px] justify-center items-center gap-px inline-flex text-[12px] font-semibold">
                                   {getStatusMessage(stakingHistory.status)}
                                 </span>
