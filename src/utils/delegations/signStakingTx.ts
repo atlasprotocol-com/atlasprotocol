@@ -39,7 +39,7 @@ export const createStakingTx = (
       address,
       finalityProviderPublicKey,
       stakingAmountSat,
-      feeRate + 1, // + 1 to avoid bad fee estimation
+      feeRate, 
       inputUTXOs,
       btcWalletNetwork,
       protocolFeeSat,

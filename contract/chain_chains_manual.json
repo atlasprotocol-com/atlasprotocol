@@ -19,7 +19,7 @@
     {
       "chain_id": "NEAR_TESTNET",
       "network_type": "NEAR",
-      "network_name": "NEAR testnet",
+      "network_name": "NEAR Testnet",
       "chain_rpc_url": "https://rpc.testnet.fastnear.com",
       "explorer_url": "https://testnet.nearblocks.io/",
       "abtc_address": "atbtc.atlas_public_testnet.testnet",

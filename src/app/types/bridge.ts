@@ -1,3 +1,5 @@
+import { ATLAS_BTC_TOKEN } from "../context/app";
+
 export interface BridgeHistory {
   txn_hash: string;
   origin_chain_id: string;
@@ -30,13 +32,13 @@ export enum BridgeStatus {
 export function getStatusMessage(status: any): string {
   switch (status) {
     case BridgeStatus.ABTC_PENDING_BURNT:
-      return "Pending Burn";
+      return `Pending ${ATLAS_BTC_TOKEN} Burn`;
     case BridgeStatus.ABTC_BURNT:
-      return "Burnt";
+      return `${ATLAS_BTC_TOKEN} Burnt`;
     case BridgeStatus.ABTC_PENDING_BRIDGE_FROM_ORIGIN_TO_DEST:
-      return "Pending Bridge";
+      return `Pending ${ATLAS_BTC_TOKEN} Bridge`;
     case BridgeStatus.ABTC_MINTED_TO_DEST:
-      return "Minted";
+      return `${ATLAS_BTC_TOKEN} Minted`;
     default:
       return "Unknown Status";
   }

@@ -76,6 +76,8 @@ export function Stake({ formattedBalance }: StakeProps) {
     isLoading: mempoolFeeRatesLoading,
     refetch: refetchMempoolFeeRates,
   } = useGetMempoolFeeRate();
+
+  console.log("mempoolFeeRates", mempoolFeeRates);
   const {
     data: accountUTXOs,
     isLoading: accountUTXOsLoading,
@@ -123,9 +125,9 @@ export function Stake({ formattedBalance }: StakeProps) {
 
   const max = useMemo(() => {
     return (
-      (formattedBalance || 0) - (params.data?.formattedMinStakingAmount || 0)
+      (formattedBalance || 0) - (mempoolFeeRates?.feeRates?.defaultFeeRate || 0) /100000
     );
-  }, [formattedBalance, params.data?.formattedMinStakingAmount]);
+  }, [formattedBalance, mempoolFeeRates?.feeRates?.defaultFeeRate]);
 
   const {
     handleSubmit,
@@ -159,16 +161,17 @@ export function Stake({ formattedBalance }: StakeProps) {
           },
         )
         .refine(
-          (data) => {
+          (data: { amount: number; chainID: string; address: string; }): data is { amount: number; chainID: string; address: string; } => {
             if (!params.data) return false;
 
-            return (
-              data.amount >= params.data.formattedMinStakingAmount &&
-              data.amount <= max
-            );
+            if (params.data.formattedMinStakingAmount > data.amount) {
+              return false;
+            }
+
+            return data.amount <= max;
           },
           {
-            message: `Please enter an amount between ${params.data?.formattedMinStakingAmount} and ${max} ${BTC_TOKEN}`,
+            message: `Please enter a minimum amount of ${params.data?.formattedMinStakingAmount} ${BTC_TOKEN}`,
             path: ["amount"],
           },
         ),
@@ -319,11 +322,11 @@ export function Stake({ formattedBalance }: StakeProps) {
       amount: previewData.amountSat,
       networkName: chainConfig?.networkName,
       address: previewData.address,
-      feeRate: (mempoolFeeRates?.feeRates?.minFeeRate || 0) + 1,
+      feeRate: (mempoolFeeRates?.feeRates?.defaultFeeRate || 0),
       stakingFee: stakingFee?.amount,
       protocolFeeSat: protocolFee,
     };
-  }, [chainConfigs, mempoolFeeRates?.feeRates?.minFeeRate, previewData, protocolFee, stakingFee?.amount]);
+  }, [chainConfigs, mempoolFeeRates?.feeRates?.defaultFeeRate, previewData, protocolFee, stakingFee?.amount]);
 
   const disabled =
     isSubmitting ||
@@ -334,7 +337,7 @@ export function Stake({ formattedBalance }: StakeProps) {
   const disabledMax =
     !params.data ||
     !formattedBalance ||
-    formattedBalance - params.data.formattedMinStakingAmount <
+    formattedBalance  <
       params.data.formattedMinStakingAmount ||
     disabled;
 
@@ -342,7 +345,7 @@ export function Stake({ formattedBalance }: StakeProps) {
     if (params.data && formattedBalance) {
       setValue(
         "amount",
-        formattedBalance - params.data.formattedMinStakingAmount,
+        Number((formattedBalance - (mempoolFeeRates?.feeRates?.defaultFeeRate || 0) /100000).toFixed(8)),
       );
       trigger("amount");
     }
@@ -355,7 +358,7 @@ export function Stake({ formattedBalance }: StakeProps) {
           label="Amount"
           captionStart={
             <div className="flex items-center gap-1">
-              {`(${formattedBalance} ${BTC_TOKEN})`}
+              {`(${Math.max(0, ((formattedBalance || 0) - (mempoolFeeRates?.feeRates?.defaultFeeRate || 0) /100000)).toFixed(8)} ${BTC_TOKEN})`}
               <button
                 className="text-primary disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={disabledMax}

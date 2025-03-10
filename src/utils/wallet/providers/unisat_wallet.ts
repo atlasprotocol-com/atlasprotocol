@@ -12,7 +12,7 @@ export const unisatProvider = "unisat";
 export class UnisatWallet extends WalletProvider {
   readonly id = "unisat";
   readonly name: string = "Unisat";
-  readonly networks: Network[] = [Network.MAINNET, Network.TESTNET];
+  readonly networks: Network[] = [Network.MAINNET, Network.TESTNET, Network.TESTNET4];
   public homepage = "https://unisat.io";
   public balance: { confirmed: number; unconfirmed: number; total: number } = {
     confirmed: 0,

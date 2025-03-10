@@ -736,13 +736,18 @@ impl Atlas {
         log!("Created {} merkle leaves from transaction hashes", txn_hashes_to_process.len());
 
         // Estimate transaction size
-        let input_size = (selected_utxos.len() as u64) * 148; // P2PKH input size
+        // P2WPKH sizes:
+        // - Input: 68 bytes (witness data not included in vsize calculation)
+        // - Output: 31 bytes for P2WPKH output
+        // - OP_RETURN: 32 bytes merkle root + ~10 bytes overhead
+        let input_size = (selected_utxos.len() as u64) * 68; // P2WPKH input size
         let op_return_size = 32 + 10; // Merkle root (32 bytes) + OP_RETURN overhead
-        let output_size = (output_count * 34) + op_return_size; // P2PKH output size
-    
-        let change_size = if total_input > total_required_amount { 34 } else { 0 };
-        let protocol_fee_size = if total_protocol_fees > 0 { 34 } else { 0 };
-    
+        let output_size = (output_count * 31) + op_return_size; // P2WPKH output size
+
+        let change_size = if total_input > total_required_amount { 31 } else { 0 }; // P2WPKH change output
+        let protocol_fee_size = if total_protocol_fees > 0 { 31 } else { 0 }; // P2WPKH protocol fee output
+
+        // Base transaction overhead (version, locktime, etc) = 10 bytes
         let tx_size = 10 + input_size + output_size + change_size + protocol_fee_size;
         let estimated_fee = tx_size * fee_rate;
         let average_estimated_fee = estimated_fee / txn_hashes_to_process.len() as u64;
