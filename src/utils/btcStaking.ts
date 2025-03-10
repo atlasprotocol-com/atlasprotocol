@@ -82,7 +82,7 @@ export interface UTXO {
       });
     }
 
-    const estimatedSize = psbt.txInputs.length * 68 + psbt.txOutputs.length * 34 + 80; // Approximate calculation
+    const estimatedSize = psbt.txInputs.length * 68 + psbt.txOutputs.length * 34 + 100; // Approximate calculation
   
     const fee = Math.round(feeRate * estimatedSize);
 
