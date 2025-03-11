@@ -709,7 +709,7 @@ class Near {
   //               const btcTxnHash = memo.btc_txn_hash; // Extract btc_txn_hash
   //               const transactionHash = txResult.transaction.hash;
 
-  //               events.push({ btcTxnHash, transactionHash, receipt_id: receipt.id });
+  //               events.push({ btcTxnHash, transactionHash, receiptId: receipt.id });
 
   //               return events;
   //             }
@@ -796,7 +796,7 @@ class Near {
   //               originChainAddress,
   //               originTxnHash,
   //               transactionHash,
-  //               receipt_id: receipt.id,
+  //               receiptId: receipt.id,
   //               timestamp: blockTimestamp,
   //             };
   //             events.push(e);
@@ -908,7 +908,7 @@ class Near {
   //                 bridgingFeeSat,
   //               },
   //               transactionHash,
-  //               receipt_id: receipt.id,
+  //               receiptId: receipt.id,
   //               blockNumber: blockId,
   //               timestamp: Math.floor(blockTimestamp / 1000000000),
   //               status: true,
@@ -1020,7 +1020,7 @@ class Near {
   //                             btcAddress,
   //                           },
   //                           transactionHash,
-  //                           receipt_id: receipt.id,
+  //                           receiptId: receipt.id,
   //                           blockNumber: blockHeight,
   //                           timestamp: Math.floor(block.header.timestamp / 1000000000),
   //                           status: true,
@@ -1373,7 +1373,7 @@ class Near {
                                 processedEvent = {
                                   type: "mint_redemption",
                                   btcTxnHash: memo.btc_txn_hash,
-                                  receipt_id: receipt.id,
+                                  receiptId: receipt.id,
                                   transactionHash,
                                 };
                                 break;
@@ -1386,7 +1386,7 @@ class Near {
                                   originChainAddress: memo.originChainAddress,
                                   originTxnHash: memo.originTxnHash,
                                   transactionHash,
-                                  receipt_id: receipt.id,
+                                  receiptId: receipt.id,
                                   timestamp,
                                 };
                                 break;
@@ -1408,7 +1408,7 @@ class Near {
                                     btcAddress: memo.btcAddress,
                                   },
                                   transactionHash,
-                                  receipt_id: receipt.id,
+                                  receiptId: receipt.id,
                                   blockNumber: blockHeight,
                                   timestamp,
                                   status: true,
@@ -1441,7 +1441,7 @@ class Near {
                                     bridgingFeeSat: memo.bridgingFeeSat,
                                   },
                                   transactionHash,
-                                  receipt_id: receipt.id,
+                                  receiptId: receipt.id,
                                   blockNumber: blockHeight,
                                   timestamp,
                                   status: true,
