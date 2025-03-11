@@ -185,7 +185,7 @@ export function BridgePreview({
       <Button 
         className="mt-4 w-full" 
         onClick={onConfirm} 
-        disabled={isPending || isBridgingFeesLoading || !transactionFee || !atlasProtocolFee}
+        disabled={isPending || isBridgingFeesLoading || !transactionFee}
       >
         Process
       </Button>

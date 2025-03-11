@@ -741,7 +741,7 @@ impl Atlas {
         // - Output: 31 bytes for P2WPKH output
         // - OP_RETURN: 32 bytes merkle root + ~10 bytes overhead
         let input_size = (selected_utxos.len() as u64) * 68; // P2WPKH input size
-        let op_return_size = 32 + 10; // Merkle root (32 bytes) + OP_RETURN overhead
+        let op_return_size = 32 + 20; // Merkle root (32 bytes) + OP_RETURN overhead
         let output_size = (output_count * 31) + op_return_size; // P2WPKH output size
 
         let change_size = if total_input > total_required_amount { 31 } else { 0 }; // P2WPKH change output

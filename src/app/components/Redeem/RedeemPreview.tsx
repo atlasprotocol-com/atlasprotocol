@@ -81,7 +81,7 @@ export function RedeemPreview({
             <p className="text-base font-semibold">
               {amount ? (
                 <>
-                  {amount} {ATLAS_BTC_TOKEN}{" "}
+                  {amount} {ATLAS_BTC_TOKEN}{" "}<br />
                   <span className="text-sm text-neutral-7">(≈{amountUsd} USD)</span>
                 </>
               ) : (
@@ -177,7 +177,7 @@ export function RedeemPreview({
       <Button
         className="mt-4 w-full"
         onClick={onConfirm}
-        disabled={isPending || !btcRedemptionFee || !transactionFee || !atlasProtocolFee}
+        disabled={isPending || !btcRedemptionFee || !transactionFee}
       >
         Redeem
       </Button>
