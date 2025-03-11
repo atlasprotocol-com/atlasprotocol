@@ -173,7 +173,7 @@ async function doWithSubquery(
   allRedemptions,
   allBridgings,
 ) {
-  // await doWithSubqueryForDeposits(chain, network, near, allDeposits);
+  await doWithSubqueryForDeposits(chain, network, near, allDeposits);
   await doWithSubqueryForRedeems(chain, network, near, allRedemptions);
 }
 
