@@ -389,7 +389,7 @@ export function BridgeHistorySection() {
                                     </TooltipContent>
                                   </Tooltip>
                                 )}
-                                <span className=" px-2 py-0.5 bg-secondary-200 dark:bg-secondary-900 text-secondary-800 dark:text-secondary-700 rounded-[30px] justify-center items-center gap-px inline-flex text-[12px] font-semibold">
+                                <span className="px-2 py-0.5 bg-secondary-200 dark:bg-secondary-900 text-secondary-800 dark:text-secondary-700 rounded-[30px] justify-center items-center gap-px inline-flex text-[12px] font-semibold whitespace-nowrap">
                                   {getStatusMessage(bridgeHistory.status)}
                                 </span>
                               </div>
