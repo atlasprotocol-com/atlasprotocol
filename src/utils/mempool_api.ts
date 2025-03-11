@@ -150,8 +150,10 @@ export async function getFundingUTXOs(
   // We want them in descending order, as we prefer to find the least number
   // of inputs that will satisfy the `amount` requirement,
   // as less inputs lead to a smaller transaction and therefore smaller fees.
+  // const confirmedUTXOs = utxos
+  //   .filter((utxo: any) => utxo.status.confirmed)
+  //   .sort((a: any, b: any) => b.value - a.value);
   const confirmedUTXOs = utxos
-    .filter((utxo: any) => utxo.status.confirmed)
     .sort((a: any, b: any) => b.value - a.value);
 
   // If amount is provided, reduce the list of UTXOs into a list that
