@@ -307,9 +307,7 @@ export function StakeHistory() {
                                         <p>
                                           Total {BTC_TOKEN} Sent:{" "}
                                           {
-                                            stakingHistory.amountInfo
-                                              .totalAmount + stakingHistory.amountInfo
-                                              .yieldProviderGasFee
+                                            maxDecimals(stakingHistory.amountInfo.totalAmount + stakingHistory.amountInfo.yieldProviderGasFee, 8)
                                           }{" "}
                                           {BTC_TOKEN}
                                         </p>
