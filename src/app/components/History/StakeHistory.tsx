@@ -305,10 +305,19 @@ export function StakeHistory() {
                                     <TooltipContent>
                                       <div>
                                         <p>
-                                          Total Amount:{" "}
+                                          Total {BTC_TOKEN} Sent:{" "}
                                           {
                                             stakingHistory.amountInfo
-                                              .totalAmount
+                                              .totalAmount + stakingHistory.amountInfo
+                                              .yieldProviderGasFee
+                                          }{" "}
+                                          {BTC_TOKEN}
+                                        </p>
+                                        <p>
+                                          BTC Network Fee (Atlas):{" "}
+                                          {
+                                            stakingHistory.amountInfo
+                                              .yieldProviderGasFee
                                           }{" "}
                                           {BTC_TOKEN}
                                         </p>
@@ -321,12 +330,12 @@ export function StakeHistory() {
                                           {BTC_TOKEN}
                                         </p>
                                         <p>
-                                          Minting Fee:{" "}
+                                          estination Chain Network Fee:{" "}
                                           {stakingHistory.amountInfo.mintingFee}{" "}
                                           {BTC_TOKEN}
                                         </p>
                                         <p>
-                                          Yield Provider Gas Fee:{" "}
+                                          BTC Network Fee (Staking Provider):{" "}
                                           {
                                             stakingHistory.amountInfo
                                               .yieldProviderGasFee
