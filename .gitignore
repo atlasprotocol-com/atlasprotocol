@@ -265,3 +265,4 @@ backend/utils/btcLastProcessedConfirmedTime.json
 contract/tokens/solidity_contract/artifacts/
 backend/utils/batchTime/btcLastProcessedConfirmedTime.json
 package-lock.json
+ecosystem.config.js
