@@ -328,7 +328,7 @@ export function StakeHistory() {
                                           {BTC_TOKEN}
                                         </p>
                                         <p>
-                                          estination Chain Network Fee:{" "}
+                                          Destination Chain Network Fee:{" "}
                                           {stakingHistory.amountInfo.mintingFee}{" "}
                                           {BTC_TOKEN}
                                         </p>
@@ -341,7 +341,7 @@ export function StakeHistory() {
                                           {BTC_TOKEN}
                                         </p>
                                         <p>
-                                          Net Amount:{" "}
+                                          Net Staked {BTC_TOKEN}:{" "}
                                           {stakingHistory.amountInfo.netAmount}{" "}
                                           {BTC_TOKEN}
                                         </p>
