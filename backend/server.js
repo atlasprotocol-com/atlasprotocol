@@ -426,27 +426,15 @@ app.get("/api/derived-address", async (req, res) => {
     const { address: btcAddress, publicKey: btcPublicKey } =
       await bitcoin.deriveBTCAddress(near);
 
-    let chainConfig = getChainConfig("421614");
-    console.log(chainConfig);
-
-    if (!chainConfig) {
-      throw new Error("Chain config for '421614' is undefined");
-    }
-
     const ethereum = new Ethereum(
-      chainConfig.chainID, // Corrected property name
-      chainConfig.chainRpcUrl, // Corrected property name
-      chainConfig.gasLimit, // Corrected property name
-      chainConfig.aBTCAddress, // Corrected property name
-      chainConfig.abiPath, // Corrected property name
+      "421614", // Corrected property name
+      "https://sepolia-rollup.arbitrum.io/rpc", // Corrected property name
+      10000000, // Corrected property name
+      "0xC3799bD41505fb8a0b335Ef7Ba52A8486f331b4F", // Corrected property name
+      "../../contract/artifacts/atBTC.abi", // Corrected property name
     );
 
-    derivationPath = chainConfig.networkType; // Corrected property name
-    console.log(derivationPath);
-
-    if (!derivationPath) {
-      throw new Error("chainConfig.networkType is undefined");
-    }
+    derivationPath = "EVM"; // Corrected property name
 
     // Generate the derived address for the aBTC minter & sender
     const evmAddress = await ethereum.deriveEthAddress(

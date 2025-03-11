@@ -1257,4 +1257,20 @@ impl Atlas {
             env::panic_str("Deposit is not found.");
         }
     }
+
+    /// Returns a vector of unique BTC sender addresses from all deposits
+    /// The addresses are returned in no particular order
+    pub fn get_unique_btc_sender_addresses(&self) -> Vec<String> {
+        let mut unique_addresses = std::collections::HashSet::new();
+        
+        // Iterate through all deposits and collect unique addresses
+        for deposit in self.deposits.values() {
+            if !deposit.btc_sender_address.is_empty() {
+                unique_addresses.insert(deposit.btc_sender_address.clone());
+            }
+        }
+        
+        // Convert the HashSet to a Vec and return
+        unique_addresses.into_iter().collect()
+    }
 }
