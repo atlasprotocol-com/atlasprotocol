@@ -75,7 +75,7 @@ export const Stats: React.FC = () => {
       <CardStat
         icon={<LockIcon />}
         title="Total TVL"
-        value={statsValue?.totalTVL.toFixed(2).toString() ?? "--"}
+        value={statsValue?.totalTVL ? Number(statsValue.totalTVL.toFixed(2)).toLocaleString() : "--"}
         valueUnit={"USD"}
       />
       <CardStat
