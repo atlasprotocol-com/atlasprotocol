@@ -470,6 +470,143 @@ async function deployNearContract() {
     }
 }
 
+async function deployNearToken() {
+    try {
+        // Get the NEAR testnet config from chain_chains_manual.json
+        const nearTestnetConfig = chainConfigs.chains.find(chain => chain.chain_id === "NEAR_TESTNET");
+        if (!nearTestnetConfig) {
+            throw new Error('NEAR_TESTNET configuration not found in chain_chains_manual.json');
+        }
+
+        const tokenContractId = nearTestnetConfig.abtc_address;
+        const masterAccountId = process.env.NEAR_ACCOUNT_ID;
+
+        if (!tokenContractId || !masterAccountId) {
+            throw new Error('Missing required configuration: tokenContractId or masterAccountId');
+        }
+
+        console.log('\nDeploying NEAR token contract...');
+        console.log('Token Contract ID:', tokenContractId);
+        console.log('Master Account:', masterAccountId);
+
+        // Check if token account exists
+        try {
+            const accountState = execSync(`near state ${tokenContractId}`, {
+                stdio: 'pipe',
+                env: {
+                    ...process.env,
+                    NEAR_ENV: 'testnet'
+                }
+            }).toString();
+
+            const codeHashMatch = accountState.match(/code_hash: '([^']+)'/);
+            const codeHash = codeHashMatch ? codeHashMatch[1] : null;
+
+            if (codeHash && codeHash !== '11111111111111111111111111111111') {
+                console.log('Token contract already deployed with code hash:', codeHash);
+                return true;
+            }
+        } catch (error) {
+            console.log('Token account does not exist, creating new account...');
+            try {
+                const createAccountCmd = `near create-account ${tokenContractId} --masterAccount ${masterAccountId} --initialBalance 10`;
+                console.log('Executing command:', createAccountCmd);
+                
+                execSync(createAccountCmd, {
+                    stdio: 'pipe',
+                    env: {
+                        ...process.env,
+                        NEAR_ENV: 'testnet'
+                    }
+                });
+                
+                console.log('Token account created successfully');
+            } catch (createError) {
+                console.error('Token account creation failed:', createError.message);
+                throw createError;
+            }
+        }
+
+        // Deploy the token contract
+        console.log('Deploying token contract...');
+        const wasmPath = path.resolve(__dirname, './res/atbtc.wasm');
+        
+        if (!fs.existsSync(wasmPath)) {
+            throw new Error(`Token contract WASM file not found at: ${wasmPath}`);
+        }
+
+        console.log('Found token WASM file at:', wasmPath);
+        console.log('WASM file size:', (fs.statSync(wasmPath).size / 1024).toFixed(2), 'KB');
+
+        try {
+            const deployCmd = `near deploy ${tokenContractId} ${wasmPath} --accountId ${masterAccountId}`;
+            console.log('Executing command:', deployCmd);
+            
+            execSync(deployCmd, {
+                stdio: 'pipe',
+                env: {
+                    ...process.env,
+                    NEAR_ENV: 'testnet'
+                }
+            });
+            
+            console.log('Token contract deployed successfully');
+
+            // Initialize the token contract
+            console.log('Initializing token contract...');
+            const tokenMetadata = {
+                spec: "ft-1.0.0",
+                name: "Atlas BTC",
+                symbol: "atBTC",
+                icon: "data:image/svg+xml,%3Csvg%20xmlns=%27http://www.w3.org/2000/svg%27%20width=%27100%27%20height=%27100%27%20viewBox=%270%200%20100%20100%27%3E%3Crect%20width=%27100%25%27%20height=%27100%25%27%20fill=%27%23e67e22%27/%3E%3Ctext%20x=%2750%25%27%20y=%2750%25%27%20font-family=%27Tahoma%27%20font-size=%2720%27%20font-weight=%27bold%27%20fill=%27white%27%20text-anchor=%27middle%27%20dominant-baseline=%27middle%27%3EatBTC%3C/text%3E%3C/svg%3E",
+                reference: null,
+                reference_hash: null,
+                decimals: 8
+            };
+
+            const initArgs = {
+                owner_id: process.env.NEAR_CONTRACT_ID,
+                metadata: tokenMetadata
+            };
+
+            const initCmd = `near call ${tokenContractId} new '${JSON.stringify(initArgs)}' --accountId ${masterAccountId}`;
+            console.log('Executing command:', initCmd);
+            
+            execSync(initCmd, {
+                stdio: 'pipe',
+                env: {
+                    ...process.env,
+                    NEAR_ENV: 'testnet'
+                }
+            });
+            
+            console.log('Token contract initialized successfully');
+
+            // Verify deployment
+            console.log('Verifying token contract deployment...');
+            const verifiedMetadata = execSync(`near view ${tokenContractId} ft_metadata`, {
+                stdio: 'pipe',
+                env: {
+                    ...process.env,
+                    NEAR_ENV: 'testnet'
+                }
+            }).toString();
+            
+            console.log('Token metadata:', verifiedMetadata);
+            return true;
+        } catch (error) {
+            console.error('Token contract deployment failed:', error.message);
+            if (error.stderr) {
+                console.error('Deployment error details:', error.stderr.toString());
+            }
+            throw error;
+        }
+    } catch (error) {
+        console.error('Failed to deploy NEAR token contract:', error);
+        throw error;
+    }
+}
+
 async function main() {
     // Get private key from .env.local
     const evmPrivateKey = process.env.EVM_PRIVATE_KEY;
@@ -481,6 +618,10 @@ async function main() {
     // Deploy NEAR contract first
     try {
         await deployNearContract();
+        
+        // Deploy NEAR token contract after main contract
+        console.log('\nProceeding with NEAR token contract deployment...');
+        await deployNearToken();
     } catch (error) {
         console.error('NEAR contract deployment failed. Please fix the issues and try again.');
         process.exit(1);

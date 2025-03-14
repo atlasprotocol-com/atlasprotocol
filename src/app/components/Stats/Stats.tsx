@@ -55,11 +55,11 @@ export const Stats: React.FC = () => {
 
     const statsData = stats.data;
     return {
-      totalBTCStaked: maxDecimals(satoshiToBtc(statsData.btcStaked || 0), 8),
+      totalBTCStaked: maxDecimals(satoshiToBtc(statsData.btcStaked || 0), 4),
       totalTVL: statsData.tvl || 0,
       totalAtBtcMinted: maxDecimals(
         satoshiToBtc(statsData.atbtcMinted || 0),
-        8,
+        4,
       ),
     };
   }, [stats.data]);

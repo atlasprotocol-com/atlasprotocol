@@ -40,7 +40,7 @@ interface StakeHistoryWithAmountInfo extends Stakes {
 const getStatusTooltipContent = (status: any) => {
   switch (status) {
     case DepositStatus.BTC_PENDING_DEPOSIT_MEMPOOL:
-      return "Your deposit into Atlas is pending on the BTC network.  This step requires 1 confirmation on BTC Testnet4";
+      return `Your deposit into Atlas is pending on the BTC network.  This step requires ${process.env.NEXT_PUBLIC_BTC_MIN_CONFIRMATIONS} confirmation on BTC Testnet4`;
     case DepositStatus.BTC_DEPOSITED_INTO_ATLAS:
       return "Your deposit into Atlas has been confirmed and will next be sent to Yield Provider.";
     case DepositStatus.BTC_PENDING_YIELD_PROVIDER_DEPOSIT:
@@ -131,9 +131,7 @@ export function StakeHistory() {
     return {
       totalAmount: maxDecimals(
         satoshiToBtc(
-          stakingHistory.btcAmount +
-            stakingHistory.protocolFee +
-            stakingHistory.mintingFee,
+          stakingHistory.btcAmount
         ),
         8,
       ),
@@ -145,7 +143,7 @@ export function StakeHistory() {
       ),
       netAmount: maxDecimals(
         satoshiToBtc(
-          stakingHistory.btcAmount - stakingHistory.yieldProviderGasFee,
+          stakingHistory.btcAmount - stakingHistory.yieldProviderGasFee - stakingHistory.protocolFee - stakingHistory.mintingFee,
         ),
         8,
       ),
@@ -352,7 +350,9 @@ export function StakeHistory() {
                                 {maxDecimals(
                                   satoshiToBtc(
                                     stakingHistory.btcAmount -
-                                      stakingHistory.yieldProviderGasFee,
+                                      stakingHistory.yieldProviderGasFee -
+                                      stakingHistory.protocolFee -
+                                      stakingHistory.mintingFee,
                                   ),
                                   8,
                                 )}

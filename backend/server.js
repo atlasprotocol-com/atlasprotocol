@@ -60,6 +60,9 @@ const {
 const {
   RetrieveAndProcessPastNearEvents,
 } = require("./utils/retrieveAndProcessPastNearEvents");
+const {
+  UpdateAtlasBtcDeposited,
+} = require("./utils/updateAtlasBtcDeposited");
 
 const {
   RetrieveAndProcessPastEvmEvents,
@@ -486,10 +489,10 @@ async function runBatch() {
     btcMempool,
     btcAtlasDepositAddress,
     globalParams.atlasTreasuryAddress,
-    globalParams.atlasDepositFeePercentage,
     near,
     bitcoin,
   );
+  await UpdateAtlasBtcDeposited(deposits, near, bitcoin);
   await StakeToYieldProvider(near, bitcoin);
   await UpdateYieldProviderStacked(deposits, near, bitcoin);
   await MintaBtcToReceivingChain(near);

@@ -21,7 +21,9 @@ export const isValidAddress = (
   return false;
 };
 
-const NEAR_ACCOUNT_ID_REGEX = /^[^\s.]+(?:\.[^\s.]+)*\.(?:testnet|near)$/;
+const NEAR_TESTNET_ACCOUNT_ID_REGEX = /^[^\s.]+(?:\.[^\s.]+)*\.(?:testnet)$/;
+const NEAR_MAINNET_ACCOUNT_ID_REGEX = /^[^\s.]+(?:\.[^\s.]+)*\.(?:near)$/;
+
 
 export function validateBlockchainAddress({
   networkType,
@@ -34,11 +36,12 @@ export function validateBlockchainAddress({
     case "EVM":
       return isAddress(address);
     case "NEAR":
-      console.log(
-        "NEAR_ACCOUNT_ID_REGEX.test(address)",
-        NEAR_ACCOUNT_ID_REGEX.test(address),
-      );
-      return NEAR_ACCOUNT_ID_REGEX.test(address);
+      console.log("network:", network);
+      if (network === Network.MAINNET) {
+        return NEAR_MAINNET_ACCOUNT_ID_REGEX.test(address);
+      } else {
+        return NEAR_TESTNET_ACCOUNT_ID_REGEX.test(address);
+      }
     default:
       throw new Error(`Unsupported network type: ${networkType}`);
   }

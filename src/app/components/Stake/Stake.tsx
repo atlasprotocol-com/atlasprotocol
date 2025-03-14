@@ -254,7 +254,7 @@ export function Stake({ formattedBalance }: StakeProps) {
       // Add dummy record to local storage
       const newRecord: Stakes = {
         timestamp: Math.floor(Date.now() / 1000).toString(),
-        btcAmount: previewData.amountSat - protocolFee -(previewData.mintingFee || 0)  ,
+        btcAmount: previewData.amountSat,
         protocolFee: protocolFee,
         mintingFee: previewData.mintingFee,
         yieldProviderGasFee: stakingFee?.amount,

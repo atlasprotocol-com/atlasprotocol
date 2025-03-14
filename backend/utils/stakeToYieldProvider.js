@@ -17,6 +17,14 @@ async function StakeToYieldProvider(near, bitcoinInstance) {
     try {
       console.log(`${batchName}. Start run...`);
       flagsBatch.stakeToYieldProviderRunning = true;
+      const { address, publicKey } = await bitcoinInstance.deriveBTCAddress(near);
+
+      const unconfirmedCount = await bitcoinInstance.getPendingOutCount(address);
+
+      if (unconfirmedCount >= 20) {
+        console.log("Unconfirmed out going transactions > 20. Skipping this run.");
+        return;
+      }
 
       // Get the first valid deposit and associated chain config using near.getFirstValidDepositChainConfig
       const result = await near.getFirstValidUserDeposit();
@@ -28,11 +36,9 @@ async function StakeToYieldProvider(near, bitcoinInstance) {
         return;
       }
 
-      const [btcTxnHash, btcAmount, yieldProviderGasFee] = result;
+      const [btcTxnHash, btcAmount, yieldProviderGasFee, protocolFee, mintingFee] = result;
       try {
         await near.updateDepositPendingYieldProviderDeposit(btcTxnHash);
-        
-        const { address, publicKey } = await bitcoinInstance.deriveBTCAddress(near);
 
         // Convert publicKey to a string
         const publicKeyString = publicKey.toString("hex");
@@ -42,7 +48,7 @@ async function StakeToYieldProvider(near, bitcoinInstance) {
         const { psbt: unsignedPsbtHex } = await relayer.deposit.buildUnsignedPsbt({
           publicKey: publicKeyString,
           address,
-          amount: Number(btcAmount) - Number(yieldProviderGasFee),
+          amount: Number(btcAmount) - Number(yieldProviderGasFee) - Number(protocolFee) - Number(mintingFee),
           fee: Number(yieldProviderGasFee)
         });
 

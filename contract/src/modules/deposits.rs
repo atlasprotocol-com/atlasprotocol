@@ -125,6 +125,47 @@ impl Atlas {
         self.deposits.get(&btc_txn_hash).cloned()
     }
 
+    /// Returns all deposits associated with a specific BTC sender address
+    /// @param btc_sender_address - The BTC sender address to search for
+    /// @returns Vec<DepositRecord> - A vector of all deposits from this sender
+    pub fn get_deposit_by_btc_sender_address(&self, btc_sender_address: String) -> Vec<DepositRecord> {
+        // Validate that the btc_sender_address is not empty
+        assert!(
+            !btc_sender_address.is_empty(),
+            "BTC sender address cannot be empty"
+        );
+
+        // Filter deposits by the given sender address and collect them into a vector
+        self.deposits
+            .values()
+            .filter(|deposit| deposit.btc_sender_address == btc_sender_address)
+            .cloned()
+            .collect()
+    }
+
+    /// Returns the final BTC amount after subtracting all fees (protocol fee, yield provider gas fee, and minting fee)
+    /// @param btc_txn_hash - The BTC transaction hash to look up
+    /// @returns u64 - The final BTC amount after all fees are subtracted
+    pub fn get_atbtc_minted(&self, btc_txn_hash: String) -> u64 {
+        // Validate that the btc_txn_hash is not empty
+        assert!(
+            !btc_txn_hash.is_empty(),
+            "BTC transaction hash cannot be empty"
+        );
+
+        // Get the deposit record
+        if let Some(deposit) = self.deposits.get(&btc_txn_hash) {
+            // Calculate final amount by subtracting all fees
+            deposit.btc_amount
+                .checked_sub(deposit.protocol_fee)
+                .and_then(|amount| amount.checked_sub(deposit.yield_provider_gas_fee))
+                .and_then(|amount| amount.checked_sub(deposit.minting_fee))
+                .unwrap_or_else(|| env::panic_str("Arithmetic overflow in fee calculation"))
+        } else {
+            env::panic_str("Deposit record not found")
+        }
+    }
+
     pub fn get_deposits_by_timestamp(&self, start_time: u64, end_time: u64) -> Vec<DepositRecord> {
         // Validate input parameters
         assert!(start_time > 0, "Start time must be greater than zero");
@@ -697,6 +738,8 @@ impl Atlas {
                             // Ensure the BTC amount is properly converted to U256 (Ethereum uint256)
                             let amount = U256::from(deposit.btc_amount);
                             let yield_provider_gas_fee = U256::from(deposit.yield_provider_gas_fee);
+                            let minting_fee = U256::from(deposit.minting_fee);
+                            let protocol_fee = U256::from(deposit.protocol_fee);
 
                             let to_address_str = chain_config.abtc_address.strip_prefix("0x").unwrap();
                             let to_address = parse_eth_address(to_address_str);
@@ -708,7 +751,7 @@ impl Atlas {
 
                             let data: Vec<u8> = Self::encode_mint_function_call(
                                 destination,
-                                amount - yield_provider_gas_fee,
+                                amount - yield_provider_gas_fee - minting_fee - protocol_fee,
                                 btc_txn_hash.clone(),
                             );
 
@@ -762,7 +805,7 @@ impl Atlas {
                                 btc_txn_hash
                             );
 
-                            let amount_to_mint = (deposit.btc_amount - deposit.protocol_fee - deposit.yield_provider_gas_fee).to_string();
+                            let amount_to_mint = (deposit.btc_amount - deposit.protocol_fee - deposit.yield_provider_gas_fee - deposit.minting_fee).to_string();
                             let account_id_str = chain_config.abtc_address.clone().to_string();
                             let account_id = AccountId::from_str(&account_id_str)
                                 .expect("Invalid NEAR account ID");
@@ -1272,5 +1315,14 @@ impl Atlas {
         
         // Convert the HashSet to a Vec and return
         unique_addresses.into_iter().collect()
+    }
+
+    /// Returns a vector of deposits that have non-empty remarks
+    pub fn get_deposits_with_remarks(&self) -> Vec<DepositRecord> {
+        self.deposits
+            .values()
+            .filter(|deposit| !deposit.remarks.is_empty())
+            .cloned()
+            .collect()
     }
 }

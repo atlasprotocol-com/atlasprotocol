@@ -149,8 +149,8 @@ const Home: React.FC<HomeProps> = () => {
                       >
                         <TabsList>
                           <TabsTrigger value="stake">Stake</TabsTrigger>
-                          <TabsTrigger value="redeem">Redeem</TabsTrigger>
-                          <TabsTrigger value="bridging">Bridge</TabsTrigger>
+                          {/* <TabsTrigger value="redeem">Redeem</TabsTrigger>
+                          <TabsTrigger value="bridging">Bridge</TabsTrigger> */}
                           {/* <TabsTrigger value="points">Points</TabsTrigger> */}
                         </TabsList>
                         <Suspense fallback={<LoadingSection />}>
@@ -167,7 +167,7 @@ const Home: React.FC<HomeProps> = () => {
                               }
                             />
                           </TabsContent>
-                          <TabsContent value="redeem">
+                          {/* <TabsContent value="redeem">
                             <RequireConnectWallet
                               required={!address}
                               onConnect={handleConnectModal}
@@ -175,11 +175,11 @@ const Home: React.FC<HomeProps> = () => {
                                 <LazyRedeem btcAddress={address} />
                               }
                             />
-                          </TabsContent>
+                          </TabsContent> */}
                         </Suspense>
-                        <TabsContent value="bridging">
+                        {/* <TabsContent value="bridging">
                           <LazyBridge />
-                        </TabsContent>
+                        </TabsContent> */}
                         {/* <TabsContent value="points">
                         <LazyPoints />
                       </TabsContent> */}

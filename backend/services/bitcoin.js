@@ -369,6 +369,7 @@ class Bitcoin {
     const { data } = await axios.get(`${this.chain_rpc}/tx/${transactionId}`);
     const tx = new bitcoin.Transaction();
 
+
     tx.version = data.version;
     tx.locktime = data.locktime;
 
@@ -396,6 +397,11 @@ class Bitcoin {
     });
 
     return tx;
+  }
+
+  async fetchRawTransaction(transactionId) {
+    const { data } = await axios.get(`${this.chain_rpc}/tx/${transactionId}`);
+    return data;
   }
 
   // Function which returns the txn's sender address
@@ -549,6 +555,35 @@ class Bitcoin {
     return response;
   }
 
+  /**
+   * Get the count of pending (unconfirmed) outgoing transactions for an address
+   * @param {string} address - The Bitcoin address to check
+   * @returns {Promise<number>} - The number of unconfirmed outgoing transactions
+   */
+  async getPendingOutCount(address) {
+    try {
+      const response = await this.fetchTxnsByAddress(address);
+      
+      // Filter for unconfirmed outgoing transactions
+      const pendingOutgoing = response.data.filter(tx => {
+        // Check if transaction has any input from the address (outgoing)
+        const hasMatchingInput = tx.vin.some(input => 
+          input.prevout.scriptpubkey_address === address
+        );
+        
+        // Check if transaction is unconfirmed
+        const isUnconfirmed = !tx.status.confirmed;
+        
+        return hasMatchingInput && isUnconfirmed;
+      });
+
+      return pendingOutgoing.length;
+    } catch (error) {
+      console.error('Error getting pending outgoing transactions:', error);
+      throw new Error(`Failed to get pending outgoing count: ${error.message}`);
+    }
+  }
+
   // Fetch BTC mempool transaction based on transaction ID
   // Refer https://mempool.space/docs/api/rest#get-transaction
   async fetchTxnByTxnID(txnID) {
@@ -581,7 +616,19 @@ class Bitcoin {
         console.error('Error getting confirmations:', error);
         throw new Error(`Failed to get confirmations: ${error.message}`);
     }
-}
+  }
+
+  async getCurrentBlockHeight() {
+    try {
+        // Get the current block height
+        const response = await axios.get(`${this.chain_rpc}/blocks/tip/height`);
+        const currentBlockHeight = response.data;
+        return currentBlockHeight;
+    } catch (error) {
+        console.error('Error getting current block height:', error);
+        throw new Error(`Failed to get current block height: ${error.message}`);
+    }
+  }
 
   async deriveBTCAddress(near) {
     const { NETWORK_TYPE } = getConstants();

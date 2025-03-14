@@ -45,13 +45,13 @@ export function StakePreview({
             100000000
           ).toFixed(8),
         )
-      : "--";
+      : 0;
 
   const stakingAmountBtc = stakingAmount ? (stakingAmount + Number(stakingFee)) / 100000000 : 0;
   const stakingFeeBtc = stakingFee ? stakingFee / 100000000 : 0;
 
   const actualAtBTCReceivedUsd =
-    actualAtBTCReceived !== "--" && btcPriceUsd
+    actualAtBTCReceived !== 0 && btcPriceUsd
       ? (actualAtBTCReceived * btcPriceUsd).toFixed(2)
       : "--";
 
@@ -180,10 +180,17 @@ export function StakePreview({
           </p>
         </div>
       )}
+      {actualAtBTCReceived <= 0 && (
+        <div className="mt-4">
+          <p className="text-caption text-base font-semibold">
+            The amount you stake is less than the minimum staking amount.
+          </p>
+        </div>
+      )}
       <Button
         className="mt-4 w-full"
         onClick={onConfirm}
-        disabled={!isUTXOsReady}
+        disabled={!isUTXOsReady || actualAtBTCReceived <= 0}
       >
         Stake
       </Button>

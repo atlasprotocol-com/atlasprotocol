@@ -1,5 +1,3 @@
-const { getConstants } = require("../constants");
-
 const { flagsBatch } = require("./batchFlags");
 const {
   getLastProcessedConfirmedTime,
@@ -10,7 +8,6 @@ async function UpdateAtlasBtcDeposits(
   btcMempool,
   btcAtlasDepositAddress,
   treasuryAddress,
-  depositFeePercentage,
   near,
   bitcoin,
 ) {
@@ -25,7 +22,6 @@ async function UpdateAtlasBtcDeposits(
     console.log(`${batchName}. Start run ...`);
     flagsBatch.UpdateAtlasBtcDepositsRunning = true;
 
-    const { DEPOSIT_STATUS } = getConstants();
     const lastProcessedConfirmedTime = getLastProcessedConfirmedTime(); // Get the last polled time
     let newLastProcessedConfirmedTime = 0;
 
@@ -55,34 +51,13 @@ async function UpdateAtlasBtcDeposits(
     for (const txn of filteredTxns) {
       i++;
       const btcTxnHash = txn.txid;
-      const blnStatusConfirmed = txn.status.confirmed;
       let timestamp = 0;
 
       try {
         // Check if the deposit record exists in NEAR
         const recordExists = await near.getDepositByBtcTxnHash(btcTxnHash);
 
-        if (recordExists) {
-          console.log("Record exist");
-          if (txn.status.block_time > newLastProcessedConfirmedTime) {
-            newLastProcessedConfirmedTime = txn.status.block_time;
-          }
-          if (
-            recordExists.status ===
-              DEPOSIT_STATUS.BTC_PENDING_DEPOSIT_MEMPOOL &&
-            !recordExists.remarks &&
-            blnStatusConfirmed
-          ) {
-            console.log("Status updated");
-            timestamp = txn.status.block_time;
-
-            // Update existing record
-            await near.updateDepositBtcDeposited(btcTxnHash, timestamp);
-            
-            console.log(`Updated Deposit with BTC txn hash ${btcTxnHash}`);
-          }
-        } else {
-          
+        if (!recordExists) {
           // Insert new deposit record
 
           const btcSenderAddress = await bitcoin.getBtcSenderAddress(txn);
@@ -113,16 +88,14 @@ async function UpdateAtlasBtcDeposits(
             }
             
             // Use confirmed timestamp if available, otherwise fetch unconfirmed time
-            timestamp = blnStatusConfirmed
-              ? txn.status.block_time
-              : await bitcoin.fetchUnconfirmedTransactionTime(txn);
+            timestamp = Math.floor(Date.now() / 1000);
 
             await near.insertDepositBtc(
               btcTxnHash,
               btcSenderAddress,
               receivingChainID,
               receivingAddress,
-              btcAmount,
+              btcAmount + feeAmount,
               protocolFee,
               "",
               mintingFee,
@@ -135,7 +108,7 @@ async function UpdateAtlasBtcDeposits(
 
             console.log(`Inserted Deposit with BTC txn hash ${btcTxnHash}`);
           } 
-        }
+        } 
       } catch (error) {
         console.error(`Error processing BTC txn hash ${btcTxnHash}:`, error);
         continue; // Skip to the next transaction

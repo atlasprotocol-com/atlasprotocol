@@ -20,6 +20,7 @@ const flagsBatch = {
   RetrieveAndProcessPastEvmEventsRunning: false,
   ProcessUnstakingAndWithdrawalRunning: false,
   SendBridgingFeesToTreasuryRunning: false,
+  UpdateAtlasBtcDepositedRunning: false,
 };
 
 function blockRange(block, start = 1000, end = 2000) {
