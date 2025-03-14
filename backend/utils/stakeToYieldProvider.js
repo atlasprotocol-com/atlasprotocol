@@ -21,7 +21,10 @@ async function StakeToYieldProvider(near, bitcoinInstance) {
 
       const unconfirmedCount = await bitcoinInstance.getPendingOutCount(address);
 
-      if (unconfirmedCount >= 20) {
+      console.log("unconfirmedCount: ", unconfirmedCount);
+      console.log("address: ", address);
+
+      if (unconfirmedCount && unconfirmedCount >= 20) {
         console.log("Unconfirmed out going transactions > 20. Skipping this run.");
         return;
       }
