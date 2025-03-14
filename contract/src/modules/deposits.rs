@@ -182,12 +182,20 @@ impl Atlas {
             .collect()
     }
 
-    pub fn get_all_deposits(&self) -> Vec<DepositRecord> {
-        self.deposits.values().cloned().collect()
-    }
-
     pub fn get_deposits_count(&self) -> u64 {
         self.deposits.len() as u64
+    }
+
+    pub fn get_all_deposits(&self, from_index: Option<u64>, limit: Option<u64>) -> Vec<DepositRecord> {
+        let start = from_index.unwrap_or(0) as usize;
+        let page_size = limit.unwrap_or(1000) as usize; // Default to 50 records per page
+        
+        self.deposits
+            .values()
+            .skip(start)
+            .take(page_size)
+            .cloned()
+            .collect()
     }
 
     pub fn update_deposit_btc_deposited(&mut self, btc_txn_hash: String, timestamp: u64) {

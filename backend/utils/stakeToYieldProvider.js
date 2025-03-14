@@ -46,12 +46,14 @@ async function StakeToYieldProvider(near, bitcoinInstance) {
         // Convert publicKey to a string
         const publicKeyString = publicKey.toString("hex");
 
-        console.log("publicKeyString: ", publicKeyString);
+        const amountToSend = Number(btcAmount) - Number(yieldProviderGasFee) - Number(protocolFee) - Number(mintingFee);
+        console.log("amountToSend: ", amountToSend);
+        
         // 1. Build the PSBT that is ready for signing
         const { psbt: unsignedPsbtHex } = await relayer.deposit.buildUnsignedPsbt({
           publicKey: publicKeyString,
           address,
-          amount: Number(btcAmount) - Number(yieldProviderGasFee) - Number(protocolFee) - Number(mintingFee),
+          amount: amountToSend,
           fee: Number(yieldProviderGasFee)
         });
 
