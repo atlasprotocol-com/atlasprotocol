@@ -141,7 +141,7 @@ const computeStats = async () => {
 };
 
 // Function to poll Near Atlas deposit records
-const getAllDepositHistory = async (limit = 1000) => {
+const getAllDepositHistory = async (limit = 500) => {
   try {
     console.log("Fetching deposits history");
     let records = [];

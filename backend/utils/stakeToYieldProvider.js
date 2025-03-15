@@ -48,7 +48,7 @@ async function StakeToYieldProvider(allDeposits, near, bitcoinInstance) {
           deposit.minted_txn_hash === "" &&
           deposit.btc_amount > 0 &&
           deposit.date_created > 0,
-      );
+      ).slice(0, 1); // Get only first record
 
       for (const depositRecord of filteredDeposits) {
         console.log("Processing deposit:", depositRecord);
@@ -102,6 +102,8 @@ async function StakeToYieldProvider(allDeposits, near, bitcoinInstance) {
           await near.updateYieldProviderTxnHash(btcTxnHash, txHash);
 
           console.log(`${batchName} completed successfully.`);
+
+          
 
         } catch (error) {
           let remarks = "";
