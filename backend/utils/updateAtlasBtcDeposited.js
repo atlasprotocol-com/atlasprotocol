@@ -28,7 +28,7 @@ async function UpdateAtlasBtcDeposited(
       !record.remarks
     );
 
-    console.log("filteredRecords:", filteredRecords);
+    //console.log("filteredRecords:", filteredRecords);
 
     for (const record of filteredRecords) {
       const btcTxnHash = record.btc_txn_hash;
@@ -39,7 +39,7 @@ async function UpdateAtlasBtcDeposited(
         const txn = await bitcoinInstance.fetchRawTransaction(btcTxnHash);
        
         if(txn && txn.status.block_height && txn.status.confirmed){
-          console.log("txn_hash:", txn.txid, " confirmations:", currentBlockHeight - txn.status.block_height + 1);
+          // console.log("txn_hash:", txn.txid, " confirmations:", currentBlockHeight - txn.status.block_height + 1);
           
           if (txn && txn.status.confirmed && (currentBlockHeight - txn.status.block_height + 1) >= process.env.BTC_MIN_CONFIRMATIONS) {
             console.log("btcTxnHash confirmed:", btcTxnHash);

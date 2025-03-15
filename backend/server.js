@@ -504,7 +504,7 @@ async function runBatch() {
     bitcoin,
   );
   await UpdateAtlasBtcDeposited(deposits, near, bitcoin);
-  await StakeToYieldProvider(near, bitcoin);
+  await StakeToYieldProvider(deposits, near, bitcoin);
   await UpdateYieldProviderStacked(deposits, near, bitcoin);
   await MintaBtcToReceivingChain(deposits, near);
   await UpdateAtlasAbtcMinted(deposits, near);
