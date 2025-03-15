@@ -115,7 +115,7 @@ async function StakeToYieldProvider(allDeposits, near, bitcoinInstance) {
           }
           console.error(remarks);
           await near.updateDepositRemarks(btcTxnHash, remarks);
-          continue;
+          break;
         }
       }
     } catch (error) {
