@@ -155,6 +155,7 @@ const getAllDepositHistory = async (limit = 100) => {
       if (items.length === limit) {
         batch.push(await near.getAllDeposits(offset, limit));
       }
+      console.log("Deposits records: ", records.length);
     }
 
     deposits = records;
