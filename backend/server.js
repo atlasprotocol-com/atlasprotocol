@@ -204,10 +204,10 @@ app.get("/api/v1/atlas/address", async (req, res) => {
 
 app.get("/api/v1/stats", async (req, res) => {
   try {
-    await getBtcMempoolRecords();
-    await getAllDepositHistory();
-    await getAllBridgingHistory();
-    await getAllRedemptionHistory();
+    // await getBtcMempoolRecords();
+    // await getAllDepositHistory();
+    // await getAllBridgingHistory();
+    // await getAllRedemptionHistory();
     await computeStats();
 
     res.json({ data: { ...atlasStats } });
@@ -307,8 +307,8 @@ app.get("/api/v1/staker/stakingHistories", async (req, res) => {
       return res.status(400).json({ error: "ERR_MISSING_WALLET_ADDRESS" });
     }
 
-    await getBtcMempoolRecords();
-    await computeStats();
+    //await getBtcMempoolRecords();
+    //await computeStats();
     const filteredData = deposits
       .filter((record) => record.btc_sender_address === btc_address)
       .map((record) => ({
