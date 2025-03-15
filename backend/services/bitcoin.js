@@ -564,23 +564,13 @@ class Bitcoin {
     try {
       const response = await this.fetchTxnsByAddress(address);
       
-      // Filter for unconfirmed outgoing transactions
-      const pendingOutgoing = response.data.filter(tx => {
-        // Check if transaction has any input from the address (outgoing)
-        const hasMatchingInput = tx.vin.some(input => 
-          input.prevout.scriptpubkey_address === address
-        );
-        
-        // Check if transaction is unconfirmed
-        const isUnconfirmed = !tx.status.confirmed;
-        
-        return hasMatchingInput && isUnconfirmed;
-      });
+      // Count unconfirmed transactions
+      const unconfirmedCount = response.data.filter(tx => !tx.status.confirmed).length;
 
-      return pendingOutgoing.length;
+      return unconfirmedCount;
     } catch (error) {
-      console.error('Error getting pending outgoing transactions:', error);
-      throw new Error(`Failed to get pending outgoing count: ${error.message}`);
+      console.error('Error getting unconfirmed transactions:', error);
+      throw new Error(`Failed to get unconfirmed count: ${error.message}`);
     }
   }
 
