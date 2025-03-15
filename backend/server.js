@@ -146,16 +146,16 @@ const getAllDepositHistory = async (limit = 1000) => {
     console.log("Fetching deposits history");
     let records = [];
     let offset = 0;
-    const batch = [await near.getAllDeposits(offset, limit)];
-    while (batch.length > 0) {
-      const items = batch.pop();
-      records.push(...items);
+    let hasMore = true;
 
+    while (hasMore) {
+      const items = await near.getAllDeposits(offset, limit);
+      records = records.concat(items);
+      
       offset += limit;
-      if (items.length === limit) {
-        batch.push(await near.getAllDeposits(offset, limit));
-      }
-      console.log("Deposits records: ", records.length);
+      hasMore = items.length === limit;
+      
+      console.log("Deposits records:", records.length);
     }
 
     deposits = records;
