@@ -60,9 +60,7 @@ const {
 const {
   RetrieveAndProcessPastNearEvents,
 } = require("./utils/retrieveAndProcessPastNearEvents");
-const {
-  UpdateAtlasBtcDeposited,
-} = require("./utils/updateAtlasBtcDeposited");
+const { UpdateAtlasBtcDeposited } = require("./utils/updateAtlasBtcDeposited");
 
 const {
   RetrieveAndProcessPastEvmEvents,
@@ -143,26 +141,23 @@ const computeStats = async () => {
 };
 
 // Function to poll Near Atlas deposit records
-const getAllDepositHistory = async () => {
+const getAllDepositHistory = async (limit = 100) => {
   try {
     console.log("Fetching deposits history");
-    let allDeposits = [];
-    let fromIndex = 0;
-    const limit = 1000; // Fetch 1000 records at a time
-    
-    while (true) {
-      const pageDeposits = await near.getAllDeposits(fromIndex, limit);
-      
-      console.log(`Fetched ${pageDeposits.length} deposits from index ${fromIndex}`);
-      console.log(`Total deposits fetched: ${allDeposits.length}`);
+    let records = [];
+    let offset = 0;
+    const batch = [await near.getAllDeposits(offset, limit)];
+    while (batch.length > 0) {
+      const items = batch.pop();
+      records.push(...items);
 
-      if (pageDeposits.length === 0) break; // No more records
-      
-      allDeposits = allDeposits.concat(pageDeposits);
-      fromIndex += limit;
+      offset += limit;
+      if (items.length === limit) {
+        batch.push(await near.getAllDeposits(offset, limit));
+      }
     }
-    
-    deposits = allDeposits;
+
+    deposits = records;
   } catch (error) {
     console.error(`Failed to fetch staking history: ${error.message}`);
   }
