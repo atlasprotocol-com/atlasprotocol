@@ -109,6 +109,16 @@ const Home: React.FC<HomeProps> = () => {
     setTabValue(savedTab || "stake");
   }, []);
 
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (address) {
+      timer = setInterval(() => {
+        refetchBalance();
+      }, 15000);
+    }
+    return () => clearInterval(timer);
+  }, [address, refetchBalance]);
+
   return (
     <AppContext.Provider
       value={{
