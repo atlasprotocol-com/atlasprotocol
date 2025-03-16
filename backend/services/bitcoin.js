@@ -695,9 +695,9 @@ class Bitcoin {
     const psbt = bitcoin.Psbt.fromHex(psbtHex, {network: this.network});
     const { publicKey } = await this.deriveBTCAddress(near);
     const sign = async (tx) => {
-      console.log("Signing transaction:", tx);
+      
       const btcPayload = Array.from(ethers.getBytes(tx));
-
+      console.log("Signing transaction:", btcPayload);
       const result =
         await near.createAtlasSignedPayload(btcPayload);
 
