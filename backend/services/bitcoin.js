@@ -692,6 +692,7 @@ class Bitcoin {
 
   async mpcSignPsbt(near,psbtHex) {
     // Parse the PSBT
+    const psbt = bitcoin.Psbt.fromHex(psbtHex, {network: this.network});
     console.log("Full PSBT:", psbt);
     console.log("PSBT Data:", psbt.data);
     console.log("PSBT Inputs:");
