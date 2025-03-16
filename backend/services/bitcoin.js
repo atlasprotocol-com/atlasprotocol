@@ -708,6 +708,7 @@ class Bitcoin {
 
     // Log the inputs
     for (let i = 0; i < psbt.data.inputs.length; i++) {
+      console.log(`Signing input ${i}:`, psbt.data.inputs[i]);
       await psbt.signInputAsync(i, { publicKey, sign });
     }
 
