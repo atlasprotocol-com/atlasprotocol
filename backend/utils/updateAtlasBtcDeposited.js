@@ -2,7 +2,7 @@ const { getConstants } = require("../constants");
 
 const { flagsBatch } = require("./batchFlags");
 
-const BTC_MIN_CONFIRMATIONS = Number(process.env.BTC_MIN_CONFIRMATIONS || 1);
+const BTC_MIN_CONFIRMATIONS = Number(process.env.BTC_MIN_CONFIRMATIONS || 12);
 
 async function UpdateAtlasBtcDeposited(depositRecords, near, bitcoinInstance) {
   const batchName = `Batch B UpdateAtlasBtcDeposited`;
