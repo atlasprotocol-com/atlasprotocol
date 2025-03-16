@@ -694,19 +694,10 @@ class Bitcoin {
     // Parse the PSBT
     const psbt = bitcoin.Psbt.fromHex(psbtHex, {network: this.network});
     console.log("Full PSBT:", psbt);
-    console.log("PSBT Data:", psbt.data);
-    console.log("PSBT Inputs:");
-    psbt.data.inputs.forEach((input, index) => {
-        console.log(`  Input ${index + 1}:`);
-        console.log(`    Previous TXID: ${input.hash.toString('hex')}`);
-        console.log(`    Output Index (vout): ${input.index}`);
-        if (input.witnessUtxo) {
-            console.log(`    Witness UTXO Value: ${input.witnessUtxo.value} sats`);
-            console.log(`    Witness UTXO ScriptPubKey: ${input.witnessUtxo.script.toString('hex')}`);
-        } else if (input.nonWitnessUtxo) {
-            console.log(`    Non-Witness UTXO: ${input.nonWitnessUtxo.toString('hex')}`);
-        }
-    });
+    console.log("PSBT data:", psbt.data);
+    console.log("PSBT inputs:", psbt.data.inputs);
+    console.log("PSBT outputs:", psbt.data.outputs);
+    console.log("PSBT version:", psbt.version);
     const { publicKey } = await this.deriveBTCAddress(near);
     const sign = async (tx) => {
       
