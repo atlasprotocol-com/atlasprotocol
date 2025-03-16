@@ -141,20 +141,21 @@ const computeStats = async () => {
 };
 
 // Function to poll Near Atlas deposit records
-const getAllDepositHistory = async (limit = 100) => {
+const getAllDepositHistory = async (limit = 1000) => {
   try {
     console.log("Fetching deposits history");
     let records = [];
     let offset = 0;
-    const batch = [await near.getAllDeposits(offset, limit)];
-    while (batch.length > 0) {
-      const items = batch.pop();
-      records.push(...items);
+    let hasMore = true;
 
+    while (hasMore) {
+      const items = await near.getAllDeposits(offset, limit);
+      records = records.concat(items);
+      
       offset += limit;
-      if (items.length === limit) {
-        batch.push(await near.getAllDeposits(offset, limit));
-      }
+      hasMore = items.length === limit;
+      
+      console.log("Deposits records:", records.length);
     }
 
     deposits = records;
@@ -204,10 +205,10 @@ app.get("/api/v1/atlas/address", async (req, res) => {
 
 app.get("/api/v1/stats", async (req, res) => {
   try {
-    await getBtcMempoolRecords();
-    await getAllDepositHistory();
-    await getAllBridgingHistory();
-    await getAllRedemptionHistory();
+    // await getBtcMempoolRecords();
+    // await getAllDepositHistory();
+    // await getAllBridgingHistory();
+    // await getAllRedemptionHistory();
     await computeStats();
 
     res.json({ data: { ...atlasStats } });
@@ -307,8 +308,8 @@ app.get("/api/v1/staker/stakingHistories", async (req, res) => {
       return res.status(400).json({ error: "ERR_MISSING_WALLET_ADDRESS" });
     }
 
-    await getBtcMempoolRecords();
-    await computeStats();
+    //await getBtcMempoolRecords();
+    //await computeStats();
     const filteredData = deposits
       .filter((record) => record.btc_sender_address === btc_address)
       .map((record) => ({
@@ -504,9 +505,9 @@ async function runBatch() {
     bitcoin,
   );
   await UpdateAtlasBtcDeposited(deposits, near, bitcoin);
-  await StakeToYieldProvider(near, bitcoin);
+  await StakeToYieldProvider(deposits, near, bitcoin);
   await UpdateYieldProviderStacked(deposits, near, bitcoin);
-  await MintaBtcToReceivingChain(near);
+  await MintaBtcToReceivingChain(deposits, near);
   await UpdateAtlasAbtcMinted(deposits, near);
 
   await WithdrawFailDeposits(deposits, near, bitcoin);
