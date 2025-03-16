@@ -693,16 +693,11 @@ class Bitcoin {
   async mpcSignPsbt(near,psbtHex) {
     // Parse the PSBT
     const psbt = bitcoin.Psbt.fromHex(psbtHex, {network: this.network});
-    console.log("PSBT inputs:", psbt.data.inputs.map(input => ({
-      hash: input.hash?.toString('hex'),
-      index: input.index,
-      witnessUtxo: input.witnessUtxo && {
-        script: input.witnessUtxo.script?.toString('hex'),
-        value: input.witnessUtxo.value
-      },
-      nonWitnessUtxo: input.nonWitnessUtxo?.toString('hex'),
-      tapInternalKey: input.tapInternalKey?.toString('hex')
-    })));
+    console.log("Full PSBT:", psbt);
+    console.log("PSBT data:", psbt.data);
+    console.log("PSBT inputs:", psbt.data.inputs);
+    console.log("PSBT outputs:", psbt.data.outputs);
+    console.log("PSBT version:", psbt.version);
     const { publicKey } = await this.deriveBTCAddress(near);
     const sign = async (tx) => {
       
