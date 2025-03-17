@@ -180,7 +180,7 @@ export function StakePreview({
           </p>
         </div>
       )}
-      {actualAtBTCReceived <= 0 && (
+      {actualAtBTCReceived <= 10000 && (
         <div className="mt-4">
           <p className="text-caption text-base font-semibold">
             The amount you stake is less than the minimum staking amount.
