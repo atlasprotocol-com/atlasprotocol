@@ -1,17 +1,17 @@
 use crate::atlas::Atlas;
 use crate::chain_configs::ChainConfigRecord;
-use crate::global_params::GlobalParams;
-use crate::AtlasExt;
-use near_sdk::near_bindgen;
-use near_sdk::AccountId;
-use serde_json::json;
-use serde_json::Value;
-use near_sdk::{env, log, Promise, NearToken, Gas};
-use sha2::{Sha256, Digest};
 use crate::constants::delimiter::COMMA;
 use crate::constants::near_gas::*;
 use crate::constants::network_type::*;
 use crate::constants::status::*;
+use crate::global_params::GlobalParams;
+use crate::AtlasExt;
+use near_sdk::near_bindgen;
+use near_sdk::AccountId;
+use near_sdk::{env, log, Gas, NearToken, Promise};
+use serde_json::json;
+use serde_json::Value;
+use sha2::{Digest, Sha256};
 
 #[near_bindgen]
 impl Atlas {
@@ -196,9 +196,8 @@ impl Atlas {
 
     pub fn create_atlas_signed_payload(
         &mut self,
-        payload: Vec<u8>,  // Passing the payload
+        payload: Vec<u8>, // Passing the payload
     ) -> Promise {
-
         self.assert_admin();
 
         let caller = env::predecessor_account_id();
@@ -206,7 +205,7 @@ impl Atlas {
 
         log!("Caller: {}", caller);
         log!("Owner: {}", owner);
-        
+
         let args = json!({
             "request": {
                 "payload": payload,
@@ -216,7 +215,7 @@ impl Atlas {
         })
         .to_string()
         .into_bytes();
-        
+
         // Return the promise for the first matching record
         return Promise::new(self.global_params.get_mpc_contract()).function_call(
             "sign".to_owned(),
@@ -224,8 +223,6 @@ impl Atlas {
             NearToken::from_yoctonear(50),
             Gas::from_tgas(275),
         );
-
-
     }
 
     pub fn calculate_merkle_root(txn_hashes: Vec<String>) -> String {
@@ -268,5 +265,42 @@ impl Atlas {
 
         // Return the calculated Merkle root as a hexadecimal string
         hex::encode(&merkle_leaves[0])
+    }
+
+    pub fn update_bridging(&mut self, txn_hash: String, status: u8, remarks: String) {
+        if let Some(mut bridging) = self.bridgings.get(&txn_hash).cloned() {
+            bridging.status = status;
+            bridging.remarks = remarks;
+            self.bridgings.insert(txn_hash, bridging);
+        } else {
+            env::panic_str("record not found");
+        }
+    }
+
+    pub fn update_redemption(&mut self, txn_hash: String, status: u8, remarks: String) {
+        if let Some(mut redemption) = self.redemptions.get(&txn_hash).cloned() {
+            redemption.status = status;
+            redemption.remarks = remarks;
+            self.redemptions.insert(txn_hash, redemption);
+        } else {
+            env::panic_str("record not found");
+        }
+    }
+
+    pub fn update_deposit(
+        &mut self,
+        txn_hash: String,
+        status: u8,
+        remarks: String,
+        retry_count: u8,
+    ) {
+        if let Some(mut deposit) = self.deposits.get(&txn_hash).cloned() {
+            deposit.status = status;
+            deposit.remarks = remarks;
+            deposit.retry_count = retry_count;
+            self.deposits.insert(txn_hash, deposit);
+        } else {
+            env::panic_str("record not found");
+        }
     }
 }
