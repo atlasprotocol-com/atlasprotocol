@@ -330,6 +330,7 @@ export function useNearTokenBalance({
       return returnResult;
     },
     enabled: !!tokenContract && !!signedAccountId,
+    refetchInterval: 10000,
   });
 }
 
