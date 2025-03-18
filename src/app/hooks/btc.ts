@@ -107,7 +107,7 @@ export function useGetStakingFee({
       return undefined;
     }
 
-    const { stakingFeeSat } = createStakingTx(
+    const { stakingFeeSat, yieldProviderGasFeeSat } = createStakingTx(
       stakingAmountSat,
       atlasAddress,
       btcNetwork,
@@ -123,22 +123,10 @@ export function useGetStakingFee({
 
     return {
       amount: stakingFeeSat,
+      yieldProviderGasFee: yieldProviderGasFeeSat,
       formatted: maxDecimals(satoshiToBtc(stakingFeeSat), 8),
     };
-  }, [
-    params?.atlasAddress,
-    btcNetwork,
-    btcAddress,
-    btcPublicKeyNoCoord,
-    stakingAmountSat,
-    feeRate,
-    inputUTXOs,
-    protocolFeeSat,
-    treasuryAddress,
-    mintingFeeSat,
-    receivingChainID,
-    receivingAddress,
-  ]);
+  }, [params?.atlasAddress, btcNetwork, btcAddress, btcPublicKeyNoCoord, stakingAmountSat, feeRate, inputUTXOs, protocolFeeSat, treasuryAddress, mintingFeeSat, receivingChainID, receivingAddress]);
 }
 
 export function useSignStaking() {

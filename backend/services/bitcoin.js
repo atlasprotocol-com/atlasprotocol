@@ -596,6 +596,16 @@ class Bitcoin {
     return response.data;
   }
 
+  async fetchTxSpentByTxnID(txnID) {
+    const axioConfig = {
+      url: `${this.chain_rpc}/tx/${txnID}/outspend/0`,
+      method: "get",
+    };
+    const response = await fetchWithRetry(axioConfig);
+
+    return response.data;
+  }
+
   /**
      * Get the number of confirmations for a transaction based on its block height
      * @param {number} txBlockHeight - The block height of the transaction
@@ -744,6 +754,44 @@ class Bitcoin {
     ]);
 
     return signature;
+  }
+
+  async getUtxosByTxid(depositAddress,txid) {
+    try {
+      const response = await axios.get(
+        `${this.chain_rpc}/address/${depositAddress}/utxo`,
+      );
+      
+      // Filter UTXOs by txid and transform to UtxoId format
+      const utxos = response.data
+        .filter(utxo => utxo.txid === txid)
+        .map(utxo => ({
+          txHash: utxo.txid,
+          vout: utxo.vout
+        }));
+
+      return utxos;
+    } catch (error) {
+      console.error('Error fetching UTXOs by txid:', error.message);
+      throw new Error(`Failed to get UTXOs for transaction ${txid}: ${error.message}`);
+    }
+  }
+
+  async findSpendingTransaction(txid) {
+    try {
+      // Fetch the original transaction
+      const txn = await this.fetchTxSpentByTxnID(txid);
+      console.log("txn.vot: ", txn);
+
+      if (txn.spent) {
+        return txn.txid;
+      }
+
+      return "";
+    } catch (error) {
+      console.error('Error finding spending transaction:', error.message);
+      throw new Error(`Failed to find spending transaction for ${txid}: ${error.message}`);
+    }
   }
 }
 

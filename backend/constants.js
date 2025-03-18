@@ -13,6 +13,7 @@ let constants = {
     DEPOSIT_CONFIRMED: "DepositConfirmed",
     DEPOSIT_CONFIRMED_INVALID: "DepositConfirmedInvalid",
     WITHDRAW_CONFIRMED: "WithdrawConfirmed",
+    DEPOSIT_FAILED: "DepositFailed",
   },
   ERR_MSG: { TIMEOUT: "TIMEOUT", TIMED_OUT: "TIMED OUT" },
 };

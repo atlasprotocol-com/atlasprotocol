@@ -1,10 +1,8 @@
 const _ = require("lodash");
 
 const { getConstants } = require("../constants");
-const { Ethereum } = require("../services/ethereum");
 
-const { getChainConfig } = require("./network.chain.config");
-const { flagsBatch, blockRange } = require("./batchFlags");
+const { flagsBatch } = require("./batchFlags");
 
 async function UpdateAtlasAbtcMinted(allDeposits, near) {
   const batchName = `Batch J UpdateAtlasAbtcMinted`;
@@ -19,7 +17,7 @@ async function UpdateAtlasAbtcMinted(allDeposits, near) {
     console.log(`${batchName}. Start run ...`);
     flagsBatch.UpdateAtlasAbtcMintedRunning = true;
 
-    const { NETWORK_TYPE, DEPOSIT_STATUS } = getConstants(); // Access constants dynamically
+    const { DEPOSIT_STATUS } = getConstants(); // Access constants dynamically
 
     // Filter deposits that need to be processed
     const filteredTxns = allDeposits.filter(
@@ -29,21 +27,8 @@ async function UpdateAtlasAbtcMinted(allDeposits, near) {
         deposit.remarks === "",
     );
 
-    // Group deposits by receiving_chain_id
-    const groupedTxns = filteredTxns.reduce((acc, deposit) => {
-      if (!acc[deposit.receiving_chain_id]) {
-        acc[deposit.receiving_chain_id] = [];
-      }
-      acc[deposit.receiving_chain_id].push(deposit);
-      return acc;
-    }, {});
-    
-    // Process each group of deposits by chain ID
-    for (const chainID in groupedTxns) {
-      const deposits = groupedTxns[chainID];
-      
       // Update status to DEP_BTC_MINTED_INTO_ABTC for all deposits
-      for (const deposit of deposits) {
+      for (const deposit of filteredTxns) {
         await near.updateDepositMinted(
           deposit.btc_txn_hash,
           deposit.minted_txn_hash,
@@ -53,7 +38,6 @@ async function UpdateAtlasAbtcMinted(allDeposits, near) {
         );
       }
 
-    }
     console.log(`${batchName} completed successfully.`);
   } catch (error) {
     console.error(`Error ${batchName}:`, error);

@@ -303,17 +303,9 @@ export function StakeHistory() {
                                     <TooltipContent>
                                       <div>
                                         <p>
-                                          Total {BTC_TOKEN} Sent:{" "}
+                                          Total {BTC_TOKEN} Staking:{" "}
                                           {
-                                            maxDecimals(stakingHistory.amountInfo.totalAmount + stakingHistory.amountInfo.yieldProviderGasFee, 8)
-                                          }{" "}
-                                          {BTC_TOKEN}
-                                        </p>
-                                        <p>
-                                          BTC Network Fee (Atlas):{" "}
-                                          {
-                                            stakingHistory.amountInfo
-                                              .yieldProviderGasFee
+                                            maxDecimals(stakingHistory.amountInfo.totalAmount, 8)
                                           }{" "}
                                           {BTC_TOKEN}
                                         </p>

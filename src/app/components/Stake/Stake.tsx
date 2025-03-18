@@ -236,8 +236,8 @@ export function Stake({ formattedBalance }: StakeProps) {
         throw new Error("Fee rate not loaded");
       }
 
-      if (!stakingFee?.amount) {
-        throw new Error("Staking fee not loaded");
+      if (!stakingFee?.amount || !stakingFee?.yieldProviderGasFee) {
+        throw new Error("Staking fee or yield provider gas fee not loaded");
       }
 
       const txHash = await sign.mutateAsync({
@@ -257,7 +257,7 @@ export function Stake({ formattedBalance }: StakeProps) {
         btcAmount: previewData.amountSat,
         protocolFee: protocolFee,
         mintingFee: previewData.mintingFee,
-        yieldProviderGasFee: stakingFee?.amount,
+        yieldProviderGasFee: stakingFee?.yieldProviderGasFee,
         receivingChainId: previewData.chainID,
         receivingAddress: previewData.address,
         btcTxnHash: txHash,
@@ -324,9 +324,10 @@ export function Stake({ formattedBalance }: StakeProps) {
       address: previewData.address,
       feeRate: (mempoolFeeRates?.feeRates?.defaultFeeRate || 0),
       stakingFee: stakingFee?.amount,
+      yieldProviderGasFee: stakingFee?.yieldProviderGasFee,
       protocolFeeSat: protocolFee,
     };
-  }, [chainConfigs, mempoolFeeRates?.feeRates?.defaultFeeRate, previewData, protocolFee, stakingFee?.amount]);
+  }, [chainConfigs, mempoolFeeRates?.feeRates?.defaultFeeRate, previewData, protocolFee, stakingFee?.amount, stakingFee?.yieldProviderGasFee]);
 
   const disabled =
     isSubmitting ||
@@ -430,9 +431,11 @@ export function Stake({ formattedBalance }: StakeProps) {
         stakingAmount={previewDataDisplay.amount}
         protocolFee={previewDataDisplay.protocolFeeSat}
         stakingFee={previewDataDisplay.stakingFee}
+        yieldProviderGasFee={previewDataDisplay.yieldProviderGasFee}
         receivingAddress={previewDataDisplay.address}
         receivingChain={previewDataDisplay.networkName}
         mintingFee={previewData?.mintingFee}
+        minStakingAmount={params.data?.formattedMinStakingAmount}
         onConfirm={handleConfirm}
         isUTXOsReady={!(!accountUTXOs || accountUTXOs.length === 0)}
       />

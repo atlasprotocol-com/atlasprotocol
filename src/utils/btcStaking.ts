@@ -45,9 +45,34 @@ export interface UTXO {
     const psbt = new Psbt({ network: btcWalletNetwork });
     let totalInput = 0;
 
+    let treasuryAmount = protocolFeeSat + mintingFeeSat;
+    let receiverAmount = satoshis - treasuryAmount;    
+
+    let totalOutput = receiverAmount + treasuryAmount;
+    
     // Add inputs to the PSBT with RBF enabled
     // Update the input creation to use the new interface
-    inputUTXOs.forEach((utxo) => {
+    // Sort UTXOs by value in descending order
+    const sortedUTXOs = [...inputUTXOs].sort((a, b) => b.value - a.value);
+    
+    // Select minimum UTXOs needed to cover totalOutput
+    let runningTotal = 0;
+    const selectedUTXOs = [];
+    
+    for (const utxo of sortedUTXOs) {
+      totalOutput = totalOutput + 68;
+
+      if (runningTotal >= totalOutput) break;
+
+      selectedUTXOs.push(utxo);
+      runningTotal += utxo.value;
+    }
+
+    if (runningTotal < totalOutput) {
+      throw new Error("Not enough funds to cover output amount");
+    }
+
+    selectedUTXOs.forEach((utxo) => {
       let input: InputWithTapInternalKey = {
         hash: utxo.txid,
         index: utxo.vout,
@@ -66,8 +91,7 @@ export interface UTXO {
       totalInput += utxo.value;
     });
 
-    let treasuryAmount = protocolFeeSat + mintingFeeSat;
-    let receiverAmount = satoshis - treasuryAmount;    
+    
   
     // Add outputs to the PSBT
     psbt.addOutput({
@@ -86,11 +110,15 @@ export interface UTXO {
   
     const fee = Math.round(feeRate * estimatedSize);
 
+    const estimatedSizeYieldProviderGasFee = 1 * 68 + psbt.txOutputs.length * 34 + 100; // Approximate calculation
+  
+    const yieldProviderGasFee = Math.round(feeRate * estimatedSizeYieldProviderGasFee);
+
     // Embed data in the witness stack with staking fee appended
     psbt.addOutput({
       script: bitcoin.script.compile([
         bitcoin.opcodes.OP_RETURN,
-        Buffer.from(`${data},${fee},${protocolFeeSat},${mintingFeeSat}`),
+        Buffer.from(`${data},${yieldProviderGasFee},${protocolFeeSat},${mintingFeeSat}`),
       ]),
       value: 0,
     });
@@ -103,6 +131,6 @@ export interface UTXO {
       });
     }
 
-    return { psbt, fee };
+    return { psbt, fee, yieldProviderGasFee };
   
   };

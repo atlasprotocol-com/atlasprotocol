@@ -34,8 +34,9 @@ export const createStakingTx = (
   // Create the staking transaction
   let unsignedStakingPsbt;
   let stakingFeeSat;
+  let yieldProviderGasFeeSat;
   try {
-    const { psbt, fee } = stakingTransaction(
+    const { psbt, fee, yieldProviderGasFee } = stakingTransaction(
       address,
       finalityProviderPublicKey,
       stakingAmountSat,
@@ -50,13 +51,14 @@ export const createStakingTx = (
     );
     unsignedStakingPsbt = psbt;
     stakingFeeSat = fee;
+    yieldProviderGasFeeSat = yieldProviderGasFee;
   } catch (error: Error | any) {
     throw new Error(
       error?.message || "Cannot build unsigned staking transaction",
     );
   }
 
-  return { unsignedStakingPsbt, stakingFeeSat };
+  return { unsignedStakingPsbt, stakingFeeSat, yieldProviderGasFeeSat };
 };
 
 // Sign a staking transaction

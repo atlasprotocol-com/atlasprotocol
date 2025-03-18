@@ -46,10 +46,7 @@ async function UpdateAtlasBtcDeposits(
       `${batchName} Btc Mempool number of Deposit records: total:${btcMempool.data.length} filtered:${filteredTxns.length}`,
     );
 
-    let i = 0;
-
     for (const txn of filteredTxns) {
-      i++;
       const btcTxnHash = txn.txid;
       let timestamp = 0;
 
@@ -76,6 +73,9 @@ async function UpdateAtlasBtcDeposits(
             console.log("receivingChainID:", receivingChainID);
             console.log("receivingAddress:", receivingAddress);
             console.log("btcTxnHash:", btcTxnHash);
+            console.log("yieldProviderGasFee:", yieldProviderGasFee);
+            console.log("protocolFee:", protocolFee);
+            console.log("mintingFee:", mintingFee);
             const { btcAmount, feeAmount } = await bitcoin.getBtcReceivingAmount(
               txn,
               btcAtlasDepositAddress,
