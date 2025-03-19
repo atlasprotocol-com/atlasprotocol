@@ -24,18 +24,18 @@ async function StakeToYieldProvider(allDeposits, near, bitcoinInstance) {
       const { address, publicKey } =
         await bitcoinInstance.deriveBTCAddress(near);
 
-      const unconfirmedCount =
-        await bitcoinInstance.getPendingOutCount(address);
+      // const unconfirmedCount =
+      //   await bitcoinInstance.getPendingOutCount(address);
 
-      console.log("unconfirmedCount: ", unconfirmedCount);
-      console.log("address: ", address);
+      // console.log("unconfirmedCount: ", unconfirmedCount);
+      // console.log("address: ", address);
 
-      if (unconfirmedCount && unconfirmedCount >= 20) {
-        console.log(
-          "Unconfirmed out going transactions > 20. Skipping this run.",
-        );
-        return;
-      }
+      // if (unconfirmedCount && unconfirmedCount >= 20) {
+      //   console.log(
+      //     "Unconfirmed out going transactions > 20. Skipping this run.",
+      //   );
+      //   return;
+      // }
 
       // Filter deposits that need to be processed
       const filteredDeposits = allDeposits
@@ -82,8 +82,7 @@ async function StakeToYieldProvider(allDeposits, near, bitcoinInstance) {
             address,
             btcTxnHash,
           );
-          console.log("utxos: ", utxos);
-
+         
           // 1. Build the PSBT that is ready for signing
           const { psbt: unsignedPsbtHex } =
             await relayer.deposit.buildUnsignedPsbt({

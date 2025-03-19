@@ -703,11 +703,7 @@ class Bitcoin {
   async mpcSignPsbt(near,psbtHex) {
     // Parse the PSBT
     const psbt = bitcoin.Psbt.fromHex(psbtHex, {network: this.network});
-    console.log("Full PSBT:", psbt);
-    console.log("PSBT data:", psbt.data);
-    console.log("PSBT inputs:", psbt.data.inputs);
-    console.log("PSBT outputs:", psbt.data.outputs);
-    console.log("PSBT version:", psbt.version);
+    
     const { publicKey } = await this.deriveBTCAddress(near);
     const sign = async (tx) => {
       

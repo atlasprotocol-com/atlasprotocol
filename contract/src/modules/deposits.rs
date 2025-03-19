@@ -658,7 +658,7 @@ impl Atlas {
             if !deposit.btc_sender_address.is_empty()
                 && !deposit.receiving_chain_id.is_empty()
                 && !deposit.receiving_address.is_empty()
-                //&& !deposit.remarks.is_empty()
+                && !deposit.remarks.is_empty()
                 //&& deposit.retry_count < max_retry_count
             {
                 // If receiving chain ID is EVM and receiving address is not a valid EVM address, do not rollback
