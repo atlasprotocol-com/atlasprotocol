@@ -8,7 +8,7 @@ dotenv.config({ path: envFile });
 
 const { globalParams, updateGlobalParams } = require("./config/globalParams");
 const { getTransactionsAndComputeStats } = require("./utils/transactionStats");
-const { UpdateAtlasBtcDeposits } = require("./utils/updateAtlasBtcDeposits");
+const { UpdateAtlasBtcDeposits, processNewDeposit } = require("./utils/updateAtlasBtcDeposits");
 const { WithdrawFailDeposits } = require("./utils/withdrawFailDeposits");
 const {
   UpdateWithdrawFailDeposits,
@@ -189,6 +189,7 @@ const getBtcMempoolRecords = async () => {
   try {
     //console.log("Fetching Btc Mempool Records");
     btcMempool = await bitcoin.fetchTxnsByAddress(btcAtlasDepositAddress);
+    //btcMempool = await bitcoin.fetchUTXOs(btcAtlasDepositAddress);
   } catch (error) {
     console.error(`Failed to fetch Btc Mempool records: ${error.message}`);
   }
@@ -480,6 +481,43 @@ app.get("/subquery", async (req, res) => {
     near: await getTxsOfNetwork("near"),
   };
   res.json(data);
+});
+
+app.get("/api/v1/process-new-deposit", async (req, res) => {
+  try {
+    const { btcTxnHash } = req.query;
+
+    if (!btcTxnHash) {
+      return res.status(400).json({ error: "BTC transaction hash is required" });
+    }
+
+    // Fetch transaction from mempool
+    const txn = await bitcoin.fetchTxnByTxnID(btcTxnHash);
+    
+    if (!txn) {
+      return res.status(404).json({ error: "Transaction not found in mempool" });
+    }
+
+    // Process the deposit
+    await processNewDeposit(
+      txn,
+      near,
+      bitcoin,
+      btcConfig.btcAtlasDepositAddress,
+      btcConfig.btcAtlasTreasuryAddress
+    );
+
+    res.json({ 
+      success: true,
+      message: `Successfully processed deposit for BTC transaction ${btcTxnHash}`
+    });
+  } catch (error) {
+    console.error("Error processing new deposit:", error);
+    res.status(500).json({ 
+      error: "Failed to process new deposit",
+      details: error.message 
+    });
+  }
 });
 
 async function runBatch() {

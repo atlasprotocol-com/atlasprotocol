@@ -40,15 +40,19 @@ async function StakeToYieldProvider(allDeposits, near, bitcoinInstance) {
       // Filter deposits that need to be processed
       const filteredDeposits = allDeposits
         .filter(
-          (deposit) =>
-            deposit.btc_sender_address !== "" &&
-            deposit.receiving_chain_id !== "" &&
-            deposit.receiving_address !== "" &&
-            deposit.status === DEPOSIT_STATUS.BTC_DEPOSITED_INTO_ATLAS &&
-            deposit.remarks === "" &&
-            deposit.minted_txn_hash === "" &&
-            deposit.btc_amount > 0 &&
-            deposit.date_created > 0,
+          (deposit) => {
+            const chainConfig = getChainConfig(deposit.receiving_chain_id);
+            return deposit.btc_sender_address !== "" &&
+              deposit.receiving_chain_id !== "" &&
+              deposit.receiving_address !== "" &&
+              deposit.status === DEPOSIT_STATUS.BTC_DEPOSITED_INTO_ATLAS &&
+              deposit.remarks === "" &&
+              deposit.minted_txn_hash === "" &&
+              deposit.btc_amount > 0 &&
+              deposit.date_created > 0 &&
+              chainConfig &&
+              deposit.verified_count >= chainConfig.validators_threshold;
+          }
         )
         .slice(0, 1); // Get only first record
 
@@ -58,21 +62,7 @@ async function StakeToYieldProvider(allDeposits, near, bitcoinInstance) {
         const yieldProviderGasFee = depositRecord.yield_provider_gas_fee;
 
         try {
-          const chainConfig = getChainConfig(depositRecord.receiving_chain_id);
-
-          if (!chainConfig) {
-            throw new Error(
-              `Chain config not found for chain ID: ${depositRecord.receiving_chain_id}`,
-            );
-          }
-
-          if (depositRecord.verified_count < chainConfig.validators_threshold) {
-            console.error(
-              `${batchName}: Verified count is less than validators threshold: ${depositRecord.verified_count} < ${chainConfig.validators_threshold}`,
-            );
-            continue;
-          }
-
+          
           await near.updateDepositPendingYieldProviderDeposit(btcTxnHash);
 
           // Convert publicKey to a string
