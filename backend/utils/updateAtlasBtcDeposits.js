@@ -23,7 +23,6 @@ async function UpdateAtlasBtcDeposits(
     flagsBatch.UpdateAtlasBtcDepositsRunning = true;
 
     const lastProcessedConfirmedTime = getLastProcessedConfirmedTime(); // Get the last polled time
-    let newLastProcessedConfirmedTime = 0;
 
     console.log(
       `${batchName} Latest Polled Time: ${lastProcessedConfirmedTime}`,
@@ -48,77 +47,17 @@ async function UpdateAtlasBtcDeposits(
 
     for (const txn of filteredTxns) {
       const btcTxnHash = txn.txid;
-      let timestamp = 0;
 
       try {
-        // Check if the deposit record exists in NEAR
-        const recordExists = await near.getDepositByBtcTxnHash(btcTxnHash);
-
-        if (!recordExists) {
-          // Insert new deposit record
-
-          const btcSenderAddress = await bitcoin.getBtcSenderAddress(txn);
-
-          let {
-            chain: receivingChainID,
-            address: receivingAddress,
-            yieldProviderGasFee,
-            protocolFee,
-            mintingFee,
-            remarks,
-          } = await bitcoin.getChainAndAddressFromTxnHash(txn);
-
-          if (receivingChainID && receivingAddress) {
-            console.log("New record found");
-            console.log("receivingChainID:", receivingChainID);
-            console.log("receivingAddress:", receivingAddress);
-            console.log("btcTxnHash:", btcTxnHash);
-            console.log("yieldProviderGasFee:", yieldProviderGasFee);
-            console.log("protocolFee:", protocolFee);
-            console.log("mintingFee:", mintingFee);
-            const { btcAmount, feeAmount } = await bitcoin.getBtcReceivingAmount(
-              txn,
-              btcAtlasDepositAddress,
-              treasuryAddress
-            );
-            console.log("btcAmount:", btcAmount);
-            console.log("feeAmount:", feeAmount);
-            if (feeAmount < (protocolFee + mintingFee)) {
-              remarks = `protocolFee + mintingFee doesn't match`;
-            }
-            
-            // Use confirmed timestamp if available, otherwise fetch unconfirmed time
-            timestamp = Math.floor(Date.now() / 1000);
-
-            await near.insertDepositBtc(
-              btcTxnHash,
-              btcSenderAddress,
-              receivingChainID,
-              receivingAddress,
-              btcAmount + feeAmount,
-              protocolFee,
-              "",
-              mintingFee,
-              timestamp,
-              remarks,
-              timestamp,
-              yieldProviderGasFee,
-              ""
-            );
-
-            console.log(`Inserted Deposit with BTC txn hash ${btcTxnHash}`);
-          } 
-        } 
+        await processNewDeposit(txn, near, bitcoin, btcAtlasDepositAddress, treasuryAddress);
       } catch (error) {
         console.error(`Error processing BTC txn hash ${btcTxnHash}:`, error);
         continue; // Skip to the next transaction
       }
     }
 
-    if (newLastProcessedConfirmedTime > 0) {
-      setLastProcessedConfirmedTime(newLastProcessedConfirmedTime);
-    }
-
+    setLastProcessedConfirmedTime(Math.floor(Date.now() / 1000));
+    
     console.log(`${batchName} completed successfully.`);
   } catch (error) {
     console.error(`Error ${batchName}:`, error);
@@ -127,4 +66,68 @@ async function UpdateAtlasBtcDeposits(
   }
 }
 
-module.exports = { UpdateAtlasBtcDeposits };
+async function processNewDeposit(txn, near, bitcoin, btcAtlasDepositAddress, treasuryAddress) {
+  const btcTxnHash = txn.txid;
+
+  // Check if the deposit record exists in NEAR
+  const recordExists = await near.getDepositByBtcTxnHash(btcTxnHash);
+  
+  if (!recordExists) {
+    // Insert new deposit record
+
+    const btcSenderAddress = await bitcoin.getBtcSenderAddress(txn);
+
+    let {
+      chain: receivingChainID,
+      address: receivingAddress,
+      yieldProviderGasFee,
+      protocolFee,
+      mintingFee,
+      remarks,
+    } = await bitcoin.getChainAndAddressFromTxnHash(txn);
+
+    if (receivingChainID && receivingAddress) {
+      console.log("New record found");
+      console.log("receivingChainID:", receivingChainID);
+      console.log("receivingAddress:", receivingAddress);
+      console.log("btcTxnHash:", btcTxnHash);
+      console.log("yieldProviderGasFee:", yieldProviderGasFee);
+      console.log("protocolFee:", protocolFee);
+      console.log("mintingFee:", mintingFee);
+      const { btcAmount, feeAmount } = await bitcoin.getBtcReceivingAmount(
+        txn,
+        btcAtlasDepositAddress,
+        treasuryAddress
+      );
+      console.log("btcAmount:", btcAmount);
+      console.log("feeAmount:", feeAmount);
+      if (feeAmount < (protocolFee + mintingFee)) {
+        remarks = `protocolFee + mintingFee doesn't match`;
+      }
+      
+      timestamp = Math.floor(Date.now() / 1000);
+
+      await near.insertDepositBtc(
+        btcTxnHash,
+        btcSenderAddress,
+        receivingChainID,
+        receivingAddress,
+        btcAmount + feeAmount,
+        protocolFee,
+        "",
+        mintingFee,
+        timestamp,
+        remarks,
+        timestamp,
+        yieldProviderGasFee,
+        ""
+      );
+
+      console.log(`Inserted Deposit with BTC txn hash ${btcTxnHash}`);
+    } 
+  } 
+}
+
+
+
+module.exports = { UpdateAtlasBtcDeposits, processNewDeposit };
