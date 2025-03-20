@@ -642,89 +642,89 @@ class Near {
     }
   }
 
-  // // Fetch mint events in batches by parsing the memo field, but only from a specific contract address
-  // async getPastMintEventsInBatches(startBlock, endBlock) {
-  //   const events = [];
-  //   const targetContractId = this.contract_id;
+  // Fetch mint events in batches by parsing the memo field, but only from a specific contract address
+  async getPastMintEventsInBatches(startBlock, endBlock) {
+    const events = [];
+    const targetContractId = this.contract_id;
 
-  //   for (let blockHeight = startBlock; blockHeight <= endBlock; blockHeight++) {
-  //     try {
-  //       const block = await this.provider.block({ blockId: blockHeight });
-  //       for (const chunk of block.chunks) {
-  //         if (chunk.tx_root === Near.TRANSACTION_ROOT) {
-  //           //console.log(`No transactions in chunk ${chunk.chunk_hash}`);
-  //           continue;
-  //         }
+    for (let blockHeight = startBlock; blockHeight <= endBlock; blockHeight++) {
+      try {
+        const block = await this.provider.block({ blockId: blockHeight });
+        for (const chunk of block.chunks) {
+          if (chunk.tx_root === Near.TRANSACTION_ROOT) {
+            //console.log(`No transactions in chunk ${chunk.chunk_hash}`);
+            continue;
+          }
 
-  //         // Fetch the chunk using the chunk_hash
-  //         const chunkData = await this.provider.chunk(chunk.chunk_hash);
-  //         const transactions = chunkData.transactions;
+          // Fetch the chunk using the chunk_hash
+          const chunkData = await this.provider.chunk(chunk.chunk_hash);
+          const transactions = chunkData.transactions;
 
-  //         if (!transactions || transactions.length === 0) {
-  //           console.warn(`No transactions found in chunk ${chunk.chunk_hash}`);
-  //           continue;
-  //         }
+          if (!transactions || transactions.length === 0) {
+            console.warn(`No transactions found in chunk ${chunk.chunk_hash}`);
+            continue;
+          }
 
-  //         for (const tx of transactions) {
-  //           // console.log(`Processing transaction ${tx.hash} in block ${blockHeight}`);
-  //           // console.log(tx.receiver_id);
-  //           // Skip transactions that are not from the target contract address
-  //           if (tx.receiver_id !== targetContractId) {
-  //             console.log(`${tx.receiver_id} != ${targetContractId}`);
-  //             continue;
-  //           }
+          for (const tx of transactions) {
+            // console.log(`Processing transaction ${tx.hash} in block ${blockHeight}`);
+            // console.log(tx.receiver_id);
+            // Skip transactions that are not from the target contract address
+            if (tx.receiver_id !== targetContractId) {
+              console.log(`${tx.receiver_id} != ${targetContractId}`);
+              continue;
+            }
 
-  //           const txResult = await this.provider.txStatus(
-  //             tx.hash,
-  //             tx.signer_id,
-  //           );
+            const txResult = await this.provider.txStatus(
+              tx.hash,
+              tx.signer_id,
+            );
 
-  //           // Loop through the receipts_outcome array to find logs with 'ft_mint' event
-  //           const receipt = txResult.receipts_outcome.find((outcome) =>
-  //             outcome.outcome.logs.some((log) => {
-  //               try {
-  //                 // Parse the log and check if it contains the "ft_mint" event
-  //                 const event = JSON.parse(log.replace("EVENT_JSON:", ""));
-  //                 return event.event === "ft_mint";
-  //               } catch (e) {
-  //                 return false; // In case log is not a JSON string
-  //               }
-  //             }),
-  //           );
+            // Loop through the receipts_outcome array to find logs with 'ft_mint' event
+            const receipt = txResult.receipts_outcome.find((outcome) =>
+              outcome.outcome.logs.some((log) => {
+                try {
+                  // Parse the log and check if it contains the "ft_mint" event
+                  const event = JSON.parse(log.replace("EVENT_JSON:", ""));
+                  return event.event === "ft_mint";
+                } catch (e) {
+                  return false; // In case log is not a JSON string
+                }
+              }),
+            );
 
-  //           if (receipt && receipt.outcome.status.SuccessValue === "") {
-  //             // Extract the log containing the JSON event
-  //             const logEntry = receipt.outcome.logs.find((log) => {
-  //               try {
-  //                 const event = JSON.parse(log.replace("EVENT_JSON:", ""));
-  //                 return event.event === "ft_mint";
-  //               } catch (e) {
-  //                 return false;
-  //               }
-  //             });
+            if (receipt && receipt.outcome.status.SuccessValue === "") {
+              // Extract the log containing the JSON event
+              const logEntry = receipt.outcome.logs.find((log) => {
+                try {
+                  const event = JSON.parse(log.replace("EVENT_JSON:", ""));
+                  return event.event === "ft_mint";
+                } catch (e) {
+                  return false;
+                }
+              });
 
-  //             if (logEntry) {
-  //               // Parse the JSON from the log entry
-  //               const event = JSON.parse(logEntry.replace("EVENT_JSON:", ""));
+              if (logEntry) {
+                // Parse the JSON from the log entry
+                const event = JSON.parse(logEntry.replace("EVENT_JSON:", ""));
 
-  //               // Extract the memo field from the event data and parse it
-  //               const memo = JSON.parse(event.data[0].memo);
-  //               const btcTxnHash = memo.btc_txn_hash; // Extract btc_txn_hash
-  //               const transactionHash = txResult.transaction.hash;
+                // Extract the memo field from the event data and parse it
+                const memo = JSON.parse(event.data[0].memo);
+                const btcTxnHash = memo.btc_txn_hash; // Extract btc_txn_hash
+                const transactionHash = txResult.transaction.hash;
 
-  //               events.push({ btcTxnHash, transactionHash, receiptId: receipt.id });
+                events.push({ btcTxnHash, transactionHash, receiptId: receipt.id });
 
-  //               return events;
-  //             }
-  //           }
-  //         }
-  //       }
-  //     } catch {
-  //       continue;
-  //     }
-  //   }
-  //   return events;
-  // }
+                return events;
+              }
+            }
+          }
+        }
+      } catch {
+        continue;
+      }
+    }
+    return events;
+  }
 
   // async getPastMintBridgeEventsInBatches(startBlock, endBlock) {
   //   const targetContractId = this.contract_id;

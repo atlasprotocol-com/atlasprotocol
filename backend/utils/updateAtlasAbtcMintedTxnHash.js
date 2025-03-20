@@ -25,7 +25,7 @@ async function UpdateAtlasAbtcMintedTxnHash(allDeposits, near) {
         deposit.status === DEPOSIT_STATUS.BTC_PENDING_MINTED_INTO_ABTC &&
         deposit.minted_txn_hash === "" &&
         deposit.remarks === "",
-    ).slice(0, 1);
+    );
 
     // Group deposits by receiving_chain_id
     const groupedTxns = filteredTxns.reduce((acc, deposit) => {
@@ -57,10 +57,10 @@ async function UpdateAtlasAbtcMintedTxnHash(allDeposits, near) {
 
         const startBlock =
           await ethereum.getBlockNumberByTimestamp(earliestTimestamp);
-
+        const endBlock = await ethereum.getCurrentBlockNumber();
         const events = await ethereum.getPastMintEventsInBatches(
-          startBlock - 2,
-          startBlock + 2,
+          startBlock,
+          endBlock,
           chainConfig.batchSize,
         );
 
@@ -97,12 +97,20 @@ async function UpdateAtlasAbtcMintedTxnHash(allDeposits, near) {
           ...deposits.map((deposit) => deposit.timestamp),
         );
 
+        console.log(earliestTimestamp);
         const startBlock = await near.getBlockNumberByTimestamp(earliestTimestamp);
+
+        console.log("startBlock: " + startBlock);
+
+        const currentBlock = await near.getCurrentBlockNumber();
+        console.log("currentBlock: " + currentBlock);
+
+        const endBlock = currentBlock;
 
         
         const events = await near.getPastMintEventsInBatches(
-          startBlock - 2,
-          startBlock + 2,
+          startBlock-2,
+          endBlock,
         );
 
         for (const deposit of deposits) {
