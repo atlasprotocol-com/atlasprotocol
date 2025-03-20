@@ -19,6 +19,7 @@ const {
 const {
   MintBridgeABtcToDestChain,
 } = require("./utils/mintBridgeABtcToDestChain");
+const { checkAndUpdateMintedTxnHash } = require("./helpers/checkAndUpdateMintedTxnHash");
 
 const {
   UpdateAtlasBtcBackToUser,
@@ -515,6 +516,36 @@ app.get("/api/v1/process-new-deposit", async (req, res) => {
     console.error("Error processing new deposit:", error);
     res.status(500).json({ 
       error: "Failed to process new deposit",
+      details: error.message 
+    });
+  }
+});
+
+app.get("/api/v1/check-minted-txn", async (req, res) => {
+  try {
+    const { btcTxnHash } = req.query;
+
+    if (!btcTxnHash) {
+      return res.status(400).json({ error: "BTC transaction hash is required" });
+    }
+
+    const result = await checkAndUpdateMintedTxnHash(btcTxnHash, near);
+
+    if (result) {
+      res.json({ 
+        success: true,
+        message: `Successfully found and processed mint deposit event for BTC transaction ${btcTxnHash}`
+      });
+    } else {
+      res.json({ 
+        success: false,
+        message: `No mint deposit event found for BTC transaction ${btcTxnHash}`
+      });
+    }
+  } catch (error) {
+    console.error("Error checking minted transaction:", error);
+    res.status(500).json({ 
+      error: "Failed to check minted transaction",
       details: error.message 
     });
   }
