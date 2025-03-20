@@ -326,7 +326,6 @@ impl Atlas {
                 if deposit.status == DEP_BTC_DEPOSITED_INTO_ATLAS
                     && deposit.remarks.is_empty()
                     && deposit.minted_txn_hash.is_empty()
-                    && deposit.yield_provider_txn_hash.is_empty()
                     && deposit.verified_count >= chain_config.validators_threshold
                 {
                     // All conditions are met, proceed to update the deposit status
