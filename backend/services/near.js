@@ -1558,6 +1558,58 @@ class Near {
       new_json_data: params.new_json_data,
     });
   }
+
+  async getPastEventsByMintedTxnHash(mintedTxnHash) {
+    try {
+      const events = [];
+      
+      const txResult = await this.provider.txStatus(
+        mintedTxnHash,
+        this.contract_id
+      );
+      
+      // Find receipt with ft_mint event
+      const receipt = txResult.receipts_outcome.find((outcome) =>
+        outcome.outcome.logs.some((log) => {
+          try {
+            const event = JSON.parse(log.replace("EVENT_JSON:", ""));
+            return event.event === "ft_mint";
+          } catch (e) {
+            return false;
+          }
+        })
+      );
+
+      if (receipt) {
+        const logEntry = receipt.outcome.logs.find((log) => {
+          try {
+            const event = JSON.parse(log.replace("EVENT_JSON:", ""));
+            return event.event === "ft_mint";
+          } catch (e) {
+            return false;
+          }
+        });
+
+        if (logEntry) {
+          const event = JSON.parse(logEntry.replace("EVENT_JSON:", ""));
+          const memo = JSON.parse(event.data[0].memo);
+          const btcTxnHash = memo.btc_txn_hash;
+
+          events.push({
+            type: "mint_redemption",
+            btcTxnHash: btcTxnHash,
+            receiptId: receipt.id,
+            transactionHash: mintedTxnHash
+          });
+        }
+      }
+
+      return events;
+    } catch (error) {
+      console.error("Error getting past events by minted transaction hash:", error);
+      return [];
+    }
+  }
 }
 
 module.exports = { Near };

@@ -523,13 +523,17 @@ app.get("/api/v1/process-new-deposit", async (req, res) => {
 
 app.get("/api/v1/check-minted-txn", async (req, res) => {
   try {
-    const { btcTxnHash } = req.query;
+    const { btcTxnHash, mintedTxnHash } = req.query;
 
     if (!btcTxnHash) {
       return res.status(400).json({ error: "BTC transaction hash is required" });
     }
 
-    const result = await checkAndUpdateMintedTxnHash(btcTxnHash, near);
+    if (!mintedTxnHash) {
+      return res.status(400).json({ error: "Minted transaction hash is required" });
+    }
+
+    const result = await checkAndUpdateMintedTxnHash(btcTxnHash, near, mintedTxnHash);
 
     if (result) {
       res.json({ 

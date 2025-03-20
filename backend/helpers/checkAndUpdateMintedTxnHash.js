@@ -4,7 +4,7 @@ const { getChainConfig } = require("../utils/network.chain.config");
 
 const { processMintDepositEvent } = require("./eventProcessor");
 
-async function checkAndUpdateMintedTxnHash(btcTxnHash, near) {
+async function checkAndUpdateMintedTxnHash(btcTxnHash, near, mintedTxnHash) {
   const { NETWORK_TYPE, DEPOSIT_STATUS } = getConstants();
 
   try {
@@ -44,58 +44,45 @@ async function checkAndUpdateMintedTxnHash(btcTxnHash, near) {
       return false;
     }
 
-    // Find the earliest timestamp in the deposits for this chain
-    const earliestTimestamp = depositRecord.timestamp;
     let matchingEvent;
 
     if (chainConfig.networkType === NETWORK_TYPE.EVM) {
       // For EVM chains
-      const ethereum = new Ethereum(
-        chainConfig.chainID,
-        chainConfig.chainRpcUrl,
-        chainConfig.gasLimit,
-        chainConfig.aBTCAddress,
-        chainConfig.abiPath,
-      );
+      // const ethereum = new Ethereum(
+      //   chainConfig.chainID,
+      //   chainConfig.chainRpcUrl,
+      //   chainConfig.gasLimit,
+      //   chainConfig.aBTCAddress,
+      //   chainConfig.abiPath,
+      // );
 
-      const startBlock =
-        await ethereum.getBlockNumberByTimestamp(earliestTimestamp);
+      // // Get past events in batches
+      // const events = await ethereum.getPastEventsInBatches(
+      //   mintedTxnHash - 2,
+      //   mintedTxnHash + 2,
+      //   chainConfig.aBTCAddress,
+      // );
 
-      // Get past events in batches
-      const events = await ethereum.getPastEventsInBatches(
-        startBlock - 5,
-        startBlock + 5,
-        chainConfig.aBTCAddress,
-      );
+      // console.log(events);
 
-      console.log(events);
-
-      // Find matching event
-      matchingEvent = events.find(
-        (event) => event.returnValues?.btcTxnHash === btcTxnHash,
-      );
+      // // Find matching event
+      // matchingEvent = events.find(
+      //   (event) => event.returnValues?.btcTxnHash === btcTxnHash,
+      // );
 
     } else if (chainConfig.networkType === NETWORK_TYPE.NEAR) {
-      const startBlock =
-        await near.getBlockNumberByTimestamp(earliestTimestamp);
-
-      const events = await near.getPastEventsInBatches(
-        startBlock - 5,
-        startBlock + 5,
-        chainConfig.aBTCAddress,
-      );
+      const events = await near.getPastEventsByMintedTxnHash(mintedTxnHash);
 
       // Find matching event
       matchingEvent = events.find(
         (event) => event.btcTxnHash === btcTxnHash,
       );
-
     }
 
-    
     if (matchingEvent) {
-        await processMintDepositEvent(matchingEvent, near);
-        return true;
+      console.log(matchingEvent);
+      await processMintDepositEvent(matchingEvent, near);
+      return true;
     }
 
     console.log(
