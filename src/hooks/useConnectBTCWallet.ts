@@ -55,6 +55,7 @@ export function useConnectBTCWallet({
         setBTCWalletNetwork(toNetwork(await walletProvider.getNetwork()));
         setAddress(address);
         setPublicKeyNoCoord(publicKeyNoCoord.toString("hex"));
+        console.log("Connected wallet public key:", publicKeyNoCoord.toString("hex"));
         onSuccessfulConnectRef();
         localStorage.setItem(
           "ATLAS_CONNECTED_WALLET",
