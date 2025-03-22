@@ -89,7 +89,10 @@ async function main() {
         const signedTransaction = await ethereum.createMintaBtcSignedTx(
           near,
           sender,
+          tx.receiving_address,
+          tx.btc_amount - tx.yield_provider_gas_fee,
           btcTxnHash,
+          tx.minting_fee,
         );
 
         const hexcode = Array.from(signedTransaction)

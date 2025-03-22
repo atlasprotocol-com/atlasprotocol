@@ -9,11 +9,11 @@ redeploy-all: redeploy redeploy-near-ft
 redeploy:
 	./build.sh
 
-	# near call $(CONTRACT_ID).velar.testnet clear_all_validators --accountId velar.testnet;
-	# near call $(CONTRACT_ID).velar.testnet clear_all_verifications --accountId velar.testnet;
-	# near call $(CONTRACT_ID).velar.testnet clear_all_chain_configs --accountId velar.testnet;
+	near call $(CONTRACT_ID).velar.testnet clear_all_validators --accountId velar.testnet;
+	near call $(CONTRACT_ID).velar.testnet clear_all_verifications --accountId velar.testnet;
+	near call $(CONTRACT_ID).velar.testnet clear_all_chain_configs --accountId velar.testnet;
 	
-	# near delete-account $(CONTRACT_ID).velar.testnet velar.testnet;
+	near delete-account $(CONTRACT_ID).velar.testnet velar.testnet;
 	near create-account $(CONTRACT_ID).velar.testnet --masterAccount velar.testnet --initialBalance 10;
 
 	sleep 10;
@@ -42,8 +42,8 @@ redeploy:
 
 
 redeploy-near-ft:
-	# cd tokens && ./build.sh
-	# cd tokens && near delete-account $(FT_CONTRACT_ID).velar.testnet velar.testnet;
+	cd tokens && ./build.sh
+	cd tokens && near delete-account $(FT_CONTRACT_ID).velar.testnet velar.testnet;
 	cd tokens && near create-account $(FT_CONTRACT_ID).velar.testnet --masterAccount velar.testnet --initialBalance 10;
 
 	sleep 10;

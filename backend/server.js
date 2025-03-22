@@ -151,10 +151,10 @@ const getAllDepositHistory = async (limit = 1000) => {
     while (hasMore) {
       const items = await near.getAllDeposits(offset, limit);
       records = records.concat(items);
-      
+
       offset += limit;
       hasMore = items.length === limit;
-      
+
       console.log("Deposits records:", records.length);
     }
 
@@ -489,13 +489,13 @@ async function runBatch() {
   await getAllRedemptionHistory();
   await computeStats();
 
-  await RetrieveAndProcessPastEvmEvents(near, deposits, redemptions, bridgings);
-  await RetrieveAndProcessPastNearEvents(
-    near,
-    deposits,
-    redemptions,
-    bridgings,
-  );
+  // await RetrieveAndProcessPastEvmEvents(near, deposits, redemptions, bridgings);
+  // await RetrieveAndProcessPastNearEvents(
+  //   near,
+  //   deposits,
+  //   redemptions,
+  //   bridgings,
+  // );
 
   await UpdateAtlasBtcDeposits(
     btcMempool,
@@ -504,25 +504,25 @@ async function runBatch() {
     near,
     bitcoin,
   );
-  await UpdateAtlasBtcDeposited(deposits, near, bitcoin);
-  await StakeToYieldProvider(deposits, near, bitcoin);
-  await UpdateYieldProviderStacked(deposits, near, bitcoin);
-  await MintaBtcToReceivingChain(deposits, near);
-  await UpdateAtlasAbtcMinted(deposits, near);
+  // await UpdateAtlasBtcDeposited(deposits, near, bitcoin);
+  // await StakeToYieldProvider(deposits, near, bitcoin);
+  // await UpdateYieldProviderStacked(deposits, near, bitcoin);
+  // await MintaBtcToReceivingChain(deposits, near);
+  // await UpdateAtlasAbtcMinted(deposits, near);
 
-  await WithdrawFailDeposits(deposits, near, bitcoin);
-  await UpdateWithdrawFailDeposits(deposits, near, bitcoin);
+  // await WithdrawFailDeposits(deposits, near, bitcoin);
+  // await UpdateWithdrawFailDeposits(deposits, near, bitcoin);
 
-  await UpdateAtlasBtcWithdrawnFromYieldProvider(redemptions, near, bitcoin);
+  // await UpdateAtlasBtcWithdrawnFromYieldProvider(redemptions, near, bitcoin);
 
-  await SendBtcBackToUser(near, bitcoin);
-  await UpdateAtlasBtcBackToUser(redemptions, near, bitcoin);
+  // await SendBtcBackToUser(near, bitcoin);
+  // await UpdateAtlasBtcBackToUser(redemptions, near, bitcoin);
 
-  await MintBridgeABtcToDestChain(near);
+  // await MintBridgeABtcToDestChain(near);
 
-  await SendBridgingFeesToTreasury(near, bitcoin);
+  // await SendBridgingFeesToTreasury(near, bitcoin);
 
-  await UpdateAtlasBtcBridgingYieldProviderWithdrawn(bridgings, near, bitcoin);
+  // await UpdateAtlasBtcBridgingYieldProviderWithdrawn(bridgings, near, bitcoin);
 
   // Delay for 5 seconds before running the batch again
   await new Promise((resolve) => setTimeout(resolve, 5000));

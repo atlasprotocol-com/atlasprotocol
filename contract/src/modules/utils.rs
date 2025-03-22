@@ -293,11 +293,13 @@ impl Atlas {
         status: u8,
         remarks: String,
         retry_count: u8,
+        verified_count: u8,
     ) {
         if let Some(mut deposit) = self.deposits.get(&txn_hash).cloned() {
             deposit.status = status;
             deposit.remarks = remarks;
             deposit.retry_count = retry_count;
+            deposit.verified_count = verified_count;
             self.deposits.insert(txn_hash, deposit);
         } else {
             env::panic_str("record not found");

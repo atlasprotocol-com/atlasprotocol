@@ -38,12 +38,12 @@ async function UpdateYieldProviderStacked(allDeposits, near, bitcoinInstance) {
       console.log("Number of yield provider records:", deposits.length);
       for (let i = 0; i < filteredTxns.length; i++) {
         const txn = filteredTxns[i];
-        const deposit = deposits.find(d => d.depositTxHash === txn.yield_provider_txn_hash);
-        
+        const deposit = deposits.find(
+          (d) => d.depositTxHash === txn.yield_provider_txn_hash,
+        );
+
         if (!deposit) {
-          console.log(
-            `Deposit not found for txHash: ${txn.yield_provider_txn_hash}`,
-          );
+          console.log(`[${txn.yield_provider_txn_hash}] ${deposit.status}`);
           continue;
         }
 
@@ -52,6 +52,7 @@ async function UpdateYieldProviderStacked(allDeposits, near, bitcoinInstance) {
           deposit.status === BITHIVE_STATUS.DEPOSIT_CONFIRMED_INVALID ||
           deposit.status === BITHIVE_STATUS.WITHDRAW_CONFIRMED;
         if (!ok) {
+          console.log(`[${txn.yield_provider_txn_hash}] ${deposit.status}`);
           continue;
         }
         await near.updateDepositYieldProviderDeposited(txn.btc_txn_hash);
