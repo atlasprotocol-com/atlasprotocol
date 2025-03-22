@@ -81,6 +81,7 @@ export const ConnectModal: React.FC<ConnectModalProps> = ({
         walletInstance = window[BROWSER];
       } else {
         // we are using a custom wallet
+        console.log(selectedWallet, walletList);
         const walletProvider = walletList.find(
           (w) => w.name === selectedWallet,
         )?.wallet;

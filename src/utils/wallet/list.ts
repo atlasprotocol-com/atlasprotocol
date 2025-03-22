@@ -1,10 +1,9 @@
 import metamaskIcon from "./icons/metamask.png";
 import okxIcon from "./icons/okx.svg";
 import rabbyIcon from "./icons/rabby.png";
-import tomoIcon from "./icons/tomo.svg";
 import unisatIcon from "./icons/unisat.svg";
-import { TomoWallet, tomoProvider } from "./providers/tomo_wallet";
 import { UnisatWallet, unisatProvider } from "./providers/unisat_wallet";
+import { Xverse, xverseProvider } from "./providers/xverse";
 import { Network } from "./wallet_provider";
 
 interface IntegratedWallet {
@@ -27,6 +26,19 @@ export const walletList: IntegratedWallet[] = [
     wallet: UnisatWallet,
     provider: unisatProvider,
     linkToDocs: "https://unisat.io/",
+    supportedNetworks: [
+      Network.MAINNET,
+      Network.SIGNET,
+      Network.TESTNET,
+      Network.TESTNET4,
+    ],
+  },
+  {
+    name: "Xverse",
+    icon: unisatIcon,
+    wallet: Xverse,
+    provider: xverseProvider,
+    linkToDocs: "https://www.xverse.app/",
     supportedNetworks: [
       Network.MAINNET,
       Network.SIGNET,

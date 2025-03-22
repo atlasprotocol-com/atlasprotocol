@@ -6,10 +6,12 @@ const nativeSegwitAddressLength = 42;
 const taprootAddressLength = 62;
 
 export const toNetwork = (network: string): networks.Network => {
+  console.log("network", network);
   switch (network) {
     case Network.MAINNET:
       return networks.bitcoin;
     case Network.TESTNET:
+    case Network.TESTNET4:
     case Network.SIGNET:
     case "unknown":
       return networks.testnet;

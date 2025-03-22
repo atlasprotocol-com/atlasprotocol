@@ -1,6 +1,7 @@
 "use client";
 
 import React, { Suspense, useEffect, useState } from "react";
+import Wallet from "sats-connect";
 
 import { network } from "@/config/network.config";
 import { useBreakpoint } from "@/hooks/useBreakpoint";
@@ -119,6 +120,19 @@ const Home: React.FC<HomeProps> = () => {
     return () => clearInterval(timer);
   }, [address, refetchBalance]);
 
+  const handleGetInfo = async () => {
+    try {
+      const response1 = await Wallet.request("wallet_connect", null);
+      console.log(response1);
+      // await Wallet.request("wallet_connect", null);
+      const response = await Wallet.request("wallet_getAccount", null);
+
+      console.log(response);
+    } catch (err) {
+      console.log(err);
+    }
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -145,6 +159,7 @@ const Home: React.FC<HomeProps> = () => {
               <div className="flex gap-4 flex-col lg:flex-row">
                 <div className="flex-1 flex flex-col gap-4">
                   <Stats />
+                  <button onClick={handleGetInfo}>Get Info</button>
                   <Card>
                     <div
                       className={`py-6 ${
@@ -159,8 +174,8 @@ const Home: React.FC<HomeProps> = () => {
                       >
                         <TabsList>
                           <TabsTrigger value="stake">Stake</TabsTrigger>
-                          {/* <TabsTrigger value="redeem">Redeem</TabsTrigger>
-                          <TabsTrigger value="bridging">Bridge</TabsTrigger> */}
+                          <TabsTrigger value="redeem">Redeem</TabsTrigger>
+                          <TabsTrigger value="bridging">Bridge</TabsTrigger>
                           {/* <TabsTrigger value="points">Points</TabsTrigger> */}
                         </TabsList>
                         <Suspense fallback={<LoadingSection />}>
@@ -177,7 +192,7 @@ const Home: React.FC<HomeProps> = () => {
                               }
                             />
                           </TabsContent>
-                          {/* <TabsContent value="redeem">
+                          <TabsContent value="redeem">
                             <RequireConnectWallet
                               required={!address}
                               onConnect={handleConnectModal}
@@ -185,7 +200,7 @@ const Home: React.FC<HomeProps> = () => {
                                 <LazyRedeem btcAddress={address} />
                               }
                             />
-                          </TabsContent> */}
+                          </TabsContent>
                         </Suspense>
                         {/* <TabsContent value="bridging">
                           <LazyBridge />

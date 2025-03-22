@@ -1,0 +1,44 @@
+NEXT_PUBLIC_MEMPOOL_API=https://mempool.space
+NEXT_PUBLIC_API_URL=http://localhost:3001
+NEXT_PUBLIC_NETWORK=signet
+
+#NEAR configuration
+NEAR_NETWORK_ID=testnet
+# NEAR_NODE_URL=https://g.w.lavanet.xyz:443/gateway/neart/rpc-http/9279a8512097341e7b261d16cda2327c
+NEAR_NODE_URL=https://rpc.testnet.fastnear.com
+NEAR_WALLET_URL=https://testnet.mynearwallet.com/
+NEAR_HELPER_URL=https://helper.testnet.near.org
+NEAR_EXPLORER_URL=https://testnet.nearblocks.io/
+NEAR_CONTRACT_ID=atlas_revamp_20241201.velar.testnet
+#NEAR_MPC_CONTRACT_ID=v2.multichain-mpc.testnet
+NEAR_MPC_CONTRACT_ID=v1.signer-prod.testnet
+# NEAR_ACCOUNT_ID=velar.testnet
+# NEAR_PRIVATE_KEY=ed25519:KQbAwkrpkQ2zgDubhDAzVpxnaSQC386RTtU8ZTFwti3jpZoLLUQDTZ9bK7xxQPjRJNGrhg3vFsvJskzJ1tM3JKJ
+NEAR_ACCOUNT_ID=velar_admin.testnet
+NEAR_PRIVATE_KEY=ed25519:4ZqNmT2D4LDixks4FjL8HfQ6qnYsoN9eT8P2Fw4hMb2n9HPEK3KZzVTY7bffDQgqx5vkviVihRdgx4jNADcrHvih
+NEAR_DEFAULT_GAS=300000000000000
+
+#BTC configuration
+BTC_ATLAS_DEPOSIT_ADDRESS=tb1qhmzgpx8ep9jq3vm5jpy5ph0wgz32jkxufkwcjd
+
+BTC_MEMPOOL_API_URL=https://mempool.space/signet/api
+BTC_NETWORK=signet
+BTC_DERIVATION_PATH=BITCOIN
+
+EVM_ATLAS_DEPOSIT_ADDRESS=0x18d1032c599f3eba4f4c2744bde466ac87999dec
+
+NEAR_BIT_HIVE_CONTRACT_ID=signet-1.allbtc.testnet
+BITHIVE_RELAYER_URL=https://relayer-signet.bithive.fi
+
+# near call atlas_audit_v20241223.velar.testnet update_max_retry_count '{"max_retry_count": 1}' --accountId velar.testnet
+
+# cd ~/Projects/3tn/atlasvalidator-audit
+# ATLAS_VALIDATOR_CONFIG=./config/config.velar.testnet.json node src/validator.js
+# ATLAS_VALIDATOR_CONFIG=./config/config.yeowlin.testnet.json node src/validator.js
+
+# near call atlas_audit_v20241223.velar.testnet create_mint_abtc_signed_tx '{"btc_txn_hash": "57df3653268f2e89959badc74d5cdcb0186ef164c7874691300825ca0ac96847", "nonce": 1, "gas": 1, "max_fee_per_gas":1, "max_priority_fee_per_gas": 1}' --accountId velar_admin.testnet
+# near call atlas_audit_v20241223.velar.testnet update_deposit_remarks '{"btc_txn_hash": "57df3653268f2e89959badc74d5cdcb0186ef164c7874691300825ca0ac96847", "remarks": "oops, something went wrong"}' --accountId velar_admin.testnet
+
+# near call atlas_audit_v20241223.velar.testnet rollback_deposit_status_by_btc_txn_hash '{"btc_txn_hash": "57df3653268f2e89959badc74d5cdcb0186ef164c7874691300825ca0ac96847"}' --accountId velar.testnet
+
+# near call atlas_audit_v20241223.velar.testnet get_all_deposits --accountId velar.testnet
