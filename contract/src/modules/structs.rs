@@ -23,6 +23,7 @@ pub struct Atlas {
     pub chain_configs: ChainConfigs,
     pub paused: bool,
     pub production_mode: bool,
+    pub btc_pubkey: IterableMap<String, BtcAddressPubKeyRecord>,
 }
 
 #[derive(BorshDeserialize, BorshSerialize, Deserialize, Serialize, Clone)]
@@ -130,3 +131,11 @@ pub struct CreatePayloadResult {
     pub change: u64,
     pub txn_hashes: Vec<String>,
 }
+
+#[derive(BorshDeserialize, BorshSerialize, Deserialize, Serialize, Clone)]
+#[borsh(crate = "near_sdk::borsh")]
+pub struct BtcAddressPubKeyRecord {
+    pub btc_address: String,
+    pub public_key: String,
+}
+    
