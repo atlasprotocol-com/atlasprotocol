@@ -1,7 +1,6 @@
-const { createRelayerClient } = require('@bithive/relayer-api');
+const { createRelayerClient } = require("@bithive/relayer-api");
 
 const { getConstants } = require("../constants");
-
 
 const { flagsBatch } = require("./batchFlags");
 
@@ -38,17 +37,19 @@ async function StakeToYieldProvider(allDeposits, near, bitcoinInstance) {
       }
 
       // Filter deposits that need to be processed
-      const filteredDeposits = allDeposits.filter(
-        (deposit) =>
-          deposit.btc_sender_address !== "" &&
-          deposit.receiving_chain_id !== "" &&
-          deposit.receiving_address !== "" &&
-          deposit.status === DEPOSIT_STATUS.BTC_DEPOSITED_INTO_ATLAS &&
-          deposit.remarks === "" &&
-          deposit.minted_txn_hash === "" &&
-          deposit.btc_amount > 0 &&
-          deposit.date_created > 0,
-      ).slice(0, 1); // Get only first record
+      const filteredDeposits = allDeposits
+        .filter(
+          (deposit) =>
+            deposit.btc_sender_address !== "" &&
+            deposit.receiving_chain_id !== "" &&
+            deposit.receiving_address !== "" &&
+            deposit.status === DEPOSIT_STATUS.BTC_DEPOSITED_INTO_ATLAS &&
+            deposit.remarks === "" &&
+            deposit.minted_txn_hash === "" &&
+            deposit.btc_amount > 0 &&
+            deposit.date_created > 0,
+        )
+        .slice(0, 1); // Get only first record
 
       for (const depositRecord of filteredDeposits) {
         console.log("Processing deposit:", depositRecord);
@@ -102,9 +103,6 @@ async function StakeToYieldProvider(allDeposits, near, bitcoinInstance) {
           await near.updateYieldProviderTxnHash(btcTxnHash, txHash);
 
           console.log(`${batchName} completed successfully.`);
-
-          
-
         } catch (error) {
           let remarks = "";
           console.log("error: ", error);
@@ -130,6 +128,7 @@ async function StakeToYieldProvider(allDeposits, near, bitcoinInstance) {
 
 async function getBithiveDeposits(publicKey) {
   const relayer = createRelayerClient({ url: process.env.BITHIVE_RELAYER_URL });
+
   const deposits = await relayer.user.getDeposits({
     publicKey: publicKey,
   });

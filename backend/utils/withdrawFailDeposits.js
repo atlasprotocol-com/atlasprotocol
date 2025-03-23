@@ -1,7 +1,7 @@
-const bitcoinlib = require("bitcoinjs-lib");
 const { getConstants, fetchAndSetConstants } = require("../constants");
-const { globalParams } = require("../config/globalParams");
-const { createRelayerClient } = require("@bithive/relayer-api");
+const { globalParams, updateGlobalParams } = require("../config/globalParams");
+const unstakingConfig = require("../config/unstakingConfig");
+const bithive = require("../services/bithive");
 
 const { flagsBatch } = require("./batchFlags");
 
@@ -61,83 +61,35 @@ async function WithdrawFailDeposits(allDeposits, near, bitcoin) {
   }
 }
 
-async function WithdrawFailDepositsOfBithive(btcTxnHash, near, bitcoin) {
-  const record = await near.getDepositByBtcTxnHash(btcTxnHash);
-  if (!record) {
-    console.error(`[${btcTxnHash}] not found`);
+async function WithdrawFailDepositsOfBithive(near, bitcoin, btcTxnHash) {
+  const lastUnstakingTime = globalParams.lastUnstakingTime;
+  const unstakingPeriod = await unstakingConfig.getUnstakingPeriod(near);
+  const nextEligibleTime =
+    lastUnstakingTime === 0 ? Date.now() : lastUnstakingTime + unstakingPeriod;
+
+  console.log(
+    `[${btcTxnHash}] last: ${lastUnstakingTime} next: ${nextEligibleTime}`,
+  );
+  if (Date.now() <= nextEligibleTime) {
+    console.error("`${wfdob} Unstaking period has not been reached yet");
     return;
   }
+
+  const record = await near.getDepositByBtcTxnHash(btcTxnHash);
+  if (!record) {
+    throw new Error(`[${btcTxnHash}] not found`);
+  }
   if (!record.yield_provider_txn_hash) {
-    console.error(`[${btcTxnHash}] yield_provider_txn_hash is empty`);
-    return;
+    throw new Error(`[${btcTxnHash}] yield_provider_txn_hash is empty`);
   }
 
   const amount = record.btc_amount - record.yield_provider_gas_fee;
-  if (!Number.isSafeInteger(amount)) {
-    console.error(`[${btcTxnHash}] ${amount} is invalid`);
-    return;
+  if (!Number.isSafeInteger(amount) || amount <= 0) {
+    throw new Error(`[${btcTxnHash}] ${amount} is invalid`);
   }
 
-  const { publicKey, address } = await bitcoin.deriveBTCAddress(near);
-  const pkstr = publicKey.toString("hex");
-  console.log(`[${address}] [${pkstr}] ---> ${amount}`);
-
-  const relayer = createRelayerClient({ url: process.env.BITHIVE_RELAYER_URL });
-  const { account } = await relayer.user.getAccount({
-    publicKey: pkstr,
-  });
-  if (account.pendingSignPsbt) {
-    console.log(
-      `[${address}] [${pkstr}] ${JSON.stringify(pendingSignPsbt, null, 2)}`,
-    );
-  }
-
-  const yptx = record.yield_provider_txn_hash;
-  const { deposit } = await relayer.user.getDeposit({
-    publicKey: pkstr,
-    txHash: yptx,
-  });
-  if (!deposit) {
-    console.error(`[${address}] [${pkstr}] [${yptx}] deposit is empty`);
-    return;
-  }
-
-  const { psbt: unsignedPsbtHex, deposits: depositsToSign } =
-    await relayer.withdraw.buildUnsignedPsbt({
-      publicKey: pkstr,
-      amount,
-      recipientAddress: address,
-    });
-  if (!unsignedPsbtHex) {
-    console.error(`[${address}] [${pkstr}] unsignedPsbtHex is empty`);
-    return;
-  }
-
-  if (!depositsToSign) {
-    console.error(`[${address}] [${pkstr}] depositsToSign is empty`);
-    return;
-  }
-
-  let partiallySignedPsbt = await bitcoin.mpcSignPsbt(near, unsignedPsbtHex);
-  if (!partiallySignedPsbt) {
-    console.error(`[${address}] [${pkstr}] depositsToSign is empty`);
-    return;
-  }
-
-  const { psbt: fullySignedPsbt } = await relayer.withdraw.chainSignPsbt({
-    psbt: partiallySignedPsbt.toHex(),
-  });
-
-  let finalisedPsbt = bitcoinlib.Psbt.fromHex(fullySignedPsbt, {
-    network: bitcoinInstance.network,
-  });
-  console.log("finalisedPsbt ------------------=>", finalisedPsbt);
-
-  const { txHash } = await relayer.withdraw.submitFinalizedPsbt({
-    psbt: fullySignedPsbt,
-  });
-
-  return txHash;
+  await bithive.unstake(bitcoin, near, amount);
+  await bithive.withdraw(bitcoin, near, amount);
 }
 
 module.exports = { WithdrawFailDeposits };
@@ -192,11 +144,11 @@ if (process.argv[1] === __filename) {
 
   near.init().then(async () => {
     await fetchAndSetConstants(near);
-    const tx = await WithdrawFailDepositsOfBithive(
-      process.argv[2],
-      near,
-      bitcoin,
-    );
+    await updateGlobalParams(near);
+
+    const btcTxnHash = process.argv[2];
+
+    const tx = await WithdrawFailDepositsOfBithive(near, bitcoin, btcTxnHash);
     console.log(`Transaction hash: ${tx}`);
   });
 }

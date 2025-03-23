@@ -47,10 +47,9 @@ const {
   UpdateAtlasBtcWithdrawnFromYieldProvider,
 } = require("./utils/updateAtlasBtcWithdrawnFromYieldProvider");
 const { SendBtcBackToUser } = require("./utils/sendBtcBackToUser");
-const {
-  estimateRedemptionFees,
-  estimateBridgingFees,
-} = require("./services/bithive");
+
+const bithive = require("./services/bithive");
+
 const {
   UpdateAtlasBtcBridgingYieldProviderWithdrawn,
 } = require("./utils/updateAtlasBtcBridgingYieldProviderWithdrawn");
@@ -222,7 +221,7 @@ app.get("/api/v1/atlas/redemptionFees", async (req, res) => {
   try {
     const { amount } = req.query;
 
-    const feeData = await estimateRedemptionFees(bitcoin, near, amount);
+    const feeData = await bithive.estimateRedemptionFees(bitcoin, near, amount);
 
     const protocolFee = globalParams.atlasRedemptionFeePercentage * amount;
 
@@ -249,7 +248,7 @@ app.get("/api/v1/atlas/bridgingFees", async (req, res) => {
   try {
     const { amount } = req.query;
 
-    const feeData = await estimateBridgingFees(bitcoin, near, amount);
+    const feeData = await bithive.estimateBridgingFees(bitcoin, near, amount);
 
     console.log("feeData", feeData);
 
@@ -426,6 +425,12 @@ app.get("/api/v1/bithive-deposit", async (req, res) => {
     console.error("Error fetching bithive deposit:", error);
     res.status(500).json({ message: "Error fetching bithive deposit" });
   }
+});
+
+app.get("/api/v1/bithive-account", async (req, res) => {
+  const { publicKey } = await bitcoin.deriveBTCAddress(near);
+  const account = await bithive.getAccount(publicKey.toString("hex"));
+  res.status(200).json(account);
 });
 
 // API endpoint to get derived BTC address
