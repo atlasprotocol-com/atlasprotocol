@@ -504,8 +504,8 @@ app.get("/api/v1/process-new-deposit", async (req, res) => {
       txn,
       near,
       bitcoin,
-      btcConfig.btcAtlasDepositAddress,
-      btcConfig.btcAtlasTreasuryAddress
+      btcAtlasDepositAddress,
+      globalParams.atlasTreasuryAddress
     );
 
     res.json({ 
