@@ -69,6 +69,7 @@ impl Atlas {
             verifications: IterableMap::new(b"f"),
             paused: false,
             production_mode: production_mode,
+            btc_pubkey: IterableMap::new(b"p"),
         }
     }
 
@@ -360,29 +361,6 @@ impl Atlas {
                 CALL_GAS,
             )
             .as_return()
-    }
-
-    #[private]
-    #[init(ignore_state)]
-    pub fn migrate() -> Self {
-        let old_state: Atlas = env::state_read().expect("failed");
-        // add migration code here if we need it
-
-        Self {
-            deposits: old_state.deposits,
-            redemptions: old_state.redemptions,
-            bridgings: old_state.bridgings,
-            owner_id: old_state.owner_id,
-            proposed_owner_id: old_state.proposed_owner_id,
-            admin_id: old_state.admin_id,
-            proposed_admin_id: old_state.proposed_admin_id,
-            global_params: old_state.global_params,
-            chain_configs: old_state.chain_configs,
-            validators: old_state.validators,
-            verifications: old_state.verifications,
-            paused: old_state.paused,
-            production_mode: old_state.production_mode,
-        }
     }
 
     pub fn clear_state(&mut self) {

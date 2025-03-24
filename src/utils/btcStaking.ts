@@ -3,6 +3,8 @@ import * as bitcoin from "bitcoinjs-lib";
 import { ECPairFactory, ECPairInterface } from "ecpair";
 import ecc from "@bitcoinerlab/secp256k1";
 import { Psbt,networks } from "bitcoinjs-lib";
+import { BorshSchema, borshSerialize } from "borsher";
+import zlib from "zlib";
 
 const ECPair = ECPairFactory(ecc);
 bitcoin.initEccLib(ecc);
@@ -39,7 +41,8 @@ export interface UTXO {
     protocolFeeSat: number,
     mintingFeeSat: number,
     treasuryAddress: string,
-    data: string,
+    receivingChainID: string,
+    receivingAddress: string,
     publicKeyNoCoord?: Buffer,
   ) => {
     const psbt = new Psbt({ network: btcWalletNetwork });
@@ -114,11 +117,33 @@ export interface UTXO {
   
     const yieldProviderGasFee = Math.round(feeRate * estimatedSizeYieldProviderGasFee);
 
-    // Embed data in the witness stack with staking fee appended
+    // Define schema for OP_RETURN data
+    const schema = BorshSchema.Struct({
+      n: BorshSchema.String,
+      a: BorshSchema.String,
+      1: BorshSchema.u16,
+      2: BorshSchema.u16,
+      3: BorshSchema.u16,
+    });
+
+    // Prepare data for encoding
+    const messageData = {
+      n: receivingChainID,
+      a: receivingAddress,
+      1: yieldProviderGasFee,
+      2: protocolFeeSat,
+      3: mintingFeeSat
+    };
+
+    // Serialize and compress data
+    const borshEncoded = borshSerialize(schema, messageData);
+    const compressedData = zlib.deflateSync(borshEncoded);
+
+    // Embed compressed data in OP_RETURN output
     psbt.addOutput({
       script: bitcoin.script.compile([
         bitcoin.opcodes.OP_RETURN,
-        Buffer.from(`${data},${yieldProviderGasFee},${protocolFeeSat},${mintingFeeSat}`),
+        compressedData
       ]),
       value: 0,
     });

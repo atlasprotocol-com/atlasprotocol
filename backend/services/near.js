@@ -90,6 +90,7 @@ class Near {
           "get_bridgings_for_yield_provider_by_status_and_timestamp",
           "get_redemptions_to_send_btc",
           "get_bridging_records_to_send_btc",
+          "get_pubkey_by_address",
         ],
         changeMethods: [
           "insert_deposit_btc",
@@ -133,6 +134,7 @@ class Near {
           "create_send_bridging_fees_transaction",
           "update_bridging_sending_fee_to_treasury",
           "set_chain_configs_from_json",
+          "insert_btc_pubkey",
         ],
       });
 
@@ -1374,7 +1376,7 @@ class Near {
                             switch (eventName) {
                               case "ft_mint":
                                 processedEvent = {
-                                  type: "mint_redemption",
+                                  type: "mint_deposit",
                                   btcTxnHash: memo.btc_txn_hash,
                                   receiptId: receipt.id,
                                   transactionHash,
@@ -1559,6 +1561,19 @@ class Near {
     });
   }
 
+  async getPubkeyByAddress(btcAddress) {
+    return this.makeNearRpcViewCall("get_pubkey_by_address", {
+      btc_address: btcAddress,
+    });
+  }
+
+  async insertBtcPubkey(btcAddress, publicKey) {
+    return this.makeNearRpcChangeCall("insert_btc_pubkey", {
+      btc_address: btcAddress,
+      public_key: publicKey,
+    });
+  }
+
   async getPastEventsByMintedTxnHash(mintedTxnHash) {
     try {
       const events = [];
@@ -1596,7 +1611,7 @@ class Near {
           const btcTxnHash = memo.btc_txn_hash;
 
           events.push({
-            type: "mint_redemption",
+            type: "mint_deposit",
             btcTxnHash: btcTxnHash,
             receiptId: receipt.id,
             transactionHash: mintedTxnHash

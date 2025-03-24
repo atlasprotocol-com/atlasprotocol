@@ -21,7 +21,8 @@ export const createStakingTx = (
   protocolFeeSat: number,
   mintingFeeSat: number,
   treasuryAddress: string,
-  data: string,
+  receivingChainID: string,
+  receivingAddress: string,
 ) => {
   if (inputUTXOs.length == 0) {
     throw new Error("Not enough usable balance");
@@ -46,7 +47,8 @@ export const createStakingTx = (
       protocolFeeSat,
       mintingFeeSat,
       treasuryAddress,
-      data,
+      receivingChainID,
+      receivingAddress,
       isTaproot(address) ? Buffer.from(publicKeyNoCoord, "hex") : undefined,
     );
     unsignedStakingPsbt = psbt;
@@ -77,7 +79,8 @@ export const signStakingTx = async (
   protocolFeeSat: number,
   mintingFeeSat: number,
   treasuryAddress: string,
-  data: string,
+  receivingChainID: string,
+  receivingAddress: string,
 ): Promise<{ stakingTxHex: string; txHash: string }> => {
   
   // Create the staking transaction
@@ -92,7 +95,8 @@ export const signStakingTx = async (
     protocolFeeSat,
     mintingFeeSat,
     treasuryAddress,
-    data,
+    receivingChainID,
+    receivingAddress,
   );
 
   // Sign the staking transaction

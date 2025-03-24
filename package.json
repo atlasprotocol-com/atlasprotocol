@@ -48,6 +48,8 @@
     "atlas-protocol": "file:",
     "axios": "1.7.4",
     "bitcoinjs-lib": "6.1.5",
+    "borsh": "^0.7.0",
+    "borsher": "^3.6.0",
     "btc-staking-ts": "0.2.8",
     "class-variance-authority": "0.7.0",
     "date-fns": "3.6.0",

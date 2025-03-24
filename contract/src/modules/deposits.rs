@@ -675,6 +675,10 @@ impl Atlas {
                 }
 
                 match deposit.status {
+                    DEP_BTC_PENDING_MEMPOOL => {
+                        deposit.retry_count += 1;
+                        deposit.remarks.clear();
+                    }
                     DEP_BTC_PENDING_YIELD_PROVIDER_DEPOSIT => {
                         deposit.status = DEP_BTC_DEPOSITED_INTO_ATLAS;
                         deposit.retry_count += 1;

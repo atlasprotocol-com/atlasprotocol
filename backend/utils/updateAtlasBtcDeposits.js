@@ -49,6 +49,7 @@ async function UpdateAtlasBtcDeposits(
       const btcTxnHash = txn.txid;
 
       try {
+        
         await processNewDeposit(txn, near, bitcoin, btcAtlasDepositAddress, treasuryAddress);
       } catch (error) {
         console.error(`Error processing BTC txn hash ${btcTxnHash}:`, error);
@@ -74,6 +75,7 @@ async function processNewDeposit(txn, near, bitcoin, btcAtlasDepositAddress, tre
   
   if (!recordExists) {
     // Insert new deposit record
+    console.log("Insert new deposit record");
 
     const btcSenderAddress = await bitcoin.getBtcSenderAddress(txn);
 

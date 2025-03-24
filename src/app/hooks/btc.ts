@@ -102,7 +102,9 @@ export function useGetStakingFee({
       !inputUTXOs.length ||
       protocolFeeSat === undefined ||
       !treasuryAddress ||
-      !mintingFeeSat
+      !mintingFeeSat ||
+      !receivingChainID ||
+      !receivingAddress
     ) {
       return undefined;
     }
@@ -118,7 +120,8 @@ export function useGetStakingFee({
       protocolFeeSat,
       mintingFeeSat,
       treasuryAddress,
-      `${receivingChainID},${receivingAddress}`,
+      receivingChainID,
+      receivingAddress,
     );
 
     return {
@@ -182,7 +185,8 @@ export function useSignStaking() {
       protocolFeeSat,
       mintingFeeSat,
       treasuryAddress,
-      `${stakingReceivingChainID},${stakingReceivingAddress}`,
+      stakingReceivingChainID,
+      stakingReceivingAddress,
     );
     console.log("Staking tx hex", txHash);
     return txHash;

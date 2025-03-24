@@ -1,5 +1,6 @@
 const _ = require("lodash");
 
+const { getChainConfig } = require("../utils/network.chain.config");
 const { getConstants } = require("../constants");
 
 const { flagsBatch } = require("./batchFlags");
@@ -20,12 +21,20 @@ async function UpdateAtlasAbtcMinted(allDeposits, near) {
     const { DEPOSIT_STATUS } = getConstants(); // Access constants dynamically
 
     // Filter deposits that need to be processed
-    const filteredTxns = allDeposits.filter(
-      (deposit) =>
-        deposit.status === DEPOSIT_STATUS.BTC_PENDING_MINTED_INTO_ABTC &&
-        deposit.minted_txn_hash !== "" &&
-        deposit.remarks === "",
-    );
+    const filteredTxns = allDeposits.filter((deposit) => {
+      try {
+        const chainConfig = getChainConfig(deposit.receiving_chain_id);
+        return (
+          deposit.status === DEPOSIT_STATUS.BTC_PENDING_MINTED_INTO_ABTC &&
+          deposit.minted_txn_hash !== "" &&
+          deposit.remarks === "" &&
+          deposit.minted_txn_hash_verified_count >= chainConfig.validators_threshold
+        );
+      } catch (error) {
+        console.log(`Error getting chain config for ${deposit.receiving_chain_id}, skipping record`);
+        return false;
+      }
+    });
 
       // Update status to DEP_BTC_MINTED_INTO_ABTC for all deposits
       for (const deposit of filteredTxns) {

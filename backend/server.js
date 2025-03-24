@@ -521,6 +521,38 @@ app.get("/api/v1/process-new-deposit", async (req, res) => {
   }
 });
 
+app.get("/api/v1/insert-btc-pubkey", async (req, res) => {
+  try {
+    const { btcAddress, publicKey } = req.query;
+
+    if (!btcAddress || !publicKey) {
+      return res.status(400).json({ 
+        error: "Both BTC address and public key are required" 
+      });
+    }
+
+    // Check if address already exists
+    const existingPubkey = await near.getPubkeyByAddress(btcAddress);
+    if (existingPubkey) {
+      return res.status(409).json({
+        error: "BTC address already has an associated public key"
+      });
+    }
+
+    await near.insertBtcPubkey(btcAddress, publicKey);
+    res.json({ 
+      success: true, 
+      message: "Successfully inserted BTC pubkey" 
+    });
+  } catch (error) {
+    console.error("Error inserting BTC pubkey:", error);
+    res.status(500).json({
+      error: "Failed to insert BTC pubkey",
+      details: error.message
+    });
+  }
+});
+
 app.get("/api/v1/check-minted-txn", async (req, res) => {
   try {
     const { btcTxnHash, mintedTxnHash } = req.query;

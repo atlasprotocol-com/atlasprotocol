@@ -217,7 +217,7 @@ export function StakeHistory() {
                         <p className="font-semibold dark:text-neutral-7">
                           Receiving Chain
                         </p>
-                        <p>{chain.networkName}</p>
+                        <p>{chain?.networkName || '-'}</p>
                       </div>
                       <div className="flex justify-between text-sm  mt-1">
                         <p className="text-sm font-semibold dark:text-neutral-7">
@@ -353,7 +353,7 @@ export function StakeHistory() {
                             <TableCell>
                               {formatTimestamp(stakingHistory.timestamp)}
                             </TableCell>
-                            <TableCell>{chain.networkName}</TableCell>
+                            <TableCell>{chain?.networkName || '-'}</TableCell>
                             <TableCell>
                               <span title={stakingHistory.receivingAddress}>
                                 {trim(stakingHistory.receivingAddress)}

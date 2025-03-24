@@ -41,17 +41,24 @@ async function StakeToYieldProvider(allDeposits, near, bitcoinInstance) {
       const filteredDeposits = allDeposits
         .filter(
           (deposit) => {
-            const chainConfig = getChainConfig(deposit.receiving_chain_id);
-            return deposit.btc_sender_address !== "" &&
-              deposit.receiving_chain_id !== "" &&
-              deposit.receiving_address !== "" &&
-              deposit.status === DEPOSIT_STATUS.BTC_DEPOSITED_INTO_ATLAS &&
-              deposit.remarks === "" &&
-              deposit.minted_txn_hash === "" &&
-              deposit.btc_amount > 0 &&
-              deposit.date_created > 0 &&
-              chainConfig &&
-              deposit.verified_count >= chainConfig.validators_threshold;
+            try {
+              if (deposit.remarks === "") {
+                const chainConfig = getChainConfig(deposit.receiving_chain_id);
+                return deposit.btc_sender_address !== "" &&
+                  deposit.receiving_chain_id !== "" &&
+                  deposit.receiving_address !== "" &&
+                  deposit.status === DEPOSIT_STATUS.BTC_DEPOSITED_INTO_ATLAS &&
+                  deposit.remarks === "" &&
+                  deposit.minted_txn_hash === "" &&
+                  deposit.btc_amount > 0 &&
+                  deposit.date_created > 0 &&
+                  deposit.verified_count >= chainConfig.validators_threshold;
+              }
+            } catch (error) {
+              const remarks = `Chain config not found for chain ID: ${deposit.receiving_chain_id}`;
+              near.updateDepositRemarks(deposit.btc_txn_hash, remarks);
+              return false;
+            }
           }
         )
         .slice(0, 1); // Get only first record
