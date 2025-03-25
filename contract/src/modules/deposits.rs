@@ -85,13 +85,6 @@ impl Atlas {
         }
         assert!(minting_fee > 0, "Minting fee must be greater than zero");
         
-
-
-        // let global_params = self.get_all_global_params();
-        // let global_params_json = serde_json::to_value(&global_params).unwrap();
-        // let fee_deposit_bps = global_params_json["fee_deposit_bps"].as_u64().unwrap() as u16;
-        // let protocol_fee: u64 = (fee_deposit_bps as u64 * btc_amount) / 10000;
-
         let record = DepositRecord {
             btc_txn_hash: btc_txn_hash.clone(),
             btc_sender_address,
@@ -123,24 +116,6 @@ impl Atlas {
         );
 
         self.deposits.get(&btc_txn_hash).cloned()
-    }
-
-    /// Returns all deposits associated with a specific BTC sender address
-    /// @param btc_sender_address - The BTC sender address to search for
-    /// @returns Vec<DepositRecord> - A vector of all deposits from this sender
-    pub fn get_deposit_by_btc_sender_address(&self, btc_sender_address: String) -> Vec<DepositRecord> {
-        // Validate that the btc_sender_address is not empty
-        assert!(
-            !btc_sender_address.is_empty(),
-            "BTC sender address cannot be empty"
-        );
-
-        // Filter deposits by the given sender address and collect them into a vector
-        self.deposits
-            .values()
-            .filter(|deposit| deposit.btc_sender_address == btc_sender_address)
-            .cloned()
-            .collect()
     }
 
     /// Returns the final BTC amount after subtracting all fees (protocol fee, yield provider gas fee, and minting fee)
@@ -510,74 +485,6 @@ impl Atlas {
         } else {
             env::panic_str("Deposit record not found");
         }
-    }
-
-    pub fn get_first_valid_user_deposit(&self) -> Option<(String, u64, u64, u64, u64)> {
-        for (key, deposit) in self.deposits.iter() {
-            if deposit.btc_sender_address != ""
-                && deposit.receiving_chain_id != ""
-                && deposit.receiving_address != ""
-                && deposit.status == DEP_BTC_DEPOSITED_INTO_ATLAS
-                && deposit.remarks == ""
-                && deposit.minted_txn_hash == ""
-                && deposit.btc_amount > 0  // Add btc amount check
-                && deposit.date_created > 0
-            // Add date created check
-            // This will stop re-minting as no one can update this once minted
-            {
-                // Get the chain config using deposit.receiving_chain_id
-                if let Some(chain_config) = self
-                    .chain_configs
-                    .get_chain_config(deposit.receiving_chain_id.clone())
-                {
-                    // Check if the verified_count meets or exceeds the validators_threshold
-                    if deposit.verified_count >= chain_config.validators_threshold {
-                        log!(
-                            "Deposit's verified_count ({}) meets or exceeds the validators_threshold ({})",
-                            deposit.verified_count,
-                            chain_config.validators_threshold
-                        );
-                        return Some((key.clone(), deposit.btc_amount.clone(), deposit.yield_provider_gas_fee.clone(), deposit.protocol_fee.clone(), deposit.minting_fee.clone())); // Return the key and the ChainConfigRecord as a tuple
-                    }
-                }
-            }
-        }
-
-        None // If no matching deposit or chain config is found, return None
-    }
-
-    pub fn get_first_valid_deposit_chain_config(&self) -> Option<(String, ChainConfigRecord)> {
-        for (key, deposit) in self.deposits.iter() {
-            if deposit.btc_sender_address != ""
-                && deposit.receiving_chain_id != ""
-                && deposit.receiving_address != ""
-                && deposit.status == DEP_BTC_YIELD_PROVIDER_DEPOSITED
-                && deposit.remarks == ""
-                && deposit.minted_txn_hash == ""
-                && deposit.btc_amount > 0  // Add btc amount check
-                && deposit.date_created > 0
-            // Add date created check
-            // This will stop re-minting as no one can update this once minted
-            {
-                // Get the chain config using deposit.receiving_chain_id
-                if let Some(chain_config) = self
-                    .chain_configs
-                    .get_chain_config(deposit.receiving_chain_id.clone())
-                {
-                    // Check if the verified_count meets or exceeds the validators_threshold
-                    if deposit.verified_count >= chain_config.validators_threshold {
-                        log!(
-                            "Deposit's verified_count ({}) meets or exceeds the validators_threshold ({})",
-                            deposit.verified_count,
-                            chain_config.validators_threshold
-                        );
-                        return Some((key.clone(), chain_config)); // Return the key and the ChainConfigRecord as a tuple
-                    }
-                }
-            }
-        }
-
-        None // If no matching deposit or chain config is found, return None
     }
 
     pub fn rollback_all_deposit_status(&mut self) {
@@ -1358,30 +1265,5 @@ impl Atlas {
         } else {
             env::panic_str("Deposit is not found.");
         }
-    }
-
-    /// Returns a vector of unique BTC sender addresses from all deposits
-    /// The addresses are returned in no particular order
-    pub fn get_unique_btc_sender_addresses(&self) -> Vec<String> {
-        let mut unique_addresses = std::collections::HashSet::new();
-        
-        // Iterate through all deposits and collect unique addresses
-        for deposit in self.deposits.values() {
-            if !deposit.btc_sender_address.is_empty() {
-                unique_addresses.insert(deposit.btc_sender_address.clone());
-            }
-        }
-        
-        // Convert the HashSet to a Vec and return
-        unique_addresses.into_iter().collect()
-    }
-
-    /// Returns a vector of deposits that have non-empty remarks
-    pub fn get_deposits_with_remarks(&self) -> Vec<DepositRecord> {
-        self.deposits
-            .values()
-            .filter(|deposit| !deposit.remarks.is_empty())
-            .cloned()
-            .collect()
     }
 }

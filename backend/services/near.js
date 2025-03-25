@@ -77,12 +77,10 @@ class Near {
           "get_all_chain_configs",
           "get_all_constants",
           "get_chain_config_by_chain_id",
-          "get_first_valid_deposit_chain_config",
           "get_first_valid_redemption",
           "get_bridging_by_txn_hash",
           "get_all_bridgings",
           "get_first_valid_bridging_chain_config",
-          "get_first_valid_user_deposit",
           "get_first_valid_user_redemption",
           "get_first_valid_bridging_fees_unstake",
           "get_first_valid_bridging_fees_unstaked",
@@ -253,14 +251,6 @@ class Near {
     return this.makeNearRpcViewCall("get_chain_config_by_chain_id", {
       chain_id: chainId,
     });
-  }
-
-  async getFirstValidDepositChainConfig() {
-    return this.makeNearRpcViewCall("get_first_valid_deposit_chain_config", {});
-  }
-
-  async getFirstValidUserDeposit() {
-    return this.makeNearRpcViewCall("get_first_valid_user_deposit", {});
   }
 
   async getFirstValidUserRedemption() {
