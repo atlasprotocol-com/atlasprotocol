@@ -552,7 +552,7 @@ impl Atlas {
                     || bridging.dest_chain_id != mempool_bridging.dest_chain_id
                     || bridging.dest_chain_address != mempool_bridging.dest_chain_address
                     || bridging.abtc_amount != mempool_bridging.abtc_amount
-                    || bridging.timestamp != mempool_bridging.timestamp
+                    //|| bridging.timestamp != mempool_bridging.timestamp       /* bridging.timestamp is being updated upon any status change */
                     || bridging.status != mempool_bridging.status
                     || bridging.remarks != mempool_bridging.remarks
                 {

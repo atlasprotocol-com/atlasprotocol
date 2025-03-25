@@ -614,8 +614,23 @@ impl Atlas {
                     }
 
                     match deposit.status {
+                        DEP_BTC_PENDING_MEMPOOL => {
+                            deposit.retry_count += 1;
+                            deposit.remarks.clear();
+                            Some((key.clone(), deposit)) // Clone the key and return the updated deposit
+                        }
+                        DEP_BTC_DEPOSITED_INTO_ATLAS => {
+                            deposit.retry_count += 1;
+                            deposit.remarks.clear();
+                            Some((key.clone(), deposit)) // Clone the key and return the updated deposit
+                        }
                         DEP_BTC_PENDING_YIELD_PROVIDER_DEPOSIT => {
                             deposit.status = DEP_BTC_DEPOSITED_INTO_ATLAS;
+                            deposit.retry_count += 1;
+                            deposit.remarks.clear();
+                            Some((key.clone(), deposit)) // Clone the key and return the updated deposit
+                        }
+                        DEP_BTC_YIELD_PROVIDER_DEPOSITED => {
                             deposit.retry_count += 1;
                             deposit.remarks.clear();
                             Some((key.clone(), deposit)) // Clone the key and return the updated deposit
@@ -679,13 +694,12 @@ impl Atlas {
                         deposit.retry_count += 1;
                         deposit.remarks.clear();
                     }
-                    DEP_BTC_PENDING_YIELD_PROVIDER_DEPOSIT => {
-                        deposit.status = DEP_BTC_DEPOSITED_INTO_ATLAS;
+                    DEP_BTC_DEPOSITED_INTO_ATLAS => {
                         deposit.retry_count += 1;
                         deposit.remarks.clear();
                     }
-                    DEP_BTC_PENDING_MINTED_INTO_ABTC => {
-                        deposit.status = DEP_BTC_YIELD_PROVIDER_DEPOSITED;
+                    DEP_BTC_PENDING_YIELD_PROVIDER_DEPOSIT => {
+                        deposit.status = DEP_BTC_DEPOSITED_INTO_ATLAS;
                         deposit.retry_count += 1;
                         deposit.remarks.clear();
                     }
@@ -693,6 +707,11 @@ impl Atlas {
                         deposit.retry_count += 1;
                         deposit.remarks.clear();
                     }
+                    DEP_BTC_PENDING_MINTED_INTO_ABTC => {
+                        deposit.status = DEP_BTC_YIELD_PROVIDER_DEPOSITED;
+                        deposit.retry_count += 1;
+                        deposit.remarks.clear();
+                    }                    
                     _ => {
                         // No action needed for other statuses
                     }
@@ -1053,7 +1072,7 @@ impl Atlas {
                     || deposit.receiving_address != mempool_deposit.receiving_address
                     || deposit.btc_amount != mempool_deposit.btc_amount
                     || deposit.protocol_fee != mempool_deposit.protocol_fee
-                    || deposit.timestamp != mempool_deposit.timestamp
+                    //|| deposit.timestamp != mempool_deposit.timestamp         /* deposit.timestamp is being updated upon any status change */
                     || deposit.status != DEP_BTC_DEPOSITED_INTO_ATLAS
                     || deposit.remarks != mempool_deposit.remarks
                 {
