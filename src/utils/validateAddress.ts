@@ -4,6 +4,8 @@ import Web3 from "web3";
 
 import { network } from "@/config/network.config";
 
+import { isValidNearAddress } from "../../backend/services/address";
+
 import { Network } from "./wallet/wallet_provider";
 // Function to validate an address based on the network type
 export const isValidAddress = (
@@ -40,7 +42,7 @@ export function validateBlockchainAddress({
         return false;
       }
 
-      if (!NEAR_BASE_REGEX.test(address)) {
+      if (!isValidNearAddress(address)) {
         return false;
       }
 
