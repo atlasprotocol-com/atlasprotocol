@@ -45,12 +45,13 @@ pub struct DepositRecord {
     pub yield_provider_txn_hash: String,
     pub retry_count: u8,
     pub minted_txn_hash_verified_count: u8,
+    pub custody_txn_id: String,
 }
 
 #[derive(BorshDeserialize, BorshSerialize, Deserialize, Serialize, Clone)]
 #[borsh(crate = "near_sdk::borsh")]
 pub struct RedemptionRecord {
-    pub txn_hash: String,                   //`${chain.chainID}${DELIMITER.COMMA}${transactionHash}`
+    pub txn_hash: String, //`${chain.chainID}${DELIMITER.COMMA}${transactionHash}`
     pub abtc_redemption_address: String,
     pub abtc_redemption_chain_id: String,
     pub btc_receiving_address: String,

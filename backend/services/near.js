@@ -100,6 +100,7 @@ class Near {
           "update_deposit_minted_txn_hash",
           "update_deposit_minted",
           "update_deposit_btc_deposited",
+          "update_deposit_custody_txn_id",
           "create_atlas_signed_payload",
           "create_redeem_abtc_transaction",
           "update_redemption_pending_btc_mempool",
@@ -292,6 +293,13 @@ class Near {
         btc_txn_hash: btcTxnHash,
       },
     );
+  }
+
+  async updateDepositCustodyTxnId(btc_txn_hash, custody_txn_id) {
+    return this.makeNearRpcChangeCall("update_deposit_custody_txn_id", {
+      btc_txn_hash,
+      custody_txn_id,
+    });
   }
 
   async updateRedemptionPendingYieldProviderUnstake(txnHash) {
