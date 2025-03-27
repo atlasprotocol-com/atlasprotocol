@@ -2,6 +2,7 @@ const { exec } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 const ExcelJS = require("exceljs");
+const axios = require('axios');
 
 /**
  * Removes all curly braces from the remarks field value.
@@ -244,16 +245,89 @@ async function exportToExcel(deposits) {
 }
 
 /**
+ * Fetches UTXO data from mempool.space API
+ */
+async function fetchUTXOs() {
+  try {
+    const response = await axios.get('https://mempool.space/testnet4/api/address/tb1q9ruq3vlgj79l27euc2wq79wxzae2t86z4adkkv/utxo');
+    return response.data;
+  } catch (error) {
+    console.error('Failed to fetch UTXOs:', error);
+    throw error;
+  }
+}
+
+/**
+ * Exports UTXO records to an Excel file using ExcelJS
+ */
+async function exportUTXOsToExcel(utxos) {
+  const workbook = new ExcelJS.Workbook();
+  const worksheet = workbook.addWorksheet("UTXOs");
+  
+  // Define columns
+  worksheet.columns = [
+    { header: "Transaction ID", key: "txid", width: 70 },
+    { header: "Output Index", key: "vout", width: 15 },
+    { header: "Value (satoshis)", key: "value", width: 20 },
+    { header: "Confirmed", key: "confirmed", width: 15 },
+    { header: "Block Height", key: "block_height", width: 15 },
+    { header: "Block Hash", key: "block_hash", width: 70 },
+    { header: "Block Time", key: "block_time", width: 20 },
+  ];
+  
+  // Add data rows
+  utxos.forEach(utxo => {
+    worksheet.addRow({
+      txid: utxo.txid,
+      vout: utxo.vout,
+      value: utxo.value,
+      confirmed: utxo.status.confirmed,
+      block_height: utxo.status.block_height,
+      block_hash: utxo.status.block_hash,
+      block_time: utxo.status.block_time,
+    });
+  });
+  
+  // Style the header row
+  worksheet.getRow(1).font = { bold: true };
+  
+  const filePath = path.join(__dirname, "UTXOs.xlsx");
+  await workbook.xlsx.writeFile(filePath);
+  console.log(`✅ Successfully exported ${utxos.length} UTXO records to ${filePath}`);
+}
+
+/**
+ * Main function to fetch and export UTXOs
+ */
+async function fetchAndExportUTXOs() {
+  try {
+    console.log("⏳ Fetching UTXO records from mempool.space...");
+    const utxos = await fetchUTXOs();
+    console.log(`✅ Retrieved ${utxos.length} UTXO records.`);
+    
+    console.log("⏳ Exporting UTXOs to Excel...");
+    await exportUTXOsToExcel(utxos);
+  } catch (error) {
+    console.error("❌ Error:", error);
+  }
+}
+
+/**
  * Main function to execute the process.
  */
 async function main() {
   try {
+    // Existing deposits export
     console.log("⏳ Fetching deposit records from NEAR...");
     const deposits = await fetchDeposits();
     console.log(`✅ Retrieved ${deposits.length} deposit records.`);
     
-    console.log("⏳ Exporting to Excel...");
+    console.log("⏳ Exporting deposits to Excel...");
     await exportToExcel(deposits);
+
+    // New UTXO export
+    //await fetchAndExportUTXOs();
+
   } catch (error) {
     console.error("❌ Error:", error);
   }
