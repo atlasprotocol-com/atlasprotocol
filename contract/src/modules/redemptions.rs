@@ -998,7 +998,7 @@ impl Atlas {
                         != mempool_redemption.abtc_redemption_chain_id
                     || redemption.btc_receiving_address != mempool_redemption.btc_receiving_address
                     || redemption.abtc_amount != mempool_redemption.abtc_amount
-                    || redemption.timestamp != mempool_redemption.timestamp
+                    //|| redemption.timestamp != mempool_redemption.timestamp       /* redemption.timestamp is being updated upon any status change */
                     || redemption.status != RED_ABTC_BURNT
                     || redemption.remarks != mempool_redemption.remarks
                 {

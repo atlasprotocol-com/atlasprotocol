@@ -18,7 +18,6 @@ async function UpdateAtlasBtcDeposited(depositRecords, near, bitcoinInstance) {
 
     const { DEPOSIT_STATUS } = getConstants();
     const currentBlockHeight = await bitcoinInstance.getCurrentBlockHeight();
-    console.log("Current block height:", currentBlockHeight);
 
     const filteredRecords = depositRecords.filter(
       (record) =>

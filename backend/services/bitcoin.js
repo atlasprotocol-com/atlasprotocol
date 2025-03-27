@@ -2,10 +2,8 @@ const axios = require("axios");
 const ethers = require("ethers");
 const bitcoin = require("bitcoinjs-lib");
 const ecc = require("@bitcoinerlab/secp256k1");
-const { base_decode } = require("near-api-js/lib/utils/serialize");
-const hash = require("hash.js");
-const bs58check = require("bs58check");
-const { send } = require("process");
+const { BorshSchema, borshSerialize, borshDeserialize } = require('borsher');
+const zlib = require('zlib');
 
 const {
   derivep2wpkhChildPublicKey,
@@ -17,8 +15,29 @@ const { getConstants } = require("../constants");
 
 const { magicHash } = require('./message');
 
+
 // Initialize ECC library
 bitcoin.initEccLib(ecc);
+
+// Define the schema for our data structure - using minimal field names and optimal types
+const schema = BorshSchema.Struct({
+  n: BorshSchema.String,  // network -> n
+  a: BorshSchema.String,  // address -> a
+  1: BorshSchema.u16,  // num1 -> 1
+  2: BorshSchema.u16,  // num2 -> 2
+  3: BorshSchema.u16,  // num3 -> 3
+});
+
+// Data class
+class OpReturnData {
+  constructor(props) {
+      this.n = props.n;
+      this.a = props.a;
+      this[1] = props[1];
+      this[2] = props[2];
+      this[3] = props[3];
+  }
+}
 
 class Bitcoin {
   constructor(chain_rpc, network) {
@@ -443,18 +462,33 @@ class Bitcoin {
         const scriptPubKey = Buffer.from(vout.scriptpubkey, "hex");
         const chunks = bitcoin.script.decompile(scriptPubKey);
         if (chunks[0] === bitcoin.opcodes.OP_RETURN) {
-          const embeddedData = chunks[1].toString("utf-8");
+          const embeddedData = chunks[1];
 
-          [chain, address, yieldProviderGasFee, protocolFee, mintingFee] = embeddedData.split(",");
-          
-          return {
-            chain,
-            address,
-            yieldProviderGasFee: Number(yieldProviderGasFee),
-            protocolFee: Number(protocolFee),
-            mintingFee: Number(mintingFee),
-            remarks,
-          };
+          try {
+            // First try the new compressed format
+            const decoded = await this.decodeOpReturnData(embeddedData);
+            return {
+              chain: decoded.n,
+              address: decoded.a,
+              yieldProviderGasFee: Number(decoded[1]),
+              protocolFee: Number(decoded[2]),
+              mintingFee: Number(decoded[3]),
+              remarks,
+            };
+          } catch (decodeError) {
+            // If decoding fails, try the old comma-separated format
+            const dataStr = embeddedData.toString("utf-8");
+            [chain, address, yieldProviderGasFee, protocolFee, mintingFee] = dataStr.split(",");
+            
+            return {
+              chain,
+              address,
+              yieldProviderGasFee: Number(yieldProviderGasFee),
+              protocolFee: Number(protocolFee),
+              mintingFee: Number(mintingFee),
+              remarks,
+            };
+          }
         }
       }
 
@@ -464,64 +498,6 @@ class Bitcoin {
       //console.error(remarks);
       return { chain, address, yieldProviderGasFee: Number(yieldProviderGasFee), remarks };
     }
-  }
-
-  // Function which returns the btc txn hash and timestamp based on OP_RETURN code
-  // Function which returns the btc txn hash, timestamp, and confirmation status based on OP_RETURN code
-  async getTxnHashAndTimestampFromOpReturnCode(
-    btcMempool,
-    address,
-    redemptionTimestamp,
-    opReturnCode,
-  ) {
-    let btcTxnHash = null;
-    let timestamp = null;
-    let hasConfirmed = false; // Add hasConfirmed status
-
-    try {
-      const filteredTxns = btcMempool.data.filter((txn) => {
-        // Check if the transaction has any input matching the deposit address
-        const hasMatchingInput = txn.vin.some(
-          (vin) => vin.prevout.scriptpubkey_address === address,
-        );
-
-        // Check if the transaction's block time is greater than the redemption time
-        const hasValidBlockTime =
-          txn.status.block_time >= redemptionTimestamp ||
-          !txn.status.block_time;
-
-        // Check if the transaction has any output with the OP_RETURN data matching the provided opReturnCode
-        const hasOpReturnData = txn.vout.some((vout) => {
-          const opReturnData = this.decodeOpReturn(vout.scriptpubkey);
-          return opReturnData === opReturnCode;
-        });
-
-        return hasMatchingInput && hasValidBlockTime && hasOpReturnData;
-      });
-
-      // Check if any records were found
-      if (filteredTxns.length > 0) {
-        const txn = filteredTxns[0];
-        btcTxnHash = txn.txid;
-        timestamp = txn.status.block_time;
-        hasConfirmed = txn.status.confirmed; // Get the confirmation status
-      }
-
-      return { btcTxnHash, timestamp, hasConfirmed }; // Return the hasConfirmed status
-    } catch (error) {
-      throw new Error(
-        `Error from getTxnHashAndTimestampFromOpReturnCode: ${error.message}`,
-      );
-    }
-  }
-
-  // Function to decode OP_RETURN data
-  decodeOpReturn(scriptPubKey) {
-    const script = bitcoin.script.decompile(Buffer.from(scriptPubKey, "hex"));
-    if (script[0] === bitcoin.opcodes.OP_RETURN) {
-      return script[1].toString("utf-8");
-    }
-    return null;
   }
 
   // Fetch BTC mempool data and getting unconfirmed transaction time for a particular txn
@@ -589,6 +565,16 @@ class Bitcoin {
   async fetchTxnByTxnID(txnID) {
     const axioConfig = {
       url: `${this.chain_rpc}/tx/${txnID}`,
+      method: "get",
+    };
+    const response = await fetchWithRetry(axioConfig);
+
+    return response.data;
+  }
+
+  async fetchTxSpentByTxnID(txnID) {
+    const axioConfig = {
+      url: `${this.chain_rpc}/tx/${txnID}/outspend/0`,
       method: "get",
     };
     const response = await fetchWithRetry(axioConfig);
@@ -693,11 +679,7 @@ class Bitcoin {
   async mpcSignPsbt(near,psbtHex) {
     // Parse the PSBT
     const psbt = bitcoin.Psbt.fromHex(psbtHex, {network: this.network});
-    console.log("Full PSBT:", psbt);
-    console.log("PSBT data:", psbt.data);
-    console.log("PSBT inputs:", psbt.data.inputs);
-    console.log("PSBT outputs:", psbt.data.outputs);
-    console.log("PSBT version:", psbt.version);
+    
     const { publicKey } = await this.deriveBTCAddress(near);
     const sign = async (tx) => {
       
@@ -744,6 +726,70 @@ class Bitcoin {
     ]);
 
     return signature;
+  }
+
+  async getUtxosByTxid(depositAddress,txid) {
+    try {
+      const response = await axios.get(
+        `${this.chain_rpc}/address/${depositAddress}/utxo`,
+      );
+      
+      // Filter UTXOs by txid and transform to UtxoId format
+      const utxos = response.data
+        .filter(utxo => utxo.txid === txid)
+        .map(utxo => ({
+          txHash: utxo.txid,
+          vout: utxo.vout
+        }));
+
+      return utxos;
+    } catch (error) {
+      console.error('Error fetching UTXOs by txid:', error.message);
+      throw new Error(`Failed to get UTXOs for transaction ${txid}: ${error.message}`);
+    }
+  }
+
+  async findSpendingTransaction(txid) {
+    try {
+      // Fetch the original transaction
+      const txn = await this.fetchTxSpentByTxnID(txid);
+      console.log("txn.vot: ", txn);
+
+      if (txn.spent) {
+        return txn.txid;
+      }
+
+      return "";
+    } catch (error) {
+      console.error('Error finding spending transaction:', error.message);
+      throw new Error(`Failed to find spending transaction for ${txid}: ${error.message}`);
+    }
+  }
+
+  // Encoding functions
+  async encodeOpReturnData(message) {
+    const messageRaw = {
+        n: message.n,
+        a: message.a,
+        1: message[1],
+        2: message[2],
+        3: message[3],
+    };
+    const borshEncoded = borshSerialize(schema, messageRaw);
+    return zlib.deflateSync(borshEncoded); // Further compress using zlib
+  }
+
+  // Decoding functions
+  async decodeOpReturnData(buffer) {
+    const decompressed = zlib.inflateSync(buffer); // Decompress first
+    const messageRaw = borshDeserialize(schema, decompressed);
+    return new OpReturnData({
+        n: messageRaw.n,
+        a: messageRaw.a,
+        1: messageRaw[1],
+        2: messageRaw[2],
+        3: messageRaw[3],
+    });
   }
 }
 

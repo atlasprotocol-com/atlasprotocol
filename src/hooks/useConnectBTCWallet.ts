@@ -13,8 +13,10 @@ import {
 import { WalletError, WalletErrorType } from "@/utils/wallet/errors";
 import { walletList } from "@/utils/wallet/list";
 import { WalletProvider } from "@/utils/wallet/wallet_provider";
+import { apiWrapper } from "@/app/api/apiWrapper";
 
 import { useCallbackRef } from "./useCallbackRef";
+
 
 export function useConnectBTCWallet({
   onSuccessfulConnect,
@@ -47,14 +49,33 @@ export function useConnectBTCWallet({
         }
 
         const balanceSat = await walletProvider.getBalance();
+        const publicHeyHex = await walletProvider.getPublicKeyHex();
         const publicKeyNoCoord = getPublicKeyNoCoord(
-          await walletProvider.getPublicKeyHex(),
+          publicHeyHex,
         );
+        console.log("Connected wallet public key:",publicHeyHex);
+
         setBTCWallet(walletProvider);
         setBTCWalletBalanceSat(balanceSat);
         setBTCWalletNetwork(toNetwork(await walletProvider.getNetwork()));
         setAddress(address);
         setPublicKeyNoCoord(publicKeyNoCoord.toString("hex"));
+        
+        // Call the API to insert BTC public key
+        try {
+          await apiWrapper(
+            "GET", 
+            "/api/v1/insert-btc-pubkey",
+            "Error inserting BTC public key",
+            {
+              btcAddress: address,
+              publicKey: publicHeyHex
+            }
+          );
+        } catch (error) {
+          console.error("Error inserting BTC public key:", error);
+        }
+
         onSuccessfulConnectRef();
         localStorage.setItem(
           "ATLAS_CONNECTED_WALLET",

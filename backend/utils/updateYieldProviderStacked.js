@@ -36,25 +36,39 @@ async function UpdateYieldProviderStacked(allDeposits, near, bitcoinInstance) {
         publicKey: publicKeyString,
       });
       console.log("Number of yield provider records:", deposits.length);
-      for (let i = 0; i < filteredTxns.length; i++) {
-        const txn = filteredTxns[i];
-        const deposit = deposits.find(d => d.depositTxHash === txn.yield_provider_txn_hash);
-        
-        if (!deposit) {
-          console.log(
-            `Deposit not found for txHash: ${txn.yield_provider_txn_hash}`,
+      for (const txn of filteredTxns) {
+        try {
+          const deposit = deposits.find(
+            (d) => d.depositTxHash === txn.yield_provider_txn_hash,
           );
-          continue;
-        }
 
-        const ok =
-          deposit.status === BITHIVE_STATUS.DEPOSIT_CONFIRMED ||
-          deposit.status === BITHIVE_STATUS.DEPOSIT_CONFIRMED_INVALID ||
-          deposit.status === BITHIVE_STATUS.WITHDRAW_CONFIRMED;
-        if (!ok) {
-          continue;
+          if (!deposit) {
+            throw new Error(
+              `Deposit not found in yield provider for txHash: ${txn.yield_provider_txn_hash}`,
+            );
+          }
+
+          if (deposit.status === DEPOSIT_STATUS.DEPOSIT_FAILED) {
+            throw new Error(
+              `Yield provider deposit returned failed for txHash: ${txn.yield_provider_txn_hash}`,
+            );
+          }
+
+          const ok =
+            deposit.status === BITHIVE_STATUS.DEPOSIT_CONFIRMED ||
+            deposit.status === BITHIVE_STATUS.DEPOSIT_CONFIRMED_INVALID ||
+            deposit.status === BITHIVE_STATUS.WITHDRAW_CONFIRMED;
+          if (!ok) {
+            continue;
+          }
+          await near.updateDepositYieldProviderDeposited(txn.btc_txn_hash);
+        } catch (error) {
+          console.log(
+            "Error updating stake to yield provider deposited:",
+            error,
+          );
+          await near.updateDepositRemarks(txn.btc_txn_hash, error);
         }
-        await near.updateDepositYieldProviderDeposited(txn.btc_txn_hash);
       }
     } catch (error) {
       console.log("Error updating stake to yield provider deposited:", error);

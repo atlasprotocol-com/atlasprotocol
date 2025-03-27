@@ -8,7 +8,7 @@ dotenv.config({ path: envFile });
 
 const { globalParams, updateGlobalParams } = require("./config/globalParams");
 const { getTransactionsAndComputeStats } = require("./utils/transactionStats");
-const { UpdateAtlasBtcDeposits } = require("./utils/updateAtlasBtcDeposits");
+const { UpdateAtlasBtcDeposits, processNewDeposit } = require("./utils/updateAtlasBtcDeposits");
 const { WithdrawFailDeposits } = require("./utils/withdrawFailDeposits");
 const {
   UpdateWithdrawFailDeposits,
@@ -19,6 +19,7 @@ const {
 const {
   MintBridgeABtcToDestChain,
 } = require("./utils/mintBridgeABtcToDestChain");
+const { checkAndUpdateMintedTxnHash } = require("./helpers/checkAndUpdateMintedTxnHash");
 
 const {
   UpdateAtlasBtcBackToUser,
@@ -189,6 +190,7 @@ const getBtcMempoolRecords = async () => {
   try {
     //console.log("Fetching Btc Mempool Records");
     btcMempool = await bitcoin.fetchTxnsByAddress(btcAtlasDepositAddress);
+    //btcMempool = await bitcoin.fetchUTXOs(btcAtlasDepositAddress);
   } catch (error) {
     console.error(`Failed to fetch Btc Mempool records: ${error.message}`);
   }
@@ -482,6 +484,109 @@ app.get("/subquery", async (req, res) => {
   res.json(data);
 });
 
+app.get("/api/v1/process-new-deposit", async (req, res) => {
+  try {
+    const { btcTxnHash } = req.query;
+
+    if (!btcTxnHash) {
+      return res.status(400).json({ error: "BTC transaction hash is required" });
+    }
+
+    // Fetch transaction from mempool
+    const txn = await bitcoin.fetchTxnByTxnID(btcTxnHash);
+    
+    if (!txn) {
+      return res.status(404).json({ error: "Transaction not found in mempool" });
+    }
+
+    // Process the deposit
+    await processNewDeposit(
+      txn,
+      near,
+      bitcoin,
+      btcAtlasDepositAddress,
+      globalParams.atlasTreasuryAddress
+    );
+
+    res.json({ 
+      success: true,
+      message: `Successfully processed deposit for BTC transaction ${btcTxnHash}`
+    });
+  } catch (error) {
+    console.error("Error processing new deposit:", error);
+    res.status(500).json({ 
+      error: "Failed to process new deposit",
+      details: error.message 
+    });
+  }
+});
+
+app.get("/api/v1/insert-btc-pubkey", async (req, res) => {
+  try {
+    const { btcAddress, publicKey } = req.query;
+
+    if (!btcAddress || !publicKey) {
+      return res.status(400).json({ 
+        error: "Both BTC address and public key are required" 
+      });
+    }
+
+    // Check if address already exists
+    const existingPubkey = await near.getPubkeyByAddress(btcAddress);
+    if (existingPubkey) {
+      return res.status(409).json({
+        error: "BTC address already has an associated public key"
+      });
+    }
+
+    await near.insertBtcPubkey(btcAddress, publicKey);
+    res.json({ 
+      success: true, 
+      message: "Successfully inserted BTC pubkey" 
+    });
+  } catch (error) {
+    console.error("Error inserting BTC pubkey:", error);
+    res.status(500).json({
+      error: "Failed to insert BTC pubkey",
+      details: error.message
+    });
+  }
+});
+
+app.get("/api/v1/check-minted-txn", async (req, res) => {
+  try {
+    const { btcTxnHash, mintedTxnHash } = req.query;
+
+    if (!btcTxnHash) {
+      return res.status(400).json({ error: "BTC transaction hash is required" });
+    }
+
+    if (!mintedTxnHash) {
+      return res.status(400).json({ error: "Minted transaction hash is required" });
+    }
+
+    const result = await checkAndUpdateMintedTxnHash(btcTxnHash, near, mintedTxnHash);
+
+    if (result) {
+      res.json({ 
+        success: true,
+        message: `Successfully found and processed mint deposit event for BTC transaction ${btcTxnHash}`
+      });
+    } else {
+      res.json({ 
+        success: false,
+        message: `No mint deposit event found for BTC transaction ${btcTxnHash}`
+      });
+    }
+  } catch (error) {
+    console.error("Error checking minted transaction:", error);
+    res.status(500).json({ 
+      error: "Failed to check minted transaction",
+      details: error.message 
+    });
+  }
+});
+
 async function runBatch() {
   await getBtcMempoolRecords();
   await getAllDepositHistory();
@@ -508,6 +613,7 @@ async function runBatch() {
   await StakeToYieldProvider(deposits, near, bitcoin);
   await UpdateYieldProviderStacked(deposits, near, bitcoin);
   await MintaBtcToReceivingChain(deposits, near);
+  
   await UpdateAtlasAbtcMinted(deposits, near);
 
   await WithdrawFailDeposits(deposits, near, bitcoin);

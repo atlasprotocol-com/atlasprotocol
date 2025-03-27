@@ -324,29 +324,43 @@ impl Atlas {
 
         // Check if the deposit exists for the given btc_txn_hash
         if let Some(mut deposit) = self.deposits.get(&btc_txn_hash).cloned() {
-            // Check all specified conditions
-            if deposit.status == DEP_BTC_DEPOSITED_INTO_ATLAS
-                && deposit.remarks.is_empty()
-                && deposit.minted_txn_hash.is_empty()
-            {
-                // All conditions are met, proceed to update the deposit status
-                deposit.status = DEP_BTC_PENDING_YIELD_PROVIDER_DEPOSIT;
-                deposit.timestamp = env::block_timestamp() / 1_000_000_000;
-                self.deposits.insert(btc_txn_hash.clone(), deposit);
-                log!(
-                    "Deposit status updated to DEP_BTC_PENDING_YIELD_DEPOSIT for btc_txn_hash: {}",
-                    btc_txn_hash
-                );
+            // Fetch chain configuration for the bitcoin deposit
+            let chain_id = if self.is_production_mode() {
+                BITCOIN.to_string()
             } else {
-                // Log a message if conditions are not met
-                log!(
-                    "Conditions not met for updating deposit status for btc_txn_hash: {}. 
-                      Status: {}, Remarks: {}, Minted txn hash: {}",
-                    btc_txn_hash,
-                    deposit.status,
-                    deposit.remarks,
-                    deposit.minted_txn_hash
-                );
+                TESTNET4.to_string()
+            };
+
+            if let Some(chain_config) = self.chain_configs.get_chain_config(chain_id.clone()) {
+                // Check all specified conditions including validator threshold
+                if deposit.status == DEP_BTC_DEPOSITED_INTO_ATLAS
+                    && deposit.remarks.is_empty()
+                    && deposit.minted_txn_hash.is_empty()
+                    && deposit.verified_count >= chain_config.validators_threshold
+                {
+                    // All conditions are met, proceed to update the deposit status
+                    deposit.status = DEP_BTC_PENDING_YIELD_PROVIDER_DEPOSIT;
+                    deposit.timestamp = env::block_timestamp() / 1_000_000_000;
+                    self.deposits.insert(btc_txn_hash.clone(), deposit);
+                    log!(
+                        "Deposit status updated to DEP_BTC_PENDING_YIELD_DEPOSIT for btc_txn_hash: {}",
+                        btc_txn_hash
+                    );
+                } else {
+                    // Log a message if conditions are not met
+                    log!(
+                        "Conditions not met for updating deposit status for btc_txn_hash: {}. 
+                          Status: {}, Remarks: {}, Minted txn hash: {}, Verified count: {}, Threshold: {}",
+                        btc_txn_hash,
+                        deposit.status,
+                        deposit.remarks,
+                        deposit.minted_txn_hash,
+                        deposit.verified_count,
+                        chain_config.validators_threshold
+                    );
+                }
+            } else {
+                env::panic_str("Chain configuration not found for receiving chain ID");
             }
         } else {
             env::panic_str("Deposit record not found");
@@ -365,29 +379,43 @@ impl Atlas {
 
         // Check if the deposit exists for the given btc_txn_hash
         if let Some(mut deposit) = self.deposits.get(&btc_txn_hash).cloned() {
-            // Check all specified conditions
-            if deposit.status == DEP_BTC_PENDING_YIELD_PROVIDER_DEPOSIT
-                && deposit.remarks.is_empty()
-                && deposit.minted_txn_hash.is_empty()
-            {
-                // All conditions are met, proceed to update the deposit status
-                deposit.status = DEP_BTC_YIELD_PROVIDER_DEPOSITED;
-                deposit.timestamp = env::block_timestamp() / 1_000_000_000;
-                self.deposits.insert(btc_txn_hash.clone(), deposit);
-                log!(
-                    "Deposit status updated to DEP_BTC_YIELD_PROVIDER_DEPOSITED for btc_txn_hash: {}",
-                    btc_txn_hash
-                );
+            // Fetch chain configuration for the bitcoin deposit
+            let chain_id = if self.is_production_mode() {
+                BITCOIN.to_string()
             } else {
-                // Log a message if conditions are not met
-                log!(
-                    "Conditions not met for updating deposit status for btc_txn_hash: {}. 
-                      Status: {}, Remarks: {}, Minted txn hash: {}",
-                    btc_txn_hash,
-                    deposit.status,
-                    deposit.remarks,
-                    deposit.minted_txn_hash
-                );
+                TESTNET4.to_string()
+            };
+
+            if let Some(chain_config) = self.chain_configs.get_chain_config(chain_id.clone()) {
+                // Check all specified conditions including validator threshold
+                if deposit.status == DEP_BTC_PENDING_YIELD_PROVIDER_DEPOSIT
+                    && deposit.remarks.is_empty()
+                    && deposit.minted_txn_hash.is_empty()
+                    && deposit.verified_count >= chain_config.validators_threshold
+                {
+                    // All conditions are met, proceed to update the deposit status
+                    deposit.status = DEP_BTC_YIELD_PROVIDER_DEPOSITED;
+                    deposit.timestamp = env::block_timestamp() / 1_000_000_000;
+                    self.deposits.insert(btc_txn_hash.clone(), deposit);
+                    log!(
+                        "Deposit status updated to DEP_BTC_YIELD_PROVIDER_DEPOSITED for btc_txn_hash: {}",
+                        btc_txn_hash
+                    );
+                } else {
+                    // Log a message if conditions are not met
+                    log!(
+                        "Conditions not met for updating deposit status for btc_txn_hash: {}. 
+                          Status: {}, Remarks: {}, Minted txn hash: {}, Verified count: {}, Threshold: {}",
+                        btc_txn_hash,
+                        deposit.status,
+                        deposit.remarks,
+                        deposit.minted_txn_hash,
+                        deposit.verified_count,
+                        chain_config.validators_threshold
+                    );
+                }
+            } else {
+                env::panic_str("Chain configuration not found for receiving chain ID");
             }
         } else {
             env::panic_str("Deposit record not found");
@@ -602,8 +630,23 @@ impl Atlas {
                     }
 
                     match deposit.status {
+                        DEP_BTC_PENDING_MEMPOOL => {
+                            deposit.retry_count += 1;
+                            deposit.remarks.clear();
+                            Some((key.clone(), deposit)) // Clone the key and return the updated deposit
+                        }
+                        DEP_BTC_DEPOSITED_INTO_ATLAS => {
+                            deposit.retry_count += 1;
+                            deposit.remarks.clear();
+                            Some((key.clone(), deposit)) // Clone the key and return the updated deposit
+                        }
                         DEP_BTC_PENDING_YIELD_PROVIDER_DEPOSIT => {
                             deposit.status = DEP_BTC_DEPOSITED_INTO_ATLAS;
+                            deposit.retry_count += 1;
+                            deposit.remarks.clear();
+                            Some((key.clone(), deposit)) // Clone the key and return the updated deposit
+                        }
+                        DEP_BTC_YIELD_PROVIDER_DEPOSITED => {
                             deposit.retry_count += 1;
                             deposit.remarks.clear();
                             Some((key.clone(), deposit)) // Clone the key and return the updated deposit
@@ -647,6 +690,8 @@ impl Atlas {
                 && !deposit.receiving_address.is_empty()
             //&& !deposit.remarks.is_empty()
             //&& deposit.retry_count < max_retry_count
+                && !deposit.remarks.is_empty()
+            //&& deposit.retry_count < max_retry_count
             {
                 // If receiving chain ID is EVM and receiving address is not a valid EVM address, do not rollback
                 if let Some(chain_config) = self
@@ -663,17 +708,25 @@ impl Atlas {
                 }
 
                 match deposit.status {
+                    DEP_BTC_PENDING_MEMPOOL => {
+                        deposit.retry_count += 1;
+                        deposit.remarks.clear();
+                    }
+                    DEP_BTC_DEPOSITED_INTO_ATLAS => {
+                        deposit.retry_count += 1;
+                        deposit.remarks.clear();
+                    }
                     DEP_BTC_PENDING_YIELD_PROVIDER_DEPOSIT => {
                         deposit.status = DEP_BTC_DEPOSITED_INTO_ATLAS;
                         deposit.retry_count += 1;
                         deposit.remarks.clear();
                     }
-                    DEP_BTC_PENDING_MINTED_INTO_ABTC => {
-                        deposit.status = DEP_BTC_YIELD_PROVIDER_DEPOSITED;
+                    DEP_BTC_YIELD_PROVIDER_DEPOSITED => {
                         deposit.retry_count += 1;
                         deposit.remarks.clear();
                     }
-                    DEP_BTC_YIELD_PROVIDER_DEPOSITED => {
+                    DEP_BTC_PENDING_MINTED_INTO_ABTC => {
+                        deposit.status = DEP_BTC_YIELD_PROVIDER_DEPOSITED;
                         deposit.retry_count += 1;
                         deposit.remarks.clear();
                     }
@@ -1040,7 +1093,7 @@ impl Atlas {
                     || deposit.receiving_address != mempool_deposit.receiving_address
                     || deposit.btc_amount != mempool_deposit.btc_amount
                     || deposit.protocol_fee != mempool_deposit.protocol_fee
-                    || deposit.timestamp != mempool_deposit.timestamp
+                    //|| deposit.timestamp != mempool_deposit.timestamp         /* deposit.timestamp is being updated upon any status change */
                     || deposit.status != DEP_BTC_DEPOSITED_INTO_ATLAS
                     || deposit.remarks != mempool_deposit.remarks
                 {
