@@ -1,3 +1,6 @@
+// This script exports deposit records from NEAR to an Excel file.
+// It also fetches UTXO records from mempool.space API and exports them to an Excel file.
+
 const { exec } = require("child_process");
 const fs = require("fs");
 const path = require("path");
