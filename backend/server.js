@@ -29,8 +29,8 @@ const {
 } = require("./utils/updateAtlasAbtcMintedTxnHash");
 const { UpdateAtlasAbtcMinted } = require("./utils/updateAtlasAbtcMinted");
 const {
-  UpdateYieldProviderStacked,
-} = require("./utils/updateYieldProviderStacked");
+  UpdateYieldProviderStaked,
+} = require("./utils/updateYieldProviderStaked");
 const {
   fetchAndSetChainConfigs,
   getAllChainConfig,
@@ -477,8 +477,8 @@ app.get("/api/derived-address", async (req, res) => {
 
 app.get("/subquery", async (req, res) => {
   const data = {
-    arbitrum: await getTxsOfNetwork("arbitrum"),
-    optimism: await getTxsOfNetwork("optimism"),
+    // arbitrum: await getTxsOfNetwork("arbitrum"),
+    // optimism: await getTxsOfNetwork("optimism"),
     near: await getTxsOfNetwork("near"),
   };
   res.json(data);
@@ -611,7 +611,7 @@ async function runBatch() {
   );
   await UpdateAtlasBtcDeposited(deposits, near, bitcoin);
   await StakeToYieldProvider(deposits, near, bitcoin);
-  await UpdateYieldProviderStacked(deposits, near, bitcoin);
+  await UpdateYieldProviderStaked(deposits, near, bitcoin);
   await MintaBtcToReceivingChain(deposits, near);
   
   await UpdateAtlasAbtcMinted(deposits, near);
