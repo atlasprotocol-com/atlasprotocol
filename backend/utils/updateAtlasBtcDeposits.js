@@ -120,7 +120,7 @@ async function processNewDeposit(txn, near, bitcoin, btcAtlasDepositAddress, tre
         mintingFee,
         timestamp,
         remarks,
-        timestamp,
+        txn.status.block_time,
         yieldProviderGasFee,
         ""
       );
