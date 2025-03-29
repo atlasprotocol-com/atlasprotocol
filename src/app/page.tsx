@@ -79,6 +79,7 @@ const Home: React.FC<HomeProps> = () => {
     handleDisconnectBTC,
     formattedBalance,
     refetchBalance,
+    manualMinusBalance,
   } = useConnectBTCWallet({
     onSuccessfulConnect: () => {
       setConnectModalOpen(false);
@@ -128,6 +129,7 @@ const Home: React.FC<HomeProps> = () => {
         btcPublicKeyNoCoord: publicKeyNoCoord,
         btcNetwork: btcWalletNetwork,
         btcRefreshBalance: refetchBalance,
+        btcManualMinusBalance: manualMinusBalance,
       }}
     >
       <TooltipProvider>

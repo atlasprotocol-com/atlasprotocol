@@ -1,6 +1,7 @@
 import { networks } from "bitcoinjs-lib";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { apiWrapper } from "@/app/api/apiWrapper";
 import { useError } from "@/app/context/Error/ErrorContext";
 import { ErrorState } from "@/app/types/errors";
 import { satoshiToBtc } from "@/utils/btcConversions";
@@ -13,10 +14,8 @@ import {
 import { WalletError, WalletErrorType } from "@/utils/wallet/errors";
 import { walletList } from "@/utils/wallet/list";
 import { WalletProvider } from "@/utils/wallet/wallet_provider";
-import { apiWrapper } from "@/app/api/apiWrapper";
 
 import { useCallbackRef } from "./useCallbackRef";
-
 
 export function useConnectBTCWallet({
   onSuccessfulConnect,
@@ -26,6 +25,9 @@ export function useConnectBTCWallet({
   const onSuccessfulConnectRef = useCallbackRef(onSuccessfulConnect);
   const [btcWallet, setBTCWallet] = useState<WalletProvider | undefined>();
   const [btcWalletBalanceSat, setBTCWalletBalanceSat] = useState<number>(0);
+  const [btcManualMinusBalance, setBTCManualMinusBalance] = useState<
+    number | undefined
+  >(undefined);
   const [btcWalletNetwork, setBTCWalletNetwork] = useState<
     networks.Network | undefined
   >();
@@ -33,6 +35,10 @@ export function useConnectBTCWallet({
 
   const [address, setAddress] = useState<string>("");
   const { showError } = useError();
+
+  const currentBalance = useMemo(() => {
+    return btcManualMinusBalance ? btcManualMinusBalance : btcWalletBalanceSat;
+  }, [btcManualMinusBalance, btcWalletBalanceSat]);
 
   const handleConnectBTC = useCallback(
     async (walletProvider: WalletProvider) => {
@@ -50,27 +56,25 @@ export function useConnectBTCWallet({
 
         const balanceSat = await walletProvider.getBalance();
         const publicHeyHex = await walletProvider.getPublicKeyHex();
-        const publicKeyNoCoord = getPublicKeyNoCoord(
-          publicHeyHex,
-        );
-        console.log("Connected wallet public key:",publicHeyHex);
+        const publicKeyNoCoord = getPublicKeyNoCoord(publicHeyHex);
+        console.log("Connected wallet public key:", publicHeyHex);
 
         setBTCWallet(walletProvider);
         setBTCWalletBalanceSat(balanceSat);
         setBTCWalletNetwork(toNetwork(await walletProvider.getNetwork()));
         setAddress(address);
         setPublicKeyNoCoord(publicKeyNoCoord.toString("hex"));
-        
+
         // Call the API to insert BTC public key
         try {
           await apiWrapper(
-            "GET", 
+            "GET",
             "/api/v1/insert-btc-pubkey",
             "Error inserting BTC public key",
             {
               btcAddress: address,
-              publicKey: publicHeyHex
-            }
+              publicKey: publicHeyHex,
+            },
           );
         } catch (error) {
           console.error("Error inserting BTC public key:", error);
@@ -140,18 +144,34 @@ export function useConnectBTCWallet({
   }, [btcWallet, handleConnectBTC]);
 
   const formattedBalance = useMemo(() => {
-    return maxDecimals(satoshiToBtc(btcWalletBalanceSat), 8) || 0;
-  }, [btcWalletBalanceSat]);
+    return maxDecimals(satoshiToBtc(currentBalance), 8) || 0;
+  }, [currentBalance]);
 
   const refetchBalance = useCallback(async () => {
     if (btcWallet) {
-      setBTCWalletBalanceSat(await btcWallet.getBalance());
+      const balance = await btcWallet.getBalance();
+
+      if (
+        btcManualMinusBalance !== undefined &&
+        balance !== btcWalletBalanceSat
+      ) {
+        setBTCManualMinusBalance(undefined);
+      }
+
+      setBTCWalletBalanceSat(balance);
     }
-  }, [btcWallet]);
+  }, [btcManualMinusBalance, btcWallet, btcWalletBalanceSat]);
+
+  const manualMinusBalance = useCallback(
+    (balance: number) => {
+      setBTCManualMinusBalance(Math.max(0, currentBalance - balance));
+    },
+    [currentBalance],
+  );
 
   return {
     btcWallet,
-    btcWalletBalanceSat,
+    btcWalletBalanceSat: currentBalance,
     btcWalletNetwork,
     publicKeyNoCoord,
     address,
@@ -159,5 +179,7 @@ export function useConnectBTCWallet({
     handleDisconnectBTC,
     formattedBalance,
     refetchBalance,
+    btcManualMinusBalance,
+    manualMinusBalance,
   };
 }
