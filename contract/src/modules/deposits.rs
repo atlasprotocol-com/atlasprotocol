@@ -798,7 +798,7 @@ impl Atlas {
 
                         if path == EVM.to_string() {
                             // Check if the receiving address is a valid EVM address
-                            if !Self::is_valid_eth_address(deposit.receiving_address.clone()) {
+                            if (!Self::is_valid_eth_address(deposit.receiving_address.clone())) {
                                 // Set remarks if the address is not a valid EVM address
                                 let error_msg =
                                     "Receiving address is not a valid EVM address".to_string();
@@ -1400,7 +1400,7 @@ impl Atlas {
 
         // Retrieve the redemption record based on txn_hash
         if let Some(mut deposit) = self.deposits.get(&btc_txn_hash.clone()).cloned() {
-            if deposit.status == DEP_BTC_REFUNDING && !deposit.yield_provider_txn_hash.is_empty() {
+            if deposit.status == DEP_BTC_REFUNDING && !deposit.custody_txn_id.is_empty() {
                 deposit.status = DEP_BTC_REFUNDED;
                 self.deposits.insert(btc_txn_hash.clone(), deposit);
             } else {
@@ -1434,5 +1434,35 @@ impl Atlas {
             .filter(|deposit| !deposit.remarks.is_empty())
             .cloned()
             .collect()
+    }
+
+    /// Updates specific fields of a deposit record identified by its txn_hash
+    pub fn update_deposit(
+        &mut self,
+        txn_hash: String,
+        status: u8,
+        remarks: String,
+        retry_count: u8,
+        verified_count: u8,
+        custody_txn_id: String,
+    ) {
+        // Validate input parameters
+        assert!(!txn_hash.is_empty(), "Transaction hash cannot be empty");
+
+        // Retrieve the deposit record based on txn_hash
+        if let Some(mut deposit) = self.deposits.get(&txn_hash).cloned() {
+            deposit.status = status;
+            deposit.remarks = remarks;
+            deposit.retry_count = retry_count;
+            deposit.verified_count = verified_count;
+            deposit.custody_txn_id = custody_txn_id;
+
+            // Update the deposit record in the map
+            self.deposits.insert(txn_hash.clone(), deposit);
+
+            log!("Deposit updated successfully for txn_hash: {}", txn_hash);
+        } else {
+            env::panic_str("Deposit record not found");
+        }
     }
 }

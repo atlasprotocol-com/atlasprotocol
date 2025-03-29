@@ -119,6 +119,7 @@ class Near {
           "update_redemption_pending_yield_provider_withdraw",
           "update_redemption_yield_provider_withdrawing",
           "update_redemption_yield_provider_withdrawn",
+          "update_withdraw_fail_deposit_status",
           "create_abtc_accept_ownership_tx",
           "withdraw_fail_deposit_by_btc_tx_hash",
           "rollback_deposit_status_by_btc_txn_hash",
@@ -712,7 +713,11 @@ class Near {
                 const btcTxnHash = memo.btc_txn_hash; // Extract btc_txn_hash
                 const transactionHash = txResult.transaction.hash;
 
-                events.push({ btcTxnHash, transactionHash, receiptId: receipt.id });
+                events.push({
+                  btcTxnHash,
+                  transactionHash,
+                  receiptId: receipt.id,
+                });
 
                 return events;
               }
@@ -1575,12 +1580,12 @@ class Near {
   async getPastEventsByMintedTxnHash(mintedTxnHash) {
     try {
       const events = [];
-      
+
       const txResult = await this.provider.txStatus(
         mintedTxnHash,
-        this.contract_id
+        this.contract_id,
       );
-      
+
       // Find receipt with ft_mint event
       const receipt = txResult.receipts_outcome.find((outcome) =>
         outcome.outcome.logs.some((log) => {
@@ -1590,7 +1595,7 @@ class Near {
           } catch (e) {
             return false;
           }
-        })
+        }),
       );
 
       if (receipt) {
@@ -1612,14 +1617,17 @@ class Near {
             type: "mint_deposit",
             btcTxnHash: btcTxnHash,
             receiptId: receipt.id,
-            transactionHash: mintedTxnHash
+            transactionHash: mintedTxnHash,
           });
         }
       }
 
       return events;
     } catch (error) {
-      console.error("Error getting past events by minted transaction hash:", error);
+      console.error(
+        "Error getting past events by minted transaction hash:",
+        error,
+      );
       return [];
     }
   }

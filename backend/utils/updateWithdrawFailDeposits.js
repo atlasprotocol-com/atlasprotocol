@@ -1,6 +1,5 @@
 const { getConstants } = require("../constants");
-const { globalParams } = require("../config/globalParams");
-//const { handleCoboTransaction } = require("./coboIntegration");
+const bitcoin = require("../services/bitcoin");
 
 const { flagsBatch } = require("./batchFlags");
 
@@ -13,10 +12,7 @@ async function UpdateWithdrawFailDeposits(allDeposits, near, bitcoin) {
   console.log(`${batchName}. Start run ...`);
 
   const { DEPOSIT_STATUS } = getConstants();
-  const depositAddress =
-    process.env.USE_COBO === "true"
-      ? process.env.COBO_DEPOSIT_ADDRESS
-      : process.env.BTC_ATLAS_DEPOSIT_ADDRESS;
+  const depositAddress = process.env.BTC_ATLAS_DEPOSIT_ADDRESS;
   if (!depositAddress) {
     console.error(
       "Neither COBO_DEPOSIT_ADDRESS nor BTC_ATLAS_DEPOSIT_ADDRESS is set",
@@ -26,22 +22,22 @@ async function UpdateWithdrawFailDeposits(allDeposits, near, bitcoin) {
 
   try {
     const refundingDeposits = allDeposits.filter(
-      (d) => d.status === DEPOSIT_STATUS.DEP_BTC_REFUNDING,
+      (d) =>
+        d.status === DEPOSIT_STATUS.DEP_BTC_REFUNDING && !!d.custody_txn_id,
     );
 
     for (let deposit of refundingDeposits) {
-      let btcTxnHash, timestamp, hasConfirmed;
+      const tx = await bitcoin.fetchTxnByTxnID(deposit.custody_txn_id);
+      const confirmed = tx && tx.status && tx.status.confirmed;
 
-      if (process.env.USE_COBO === "true" && deposit.custody_txn_id !== "") {
-        // ({ btcTxnHash, timestamp, hasConfirmed } = await handleCoboTransaction(
-        //   deposit.custody_txn_id,
-        // ));
-      } else {
-        // @TODO: implement non COBO integration
-      }
-
-      if (btcTxnHash && hasConfirmed) {
-        await near.updateWithdrawFailDepositStatus(btcTxnHash, timestamp);
+      console.log(
+        `[${deposit.btc_txn_hash}] withdraw_tx: ${deposit.custody_txn_id} status: ${tx.status.confirmed}`,
+      );
+      if (confirmed) {
+        await near.updateWithdrawFailDepositStatus(
+          deposit.btc_txn_hash,
+          tx.status.block_time,
+        );
       }
     }
 

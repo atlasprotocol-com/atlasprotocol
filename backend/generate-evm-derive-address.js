@@ -10,10 +10,7 @@ const envFile = process.env.NODE_ENV === "production" ? ".env" : ".env.local";
 dotenv.config({ path: envFile });
 
 const btcConfig = {
-  btcAtlasDepositAddress:
-    process.env.USE_COBO === "true"
-      ? process.env.COBO_DEPOSIT_ADDRESS
-      : process.env.BTC_ATLAS_DEPOSIT_ADDRESS,
+  btcAtlasDepositAddress: process.env.BTC_ATLAS_DEPOSIT_ADDRESS,
   btcAPI: process.env.BTC_MEMPOOL_API_URL,
   btcNetwork: process.env.BTC_NETWORK,
   btcDerivationPath: process.env.BTC_DERIVATION_PATH,

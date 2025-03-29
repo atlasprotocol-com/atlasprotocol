@@ -13,10 +13,7 @@ async function WithdrawFailDeposits(allDeposits, near, bitcoin) {
   console.log(`${batchName}. Start run ...`);
 
   const { DEPOSIT_STATUS } = getConstants();
-  const depositAddress =
-    process.env.USE_COBO === "true"
-      ? process.env.COBO_DEPOSIT_ADDRESS
-      : process.env.BTC_ATLAS_DEPOSIT_ADDRESS;
+  const depositAddress = process.env.BTC_ATLAS_DEPOSIT_ADDRESS;
   if (!depositAddress) {
     console.error(
       "Neither COBO_DEPOSIT_ADDRESS nor BTC_ATLAS_DEPOSIT_ADDRESS is set",
@@ -50,13 +47,8 @@ async function WithdrawFailDeposits(allDeposits, near, bitcoin) {
         fee_rate: await bitcoin.fetchFeeRate(),
       });
 
-      if (process.env.USE_COBO === "true") {
-        // If USE_COBO is true, run the Cobo integration logic
-        //await runWithdrawFailDepositCoboIntegration(result.btc_txn_hash, near);
-      } else {
-        console.log(`WithdrawFailDeposits: ${result.btc_txn_hash}`);
-        await runWithdrawFailDepositIntegration(near, bitcoin, result);
-      }
+      console.log(`WithdrawFailDeposits: ${result.btc_txn_hash}`);
+      await runWithdrawFailDepositIntegration(near, bitcoin, result);
     }
   } catch (error) {
     console.error(`Error ${batchName}:`, error);

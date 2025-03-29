@@ -8,7 +8,10 @@ dotenv.config({ path: envFile });
 
 const { globalParams, updateGlobalParams } = require("./config/globalParams");
 const { getTransactionsAndComputeStats } = require("./utils/transactionStats");
-const { UpdateAtlasBtcDeposits, processNewDeposit } = require("./utils/updateAtlasBtcDeposits");
+const {
+  UpdateAtlasBtcDeposits,
+  processNewDeposit,
+} = require("./utils/updateAtlasBtcDeposits");
 const { WithdrawFailDeposits } = require("./utils/withdrawFailDeposits");
 const {
   UpdateWithdrawFailDeposits,
@@ -19,7 +22,9 @@ const {
 const {
   MintBridgeABtcToDestChain,
 } = require("./utils/mintBridgeABtcToDestChain");
-const { checkAndUpdateMintedTxnHash } = require("./helpers/checkAndUpdateMintedTxnHash");
+const {
+  checkAndUpdateMintedTxnHash,
+} = require("./helpers/checkAndUpdateMintedTxnHash");
 
 const {
   UpdateAtlasBtcBackToUser,
@@ -152,10 +157,10 @@ const getAllDepositHistory = async (limit = 1000) => {
     while (hasMore) {
       const items = await near.getAllDeposits(offset, limit);
       records = records.concat(items);
-      
+
       offset += limit;
       hasMore = items.length === limit;
-      
+
       console.log("Deposits records:", records.length);
     }
 
@@ -489,14 +494,18 @@ app.get("/api/v1/process-new-deposit", async (req, res) => {
     const { btcTxnHash } = req.query;
 
     if (!btcTxnHash) {
-      return res.status(400).json({ error: "BTC transaction hash is required" });
+      return res
+        .status(400)
+        .json({ error: "BTC transaction hash is required" });
     }
 
     // Fetch transaction from mempool
     const txn = await bitcoin.fetchTxnByTxnID(btcTxnHash);
-    
+
     if (!txn) {
-      return res.status(404).json({ error: "Transaction not found in mempool" });
+      return res
+        .status(404)
+        .json({ error: "Transaction not found in mempool" });
     }
 
     // Process the deposit
@@ -505,18 +514,18 @@ app.get("/api/v1/process-new-deposit", async (req, res) => {
       near,
       bitcoin,
       btcAtlasDepositAddress,
-      globalParams.atlasTreasuryAddress
+      globalParams.atlasTreasuryAddress,
     );
 
-    res.json({ 
+    res.json({
       success: true,
-      message: `Successfully processed deposit for BTC transaction ${btcTxnHash}`
+      message: `Successfully processed deposit for BTC transaction ${btcTxnHash}`,
     });
   } catch (error) {
     console.error("Error processing new deposit:", error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: "Failed to process new deposit",
-      details: error.message 
+      details: error.message,
     });
   }
 });
@@ -526,8 +535,8 @@ app.get("/api/v1/insert-btc-pubkey", async (req, res) => {
     const { btcAddress, publicKey } = req.query;
 
     if (!btcAddress || !publicKey) {
-      return res.status(400).json({ 
-        error: "Both BTC address and public key are required" 
+      return res.status(400).json({
+        error: "Both BTC address and public key are required",
       });
     }
 
@@ -535,20 +544,20 @@ app.get("/api/v1/insert-btc-pubkey", async (req, res) => {
     const existingPubkey = await near.getPubkeyByAddress(btcAddress);
     if (existingPubkey) {
       return res.status(409).json({
-        error: "BTC address already has an associated public key"
+        error: "BTC address already has an associated public key",
       });
     }
 
     await near.insertBtcPubkey(btcAddress, publicKey);
-    res.json({ 
-      success: true, 
-      message: "Successfully inserted BTC pubkey" 
+    res.json({
+      success: true,
+      message: "Successfully inserted BTC pubkey",
     });
   } catch (error) {
     console.error("Error inserting BTC pubkey:", error);
     res.status(500).json({
       error: "Failed to insert BTC pubkey",
-      details: error.message
+      details: error.message,
     });
   }
 });
@@ -558,31 +567,39 @@ app.get("/api/v1/check-minted-txn", async (req, res) => {
     const { btcTxnHash, mintedTxnHash } = req.query;
 
     if (!btcTxnHash) {
-      return res.status(400).json({ error: "BTC transaction hash is required" });
+      return res
+        .status(400)
+        .json({ error: "BTC transaction hash is required" });
     }
 
     if (!mintedTxnHash) {
-      return res.status(400).json({ error: "Minted transaction hash is required" });
+      return res
+        .status(400)
+        .json({ error: "Minted transaction hash is required" });
     }
 
-    const result = await checkAndUpdateMintedTxnHash(btcTxnHash, near, mintedTxnHash);
+    const result = await checkAndUpdateMintedTxnHash(
+      btcTxnHash,
+      near,
+      mintedTxnHash,
+    );
 
     if (result) {
-      res.json({ 
+      res.json({
         success: true,
-        message: `Successfully found and processed mint deposit event for BTC transaction ${btcTxnHash}`
+        message: `Successfully found and processed mint deposit event for BTC transaction ${btcTxnHash}`,
       });
     } else {
-      res.json({ 
+      res.json({
         success: false,
-        message: `No mint deposit event found for BTC transaction ${btcTxnHash}`
+        message: `No mint deposit event found for BTC transaction ${btcTxnHash}`,
       });
     }
   } catch (error) {
     console.error("Error checking minted transaction:", error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: "Failed to check minted transaction",
-      details: error.message 
+      details: error.message,
     });
   }
 });
@@ -613,11 +630,11 @@ async function runBatch() {
   await StakeToYieldProvider(deposits, near, bitcoin);
   await UpdateYieldProviderStaked(deposits, near, bitcoin);
   await MintaBtcToReceivingChain(deposits, near);
-  
+
   await UpdateAtlasAbtcMinted(deposits, near);
 
-  // await WithdrawFailDeposits(deposits, near, bitcoin);
-  // await UpdateWithdrawFailDeposits(deposits, near, bitcoin);
+  await WithdrawFailDeposits(deposits, near, bitcoin);
+  await UpdateWithdrawFailDeposits(deposits, near, bitcoin);
 
   await UpdateAtlasBtcWithdrawnFromYieldProvider(redemptions, near, bitcoin);
 
@@ -647,16 +664,16 @@ app.listen(PORT, async () => {
 
   runBatch().catch(console.error);
 
-  // Add the unstaking and withdrawal process to the job scheduler
-  setInterval(async () => {
-    try {
-      await processUnstakingAndWithdrawal(
-        near,
-        bitcoin,
-        globalParams.atlasTreasuryAddress,
-      );
-    } catch (error) {
-      console.error("Error in unstaking and withdrawal process:", error);
-    }
-  }, 60000); // Run every 1 minute
+  // // Add the unstaking and withdrawal process to the job scheduler
+  // setInterval(async () => {
+  //   try {
+  //     await processUnstakingAndWithdrawal(
+  //       near,
+  //       bitcoin,
+  //       globalParams.atlasTreasuryAddress,
+  //     );
+  //   } catch (error) {
+  //     console.error("Error in unstaking and withdrawal process:", error);
+  //   }
+  // }, 60000); // Run every 1 minute
 });
