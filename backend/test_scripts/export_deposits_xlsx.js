@@ -1,12 +1,12 @@
 // Configuration flags for file generation
 const CONFIG = {
-  GENERATE_DEPOSITS_XLSX: false,         // Set to false to skip deposits.xlsx generation
-  GENERATE_DEPOSITS_QUEST2_XLSX: true,  // Set to false to skip deposits-quest2.xlsx generation
+  GENERATE_DEPOSITS_XLSX: true,         // Set to false to skip deposits.xlsx generation
+  GENERATE_DEPOSITS_QUEST2_XLSX: false,  // Set to false to skip deposits-quest2.xlsx generation
   GENERATE_UTXOS_XLSX: false,           // Set to true to enable UTXOs.xlsx generation
   
   DEPOSITS: {
     MAX_RECORDS: null,            // Set to null for all records, or a number for limit
-    BATCH_SIZE: 100,              // How many records to fetch per API call
+    BATCH_SIZE: 500,              // How many records to fetch per API call
     OUTPUT_FILE: "deposits.xlsx"  // Output filename for deposits batch
   },
   
@@ -256,12 +256,12 @@ async function exportToExcel(deposits) {
     { header: "Retry Count", key: "retry_count", width: 15 },
     { header: "Minted Txn Hash Verified Count", key: "minted_txn_hash_verified_count", width: 15 },
 
-    // New simplified Burrow columns
-    { header: "Burrow Borrowed Tokens", key: "burrow_borrowed_tokens", width: 50 },
-    { header: "Burrow Collateral Tokens", key: "burrow_collateral_tokens", width: 50 },
+    // New simplified Burrow columns (Not used)
+    { header: "Burrow Borrowed Tokens", key: "burrow_borrowed_tokens", width: 10 },
+    { header: "Burrow Collateral Tokens", key: "burrow_collateral_tokens", width: 10 },
     
-    // Add new column for active order pool IDs
-    { header: "Active Order Pool IDs", key: "active_order_pool_ids", width: 100 }
+    // Add new column for active order pool IDs (Not used)
+    { header: "Active Order Pool IDs", key: "active_order_pool_ids", width: 10 }
   ];
   
   // Add data rows
@@ -307,7 +307,7 @@ async function exportToExcel(deposits) {
 async function checkDepositExists(btcTxnHash) {
   return new Promise((resolve, reject) => {
     const command = `near view v2.atlas_public_testnet.testnet get_deposit_by_btc_txn_hash '{"btc_txn_hash": "${btcTxnHash}"}'`;
-    console.log(`\n🔍 Executing CLI command:\n${command}`);
+    //console.log(`\n🔍 Executing CLI command:\n${command}`);
     
     exec(command, (error, stdout, stderr) => {
       if (error) {
@@ -319,7 +319,7 @@ async function checkDepositExists(btcTxnHash) {
       }
       
       const output = stdout.trim();
-      console.log(`📄 Raw CLI output:\n${output}`);
+      //console.log(`📄 Raw CLI output:\n${output}`);
       
       // Split into lines and check if any line starts with '{'
       const lines = output.split('\n');
