@@ -11,7 +11,9 @@ const CONFIG = {
   },
   
   DEPOSITS_QUEST2: {
-    INPUT_FILE: "deposits-quest2.xlsx"  // Fixed input file to read from and write to
+    INPUT_FILE: "deposits-quest2.xlsx",  // Fixed input file to read from and write to
+    BATCH_SIZE: 20,                       // Number of rows to process in parallel
+    SAVE_INTERVAL: 100                    // Save file every N rows processed
   },
   
   UTXOS: {
@@ -538,7 +540,7 @@ async function fetchBurrowAccountData(accountId) {
 async function checkLPShares(accountId, poolId) {
   return new Promise((resolve, reject) => {
     const command = `near view ref-finance-101.testnet get_pool_shares '{"account_id": "${accountId}", "pool_id": ${poolId}}'`;
-    //console.log(`\n🔍 Executing CLI command for ${accountId} pool ${poolId}:\n${command}`);
+    // console.log(`\n🔍 Executing CLI command for ${accountId} pool ${poolId}:\n${command}`);
     
     exec(command, (error, stdout, stderr) => {
       if (error) {
@@ -550,7 +552,7 @@ async function checkLPShares(accountId, poolId) {
       }
       
       const output = stdout.trim();
-      //console.log(`📄 Raw CLI output for ${accountId} pool ${poolId}:\n${output}`);
+      // console.log(`📄 Raw CLI output for ${accountId} pool ${poolId}:\n${output}`);
       
       try {
         // Get the last line which contains the actual value
@@ -561,11 +563,10 @@ async function checkLPShares(accountId, poolId) {
         const valueStr = lastLine.replace(/['"]/g, '');
         const shares = Number(valueStr);
         
-        //console.log(`📊 LP shares for ${accountId} pool ${poolId}: ${shares} (type: ${typeof shares})`);
+        // console.log(`📊 LP shares for ${accountId} pool ${poolId}: ${shares} (type: ${typeof shares})`);
         
-        // Return the pool ID value if shares exist and are greater than 0
         if (!isNaN(shares) && shares > 0) {
-          //console.log(`📊 Found shares in pool ${poolId}`);
+          // console.log(`📊 Found shares in pool ${poolId}`);
           return resolve(`${poolId}`);
         }
         resolve('');
@@ -585,7 +586,7 @@ async function processDepositsQuest2() {
     // Read the existing Excel file
     const workbook = new ExcelJS.Workbook();
     const filePath = path.join(__dirname, CONFIG.DEPOSITS_QUEST2.INPUT_FILE);
-    console.log(`📄 Reading file from ${filePath}`);
+    // console.log(`📄 Reading file from ${filePath}`);
     await workbook.xlsx.readFile(filePath);
     
     // Get the first worksheet (either by index 1 or by getting the first worksheet)
@@ -595,7 +596,7 @@ async function processDepositsQuest2() {
     }
     
     // Log worksheet details for debugging
-    console.log(`📊 Found worksheet: "${worksheet.name}" with ${worksheet.rowCount} rows`);
+    // console.log(`📊 Found worksheet: "${worksheet.name}" with ${worksheet.rowCount} rows`);
     
     // Verify headers
     const expectedHeaders = ['Receiving Address', 'Burrow Borrowed Tokens', 'Burrow Collateral Tokens', 'ATBTC/WBTC LP Pool IDs'];
@@ -606,94 +607,107 @@ async function processDepositsQuest2() {
     }
     
     const totalRows = worksheet.rowCount;
-    console.log(`Found ${totalRows - 1} records to process`);
+    const totalRecords = totalRows - 1; // Exclude header row
+    console.log(`Found ${totalRecords} records to process`);
     
     const POOL_IDS = [2482, 2483, 2492];
+    let lastSaveRow = 0;
+    let totalUpdated = 0;
     
-    // Process each row (skip header row)
-    for (let rowNumber = 2; rowNumber <= totalRows; rowNumber++) {
-      const row = worksheet.getRow(rowNumber);
-      const receivingAddress = row.getCell(1).text;
+    // Process rows in batches
+    for (let startRow = 2; startRow <= totalRows; startRow += CONFIG.DEPOSITS_QUEST2.BATCH_SIZE) {
+      const endRow = Math.min(startRow + CONFIG.DEPOSITS_QUEST2.BATCH_SIZE - 1, totalRows);
+      const batchPromises = [];
       
-      console.log(`\n📝 Processing row [${rowNumber - 1}/${totalRows - 1}] for address: ${receivingAddress}`);
+      // Calculate display numbers (subtract 1 to account for header)
+      const displayStart = startRow - 1;
+      const displayEnd = endRow - 1;
       
-      let wasUpdated = false;
+      console.log(`\n📝 Processing batch [${displayStart}-${displayEnd}] of ${totalRecords}`);
       
-      // Only fetch Burrow data if borrowed tokens cell is empty OR doesn't contain expected tokens
-      if (receivingAddress) {
-        const existingBorrowedTokens = row.getCell(2).text.toLowerCase();
-        const existingCollateralTokens = row.getCell(3).text.toLowerCase();
-        
-        // Skip if both expected tokens are found
-        const hasExpectedTokens = existingBorrowedTokens.includes('usdc') && 
-                                existingCollateralTokens.includes('atbtc_v2');
-        
-        if (!hasExpectedTokens) {
-          console.log(`⏳ Fetching Burrow data for ${receivingAddress}...`);
-          try {
-            const burrowData = await fetchBurrowAccountData(receivingAddress);
-            
-            if (burrowData && burrowData.data) {
-              // Update borrowed tokens
-              const borrowedTokens = burrowData.data.borrowed?.map(b => b.token_id).join(', ') || '';
-              row.getCell(2).value = borrowedTokens;
-              
-              // Update collateral tokens
-              const collateralTokens = burrowData.data.collateral?.map(c => c.token_id).join(', ') || '';
-              row.getCell(3).value = collateralTokens;
-              
-              console.log(`✅ Updated Burrow data for ${receivingAddress}`);
-              wasUpdated = true;
+      for (let rowNumber = startRow; rowNumber <= endRow; rowNumber++) {
+        batchPromises.push((async () => {
+          const row = worksheet.getRow(rowNumber);
+          const receivingAddress = row.getCell(1).text;
+          
+          if (!receivingAddress) return null;
+          
+          let wasUpdated = false;
+          
+          // Check and update Burrow data
+          const existingBorrowedTokens = row.getCell(2).text.toLowerCase();
+          const existingCollateralTokens = row.getCell(3).text.toLowerCase();
+          
+          const hasExpectedTokens = existingBorrowedTokens.includes('usdc') && 
+                                  existingCollateralTokens.includes('atbtc_v2');
+          
+          if (!hasExpectedTokens) {
+            // console.log(`⏳ Checking Burrow data for ${receivingAddress}...`);
+            try {
+              const burrowData = await fetchBurrowAccountData(receivingAddress);
+              if (burrowData && burrowData.data) {
+                const borrowedTokens = burrowData.data.borrowed?.map(b => b.token_id).join(', ') || '';
+                const collateralTokens = burrowData.data.collateral?.map(c => c.token_id).join(', ') || '';
+                row.getCell(2).value = borrowedTokens;
+                row.getCell(3).value = collateralTokens;
+                wasUpdated = true;
+                // console.log(`✅ Updated Burrow data for ${receivingAddress}`);
+              }
+            } catch (error) {
+              console.error(`Error fetching Burrow data for ${receivingAddress}: ${error.message}`);
             }
-          } catch (error) {
-            console.error(`❌ Error fetching Burrow data: ${error.message}`);
           }
-        } else {
-          console.log(`ℹ️ Skipping Burrow fetch for ${receivingAddress} - already has expected tokens`);
-        }
+          // else {
+          //   console.log(`ℹ️ Skipping Burrow check for ${receivingAddress} - has expected tokens`);
+          // }
+          
+          // Check LP shares
+          const existingLPShares = row.getCell(4).text;
+          if (!existingLPShares.includes('true')) {
+            // console.log(`⏳ Checking LP shares for ${receivingAddress}...`);
+            try {
+              const lpResults = await Promise.all(POOL_IDS.map(poolId => checkLPShares(receivingAddress, poolId)));
+              const validResults = lpResults.filter(result => result !== '')
+                .map(poolId => `${poolId}: true`);
+              const newValue = validResults.join(', ');
+              
+              if (newValue) {
+                row.getCell(4).value = newValue;
+                wasUpdated = true;
+                // console.log(`✅ Updated LP shares for ${receivingAddress}: ${newValue}`);
+              }
+            } catch (error) {
+              console.error(`Error checking LP shares for ${receivingAddress}: ${error.message}`);
+            }
+          }
+          // else {
+          //   console.log(`ℹ️ Skipping LP check for ${receivingAddress} - already has shares`);
+          // }
+          
+          return wasUpdated ? row : null;
+        })());
       }
       
-      // Check LP shares for all pool IDs
-      if (receivingAddress) {
-        const existingLPShares = row.getCell(4).text;
-        
-        // Skip if 'true' is already found in the cell
-        if (existingLPShares.includes('true')) {
-          console.log(`ℹ️ Skipping LP shares check for ${receivingAddress} - already has shares`);
-        } else {
-          console.log(`⏳ Checking LP shares for ${receivingAddress} across ${POOL_IDS.length} pools...`);
-          try {
-            const lpResults = await Promise.all(POOL_IDS.map(poolId => checkLPShares(receivingAddress, poolId)));
-            
-            // Filter out empty results and add ": true" to each pool ID
-            const validResults = lpResults.filter(result => result !== '')
-              .map(poolId => `${poolId}: true`);
-            const newValue = validResults.join(', ');
-            
-            if (newValue) {
-              row.getCell(4).value = newValue;
-              console.log(`✅ Updated LP shares status for ${receivingAddress}: ${newValue}`);
-              wasUpdated = true;
-            } else {
-              console.log(`ℹ️ No LP shares found for ${receivingAddress}`);
-            }
-          } catch (error) {
-            console.error(`❌ Error checking LP shares: ${error.message}`);
-          }
-        }
-      }
+      // Wait for all rows in batch to complete
+      const updatedRows = (await Promise.all(batchPromises)).filter(row => row !== null);
+      totalUpdated += updatedRows.length;
       
-      // Commit the row and save file if any updates were made
-      if (wasUpdated) {
+      // Commit updated rows
+      for (const row of updatedRows) {
         await row.commit();
+      }
+      
+      // Save periodically to avoid data loss
+      if (endRow - lastSaveRow >= CONFIG.DEPOSITS_QUEST2.SAVE_INTERVAL) {
         await workbook.xlsx.writeFile(filePath);
-        console.log(`💾 Committed and saved updates for ${receivingAddress}`);
-      } else {
-        console.log(`ℹ️ No updates needed for ${receivingAddress}`);
+        console.log(`💾 Saved progress: ${endRow - 1}/${totalRecords} rows processed, total ${totalUpdated} rows updated`);
+        lastSaveRow = endRow;
       }
     }
     
-    console.log(`\n✅ Successfully processed and updated deposits-quest2.xlsx`);
+    // Final save
+    await workbook.xlsx.writeFile(filePath);
+    console.log(`\n✅ Successfully processed ${totalRecords} records, ${totalUpdated} were updated`);
     
   } catch (error) {
     console.error("❌ Error processing deposits-quest2.xlsx:", error);
