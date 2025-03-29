@@ -616,8 +616,8 @@ async function runBatch() {
   
   await UpdateAtlasAbtcMinted(deposits, near);
 
-  await WithdrawFailDeposits(deposits, near, bitcoin);
-  await UpdateWithdrawFailDeposits(deposits, near, bitcoin);
+  // await WithdrawFailDeposits(deposits, near, bitcoin);
+  // await UpdateWithdrawFailDeposits(deposits, near, bitcoin);
 
   await UpdateAtlasBtcWithdrawnFromYieldProvider(redemptions, near, bitcoin);
 
