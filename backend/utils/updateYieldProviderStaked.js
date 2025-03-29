@@ -4,18 +4,18 @@ const { getConstants } = require("../constants");
 
 const { flagsBatch } = require("./batchFlags");
 
-async function UpdateYieldProviderStacked(allDeposits, near, bitcoinInstance) {
-  const batchName = `Batch C UpdateYieldProviderStacked`;
+async function UpdateYieldProviderStaked(allDeposits, near, bitcoinInstance) {
+  const batchName = `Batch C UpdateYieldProviderStaked`;
   const relayer = createRelayerClient({ url: process.env.BITHIVE_RELAYER_URL });
 
   // Check if a previous batch is still running
-  if (flagsBatch.UpdateYieldProviderStackedRunning) {
+  if (flagsBatch.UpdateYieldProviderStakedRunning) {
     console.log(`Previous ${batchName} incomplete. Skipping this run.`);
     return;
   } else {
     try {
       console.log(`${batchName}. Start run...`);
-      flagsBatch.UpdateYieldProviderStackedRunning = true;
+      flagsBatch.UpdateYieldProviderStakedRunning = true;
       const { DEPOSIT_STATUS, BITHIVE_STATUS } = getConstants(); // Access constants dynamically
 
       const { publicKey } = await bitcoinInstance.deriveBTCAddress(near);
@@ -73,9 +73,9 @@ async function UpdateYieldProviderStacked(allDeposits, near, bitcoinInstance) {
     } catch (error) {
       console.log("Error updating stake to yield provider deposited:", error);
     } finally {
-      flagsBatch.UpdateYieldProviderStackedRunning = false;
+      flagsBatch.UpdateYieldProviderStakedRunning = false;
     }
   }
 }
 
-module.exports = { UpdateYieldProviderStacked };
+module.exports = { UpdateYieldProviderStaked };
