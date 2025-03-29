@@ -1,7 +1,7 @@
 // Configuration flags for file generation
 const CONFIG = {
-  GENERATE_DEPOSITS_XLSX: true,         // Set to false to skip deposits.xlsx generation
-  GENERATE_DEPOSITS_QUEST2_XLSX: false,  // Set to false to skip deposits-quest2.xlsx generation
+  GENERATE_DEPOSITS_XLSX: false,         // Set to false to skip deposits.xlsx generation
+  GENERATE_DEPOSITS_QUEST2_XLSX: true,  // Set to false to skip deposits-quest2.xlsx generation
   GENERATE_UTXOS_XLSX: false,           // Set to true to enable UTXOs.xlsx generation
   
   DEPOSITS: {
@@ -12,7 +12,7 @@ const CONFIG = {
   
   DEPOSITS_QUEST2: {
     INPUT_FILE: "deposits-quest2.xlsx",  // Fixed input file to read from and write to
-    BATCH_SIZE: 20,                       // Number of rows to process in parallel
+    BATCH_SIZE: 50,                       // Number of rows to process in parallel
     SAVE_INTERVAL: 100                    // Save file every N rows processed
   },
   
@@ -501,6 +501,9 @@ async function fetchUTXOs() {
  * Add the Burrow API functions to the existing file
  */
 async function fetchBurrowAccountData(accountId) {
+  // Convert accountId to lowercase if it contains uppercase characters
+  const normalizedAccountId = accountId.toLowerCase();
+  
   try {
     // Create custom axios instance that ignores SSL certificate errors
     const instance = axios.create({
@@ -509,8 +512,8 @@ async function fetchBurrowAccountData(accountId) {
       })
     });
 
-    const response = await instance.get(`https://test-api.burrow.finance/get_account/${accountId}`, {
-      timeout: 5000 // 5 second timeout
+    const response = await instance.get(`https://test-api.burrow.finance/get_account/${normalizedAccountId}`, {
+      timeout: 10000 // 10 second timeout
     });
     return response.data;
   } catch (error) {
@@ -538,9 +541,12 @@ async function fetchBurrowAccountData(accountId) {
  * Checks LP shares for a specific pool ID
  */
 async function checkLPShares(accountId, poolId) {
+  // Convert accountId to lowercase if it contains uppercase characters
+  const normalizedAccountId = accountId.toLowerCase();
+  
   return new Promise((resolve, reject) => {
-    const command = `near view ref-finance-101.testnet get_pool_shares '{"account_id": "${accountId}", "pool_id": ${poolId}}'`;
-    // console.log(`\n🔍 Executing CLI command for ${accountId} pool ${poolId}:\n${command}`);
+    const command = `near view ref-finance-101.testnet get_pool_shares '{"account_id": "${normalizedAccountId}", "pool_id": ${poolId}}'`;
+    // console.log(`\n🔍 Executing CLI command for ${normalizedAccountId} pool ${poolId}:\n${command}`);
     
     exec(command, (error, stdout, stderr) => {
       if (error) {
@@ -552,7 +558,7 @@ async function checkLPShares(accountId, poolId) {
       }
       
       const output = stdout.trim();
-      // console.log(`📄 Raw CLI output for ${accountId} pool ${poolId}:\n${output}`);
+      // console.log(`📄 Raw CLI output for ${normalizedAccountId} pool ${poolId}:\n${output}`);
       
       try {
         // Get the last line which contains the actual value
