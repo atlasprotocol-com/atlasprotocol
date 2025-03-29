@@ -30,6 +30,33 @@ const path = require("path");
 const ExcelJS = require("exceljs");
 const axios = require('axios');
 
+// Add these utility functions at the top of the file
+function formatDate(date) {
+  return date.toLocaleString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  });
+}
+
+function formatDuration(startTime, endTime) {
+  const durationMs = endTime - startTime;
+  const hours = Math.floor(durationMs / (1000 * 60 * 60));
+  const minutes = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60));
+  const seconds = Math.floor((durationMs % (1000 * 60)) / 1000);
+  
+  const parts = [];
+  if (hours > 0) parts.push(`${hours}h`);
+  if (minutes > 0) parts.push(`${minutes}m`);
+  if (seconds > 0 || parts.length === 0) parts.push(`${seconds}s`);
+  
+  return parts.join(' ');
+}
+
 /**
  * Removes all curly braces from the remarks field value.
  * It searches for the substring between "remarks:" and ", date_created:".
@@ -678,9 +705,14 @@ async function processDepositsQuest2() {
  * Main function to execute the process.
  */
 async function main() {
-  console.log("🚀 Main process starting...");
+  const mainStartTime = new Date();
+  console.log(`\n🚀 Main process starting at ${formatDate(mainStartTime)}`);
+  
   try {
     if (CONFIG.GENERATE_DEPOSITS_XLSX) {
+      const startTime = new Date();
+      console.log(`\n⏳ Starting deposits.xlsx generation at ${formatDate(startTime)}`);
+      
       console.log("⏳ Fetching deposit records from NEAR...");
       console.log(`ℹ️ Processing ${CONFIG.DEPOSITS.MAX_RECORDS === null ? 'all' : CONFIG.DEPOSITS.MAX_RECORDS} records`);
       const deposits = await fetchDeposits();
@@ -688,25 +720,49 @@ async function main() {
 
       console.log("⏳ Exporting to Excel...");
       await exportToExcel(deposits);
+      
+      const endTime = new Date();
+      console.log(`✅ Completed deposits.xlsx generation at ${formatDate(endTime)}`);
+      console.log(`⏱️ Duration: ${formatDuration(startTime, endTime)}`);
     } else {
-      console.log("ℹ️ Skipping deposits.xlsx generation (disabled in CONFIG)");
+      console.log("\nℹ️ Skipping deposits.xlsx generation (disabled in CONFIG)");
     }
     
     if (CONFIG.GENERATE_DEPOSITS_QUEST2_XLSX) {
-      console.log("⏳ Starting deposits-quest2.xlsx processing...");
+      const startTime = new Date();
+      console.log(`\n⏳ Starting deposits-quest2.xlsx processing at ${formatDate(startTime)}`);
+      
       await processDepositsQuest2();
+      
+      const endTime = new Date();
+      console.log(`✅ Completed deposits-quest2.xlsx processing at ${formatDate(endTime)}`);
+      console.log(`⏱️ Duration: ${formatDuration(startTime, endTime)}`);
     } else {
-      console.log("ℹ️ Skipping deposits-quest2.xlsx processing (disabled in CONFIG)");
+      console.log("\nℹ️ Skipping deposits-quest2.xlsx processing (disabled in CONFIG)");
     }
     
     if (CONFIG.GENERATE_UTXOS_XLSX) {
-      console.log("⏳ Starting UTXO export process...");
+      const startTime = new Date();
+      console.log(`\n⏳ Starting UTXOs.xlsx generation at ${formatDate(startTime)}`);
+      
       await fetchAndExportUTXOs();
+      
+      const endTime = new Date();
+      console.log(`✅ Completed UTXOs.xlsx generation at ${formatDate(endTime)}`);
+      console.log(`⏱️ Duration: ${formatDuration(startTime, endTime)}`);
     } else {
-      console.log("ℹ️ Skipping UTXOs.xlsx generation (disabled in CONFIG)");
+      console.log("\nℹ️ Skipping UTXOs.xlsx generation (disabled in CONFIG)");
     }
+    
+    const mainEndTime = new Date();
+    console.log(`\n🏁 Main process completed at ${formatDate(mainEndTime)}`);
+    console.log(`⏱️ Total Duration: ${formatDuration(mainStartTime, mainEndTime)}`);
+    
   } catch (error) {
+    const mainEndTime = new Date();
     console.error("❌ Error:", error);
+    console.log(`🏁 Main process failed at ${formatDate(mainEndTime)}`);
+    console.log(`⏱️ Total Duration: ${formatDuration(mainStartTime, mainEndTime)}`);
   }
 }
 
