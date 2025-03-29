@@ -107,8 +107,9 @@ async function processNewDeposit(txn, near, bitcoin, btcAtlasDepositAddress, tre
         remarks = `protocolFee + mintingFee doesn't match`;
       }
       
-      timestamp = Math.floor(Date.now() / 1000);
-
+      let timestamp = Math.floor(Date.now() / 1000);
+      let createdAt = txn.status.confirmed ? txn.status.block_time : await bitcoin.fetchUnconfirmedTransactionTime(txn);
+      console.log("createdAt:", createdAt);
       await near.insertDepositBtc(
         btcTxnHash,
         btcSenderAddress,
@@ -120,7 +121,7 @@ async function processNewDeposit(txn, near, bitcoin, btcAtlasDepositAddress, tre
         mintingFee,
         timestamp,
         remarks,
-        txn.status.block_time,
+        createdAt,
         yieldProviderGasFee,
         ""
       );
