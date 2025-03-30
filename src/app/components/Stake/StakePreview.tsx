@@ -18,6 +18,7 @@ export interface StakePreviewProps {
   isPending?: boolean;
   isUTXOsReady?: boolean;
 }
+const MININUM_STAKING_AMOUNT = 20000 / 1e8; // 0.0002 BTC
 
 export function StakePreview({
   open,
@@ -41,13 +42,18 @@ export function StakePreview({
     stakingAmount && stakingFee && protocolFee !== undefined && mintingFee
       ? Number(
           (
-            (Number(stakingAmount) - Number(stakingFee) - Number(protocolFee) - Number(mintingFee)) /
+            (Number(stakingAmount) -
+              Number(stakingFee) -
+              Number(protocolFee) -
+              Number(mintingFee)) /
             100000000
           ).toFixed(8),
         )
       : 0;
 
-  const stakingAmountBtc = stakingAmount ? (stakingAmount + Number(stakingFee)) / 100000000 : 0;
+  const stakingAmountBtc = stakingAmount
+    ? (stakingAmount + Number(stakingFee)) / 100000000
+    : 0;
   const stakingFeeBtc = stakingFee ? stakingFee / 100000000 : 0;
 
   const actualAtBTCReceivedUsd =
@@ -84,12 +90,11 @@ export function StakePreview({
       <div className="rounded-lg border border-neutral-5 dark:border-neutral-8 dark:bg-neutral-10 p-3">
         <div className="flex gap-2">
           <div className="w-[180px]">
-            <p className="text-caption text-sm font-semibold">{BTC_TOKEN} Sent</p>
+            <p className="text-caption text-sm font-semibold">
+              {BTC_TOKEN} Sent
+            </p>
             <p className="text-base font-semibold">
-              
-              {stakingAmountBtc || "--"}{" "}
-              {BTC_TOKEN}{" "}
-              <br />
+              {stakingAmountBtc || "--"} {BTC_TOKEN} <br />
               <span className="text-sm text-neutral-7">
                 (≈{stakingAmountUsd} USD)
               </span>
@@ -111,7 +116,9 @@ export function StakePreview({
           </p>
         </div>
         <div className="mt-4">
-          <p className="text-caption text-sm font-semibold">Net Staked {BTC_TOKEN}</p>
+          <p className="text-caption text-sm font-semibold">
+            Net Staked {BTC_TOKEN}
+          </p>
           <p className="text-base font-semibold break-all">
             {actualAtBTCReceived} {ATLAS_BTC_TOKEN}{" "}
             <span className="text-sm text-neutral-7">
@@ -128,7 +135,9 @@ export function StakePreview({
           </p>
         </div>
         <div className="rounded-lg border border-neutral-5  dark:border-neutral-8 dark:bg-neutral-10 p-3 flex-1">
-          <p className="text-caption text-sm font-semibold">BTC Network Fee (Atlas)</p>
+          <p className="text-caption text-sm font-semibold">
+            BTC Network Fee (Atlas)
+          </p>
           <p className="text-base font-semibold break-all">
             {stakingFeeBtc.toFixed(8) || "--"} {BTC_TOKEN}{" "}
             <span className="text-sm text-neutral-7">
@@ -138,7 +147,9 @@ export function StakePreview({
           </p>
         </div>
         <div className="rounded-lg border border-neutral-5  dark:border-neutral-8 dark:bg-neutral-10 p-3 flex-1">
-          <p className="text-caption text-sm font-semibold">BTC Network Fee (Staking Provider)</p>
+          <p className="text-caption text-sm font-semibold">
+            BTC Network Fee (Staking Provider)
+          </p>
           <p className="text-base font-semibold break-all">
             {stakingFeeBtc.toFixed(8) || "--"} {BTC_TOKEN}{" "}
             <span className="text-sm text-neutral-7">
@@ -147,11 +158,12 @@ export function StakePreview({
             </span>
           </p>
         </div>
-        
       </div>
       <div className="mt-4 flex gap-4">
-      <div className="rounded-lg border border-neutral-5  dark:border-neutral-8 dark:bg-neutral-10 p-3 flex-1">
-          <p className="text-caption text-sm font-semibold">Destination Chain Network Fee</p>
+        <div className="rounded-lg border border-neutral-5  dark:border-neutral-8 dark:bg-neutral-10 p-3 flex-1">
+          <p className="text-caption text-sm font-semibold">
+            Destination Chain Network Fee
+          </p>
           <p className="text-base font-semibold break-all">
             {mintingFee ? (mintingFee / 100000000).toFixed(8) : "--"}{" "}
             {BTC_TOKEN}
@@ -164,7 +176,7 @@ export function StakePreview({
         <div className="rounded-lg border border-neutral-5  dark:border-neutral-8 dark:bg-neutral-10 p-3 flex-1">
           <p className="text-caption text-sm font-semibold">Protocol Fee</p>
           <p className="text-base font-semibold break-all">
-            {protocolFee ? (protocolFee / 100000000).toFixed(8) : "--"} {" "}
+            {protocolFee ? (protocolFee / 100000000).toFixed(8) : "--"}{" "}
             {BTC_TOKEN}
             <span className="text-sm text-neutral-7">
               <br />
@@ -180,7 +192,7 @@ export function StakePreview({
           </p>
         </div>
       )}
-      {actualAtBTCReceived <= 10000 && (
+      {actualAtBTCReceived <= MININUM_STAKING_AMOUNT && (
         <div className="mt-4">
           <p className="text-caption text-base font-semibold">
             The amount you stake is less than the minimum staking amount.

@@ -1,10 +1,10 @@
 import Web3 from "web3";
 import { AbiItem } from "web3-utils";
 
-import { useGetStats } from "@/hooks/stats";
-import { btcToSatoshi } from "@/utils/btcConversions";
-import aBTCABI from "@/utils/ABI/aBTC.json";
 import { NEAR_GAS } from "@/app/types/nearGas";
+import { useGetStats } from "@/hooks/stats";
+import aBTCABI from "@/utils/ABI/aBTC.json";
+import { btcToSatoshi } from "@/utils/btcConversions";
 
 interface GasEstimateResult {
   gasEstimate: number;
@@ -30,7 +30,7 @@ export const useEstimateAbtcMintGas = () => {
       let gasEstimate = 0;
       let gasPrice = 0;
       let mintingFeeBtc = 0;
-      
+
       const ethPriceBtc = stats?.ethPriceBtc || 0;
       const nearPriceBtc = stats?.nearPriceBtc || 0;
       const btcPriceUsd = stats?.btcPriceUsd || 0;
@@ -45,21 +45,22 @@ export const useEstimateAbtcMintGas = () => {
         );
 
         const data = contract.methods
-          .mintDeposit(userAddress, 0, btcTxnHash)
+          .mintDeposit(userAddress, amount, btcTxnHash)
           .encodeABI();
 
         const gasPriceBigInt = await web3.eth.getGasPrice();
         gasPrice = Number(gasPriceBigInt) * 1.3;
 
         const gasEstimateBigInt = await web3.eth.estimateGas({
-          to: contractAddress,
-          from: contractOwner,
+          to: userAddress,
+          from: contractAddress,
           data: data,
         });
+
         gasEstimate = Number(gasEstimateBigInt) * 1.3;
 
         const mintingFeeEth = (gasEstimate * gasPrice) / 1e18;
-      
+
         if (toSymbol === "POL") {
           mintingFeeBtc = mintingFeeEth * polPriceBtc;
         } else if (toSymbol === "ETH") {
@@ -70,18 +71,17 @@ export const useEstimateAbtcMintGas = () => {
         }
 
         console.log("EVM - mintingFeeBtc:", mintingFeeBtc);
-
       } else if (networkType === "NEAR") {
-        const gasEstimateTgas = Number(NEAR_GAS.GAS_FOR_MINT_CALL);  // 100 Tgas
-        const gasPriceYocto = 100_000_000;  // 100 million yoctoNEAR per gas unit
-    
+        const gasEstimateTgas = Number(NEAR_GAS.GAS_FOR_MINT_CALL); // 100 Tgas
+        const gasPriceYocto = 100_000_000; // 100 million yoctoNEAR per gas unit
+
         // Convert Tgas to gas units and calculate minting fee
-        const gasEstimate = gasEstimateTgas * 1e12;  
+        const gasEstimate = gasEstimateTgas * 1e12;
         const mintingFeeYocto = gasEstimate * gasPriceYocto;
-    
+
         // Convert yoctoNEAR to NEAR (1 NEAR = 10^18 yoctoNEAR)
         const mintingFeeNear = mintingFeeYocto / 1e24;
-    
+
         // Convert NEAR to BTC using NEAR price in BTC
         mintingFeeBtc = mintingFeeNear * nearPriceBtc;
 
@@ -91,7 +91,10 @@ export const useEstimateAbtcMintGas = () => {
       return {
         gasEstimate,
         gasPrice,
-        mintingFeeSat: Math.max(Number(process.env.NEXT_PUBLIC_DUST_LIMIT), btcToSatoshi(mintingFeeBtc)),
+        mintingFeeSat: Math.max(
+          Number(process.env.NEXT_PUBLIC_DUST_LIMIT),
+          btcToSatoshi(mintingFeeBtc),
+        ),
         success: true,
       };
     } catch (error) {

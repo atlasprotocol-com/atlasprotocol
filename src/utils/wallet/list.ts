@@ -2,6 +2,7 @@ import metamaskIcon from "./icons/metamask.png";
 import okxIcon from "./icons/okx.svg";
 import rabbyIcon from "./icons/rabby.png";
 import unisatIcon from "./icons/unisat.svg";
+import xverseIcon from "./icons/xverse.svg";
 import { UnisatWallet, unisatProvider } from "./providers/unisat_wallet";
 import { Xverse, xverseProvider } from "./providers/xverse";
 import { Network } from "./wallet_provider";
@@ -35,7 +36,7 @@ export const walletList: IntegratedWallet[] = [
   },
   {
     name: "Xverse",
-    icon: unisatIcon,
+    icon: xverseIcon,
     wallet: Xverse,
     provider: xverseProvider,
     linkToDocs: "https://www.xverse.app/",

@@ -97,7 +97,8 @@ export const signStakingTx = async (
   try {
     console.log("unsignedStakingPsbt", unsignedStakingPsbt);
     stakingTx = await signPsbtTransaction(btcWallet)(
-      unsignedStakingPsbt.toHex(),
+      unsignedStakingPsbt,
+      address,
     );
   } catch (error: Error | any) {
     throw new Error(error?.message || "Staking transaction signing PSBT error");

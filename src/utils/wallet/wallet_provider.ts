@@ -76,7 +76,10 @@ export abstract class WalletProvider {
    * @param psbtHex - The hex string of the unsigned PSBT to sign.
    * @returns A promise that resolves to the hex string of the signed PSBT.
    */
-  abstract signPsbt(psbtHex: string): Promise<string>;
+  abstract signPsbt(
+    psbtHex: string,
+    signInputs?: { [name: string]: Array<number> },
+  ): Promise<string>;
 
   /**
    * Signs multiple PSBTs in hex format.

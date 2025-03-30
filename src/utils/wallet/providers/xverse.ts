@@ -1,3 +1,4 @@
+import { Psbt } from "bitcoinjs-lib";
 import Wallet, { AddressPurpose } from "sats-connect";
 
 import {
@@ -16,6 +17,7 @@ export class Xverse extends WalletProvider {
     Network.MAINNET,
     Network.TESTNET,
     Network.TESTNET4,
+    Network.SIGNET,
   ];
   public homepage = "https://xverse.io";
   public connected: boolean = false;
@@ -34,7 +36,7 @@ export class Xverse extends WalletProvider {
   async connectWallet(): Promise<this> {
     this.connected = false;
     try {
-      await Wallet.request("wallet_connect", null);
+      const results = await Wallet.request("wallet_connect", null);
       this.connected = true;
       return this;
     } catch (error) {
@@ -75,12 +77,21 @@ export class Xverse extends WalletProvider {
     return (response as any).result.addresses[0].publicKey;
   }
 
-  async signPsbt(psbtHex: string): Promise<string> {
+  async signPsbt(
+    psbtHex: string,
+    signInputs?: { [name: string]: Array<number> },
+  ): Promise<string> {
     const response = await Wallet.request("signPsbt", {
       psbt: psbtHex,
-      signInputs: {},
+      // broadcast: true,
+      signInputs: {
+        ...signInputs,
+      },
     });
-    return (response as any).result.psbt;
+
+    return Psbt.fromBase64((response as any).result.psbt)
+      .finalizeAllInputs()
+      .toHex();
   }
 
   async signPsbts(psbtsHexes: string[]): Promise<string[]> {
