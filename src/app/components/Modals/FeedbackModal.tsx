@@ -15,6 +15,7 @@ interface FeedbackModalProps {
 const SuccessContent = () => {
   return (
     <div className="text-text-black dark:text-white flex flex-col items-center justify-center">
+    
       <div className="mt-6 flex flex-col gap-4 items-center justify-center">
         <p>Congratulations!</p>
         <Image
@@ -31,9 +32,10 @@ const SuccessContent = () => {
   );
 };
 
-export const CancelContent = () => {
+const CancelContent = () => {
   return (
     <div className="text-text-black dark:text-white flex flex-col items-center justify-center">
+    
       <div className="mt-6 flex flex-col gap-4">
         <Image
           src={cancelledImage}

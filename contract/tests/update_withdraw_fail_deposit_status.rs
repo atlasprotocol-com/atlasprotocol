@@ -156,7 +156,7 @@ fn test_update_withdraw_fail_deposit_status() {
         receiving_chain_id: "1".to_string(),
         receiving_address: "421614".to_string(),
         btc_amount: 1000,
-        protocol_fee: 0,
+        fee_amount: 0,
         minted_txn_hash: "".to_string(),
         timestamp: 1,
         status: DEP_BTC_REFUNDING,

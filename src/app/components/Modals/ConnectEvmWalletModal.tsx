@@ -1,17 +1,21 @@
 import { StaticImageData } from "next/image";
 import React, { useEffect, useMemo, useState } from "react";
+import { IoMdClose } from "react-icons/io";
 import { PiWalletBold } from "react-icons/pi";
-import { twMerge } from "tailwind-merge";
 import { Connector, useConnect, useDisconnect } from "wagmi";
 
 import injectedWalletIcon from "@/app/assets/browser-wallet-icon.png"; // Corrected path
 import { useError } from "@/app/context/Error/ErrorContext";
 import { useTerms } from "@/app/context/Terms/TermsContext";
 import { ErrorState } from "@/app/types/errors";
-import { useEvmWallet } from "@/utils/evm_wallet/wallet_provider";
 
-import { Button } from "../Button";
-import { Dialog } from "../Dialog";
+import { GeneralModal } from "./GeneralModal";
+
+// declare global {
+//   interface Window {
+//     ethereum?: MetaMaskInpageProvider;
+//   }
+// }
 
 interface ConnectEvmWalletModalProps {
   isOpen: boolean;
@@ -28,7 +32,6 @@ export const ConnectEvmWalletModal: React.FC<ConnectEvmWalletModalProps> = ({
 }) => {
   const { disconnectAsync } = useDisconnect();
   const { connectors, connectAsync, isPending, status, error } = useConnect();
-  const evmc = useEvmWallet();
 
   const uniqueConnectors = useMemo(() => {
     return connectors.filter((connector) => connector.id !== "metaMaskSDK");
@@ -83,8 +86,6 @@ export const ConnectEvmWalletModal: React.FC<ConnectEvmWalletModalProps> = ({
 
       await disconnectAsync();
 
-      evmc.setIsManualConnected(true);
-
       await connectAsync({
         connector: selectedConnector,
         chainId: Number(selectedChainID),
@@ -92,7 +93,6 @@ export const ConnectEvmWalletModal: React.FC<ConnectEvmWalletModalProps> = ({
 
       onClose(true);
     } catch (error) {
-      evmc.setIsManualConnected(false);
       console.log(error);
       showError({
         error: {
@@ -105,38 +105,65 @@ export const ConnectEvmWalletModal: React.FC<ConnectEvmWalletModalProps> = ({
   };
 
   return (
-    <Dialog
+    <GeneralModal
       open={isOpen}
-      onOpenChange={
+      onClose={
         !isPending
           ? () => {
               onClose();
             }
           : undefined
       }
-      headerTitle="Connect EVM Wallet"
     >
+      <div className="mb-4 flex items-center justify-between">
+        <h3 className="font-bold">Connect EVM Wallet</h3>
+        <button
+          className="btn btn-circle btn-ghost btn-sm"
+          onClick={() => {
+            !isPending && onClose();
+          }}
+        >
+          <IoMdClose size={24} />
+        </button>
+      </div>
       <div className="flex flex-col justify-center gap-4">
-        <div className="flex flex-col gap-4">
-          <h3 className="text-lg font-semibold ">Choose wallet</h3>
+        <div className="form-control">
+          <label className="label cursor-pointer justify-start gap-2 rounded-xl bg-base-100 p-4">
+            <input
+              type="checkbox"
+              className="checkbox-primary checkbox"
+              onChange={(e) => setAccepted(e.target.checked)}
+              checked={accepted}
+            />
+            <span className="label-text">
+              I certify that I have read and accept the updated{" "}
+              <button
+                onClick={openTerms}
+                className="transition-colors hover:text-primary cursor-pointer btn btn-link no-underline text-base-content px-0 h-auto min-h-0"
+              >
+                Terms of Use
+              </button>
+              .
+            </span>
+          </label>
+        </div>
+        <div className="my-4 flex flex-col gap-4">
+          <h3 className="text-center font-semibold">Choose wallet</h3>
           <div className="grid max-h-[20rem] grid-cols-1 gap-4 overflow-y-auto">
             {uniqueConnectors.map((connector) => {
               let icon = "/wallet-icons/browser-wallet-icon.png";
+
               return (
                 <button
                   disabled={isPending}
                   key={connector.id}
-                  className={twMerge(
-                    "cursor-pointer h-16 p-3 dark:bg-neutral-10 rounded-lg border border-neutral-5 dark:border-neutral-10 justify-start items-center inline-flex gap-4",
-                    selectedWallet === connector.id &&
-                      "border-primary dark:border-primary",
-                  )}
+                  className={`flex cursor-pointer items-center gap-2 rounded-xl border-2 bg-base-100 p-2 transition-all hover:text-primary ${selectedWallet === connector.id ? "border-primary" : "border-base-100"}`}
                   onClick={() => {
                     setSelectedWallet(connector.id);
                     setSelectedConnector(connector);
                   }}
                 >
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full border bg-neutral-3 dark:bg-neutral-1 p-2">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full border bg-white p-2 text-black">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={(connector.icon || icon) as any}
@@ -151,21 +178,16 @@ export const ConnectEvmWalletModal: React.FC<ConnectEvmWalletModalProps> = ({
               );
             })}
           </div>
-          <p className="text-sm">
-            By connecting, I certify that I have read and accept the updated{" "}
-            <button className="inline text-primary" onClick={openTerms}>
-              Terms of Use.
-            </button>
-          </p>
         </div>
-        <Button
-          className="mt-6"
+        <button
+          className="btn-primary btn h-[2.5rem] min-h-[2.5rem] rounded-lg px-2 text-white"
           onClick={handleConnect}
-          startIcon={<PiWalletBold size={20} />}
+          disabled={!accepted || !selectedWallet}
         >
+          <PiWalletBold size={20} />
           Connect to EVM network
-        </Button>
+        </button>
       </div>
-    </Dialog>
+    </GeneralModal>
   );
 };

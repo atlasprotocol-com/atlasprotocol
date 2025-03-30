@@ -1,6 +1,5 @@
-import Link from "next/link";
-
 import { ConnectSmall } from "../Connect/ConnectSmall";
+import { TestingInfo } from "../TestingInfo/TestingInfo";
 import { ThemeToggle } from "../ThemeToggle/ThemeToggle";
 
 import { Logo } from "./Logo";
@@ -19,31 +18,27 @@ export const Header: React.FC<HeaderProps> = ({
   onDisconnect,
 }) => {
   return (
-    <nav className="border-b border-header-border bg-header-bg shadow-sm py-2 px-4 md:py-6">
-      <div className="container mx-auto flex w-full">
-        <Link href="/">
+    <nav>
+      <div className="bg-base-300 shadow-sm">
+        <div className="container mx-auto flex w-full items-center justify-between gap-4 p-6">
           <Logo />
-        </Link>
-        <div className="ml-auto flex items-center gap-7">
-          <div className="hidden md:block">
-            <ConnectSmall
-              onConnect={onConnect}
-              address={address}
-              balanceSat={balanceSat}
-              onDisconnect={onDisconnect}
-            />
+          <div className="flex flex-1">
+            <div className="hidden flex-1 xl:flex">
+              {/* <TestingInfo /> */}
+            </div>
           </div>
+          <ConnectSmall
+            onConnect={onConnect}
+            address={address}
+            balanceSat={balanceSat}
+            onDisconnect={onDisconnect}
+          />
           <ThemeToggle />
         </div>
       </div>
-      <div className="md:hidden flex justify-center mt-3">
-        <ConnectSmall
-          onConnect={onConnect}
-          address={address}
-          balanceSat={balanceSat}
-          onDisconnect={onDisconnect}
-        />
-      </div>
+      {/* <div className="container mx-auto flex w-full items-center p-6 pb-0 xl:hidden">
+        <TestingInfo />
+      </div> */}
     </nav>
   );
 };

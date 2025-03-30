@@ -2,17 +2,16 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 import { AiOutlineInfoCircle } from "react-icons/ai";
 import { FaWallet } from "react-icons/fa";
+import { IoMdClose } from "react-icons/io";
 import { PiWalletBold } from "react-icons/pi";
 import { Tooltip } from "react-tooltip";
-import { twMerge } from "tailwind-merge";
 
 import { useTerms } from "@/app/context/Terms/TermsContext";
 import { getNetworkConfig } from "@/config/network.config";
 import { BROWSER_INJECTED_WALLET_NAME, walletList } from "@/utils/wallet/list";
 import { WalletProvider } from "@/utils/wallet/wallet_provider";
 
-import { Button } from "../Button";
-import { Dialog } from "../Dialog";
+import { GeneralModal } from "./GeneralModal";
 
 interface ConnectModalProps {
   open: boolean;
@@ -27,6 +26,7 @@ export const ConnectModal: React.FC<ConnectModalProps> = ({
   onConnect,
   connectDisabled,
 }) => {
+  const [accepted, setAccepted] = useState(false);
   const [selectedWallet, setSelectedWallet] = useState<string>("");
   const [mounted, setMounted] = useState(false);
 
@@ -81,7 +81,6 @@ export const ConnectModal: React.FC<ConnectModalProps> = ({
         walletInstance = window[BROWSER];
       } else {
         // we are using a custom wallet
-        console.log(selectedWallet, walletList);
         const walletProvider = walletList.find(
           (w) => w.name === selectedWallet,
         )?.wallet;
@@ -124,11 +123,39 @@ export const ConnectModal: React.FC<ConnectModalProps> = ({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onClose} headerTitle="Connect wallet">
-      <div className="flex flex-col justify-center">
-        <div className="form-control"></div>
-        <div className="flex flex-col gap-4">
-          <h3 className="text-lg font-semibold ">Choose wallet</h3>
+    <GeneralModal open={open} onClose={onClose}>
+      <div className="mb-4 flex items-center justify-between">
+        <h3 className="font-bold">Connect wallet</h3>
+        <button
+          className="btn btn-circle btn-ghost btn-sm"
+          onClick={() => onClose(false)}
+        >
+          <IoMdClose size={24} />
+        </button>
+      </div>
+      <div className="flex flex-col justify-center gap-4">
+        <div className="form-control">
+          <label className="label cursor-pointer justify-start gap-2 rounded-xl bg-base-100 p-4">
+            <input
+              type="checkbox"
+              className="checkbox-primary checkbox"
+              onChange={(e) => setAccepted(e.target.checked)}
+              checked={accepted}
+            />
+            <span className="label-text">
+              I certify that I have read and accept the updated{" "}
+              <button
+                onClick={openTerms}
+                className="transition-colors hover:text-primary cursor-pointer btn btn-link no-underline text-base-content px-0 h-auto min-h-0"
+              >
+                Terms of Use
+              </button>
+              .
+            </span>
+          </label>
+        </div>
+        <div className="my-4 flex flex-col gap-4">
+          <h3 className="text-center font-semibold">Choose wallet</h3>
           <div className="grid max-h-[20rem] grid-cols-1 gap-4 overflow-y-auto">
             {walletList.map(
               ({
@@ -152,23 +179,18 @@ export const ConnectModal: React.FC<ConnectModalProps> = ({
                   return null;
                 }
 
-                const selected = selectedWallet === name;
-
                 return (
                   <a
                     key={name}
-                    className={twMerge(
-                      "cursor-pointer h-16 p-3 bg:neutral-3 dark:bg-neutral-10 rounded-lg border border-neutral-5 dark:border-neutral-10 justify-start items-center inline-flex gap-4",
-                      selected && "border-primary dark:border-primary",
-                    )}
+                    className={`relative flex cursor-pointer items-center gap-2 rounded-xl border-2 bg-base-100 p-2 transition-all hover:text-primary ${selectedWallet === name ? "border-primary" : "border-base-100"} ${!walletAvailable ? "opacity-50" : ""}`}
                     onClick={() => walletAvailable && setSelectedWallet(name)}
                     href={!walletAvailable ? linkToDocs : undefined}
                     target="_blank"
                     rel="noopener noreferrer"
                   >
                     <div className="flex flex-1 items-center gap-2">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-neutral-3 dark:bg-white p-2">
-                        <Image src={icon} alt={name} width={20} height={20} />
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full border bg-white p-2">
+                        <Image src={icon} alt={name} width={26} height={26} />
                       </div>
                       <p>{name}</p>
                       {isQRWallet && (
@@ -190,22 +212,16 @@ export const ConnectModal: React.FC<ConnectModalProps> = ({
               },
             )}
           </div>
-          <p className="text-sm">
-            By connecting, I certify that I have read and accept the updated{" "}
-            <button className="inline text-primary" onClick={openTerms}>
-              Terms of Use.
-            </button>
-          </p>
         </div>
-        <Button
-          className="mt-6"
+        <button
+          className="btn-primary btn h-[2.5rem] min-h-[2.5rem] rounded-lg px-2 text-white"
           onClick={handleConnect}
-          disabled={connectDisabled || !selectedWallet}
-          startIcon={<PiWalletBold size={20} />}
+          disabled={connectDisabled || !accepted || !selectedWallet}
         >
+          <PiWalletBold size={20} />
           Connect to {networkName} network
-        </Button>
+        </button>
       </div>
-    </Dialog>
+    </GeneralModal>
   );
 };

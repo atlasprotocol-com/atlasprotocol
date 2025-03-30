@@ -1,10 +1,9 @@
+import { network } from "@/config/network.config";
+
 import metamaskIcon from "./icons/metamask.png";
 import okxIcon from "./icons/okx.svg";
 import rabbyIcon from "./icons/rabby.png";
-import unisatIcon from "./icons/unisat.svg";
-import xverseIcon from "./icons/xverse.svg";
-import { UnisatWallet, unisatProvider } from "./providers/unisat_wallet";
-import { Xverse, xverseProvider } from "./providers/xverse";
+import { OKXWallet, okxProvider } from "./providers/okx_wallet";
 import { Network } from "./wallet_provider";
 
 interface IntegratedWallet {
@@ -22,39 +21,13 @@ export const BROWSER_INJECTED_WALLET_NAME = "Browser";
 
 export const walletList: IntegratedWallet[] = [
   {
-    name: "Unisat",
-    icon: unisatIcon,
-    wallet: UnisatWallet,
-    provider: unisatProvider,
-    linkToDocs: "https://unisat.io/",
-    supportedNetworks: [
-      Network.MAINNET,
-      Network.SIGNET,
-      Network.TESTNET,
-      Network.TESTNET4,
-    ],
+    name: "OKX",
+    icon: okxIcon,
+    wallet: OKXWallet,
+    provider: okxProvider,
+    linkToDocs: "https://www.okx.com/web3",
+    supportedNetworks: [Network.MAINNET, Network.SIGNET, Network.TESTNET],
   },
-  {
-    name: "Xverse",
-    icon: xverseIcon,
-    wallet: Xverse,
-    provider: xverseProvider,
-    linkToDocs: "https://www.xverse.app/",
-    supportedNetworks: [
-      Network.MAINNET,
-      Network.SIGNET,
-      Network.TESTNET,
-      Network.TESTNET4,
-    ],
-  },
-  // {
-  //   name: "OKX",
-  //   icon: okxIcon,
-  //   wallet: OKXWallet,
-  //   provider: okxProvider,
-  //   linkToDocs: "https://www.okx.com/web3",
-  //   supportedNetworks: [Network.MAINNET, Network.SIGNET, Network.TESTNET],
-  // },
   // {
   //   name: BROWSER_INJECTED_WALLET_NAME,
   //   icon: "",

@@ -1,10 +1,10 @@
 import { format } from "date-fns";
+import { IoMdClose } from "react-icons/io";
 
 import { useError } from "@/app/context/Error/ErrorContext";
 import { ErrorState, ShowErrorParams } from "@/app/types/errors";
 
-import { Button } from "../Button";
-import { Dialog } from "../Dialog";
+import { GeneralModal } from "./GeneralModal";
 
 interface ErrorModalProps {
   open: boolean;
@@ -81,23 +81,38 @@ export const ErrorModal: React.FC<ErrorModalProps> = ({
   const formattedErrorTime = format(errorTime, "dd MMMM yyyy 'at' HH:mm:ss");
 
   return (
-    <Dialog open={open} onOpenChange={onClose} headerTitle={getErrorTitle()}>
+    <GeneralModal open={open} onClose={onClose}>
+      <div className="mb- flex items-center justify-end">
+        <button
+          className="btn btn-circle btn-ghost btn-sm"
+          onClick={() => onClose()}
+        >
+          <IoMdClose size={24} />
+        </button>
+      </div>
       <div className="flex flex-col justify-center gap-4">
+        <h3 className="text-center font-bold text-error">{getErrorTitle()}</h3>
         <div className="flex flex-col gap-3">
           <p className="text-center">{getErrorMessage()}</p>
           <p className="text-center text-xs opacity-50">{formattedErrorTime}</p>
         </div>
-        <div className="mt-4 flex gap-4">
-          <Button intent="outline" className="flex-1" onClick={() => onClose()}>
+        <div className="mt-4 flex justify-around gap-4">
+          <button
+            className="btn btn-outline flex-1 rounded-lg px-2"
+            onClick={() => onClose()}
+          >
             Cancel
-          </Button>
+          </button>
           {onRetry && (
-            <Button className="flex-1" onClick={handleRetry}>
+            <button
+              className="btn-primary btn flex-1 rounded-lg px-2 text-white"
+              onClick={handleRetry}
+            >
               Try Again
-            </Button>
+            </button>
           )}
         </div>
       </div>
-    </Dialog>
+    </GeneralModal>
   );
 };

@@ -13,7 +13,7 @@ contract atBTC is ERC20, ERC20Burnable, ERC20Pausable, Ownable2Step {
     event MintDeposit(address indexed wallet, string btcTxnHash, uint256 amount);
     event MintBridge(address indexed wallet, string originChainId, string originChainAddress, uint256 amount, string originTxnHash);
     event BurnRedeem(address indexed wallet, string btcAddress, uint256 amount);
-    event BurnBridge(address indexed wallet, string destChainId, string destChainAddress, uint256 amount, uint256 mintingFeeSat, uint256 bridgingFeeSat);
+    event BurnBridge(address indexed wallet, string destChainId, string destChainAddress, uint256 amount);
 
     // Custom error for renouncing ownership
     error RenounceOwnershipBlocked();
@@ -63,9 +63,9 @@ contract atBTC is ERC20, ERC20Burnable, ERC20Pausable, Ownable2Step {
     }
 
     // Custom burn function that logs the destination chainId and address for the bridging process
-    function burnBridge(uint256 amount, string memory destChainId, string memory destChainAddress, uint256 mintingFeeSat, uint256 bridgingFeeSat) external whenNotPaused {
+    function burnBridge(uint256 amount, string memory destChainId, string memory destChainAddress) external whenNotPaused {
         _burn(msg.sender, amount);
-        emit BurnBridge(msg.sender, destChainId, destChainAddress, amount, mintingFeeSat, bridgingFeeSat);
+        emit BurnBridge(msg.sender, destChainId, destChainAddress, amount);
     }
 
     // Override _update to resolve the conflict between ERC20 and ERC20Pausable

@@ -1,255 +1,399 @@
 "use client";
 
-import React, { Suspense, useEffect, useState } from "react";
-import Wallet from "sats-connect";
+import { useInfiniteQuery } from "@tanstack/react-query";
+import { networks } from "bitcoinjs-lib";
+import { useEffect, useState } from "react";
+import { useLocalStorage } from "usehooks-ts";
 
 import { network } from "@/config/network.config";
-import { useBreakpoint } from "@/hooks/useBreakpoint";
-import { useConnectBTCWallet } from "@/hooks/useConnectBTCWallet";
-import { Network } from "@/utils/wallet/wallet_provider";
+import { calculateRedemptionHistoriesDiff } from "@/utils/local_storage/calculateRedemptionHistoriesDiff";
+import { calculateStakingHistoriesDiff } from "@/utils/local_storage/calculateStakingHistoriesDiff";
+import { getRedemptionHistoriesLocalStorageKey } from "@/utils/local_storage/getRedemptionHistoriesLocalStorageKey";
+import { getStakingHistoriesLocalStorageKey } from "@/utils/local_storage/getStakingHistoriesLocalStorageKey";
+import { WalletError, WalletErrorType } from "@/utils/wallet/errors";
+import {
+  getPublicKeyNoCoord,
+  isSupportedAddressType,
+  toNetwork,
+} from "@/utils/wallet/index";
+import { Network, WalletProvider } from "@/utils/wallet/wallet_provider";
 
-import { Card } from "./components/Card";
-import { Footer } from "./components/Footer";
-import { Header } from "./components/Header";
-import { Holdings } from "./components/Holdings";
+import {
+  PaginatedRedemptionHistories,
+  getRedemptionHistories,
+} from "./api/getRedemptionHistories";
+import {
+  PaginatedStakingHistories,
+  getStakingHistories,
+} from "./api/getStakingHistories";
+import { Footer } from "./components/Footer/Footer";
+import { Header } from "./components/Header/Header";
 import { ConnectModal } from "./components/Modals/ConnectModal";
 import { ErrorModal } from "./components/Modals/ErrorModal";
 import { TermsModal } from "./components/Modals/Terms/TermsModal";
-import { RequireConnectWallet } from "./components/RequireConnectWallet";
-import { LoadingSpinner } from "./components/Spinner";
+import { Redemption } from "./components/Redemption/Redemption";
+import { RedemptionHistories } from "./components/RedemptionHistory/RedemptionHistories";
+import { Staking } from "./components/Staking/Staking";
+import { StakingHistories } from "./components/StakingHistory/StakingHistories";
 import { Stats } from "./components/Stats/Stats";
-import {
-  TabsContent,
-  TabsList,
-  TabsRoot,
-  TabsTrigger,
-} from "./components/Tabs";
-import { TooltipProvider } from "./components/Tooltip";
+import { Summary } from "./components/Summary/Summary";
+import Tabs from "./components/Tabs/Tabs";
 import { useError } from "./context/Error/ErrorContext";
 import { useTerms } from "./context/Terms/TermsContext";
-import { AppContext, defaultAppContext } from "./context/app";
+import { ErrorHandlerParam, ErrorState } from "./types/errors";
+import { Redemptions } from "./types/redemptions";
+import { Stakes } from "./types/stakes";
 
 interface HomeProps {}
 
-function LoadingSection() {
-  return (
-    <div className="flex justify-center items-center h-96 w-full flex-1">
-      <LoadingSpinner />
-    </div>
-  );
-}
-
-const LazyStake = React.lazy(() =>
-  import("./components/Stake").then((mod) => ({ default: mod.Stake })),
-);
-const LazyRedeem = React.lazy(() =>
-  import("./components/Redeem").then((mod) => ({ default: mod.Redeem })),
-);
-const LazyBridge = React.lazy(() =>
-  import("./components/Bridge").then((mod) => ({ default: mod.Bridge })),
-);
-// const LazyPoints = React.lazy(() =>
-//   import("./components/Points").then((mod) => ({ default: mod.Points })),
-// );
-
-const LazyStakeHistory = React.lazy(() =>
-  import("./components/History").then((mod) => ({ default: mod.StakeHistory })),
-);
-
-const LazyRedeemHistory = React.lazy(() =>
-  import("./components/History/RedeemHistory").then((mod) => ({
-    default: mod.RedeemHistory,
-  })),
-);
-
-const LazyBridgeHistory = React.lazy(() =>
-  import("./components/History/BridgeHistory").then((mod) => ({
-    default: mod.BridgeHistorySection,
-  })),
-);
-
 const Home: React.FC<HomeProps> = () => {
-  const [connectModalOpen, setConnectModalOpen] = useState<boolean>(false);
-  const {
-    address,
-    publicKeyNoCoord,
-    btcWallet,
-    btcWalletBalanceSat,
-    btcWalletNetwork,
-    handleConnectBTC,
-    handleDisconnectBTC,
-    formattedBalance,
-    refetchBalance,
-  } = useConnectBTCWallet({
-    onSuccessfulConnect: () => {
-      setConnectModalOpen(false);
-    },
-  });
+  const [btcWallet, setBTCWallet] = useState<WalletProvider | undefined>();
+  const [btcWalletBalanceSat, setBTCWalletBalanceSat] = useState<number>(0);
+  const [btcWalletNetwork, setBTCWalletNetwork] = useState<
+    networks.Network | undefined
+  >();
+  const [publicKeyNoCoord, setPublicKeyNoCoord] = useState<string>("");
+  const [isLoadingCurrentParams, setIsLoadingCurrentParams] = useState(false);
 
+  const [address, setAddress] = useState<string>("");
   const { error, isErrorOpen, showError, hideError, retryErrorAction } =
     useError();
   const { isTermsOpen, closeTerms } = useTerms();
+
+  const {
+    data: stakingHistories,
+    fetchNextPage: fetchNextStakingHistoriesPage,
+    hasNextPage: hasNextStakingHistoriesPage,
+    isFetchingNextPage: isFetchingNextStakingHistoriesPage,
+    error: stakingHistoriesError,
+    isError: hasStakingHistoriesError,
+    refetch: refetchStakingHistoriesData,
+  } = useInfiniteQuery({
+    queryKey: ["stakingHistories", address, publicKeyNoCoord],
+    queryFn: ({ pageParam = "" }) => getStakingHistories(pageParam, address),
+    getNextPageParam: (lastPage) =>
+      lastPage?.pagination?.next_key !== ""
+        ? lastPage?.pagination?.next_key
+        : null,
+    initialPageParam: "",
+    refetchInterval: 2000,
+    enabled: !!(btcWallet && publicKeyNoCoord && address),
+    select: (data) => {
+      const flattenedData = data.pages.reduce<PaginatedStakingHistories>(
+        (acc, page) => {
+          acc.stakingHistories.push(...page.stakingHistories);
+          acc.pagination = page.pagination;
+          return acc;
+        },
+        { stakingHistories: [], pagination: { next_key: "" } },
+      );
+
+      return flattenedData;
+    },
+    retry: (failureCount, error) => {
+      return !isErrorOpen && failureCount <= 3;
+    },
+  });
+
+  const stakingHistoriesLocalStorageKey =
+    getStakingHistoriesLocalStorageKey(publicKeyNoCoord);
+
+  const [stakingHistoriesLocalStorage, setStakingHistoriesLocalStorage] =
+    useLocalStorage<Stakes[]>(stakingHistoriesLocalStorageKey, []);
+
+  const {
+    data: redemptionHistories,
+    fetchNextPage: fetchNextRedemptionHistoriesPage,
+    hasNextPage: hasNextRedemptionHistoriesPage,
+    isFetchingNextPage: isFetchingNextRedemptionHistoriesPage,
+    error: redemptionHistoriesError,
+    isError: hasRedemptionHistoriesError,
+    refetch: refetchRedemptionHistoriesData,
+  } = useInfiniteQuery({
+    queryKey: ["redemptionHistories", address, publicKeyNoCoord],
+    queryFn: ({ pageParam = "" }) => getRedemptionHistories(pageParam, address),
+    getNextPageParam: (lastPage) =>
+      lastPage?.pagination?.next_key !== ""
+        ? lastPage?.pagination?.next_key
+        : null,
+    initialPageParam: "",
+    refetchInterval: 2000,
+    enabled: !!(btcWallet && publicKeyNoCoord && address),
+    select: (data) => {
+      const flattenedData = data.pages.reduce<PaginatedRedemptionHistories>(
+        (acc, page) => {
+          acc.redemptionHistories.push(...page.redemptionHistories);
+          acc.pagination = page.pagination;
+          return acc;
+        },
+        { redemptionHistories: [], pagination: { next_key: "" } },
+      );
+
+      return flattenedData;
+    },
+    retry: (failureCount, error) => {
+      return !isErrorOpen && failureCount <= 3;
+    },
+  });
+
+  const redemptionHistoriesLocalStorageKey =
+    getRedemptionHistoriesLocalStorageKey(publicKeyNoCoord);
+
+  const [redemptionHistoriesLocalStorage, setRedemptionHistoriesLocalStorage] =
+    useLocalStorage<Redemptions[]>(redemptionHistoriesLocalStorageKey, []);
+
+  useEffect(() => {
+    const handleError = ({
+      error,
+      hasError,
+      errorState,
+      refetchFunction,
+    }: ErrorHandlerParam) => {
+      if (hasError && error) {
+        showError({
+          error: {
+            message: error.message,
+            errorState: errorState,
+            errorTime: new Date(),
+          },
+          retryAction: refetchFunction,
+        });
+      }
+    };
+  }, [showError]);
+
+  const [connectModalOpen, setConnectModalOpen] = useState<boolean>(false);
 
   const handleConnectModal = () => {
     setConnectModalOpen(true);
   };
 
-  const [tabValue, setTabValue] = React.useState<string | null>(null);
+  const handleDisconnectBTC = () => {
+    setBTCWallet(undefined);
+    setBTCWalletBalanceSat(0);
+    setBTCWalletNetwork(undefined);
+    setPublicKeyNoCoord("");
+    setAddress("");
+  };
 
-  const { match: isDesktop, isReady: isBreakpointReady } = useBreakpoint("lg");
+  const handleConnectBTC = async (walletProvider: WalletProvider) => {
+    setConnectModalOpen(false);
 
-  useEffect(() => {
-    if (tabValue) {
-      localStorage.setItem("ATLAS_MAIN_TAB", tabValue);
-    }
-  }, [tabValue]);
-
-  useEffect(() => {
-    const savedTab = localStorage.getItem("ATLAS_MAIN_TAB");
-
-    setTabValue(savedTab || "stake");
-  }, []);
-
-  useEffect(() => {
-    let timer: NodeJS.Timeout;
-    if (address) {
-      timer = setInterval(() => {
-        refetchBalance();
-      }, 15000);
-    }
-    return () => clearInterval(timer);
-  }, [address, refetchBalance]);
-
-  const handleGetInfo = async () => {
     try {
-      const response1 = await Wallet.request("wallet_connect", null);
-      console.log(response1);
-      // await Wallet.request("wallet_connect", null);
-      const response = await Wallet.request("wallet_getAccount", null);
+      await walletProvider.connectWallet();
+      const address = await walletProvider.getAddress();
+      const supported = isSupportedAddressType(address);
 
-      console.log(response);
-    } catch (err) {
-      console.log(err);
+      if (!supported) {
+        throw new Error(
+          "Invalid address type. Please use a Native SegWit or Taproot address.",
+        );
+      }
+
+      const balanceSat = await walletProvider.getBalance();
+      const publicKeyNoCoord = getPublicKeyNoCoord(
+        await walletProvider.getPublicKeyHex(),
+      );
+      setBTCWallet(walletProvider);
+      setBTCWalletBalanceSat(balanceSat);
+      setBTCWalletNetwork(toNetwork(await walletProvider.getNetwork()));
+      setAddress(address);
+      setPublicKeyNoCoord(publicKeyNoCoord.toString("hex"));
+    } catch (error: any) {
+      if (
+        error instanceof WalletError &&
+        error.getType() === WalletErrorType.ConnectionCancelled
+      ) {
+        return;
+      }
+      showError({
+        error: {
+          message: error.message,
+          errorState: ErrorState.WALLET,
+          errorTime: new Date(),
+        },
+        retryAction: () => handleConnectBTC(walletProvider),
+      });
     }
   };
 
+  useEffect(() => {
+    if (btcWallet) {
+      let once = false;
+      btcWallet.on("accountChanged", () => {
+        if (!once) {
+          handleConnectBTC(btcWallet);
+        }
+      });
+      return () => {
+        once = true;
+      };
+    }
+  }, [btcWallet]);
+
+  // Clean up the local storage staking
+  useEffect(() => {
+    if (!stakingHistories?.stakingHistories) {
+      return;
+    }
+
+    const updateStakingHistoriesLocalStorage = async () => {
+      const {
+        areStakingHistoriesDifferent,
+        stakingHistories: newStakingHistories,
+      } = await calculateStakingHistoriesDiff(
+        stakingHistories.stakingHistories,
+        stakingHistoriesLocalStorage,
+      );
+      if (areStakingHistoriesDifferent) {
+        setStakingHistoriesLocalStorage(newStakingHistories);
+      }
+    };
+
+    updateStakingHistoriesLocalStorage();
+  }, [
+    stakingHistories,
+    setStakingHistoriesLocalStorage,
+    stakingHistoriesLocalStorage,
+  ]);
+
+  // Clean up the local storage redmeption
+  useEffect(() => {
+    if (!redemptionHistories?.redemptionHistories) {
+      return;
+    }
+
+    const updateRedemptionHistoriesLocalStorage = async () => {
+      const {
+        areRedemptionHistoriesDifferent,
+        redemptionHistories: newRedemptionHistories,
+      } = await calculateRedemptionHistoriesDiff(
+        redemptionHistories.redemptionHistories,
+        redemptionHistoriesLocalStorage,
+      );
+      if (areRedemptionHistoriesDifferent) {
+        setRedemptionHistoriesLocalStorage(newRedemptionHistories);
+      }
+    };
+
+    updateRedemptionHistoriesLocalStorage();
+  }, [
+    redemptionHistories,
+    setRedemptionHistoriesLocalStorage,
+    redemptionHistoriesLocalStorage,
+  ]);
+
+  let totalStakedSat = 0;
+  let totalRedeemedSat = 0;
+
+  if (stakingHistories) {
+    totalStakedSat = stakingHistories.stakingHistories.reduce(
+      (accumulator: number, item) => accumulator + item?.btcAmount,
+      0,
+    );
+  }
+
+  if (redemptionHistories) {
+    totalRedeemedSat = redemptionHistories.redemptionHistories.reduce(
+      (accumulator: number, item) => accumulator + item?.abtcAmount,
+      0,
+    );
+  }
+
   return (
-    <AppContext.Provider
-      value={{
-        ...defaultAppContext,
-        btcWallet,
-        btcAddress: address,
-        btcPublicKeyNoCoord: publicKeyNoCoord,
-        btcNetwork: btcWalletNetwork,
-        btcRefreshBalance: refetchBalance,
-      }}
+    <main
+      className={`relative h-full min-h-svh w-full ${network === Network.MAINNET ? "main-app-mainnet" : "main-app-testnet"}`}
     >
-      <TooltipProvider>
-        <main
-          className={`relative h-full min-h-svh w-full ${network === Network.MAINNET ? "main-app-mainnet" : "main-app-testnet"}`}
-        >
-          <Header
-            onConnect={handleConnectModal}
-            onDisconnect={handleDisconnectBTC}
-            address={address}
-            balanceSat={btcWalletBalanceSat}
-          />
-          <div className="container mx-auto flex justify-center py-6">
-            <div className="container flex flex-col gap-6">
-              <div className="flex gap-4 flex-col lg:flex-row">
-                <div className="flex-1 flex flex-col gap-4">
-                  <Stats />
-                  <button onClick={handleGetInfo}>Get Info</button>
-                  <Card>
-                    <div
-                      className={`py-6 ${
-                        isBreakpointReady ? "opacity-100" : "opacity-0"
-                      }`}
-                    >
-                      <TabsRoot
-                        defaultValue="stake"
-                        dirDisplay={isDesktop ? "vertical" : "horizontal"}
-                        onValueChange={(value) => setTabValue(value)}
-                        value={tabValue || ""}
-                      >
-                        <TabsList>
-                          <TabsTrigger value="stake">Stake</TabsTrigger>
-                          <TabsTrigger value="redeem">Redeem</TabsTrigger>
-                          <TabsTrigger value="bridging">Bridge</TabsTrigger>
-                          {/* <TabsTrigger value="points">Points</TabsTrigger> */}
-                        </TabsList>
-                        <Suspense fallback={<LoadingSection />}>
-                          <TabsContent value="stake">
-                            <RequireConnectWallet
-                              required={!address}
-                              onConnect={handleConnectModal}
-                              renderContent={
-                                <LazyStake
-                                  btcWallet={btcWallet}
-                                  formattedBalance={formattedBalance}
-                                  btcBalanceSat={btcWalletBalanceSat}
-                                />
-                              }
-                            />
-                          </TabsContent>
-                          <TabsContent value="redeem">
-                            <RequireConnectWallet
-                              required={!address}
-                              onConnect={handleConnectModal}
-                              renderContent={
-                                <LazyRedeem btcAddress={address} />
-                              }
-                            />
-                          </TabsContent>
-                        </Suspense>
-                        {/* <TabsContent value="bridging">
-                          <LazyBridge />
-                        </TabsContent> */}
-                        {/* <TabsContent value="points">
-                        <LazyPoints />
-                      </TabsContent> */}
-                      </TabsRoot>
-                    </div>
-                  </Card>
+      {/* <NetworkBadge /> */}
+      <Header
+        onConnect={handleConnectModal}
+        onDisconnect={handleDisconnectBTC}
+        address={address}
+        balanceSat={btcWalletBalanceSat}
+      />
+      <div className="container mx-auto flex justify-center p-6">
+        <div className="container flex flex-col gap-6">
+          <Stats />
+          {address && (
+            <Summary
+              address={address}
+              totalStakedSat={totalStakedSat}
+              totalRedeemedSat={totalRedeemedSat}
+              balanceSat={btcWalletBalanceSat}
+            />
+          )}
+
+          <Tabs labels={["Stake", "Redeem"]}>
+            <div>
+              <Staking
+                isWalletConnected={!!btcWallet}
+                onConnect={handleConnectModal}
+                isLoading={isLoadingCurrentParams}
+                btcWallet={btcWallet}
+                btcWalletBalanceSat={btcWalletBalanceSat}
+                btcWalletNetwork={btcWalletNetwork}
+                address={address}
+                publicKeyNoCoord={publicKeyNoCoord}
+              />
+              {btcWallet && stakingHistories && btcWalletNetwork && (
+                <div className="mt-6">
+                  <StakingHistories
+                    stakingHistoriesAPI={stakingHistories.stakingHistories}
+                    stakingHistoriesLocalStorage={stakingHistoriesLocalStorage}
+                    queryMeta={{
+                      next: fetchNextStakingHistoriesPage,
+                      hasMore: hasNextStakingHistoriesPage,
+                      isFetchingMore: isFetchingNextStakingHistoriesPage,
+                    }}
+                  />
                 </div>
-                {btcWallet && (
-                  <div className="flex-shrink-0 lg:w-[400px] lg:h-full">
-                    <Holdings balanceSat={btcWalletBalanceSat} />
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <Suspense fallback={<LoadingSection />}>
-                  {tabValue === "stake" && <LazyStakeHistory />}
-
-                  {tabValue === "redeem" && <LazyRedeemHistory />}
-
-                  {tabValue === "bridging" && <LazyBridgeHistory />}
-                </Suspense>
-              </div>
+              )}
             </div>
-          </div>
-
-          <ConnectModal
-            open={connectModalOpen}
-            onClose={setConnectModalOpen}
-            onConnect={handleConnectBTC}
-            connectDisabled={!!address}
-          />
-          <ErrorModal
-            open={isErrorOpen}
-            errorMessage={error.message}
-            errorState={error.errorState}
-            errorTime={error.errorTime}
-            onClose={hideError}
-            onRetry={retryErrorAction}
-          />
-          <TermsModal open={isTermsOpen} onClose={closeTerms} />
-        </main>
-      </TooltipProvider>
+            <div>
+              <Redemption
+                isWalletConnected={!!btcWallet}
+                onConnect={handleConnectModal}
+                isLoading={isLoadingCurrentParams}
+                address={address}
+              />
+              {btcWallet && redemptionHistories && btcWalletNetwork && (
+                <div className="mt-6">
+                  <RedemptionHistories
+                    redemptionHistoriesAPI={
+                      redemptionHistories.redemptionHistories
+                    }
+                    redemptionHistoriesLocalStorage={
+                      redemptionHistoriesLocalStorage
+                    }
+                    queryMeta={{
+                      next: fetchNextRedemptionHistoriesPage,
+                      hasMore: hasNextRedemptionHistoriesPage,
+                      isFetchingMore: isFetchingNextRedemptionHistoriesPage,
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+          </Tabs>
+        </div>
+      </div>
       <Footer />
-    </AppContext.Provider>
+      <ConnectModal
+        open={connectModalOpen}
+        onClose={setConnectModalOpen}
+        onConnect={handleConnectBTC}
+        connectDisabled={!!address}
+      />
+      <ErrorModal
+        open={isErrorOpen}
+        errorMessage={error.message}
+        errorState={error.errorState}
+        errorTime={error.errorTime}
+        onClose={hideError}
+        onRetry={retryErrorAction}
+      />
+      <TermsModal open={isTermsOpen} onClose={closeTerms} />
+    </main>
   );
 };
 
