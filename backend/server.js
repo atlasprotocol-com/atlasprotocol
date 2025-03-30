@@ -151,10 +151,10 @@ const getAllDepositHistory = async (limit = 1000) => {
     while (hasMore) {
       const items = await near.getAllDeposits(offset, limit);
       records = records.concat(items);
-      
+
       offset += limit;
       hasMore = items.length === limit;
-      
+
       console.log("Deposits records:", records.length);
     }
 
