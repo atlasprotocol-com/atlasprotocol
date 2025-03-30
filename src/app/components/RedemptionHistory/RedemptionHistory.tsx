@@ -14,7 +14,7 @@ interface RedemptionProps {
   btcReceivingAddress: string;
   abtcAmount: number;
   timestamp: string;
-  status: number;
+  status: string;
   remarks: string;
   btcTxnHash: string;
 }

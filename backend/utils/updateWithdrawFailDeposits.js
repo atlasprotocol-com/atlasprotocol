@@ -1,6 +1,6 @@
 const { getConstants } = require("../constants");
 const { globalParams } = require("../config/globalParams");
-//const { handleCoboTransaction } = require("./coboIntegration");
+const { handleCoboTransaction } = require("./coboIntegration");
 
 const { flagsBatch } = require("./batchFlags");
 
@@ -33,9 +33,9 @@ async function UpdateWithdrawFailDeposits(allDeposits, near, bitcoin) {
       let btcTxnHash, timestamp, hasConfirmed;
 
       if (process.env.USE_COBO === "true" && deposit.custody_txn_id !== "") {
-        // ({ btcTxnHash, timestamp, hasConfirmed } = await handleCoboTransaction(
-        //   deposit.custody_txn_id,
-        // ));
+        ({ btcTxnHash, timestamp, hasConfirmed } = await handleCoboTransaction(
+          deposit.custody_txn_id,
+        ));
       } else {
         // @TODO: implement non COBO integration
       }

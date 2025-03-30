@@ -14,18 +14,15 @@ async function fetchWithRetry(
       const response = await axios(configWithTimeout);
       return response;
     } catch (error) {
-      console.log(`Attempt ${i + 1} failed: ${error.message}`);
+      console.error(`Attempt ${i + 1} failed: ${error.message}`);
       if (i < retries - 1) {
         await new Promise((resolve) => setTimeout(resolve, delay));
       }
     }
   }
-  console.error(
+  throw new Error(
     `Failed to fetch from BTC mempool after ${retries} attempts, URL attempting is ${axiosConfig.url}`,
   );
-  // throw new Error(
-  //   `Failed to fetch from BTC mempool after ${retries} attempts, URL attempting is ${axiosConfig.url}`,
-  // );
 }
 
 module.exports = fetchWithRetry;

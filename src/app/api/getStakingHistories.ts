@@ -23,11 +23,8 @@ interface StakingAPI {
   btc_amount: number;
   minted_txn_hash: string;
   timestamp: string;
-  status: number;
+  status: string;
   remarks: string;
-  yield_provider_gas_fee: number
-  protocol_fee: number
-  minting_fee: number
 }
 
 export const getStakingHistories = async (
@@ -47,16 +44,15 @@ export const getStakingHistories = async (
     // "pagination_limit": limit,
     btc_address: encode(btcWalletAddress),
   };
-
+  
   const response = await apiWrapper(
     "GET",
     "/api/v1/staker/stakingHistories",
     "Error getting staking histories",
     params,
   );
-  // console.log(response);
-  const stakingHistoriesAPIResponse: StakingHistoriesAPIResponse =
-    response.data;
+  console.log(response);
+  const stakingHistoriesAPIResponse: StakingHistoriesAPIResponse = response.data;
 
   const stakingHistories: Stakes[] = stakingHistoriesAPIResponse.data.map(
     (apiStaking: StakingAPI): Stakes => ({
@@ -69,9 +65,6 @@ export const getStakingHistories = async (
       timestamp: apiStaking.timestamp,
       status: apiStaking.status,
       remarks: apiStaking.remarks,
-      yieldProviderGasFee: apiStaking.yield_provider_gas_fee,
-      protocolFee: apiStaking.protocol_fee,
-      mintingFee: apiStaking.minting_fee,
     }),
   );
 

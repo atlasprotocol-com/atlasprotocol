@@ -1,4 +1,6 @@
-import { Dialog } from "../../Dialog";
+import { IoMdClose } from "react-icons/io";
+
+import { GeneralModal } from "../GeneralModal";
 
 import { Terms } from "./data/terms";
 
@@ -9,10 +11,23 @@ interface TermsModalProps {
 
 export const TermsModal: React.FC<TermsModalProps> = ({ open, onClose }) => {
   return (
-    <Dialog open={open} onOpenChange={onClose} headerTitle="Terms of Use">
-      <div className="max-h-[calc(100vh-200px)] overflow-auto">
-        <Terms />
+    <GeneralModal
+      open={open}
+      onClose={onClose}
+      classes={{
+        modal: "flex flex-col",
+      }}
+    >
+      <div className="mb-4 flex items-center justify-between">
+        <h4 className="font-bold">Terms of Use</h4>
+        <button
+          className="btn btn-circle btn-ghost btn-sm"
+          onClick={() => onClose(false)}
+        >
+          <IoMdClose size={24} />
+        </button>
       </div>
-    </Dialog>
+      <Terms />
+    </GeneralModal>
   );
 };

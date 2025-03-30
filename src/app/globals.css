@@ -7,6 +7,11 @@
 
 @import url("styles/terms.css");
 
+:root {
+  --primary: #ff7c2a;
+  --secondary: "#0DB7BF";
+}
+
 /* disable number input arrows */
 /* Chrome, Safari, Edge, Opera */
 input::-webkit-outer-spin-button,
@@ -20,96 +25,95 @@ input[type="number"] {
   -moz-appearance: textfield;
 }
 
-:root {
-  --font-titillium-web: "Titillium Web", sans-serif;
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
 }
 
-body {
-  font-family: var(--font-titillium-web);
+[data-theme="dark"] .gradient-primary {
+  background: linear-gradient(
+    97.5deg,
+    rgba(255, 124, 42, 0.2) 2.43%,
+    rgba(153, 74, 25, 0.2) 97.63%
+  );
 }
 
-:root {
-  --primary: #f35c1e;
-  --primary-50: #fffcfc;
-  --primary-100: #fef5f1;
-  --primary-200: #fde8e0;
-  --primary-300: #fcd6c7;
-  --primary-400: #fabfa8;
-  --primary-500: #f8a382;
-  --primary-600: #f68254;
-  --primary-700: #f35c20;
-  --primary-800: #d9460c;
-  --primary-900: #a93609;
-  --primary-950: #782808;
-  --neutral-1: #121721;
-  --neutral-2: #f9fafc;
-  --neutral-3: #f5f5f7;
-  --neutral-4: #ebecf0;
-  --neutral-5: #d5d8e0;
-  --neutral-6: #989eb2;
-  --neutral-7: #70778c;
-  --neutral-8: #313a52;
-  --neutral-9: #272d40;
-  --neutral-10: #1d2230;
-  --neutral-11: #121721;
-  --secondary-50: #fffefb;
-  --secondary-100: #fefaf0;
-  --secondary-200: #fef3de;
-  --secondary-300: #fdeac4;
-  --secondary-400: #fcdea3;
-  --secondary-500: #facf7a;
-  --secondary-600: #f8be4a;
-  --secondary-700: #f6ab13;
-  --secondary-800: #8d6005;
-  --secondary-900: #483103;
-  --secondary-950: #312102;
-  --danger: #f23030;
+[data-theme="light"] .gradient-primary {
+  background: linear-gradient(98.35deg, #fff3ea 2.4%, #fff6ef 117.66%);
 }
 
-:root,
-[data-theme="dark"] {
-  --primary: #f35c1e;
-  --primary-foreground: #fff;
-  --text: #fff;
-  --caption: #70778c;
-  --bg: #121721;
-  --card-bg: #1d2230;
-  --header-bg: #121721;
-  --header-border: #1d2230;
-  --footer-bg: #121721;
-  --footer-border: #1d2230;
-  --border: #313a52;
-  --modal-bg: #272d40;
-  --tab-list-border: var(--neutral-9);
-  --tab-bg-active: var(--neutral-11);
-  --tab-text-active: var(--primary);
-  --tab-border-active: var(--primary);
-  --input-bg: var(--neutral-11);
-  --input-border: var(--neutral-9);
+.shadow-primary {
+  box-shadow: 1px 2px 20px 0px rgba(255, 124, 42, 0.3);
 }
 
-[data-theme="light"] {
-  --primary: #f35c1e;
-  --primary-foreground: #fff;
-  --text: #121721;
-  --caption: #70778c;
-  --bg: #ebecf0;
-  --card-bg: #fff;
-  --header-bg: #ffffff;
-  --header-border: #ebecf0;
-  --footer-bg: #ffffff;
-  --footer-border: #ebecf0;
-  --border: #d5d8e0;
-  --modal-bg: #fff;
-  --tab-list-border: var(--neutral-4);
-  --tab-bg-active: var(--primary-100);
-  --tab-text-active: var(--primary);
-  --tab-border-active: var(--primary);
-  --input-bg: #fff;
-  --input-border: var(--neutral-5);
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
-body {
-  background-color: var(--bg);
-  color: var(--text);
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+  width: 0 !important;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.fp-selected {
+  border: 1px solid var(--primary) !important;
+  filter: brightness(0.98);
+}
+
+.no-focus {
+  outline: none !important;
+}
+
+/* tabs selection */
+.tab.tab-active:not(.tab-disabled):not([disabled]),
+.tab:is(input:checked) {
+  border-color: #ff7c2a;
+}
+
+.divider:after,
+.divider:before {
+  height: 1px !important;
+  width: 1px !important;
+}
+
+[data-theme="dark"] .main-app-mainnet {
+  /* background: rgb(43, 43, 43) url("./assets/bg-pattern.svg") left top/auto
+    repeat; */
+  background: rgb(43, 43, 43);
+}
+
+[data-theme="light"] .main-app-mainnet {
+  /* background: rgb(236, 236, 236) url("./assets/bg-pattern.svg") left top/auto
+    repeat; */
+  background: rgb(236, 236, 236);
+}
+
+[data-theme="dark"] .main-app-testnet {
+  /* background: rgb(43, 43, 43) url("./assets/testnet-bg-pattern.svg") left
+    top/auto repeat; */
+  background: rgb(43, 43, 43);
+}
+
+[data-theme="light"] .main-app-testnet {
+  /* background: rgb(236, 236, 236) url("./assets/testnet-bg-pattern.svg") left
+    top/auto repeat; */
+  background: rgb(236, 236, 236);
+}
+
+[data-theme="dark"] .react-responsive-modal-modal {
+  background-color: #1e1e1e;
+  color: #fff;
+}
+
+[data-theme="light"] .react-responsive-modal-modal {
+  background-color: #fff;
+  color: #000;
+}
+
+body.modal-open {
+  overflow: hidden;
 }

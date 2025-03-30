@@ -28,7 +28,6 @@ export enum Network {
   MAINNET = "mainnet",
   TESTNET = "testnet",
   SIGNET = "signet",
-  TESTNET4 = "testnet4",
 }
 
 // WalletInfo is a structure defining attributes for a wallet
@@ -43,8 +42,6 @@ export type WalletInfo = {
  */
 
 export abstract class WalletProvider {
-  public name: string | undefined;
-
   /**
    * Connects to the wallet and returns the instance of the wallet provider.
    * Currently only supports "native segwit" and "taproot" address types.
@@ -76,10 +73,7 @@ export abstract class WalletProvider {
    * @param psbtHex - The hex string of the unsigned PSBT to sign.
    * @returns A promise that resolves to the hex string of the signed PSBT.
    */
-  abstract signPsbt(
-    psbtHex: string,
-    signInputs?: { [name: string]: Array<number> },
-  ): Promise<string>;
+  abstract signPsbt(psbtHex: string): Promise<string>;
 
   /**
    * Signs multiple PSBTs in hex format.

@@ -27,7 +27,6 @@ export class OKXWallet extends WalletProvider {
   private okxWallet: any;
   private bitcoinNetworkProvider: any;
   private networkEnv: Network | undefined;
-  readonly name: string = "OKX";
 
   constructor() {
     super();
@@ -66,7 +65,6 @@ export class OKXWallet extends WalletProvider {
 
     try {
       await this.okxWallet.enable(); // Connect to OKX Wallet extension
-      await this.okxWallet.disconnect();
     } catch (error) {
       if ((error as Error)?.message?.includes("rejected")) {
         throw new Error("Connection to OKX Wallet was rejected");

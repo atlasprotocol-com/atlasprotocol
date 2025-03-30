@@ -1,3 +1,5 @@
+const { getConstants } = require("../constants");
+
 const { flagsBatch } = require("./batchFlags");
 const {
   getLastProcessedConfirmedTime,
@@ -8,6 +10,7 @@ async function UpdateAtlasBtcDeposits(
   btcMempool,
   btcAtlasDepositAddress,
   treasuryAddress,
+  depositFeePercentage,
   near,
   bitcoin,
 ) {
@@ -22,6 +25,7 @@ async function UpdateAtlasBtcDeposits(
     console.log(`${batchName}. Start run ...`);
     flagsBatch.UpdateAtlasBtcDepositsRunning = true;
 
+    const { DEPOSIT_STATUS } = getConstants();
     const lastProcessedConfirmedTime = getLastProcessedConfirmedTime(); // Get the last polled time
     let newLastProcessedConfirmedTime = 0;
 
@@ -35,15 +39,12 @@ async function UpdateAtlasBtcDeposits(
         txn.vout.some(
           (vout) => vout.scriptpubkey_address === btcAtlasDepositAddress,
         ) &&
-        !txn.vin.some(
-          (vin) => vin.prevout.scriptpubkey_address === btcAtlasDepositAddress
-        ) &&
         (txn.status.block_time > lastProcessedConfirmedTime ||
           !txn.status.confirmed),
     );
 
     console.log(
-      `${batchName} Btc Mempool number of Deposit records: total:${btcMempool.data.length} filtered:${filteredTxns.length}`,
+      `Btc Mempool number of Deposit records: ${filteredTxns.length}`,
     );
 
     let i = 0;
@@ -51,64 +52,80 @@ async function UpdateAtlasBtcDeposits(
     for (const txn of filteredTxns) {
       i++;
       const btcTxnHash = txn.txid;
+      const blnStatusConfirmed = txn.status.confirmed;
       let timestamp = 0;
 
       try {
         // Check if the deposit record exists in NEAR
         const recordExists = await near.getDepositByBtcTxnHash(btcTxnHash);
 
-        if (!recordExists) {
+        if (recordExists) {
+          console.log("Record exist");
+          if (txn.status.block_time > newLastProcessedConfirmedTime) {
+            newLastProcessedConfirmedTime = txn.status.block_time;
+          }
+          if (
+            recordExists.status ===
+              DEPOSIT_STATUS.BTC_PENDING_DEPOSIT_MEMPOOL &&
+            !recordExists.remarks &&
+            blnStatusConfirmed
+          ) {
+            console.log("Status updated");
+            timestamp = txn.status.block_time;
+
+            // Update existing record
+            await near.updateDepositBtcDeposited(btcTxnHash, timestamp);
+            console.log(`Updated Deposit with BTC txn hash ${btcTxnHash}`);
+          }
+        } else {
+          console.log("New record found");
           // Insert new deposit record
 
           const btcSenderAddress = await bitcoin.getBtcSenderAddress(txn);
-
           let {
             chain: receivingChainID,
             address: receivingAddress,
-            yieldProviderGasFee,
-            protocolFee,
-            mintingFee,
             remarks,
           } = await bitcoin.getChainAndAddressFromTxnHash(txn);
 
           if (receivingChainID && receivingAddress) {
-            console.log("New record found");
-            console.log("receivingChainID:", receivingChainID);
-            console.log("receivingAddress:", receivingAddress);
-            console.log("btcTxnHash:", btcTxnHash);
             const { btcAmount, feeAmount } = await bitcoin.getBtcReceivingAmount(
               txn,
               btcAtlasDepositAddress,
               treasuryAddress
             );
-            console.log("btcAmount:", btcAmount);
-            console.log("feeAmount:", feeAmount);
-            if (feeAmount < (protocolFee + mintingFee)) {
-              remarks = `protocolFee + mintingFee doesn't match`;
+
+            if (feeAmount === 0 && depositFeePercentage > 0) {
+              remarks = `No deposit fee paid`;
             }
-            
+
             // Use confirmed timestamp if available, otherwise fetch unconfirmed time
-            timestamp = Math.floor(Date.now() / 1000);
+            timestamp = blnStatusConfirmed
+              ? txn.status.block_time
+              : await bitcoin.fetchUnconfirmedTransactionTime(txn);
+
+            const mintedTxnHash = "";
 
             await near.insertDepositBtc(
               btcTxnHash,
               btcSenderAddress,
               receivingChainID,
               receivingAddress,
-              btcAmount + feeAmount,
-              protocolFee,
-              "",
-              mintingFee,
+              btcAmount,
+              feeAmount,
+              mintedTxnHash,
               timestamp,
               remarks,
               timestamp,
-              yieldProviderGasFee,
-              ""
             );
 
             console.log(`Inserted Deposit with BTC txn hash ${btcTxnHash}`);
-          } 
-        } 
+          } else {
+            console.log(
+              `Skipping deposit record for BTC txn hash ${btcTxnHash}: missing receiving chain/address`,
+            );
+          }
+        }
       } catch (error) {
         console.error(`Error processing BTC txn hash ${btcTxnHash}:`, error);
         continue; // Skip to the next transaction

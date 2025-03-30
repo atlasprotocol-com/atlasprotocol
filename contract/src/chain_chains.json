@@ -1,28 +1,28 @@
 {
   "chains": [
     {
-      "chain_id": "TESTNET4",
-      "network_type": "testnet4",
-      "network_name": "Bitcoin Testnet4",
-      "chain_rpc_url": "https://mempool.space/testnet4/api",
-      "explorer_url": "https://mempool.space/testnet4/",
+      "chain_id": "SIGNET",
+      "network_type": "SIGNET",
+      "network_name": "Bitcoin Signet",
+      "chain_rpc_url": "https://mempool.space/signet/api",
+      "explorer_url": "https://mempool.space/signet/",
       "abtc_address": "",
-      "native_currency_name": "tBTC",
+      "native_currency_name": "BTC",
       "native_currency_decimals": 8,
-      "native_currency_symbol": "tBTC",
+      "native_currency_symbol": "BTC",
       "first_block": 0,
       "batch_size": 0,
       "gas_limit": 0,
       "abi_path": "",
-      "validators_threshold": 1
+      "validators_threshold": 2
     },
     {
       "chain_id": "NEAR_TESTNET",
       "network_type": "NEAR",
       "network_name": "NEAR testnet",
-      "chain_rpc_url": "https://rpc.testnet.fastnear.com",
+      "chain_rpc_url": "https://rpc.testnet.near.org",
       "explorer_url": "https://testnet.nearblocks.io/",
-      "abtc_address": "atbtc_testnet4_20250309.velar.testnet",
+      "abtc_address": "atbtc_audit_v2.velar.testnet",
       "native_currency_name": "NEAR",
       "native_currency_decimals": 18,
       "native_currency_symbol": "NEAR",
@@ -30,7 +30,7 @@
       "batch_size": 10000,
       "gas_limit": 0,
       "abi_path": "",
-      "validators_threshold": 1
+      "validators_threshold": 2
     },
     {
       "chain_id": "421614",
@@ -38,7 +38,7 @@
       "network_name": "Arbitrum Sepolia",
       "chain_rpc_url": "https://sepolia-rollup.arbitrum.io/rpc",
       "explorer_url": "https://sepolia.arbiscan.io/",
-      "abtc_address": "0xc0879a7d6de506f7c34b71c7f9a6d11d7549c9b1",
+      "abtc_address": "0x163b2778a4807e4321e8aa01a2dc09f541a98003",
       "native_currency_name": "ETH",
       "native_currency_decimals": 18,
       "native_currency_symbol": "ETH",
@@ -46,7 +46,7 @@
       "batch_size": 50000,
       "gas_limit": 10000000,
       "abi_path": "../../contract/artifacts/atBTC.abi",
-      "validators_threshold": 1
+      "validators_threshold": 2
     },
     {
       "chain_id": "11155420",
@@ -54,7 +54,7 @@
       "network_name": "Optimism Sepolia",
       "chain_rpc_url": "https://sepolia.optimism.io",
       "explorer_url": "https://sepolia-optimism.etherscan.io/",
-      "abtc_address": "0x9e83855b72b48ba69b6909afe5f69247b71a4252",
+      "abtc_address": "0x630619e62cd82f823bde3bd9dd48879bd23ad0c9",
       "native_currency_name": "ETH",
       "native_currency_decimals": 18,
       "native_currency_symbol": "ETH",
@@ -62,7 +62,7 @@
       "batch_size": 10000,
       "gas_limit": 10000000,
       "abi_path": "../../contract/artifacts/atBTC.abi",
-      "validators_threshold": 1
+      "validators_threshold": 2
     }
   ]
 }

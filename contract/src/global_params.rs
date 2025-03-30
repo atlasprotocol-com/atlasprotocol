@@ -10,7 +10,7 @@ pub struct GlobalParams {
     fee_deposit_bps: u16,
     fee_redemption_bps: u16,
     fee_bridging_bps: u16,
-    fee_yield_provider_rewards_bps: u16,
+    fee_babylon_rewards_bps: u16,
     btc_staking_cap: u64,
     btc_max_staking_amount: u64,
     btc_min_staking_amount: u64,
@@ -18,7 +18,6 @@ pub struct GlobalParams {
     owner_id: AccountId,
     proposed_owner_id: Option<AccountId>, // Proposed owner for two-step ownership transfer
     max_retry_count: u8,
-    last_unstaking_time: u64, // Timestamp of the last unstaking operation
 }
 
 impl GlobalParams {
@@ -39,15 +38,14 @@ impl GlobalParams {
             fee_deposit_bps: 0,
             fee_redemption_bps: 0,
             fee_bridging_bps: 0,
-            fee_yield_provider_rewards_bps: 0,
+            fee_babylon_rewards_bps: 0,
             btc_staking_cap: 50000000000,
-            btc_max_staking_amount: 100000000,
-            btc_min_staking_amount: 20000,
+            btc_max_staking_amount: 5000000,
+            btc_min_staking_amount: 2000,
             treasury_address: treasury_address,
             owner_id: owner_id,
             proposed_owner_id: None,
             max_retry_count: 3,
-            last_unstaking_time: 0, // Initialize with 0 timestamp
         }
     }
 
@@ -108,26 +106,6 @@ impl GlobalParams {
         self.mpc_contract.clone()
     }
 
-    pub fn get_treasury_address(&self) -> String {
-        self.treasury_address.clone()
-    }
-
-    pub fn get_fee_deposit_bps(&self) -> u16 {
-        self.fee_deposit_bps
-    }
-
-    pub fn get_fee_redemption_bps(&self) -> u16 {
-        self.fee_redemption_bps
-    }
-
-    pub fn get_fee_bridging_bps(&self) -> u16 {
-        self.fee_bridging_bps
-    }
-
-    pub fn get_fee_yield_provider_rewards_bps(&self) -> u16 {
-        self.fee_yield_provider_rewards_bps
-    }
-
     pub fn set_mpc_contract(&mut self, new_mpc_contract: AccountId) {
         self.assert_owner();
         assert!(
@@ -178,14 +156,14 @@ impl GlobalParams {
         self.fee_bridging_bps = fee_bridging_bps;
     }
 
-    pub fn update_fee_yield_provider_rewards_bps(&mut self, fee_yield_provider_rewards_bps: u16) {
+    pub fn update_fee_babylon_rewards_bps(&mut self, fee_babylon_rewards_bps: u16) {
         self.assert_owner();
         // setting max fee to 10%
         assert!(
-            fee_yield_provider_rewards_bps <= 1000,
+            fee_babylon_rewards_bps <= 1000,
             "Invalid fee: must be between 0 and 1000 basis points"
         );
-        self.fee_yield_provider_rewards_bps = fee_yield_provider_rewards_bps;
+        self.fee_babylon_rewards_bps = fee_babylon_rewards_bps;
     }
 
     pub fn update_btc_staking_cap(&mut self, btc_staking_cap: u64) {
@@ -216,14 +194,6 @@ impl GlobalParams {
             "Max retry count must be greater than ZERO"
         );
         self.max_retry_count = max_retry_count;
-    }
-
-    pub fn get_last_unstaking_time(&self) -> u64 {
-        self.last_unstaking_time
-    }
-
-    pub fn update_last_unstaking_time(&mut self, timestamp: u64) {
-        self.last_unstaking_time = timestamp;
     }
 
     pub fn owner_id(&self) -> &AccountId {

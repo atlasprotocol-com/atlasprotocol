@@ -3,9 +3,9 @@ const { Ethereum } = require("../services/ethereum");
 const address = require("../services/address");
 
 const { flagsBatch } = require("./batchFlags");
-const { getChainConfig } = require("./network.chain.config");
+const GAS_FOR_MINT_CALL = 100; // Gas for minting call
 
-async function MintaBtcToReceivingChain(allDeposits, near) {
+async function MintaBtcToReceivingChain(near) {
   const batchName = `Batch D MintaBtcToReceivingChain`;
 
   if (flagsBatch.MintaBtcToReceivingChainRunning) {
@@ -17,129 +17,111 @@ async function MintaBtcToReceivingChain(allDeposits, near) {
 
       const { NETWORK_TYPE, DEPOSIT_STATUS } = getConstants(); // Access constants dynamically
 
-      // Filter deposits that need to be processed
-      const filteredTxns = allDeposits.filter(
-        (deposit) =>
-          deposit.btc_sender_address && // non-empty check
-          deposit.receiving_chain_id &&
-          deposit.receiving_address &&
-          deposit.status === DEPOSIT_STATUS.BTC_YIELD_PROVIDER_DEPOSITED &&
-          !deposit.remarks && // empty check
-          !deposit.minted_txn_hash &&
-          deposit.btc_amount > 0 &&
-          deposit.date_created > 0,
-      );
+      // Get the first valid deposit and associated chain config using near.getFirstValidDepositChainConfig
+      const result = await near.getFirstValidDepositChainConfig();
 
-      for (const depositRecord of filteredTxns) {
-        const btcTxnHash = depositRecord.btc_txn_hash;
-        const chainConfig = getChainConfig(depositRecord.receiving_chain_id);
+      // Check if the result is null or undefined
+      if (!result) {
+        console.log("No valid deposit or chain config found.");
+        return;
+      }
 
-        if (!chainConfig) {
-          console.error(`Chain config not found for chain ID: ${depositRecord.receiving_chain_id}`);
-          continue;
-        }
+      // Destructure the result if it's valid
+      const [btcTxnHash, chainConfig] = result;
+      // console.log(`BTC Transaction Hash: ${btcTxnHash}`);
+      // console.log(`Chain Config:`, chainConfig);
 
-        console.log("Record to mint aBTC:", depositRecord);
+      const depositRecord = await near.getDepositByBtcTxnHash(btcTxnHash);
 
-        try {
-          if (chainConfig.networkType === NETWORK_TYPE.EVM) {
-            if (
-              !address.isValidEthereumAddress(depositRecord.receiving_address)
-            ) {
-              throw new Error(
-                `Invalid receiving address: ${depositRecord.receiving_address}`,
-              );
-            }
-
-            const ethereum = new Ethereum(
-              chainConfig.chain_id,
-              chainConfig.chain_rpc_url,
-              chainConfig.gas_limit,
-              chainConfig.abtc_address,
-              chainConfig.abi_path,
+      try {
+        if (chainConfig.network_type === NETWORK_TYPE.EVM) {
+          if (
+            !address.isValidEthereumAddress(depositRecord.receiving_address)
+          ) {
+            throw new Error(
+              `Invalid receiving address: ${depositRecord.receiving_address}`,
             );
-
-            let derivationPath = chainConfig.network_type;
-
-            console.log(`Processing EVM Chain signatures`);
-
-            // Generate the derived address for the aBTC minter & sender
-            const sender = await ethereum.deriveEthAddress(
-              await near.nearMPCContract.public_key(),
-              near.contract_id,
-              derivationPath,
-            );
-
-            console.log(`Minter and sender address: ${sender}`);
-
-            // Create payload to deploy the contract
-            console.log(`Creating EVM and Sign payload...`);
-            const signedTransaction = await ethereum.createMintaBtcSignedTx(
-              near,
-              sender,
-              depositRecord.receiving_address,
-              depositRecord.btc_amount - depositRecord.yield_provider_gas_fee,
-              btcTxnHash,
-              depositRecord.minting_fee,
-            );
-
-            // Check if signedTransaction is an empty Uint8Array
-            if (signedTransaction.length === 0) {
-              console.error("Signed transaction is empty. Aborting process.");
-              return;
-            }
-
-            // Relay the transaction to EVM
-            console.log(`Relay transaction to EVM...`);
-
-            const { txnHash, status } =
-              await ethereum.relayTransaction(signedTransaction);
-            console.log(
-              "\x1b[35m%s\x1b[0m",
-              `Processed Txn: Mint aBTC with BTC txn hash ${btcTxnHash}, mintStatus = ${status}`,
-            );
-
-            if (status !== 1n) {
-              let remarks = `Error ${batchName} processing Txn with BTC txn hash ${btcTxnHash}: ${txnHash} return with error`;
-              console.error(remarks);
-              await near.updateDepositRemarks(btcTxnHash, remarks);
-            }
-          } else if (chainConfig.networkType === NETWORK_TYPE.NEAR) {
-            console.log("Processing NEAR Chain signatures");
-
-            if (!address.isValidNearAddress(depositRecord.receiving_address)) {
-              throw new Error(
-                `Invalid receiving address: ${depositRecord.receiving_address}`,
-              );
-            }
-            const { gasPrice, mintingFeeUsd } =
-              await near.calculateNearGasFeeFromMintingFee(
-                depositRecord.receiving_address,
-                depositRecord.minting_fee,
-              );
-            
-            const payloadHeader = {
-              btc_txn_hash: btcTxnHash,
-              nonce: 0,
-              gas: gasPrice,
-              max_fee_per_gas: 0,
-              max_priority_fee_per_gas: 0,
-            };
-
-            console.log("payloadHeader:", payloadHeader);
-
-            // Create payload to deploy the contract
-            console.log(`Minting aBTC on NEAR...`);
-            const signedTransaction =
-              await near.createMintaBtcSignedTx(payloadHeader);
-
-            console.log(signedTransaction);
           }
-        } catch (error) {
-          let remarks = `Error ${batchName} processing Txn with BTC txn hash ${btcTxnHash}: ${error}`;
-          console.error(remarks);
-          await near.updateDepositRemarks(btcTxnHash, remarks);
+
+          const ethereum = new Ethereum(
+            chainConfig.chain_id,
+            chainConfig.chain_rpc_url,
+            chainConfig.gas_limit,
+            chainConfig.abtc_address,
+            chainConfig.abi_path,
+          );
+
+          let derivationPath = chainConfig.network_type;
+
+          console.log(`Processing EVM Chain signatures`);
+
+          // Generate the derived address for the aBTC minter & sender
+          const sender = await ethereum.deriveEthAddress(
+            await near.nearMPCContract.public_key(),
+            near.contract_id,
+            derivationPath,
+          );
+
+          console.log(`Minter and sender address: ${sender}`);
+
+          // Create payload to deploy the contract
+          console.log(`Creating EVM and Sign payload...`);
+          const signedTransaction = await ethereum.createMintaBtcSignedTx(
+            near,
+            sender,
+            btcTxnHash,
+          );
+
+          // Check if signedTransaction is an empty Uint8Array
+          if (signedTransaction.length === 0) {
+            console.error("Signed transaction is empty. Aborting process.");
+            return;
+          }
+
+          // Relay the transaction to EVM
+          console.log(`Relay transaction to EVM...`);
+
+          const { txnHash, status } =
+            await ethereum.relayTransaction(signedTransaction);
+          console.log(
+            "\x1b[35m%s\x1b[0m",
+            `Processed Txn: Mint aBTC with BTC txn hash ${btcTxnHash}, mintStatus = ${status}`,
+          );
+
+          if (status !== 1n) {
+            let remarks = `Error ${batchName} processing Txn with BTC txn hash ${btcTxnHash}: ${txnHash} return with error`;
+            console.error(remarks);
+            await near.updateDepositRemarks(btcTxnHash, remarks);
+          }
+        } else if (chainConfig.network_type === "NEAR") {
+          if (!address.isValidNearAddress(depositRecord.receiving_address)) {
+            throw new Error(
+              `Invalid receiving address: ${depositRecord.receiving_address}`,
+            );
+          }
+          const payloadHeader = {
+            btc_txn_hash: btcTxnHash,
+            nonce: 0,
+            gas: GAS_FOR_MINT_CALL,
+            max_fee_per_gas: 0,
+            max_priority_fee_per_gas: 0,
+          };
+
+          // Create payload to deploy the contract
+          console.log(`Minting aBTC on NEAR...`);
+          const signedTransaction =
+            await near.createMintaBtcSignedTx(payloadHeader);
+
+          console.log(signedTransaction);
         }
+      } catch (error) {
+        let remarks = `Error ${batchName} processing Txn with BTC txn hash ${btcTxnHash}: ${error}`;
+
+        console.error(remarks);
+
+        await near.updateDepositRemarks(btcTxnHash, remarks);
+
+        return;
       }
 
       console.log(`${batchName} completed successfully.`);

@@ -1,6 +1,6 @@
 export const Terms = () => {
   return (
-    <div className="rounded-2xl border border-neutral-content p-6 dark:border-neutral-content/20 terms-container">
+    <div className="rounded-2xl border border-neutral-content p-6 dark:border-neutral-content/20 overflow-y-scroll  h-full terms-container">
       <p className="italic">Last updated [27th July 2024]</p>
       <br />
       {/* <p>

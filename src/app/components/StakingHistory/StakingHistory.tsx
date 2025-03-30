@@ -17,7 +17,7 @@ interface StakingHistoryProps {
   btcAmount: number;
   minted_txn_hash: string;
   timestamp: string;
-  status: number;
+  status: string;
   remarks: string;
 }
 
@@ -41,7 +41,7 @@ export const StakingHistory: React.FC<StakingHistoryProps> = ({
   return (
     <div className="grid grid-flow-col grid-cols-2 grid-rows-2 items-center gap-2 lg:grid-flow-row lg:grid-cols-7 lg:grid-rows-1">
       <p>
-        {maxDecimals(satoshiToBtc(btcAmount), 8)} {coinName} 
+        {maxDecimals(satoshiToBtc(btcAmount), 8)} {coinName}
       </p>
       <p>{formatTimestamp(timestamp)}</p>
       <p>{chainConfig?.networkName}</p> {/* Use chainConfig from the context */}
