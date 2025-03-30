@@ -3,45 +3,49 @@ import { NextRequest, NextResponse } from "next/server";
 const isDev = process.env.NODE_ENV === "development";
 
 export function middleware(request: NextRequest) {
-  const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
+  //   const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
 
-  const cspHeader = `
-    default-src 'self';
-    script-src 'self' 'nonce-${nonce}' 'strict-dynamic' ${isDev ? "'unsafe-eval'" : ""};
-    style-src 'self';
-    img-src 'self' blob: data:;
-    font-src 'self';
-    object-src 'none';
-    base-uri 'self';
-    form-action 'self';
-    frame-ancestors 'none';
-    connect-src 'self' https://mempool.space https://api-xmsw63ow5a-as.a.run.app https://api-audit.atlasprotocol.com https://api-uat.atlasprotocol.com https://metamask-sdk.api.cx.metamask.io https://sepolia-rollup.arbitrum.io https://sepolia.optimism.io https://infragrid.v.network https://rpc.testnet.near.org https://rpc.ankr.com/polygon_amoy http://localhost:3001 https://testnet-rpc.juchain.org https://eth-sepolia.public.blastapi.io https://eth-sepolia.g.alchemy.com/v2/M2SECgI-qVpztFsBxr4E1XA9kVwA0MNz https://mempool.space/testnet4/api/v1/fees/recommended;
-    upgrade-insecure-requests;
-`;
-  // Replace newline characters and spaces
-  const contentSecurityPolicyHeaderValue = cspHeader
-    .replace(/\s{2,}/g, " ")
-    .trim();
+  //   const cspHeader = `
+  //     default-src 'self';
+  //     script-src 'self' 'nonce-${nonce}' 'strict-dynamic' ${isDev ? "'unsafe-eval'" : ""};
+  //     style-src 'self';
+  //     img-src 'self' blob: data:;
+  //     font-src 'self';
+  //     object-src 'none';
+  //     base-uri 'self';
+  //     form-action 'self';
+  //     frame-ancestors 'none';
+  //     connect-src 'self' https://mempool.space https://api-xmsw63ow5a-as.a.run.app https://api-audit.atlasprotocol.com https://api-uat.atlasprotocol.com https://metamask-sdk.api.cx.metamask.io https://sepolia-rollup.arbitrum.io https://sepolia.optimism.io https://infragrid.v.network https://rpc.testnet.near.org https://rpc.ankr.com/polygon_amoy http://localhost:3001 https://testnet-rpc.juchain.org https://eth-sepolia.public.blastapi.io https://eth-sepolia.g.alchemy.com/v2/M2SECgI-qVpztFsBxr4E1XA9kVwA0MNz https://mempool.space/testnet4/api/v1/fees/recommended;
+  //     upgrade-insecure-requests;
+  // `;
+  //   // Replace newline characters and spaces
+  //   const contentSecurityPolicyHeaderValue = cspHeader
+  //     .replace(/\s{2,}/g, " ")
+  //     .trim();
 
-  const requestHeaders = new Headers(request.headers);
-  requestHeaders.set("x-nonce", nonce);
+  //   const requestHeaders = new Headers(request.headers);
+  //   requestHeaders.set("x-nonce", nonce);
 
-  requestHeaders.set(
-    "Content-Security-Policy",
-    contentSecurityPolicyHeaderValue,
-  );
+  //   requestHeaders.set(
+  //     "Content-Security-Policy",
+  //     contentSecurityPolicyHeaderValue,
+  //   );
+
+  //   const response = NextResponse.next({
+  //     request: {
+  //       headers: requestHeaders,
+  //     },
+  //   });
+  //   response.headers.set(
+  //     "Content-Security-Policy",
+  //     contentSecurityPolicyHeaderValue,
+  //   );
+
+  //   console.log("CSP Header: ", contentSecurityPolicyHeaderValue);
 
   const response = NextResponse.next({
-    request: {
-      headers: requestHeaders,
-    },
+    request: {},
   });
-  response.headers.set(
-    "Content-Security-Policy",
-    contentSecurityPolicyHeaderValue,
-  );
-
-  console.log("CSP Header: ", contentSecurityPolicyHeaderValue);
 
   return response;
 }

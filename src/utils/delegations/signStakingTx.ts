@@ -41,7 +41,7 @@ export const createStakingTx = (
       address,
       finalityProviderPublicKey,
       stakingAmountSat,
-      feeRate, 
+      feeRate,
       inputUTXOs,
       btcWalletNetwork,
       protocolFeeSat,
@@ -82,7 +82,6 @@ export const signStakingTx = async (
   receivingChainID: string,
   receivingAddress: string,
 ): Promise<{ stakingTxHex: string; txHash: string }> => {
-  
   // Create the staking transaction
   let { unsignedStakingPsbt } = createStakingTx(
     stakingAmountSat,
@@ -102,10 +101,11 @@ export const signStakingTx = async (
   // Sign the staking transaction
   let stakingTx: Transaction;
   try {
+    console.log("unsignedStakingPsbt", unsignedStakingPsbt);
     stakingTx = await signPsbtTransaction(btcWallet)(
-      unsignedStakingPsbt.toHex(),
+      unsignedStakingPsbt,
+      address,
     );
-    
   } catch (error: Error | any) {
     throw new Error(error?.message || "Staking transaction signing PSBT error");
   }

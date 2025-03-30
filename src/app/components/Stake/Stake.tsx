@@ -184,7 +184,10 @@ export function Stake({ formattedBalance }: StakeProps) {
             return data.amount <= max;
           },
           {
-            message: `Please enter a minimum amount of ${params.data?.formattedMinStakingAmount} ${BTC_TOKEN}`,
+            message:
+              max < 0
+                ? `You don't have enough balance`
+                : `Please enter a minimum amount of ${params.data?.formattedMinStakingAmount} ${BTC_TOKEN}`,
             path: ["amount"],
           },
         ),
@@ -216,6 +219,7 @@ export function Stake({ formattedBalance }: StakeProps) {
         chainConfigs[data.chainID].networkType,
         chainConfigs[data.chainID].nativeCurrency?.symbol || "",
       );
+      ``;
 
       // Update preview data with actual minting fee
       setReviewData((prev) => ({
