@@ -13,6 +13,9 @@ const {
   uncompressedHexPointToSegwitAddress,
 } = require("../services/kdf");
 const fetchWithRetry = require("../utils/fetchWithRetry");
+const { getConstants } = require("../constants");
+
+const { magicHash } = require('./message');
 
 // Initialize ECC library
 bitcoin.initEccLib(ecc);
@@ -22,7 +25,7 @@ class Bitcoin {
     this.chain_rpc = chain_rpc;
 
     this.network =
-      network === "testnet" || network === "signet"
+      network === "testnet" || network === "signet" || network === "testnet4"
         ? bitcoin.networks.testnet // This will select either 'testnet' or 'signet'
         : bitcoin.networks.bitcoin; // Default to mainnet if neither testnet nor signet is specified
   }
@@ -37,6 +40,8 @@ class Bitcoin {
 
     return balance;
   }
+
+  
 
   async getMockPayload(
     sender,
@@ -152,6 +157,129 @@ class Bitcoin {
     };
   }
 
+  async createSendBridgingFeesTransaction(near, sender) {
+    // Fetch UTXOs for the sender
+    const utxos = await this.fetchUTXOs(sender);
+
+    // Fetch the current fee rate from an external source
+    const feeRate = await this.fetchFeeRate() + 1;
+
+    // Prepare the payload header to send to the NEAR contract
+    const payloadHeader = {
+      sender: sender,
+      utxos: utxos,
+      fee_rate: feeRate,
+    };
+
+    // Call the NEAR contract method to create the transaction
+    const result = await near.createSendBridgingFeesTransaction(payloadHeader);
+
+    // Destructure the result from the NEAR contract
+    const {
+      psbt,
+      utxos: selectedUtxos, 
+      estimated_fee: estimatedFee,
+      protocol_fee: protocolFee,
+      receive_amount: receiveAmount,
+      change,
+      yield_provider_gas_fee: yieldProviderGasFee,
+      txn_hashes: txnHashes,
+    } = result;
+
+    // Return the necessary information as a JSON object
+    return {
+      psbt,
+      utxos: selectedUtxos,
+      estimatedFee,
+      protocolFee,  
+      receiveAmount,
+      change,
+      yieldProviderGasFee,
+      txnHashes
+    };
+  }
+  
+  async createPayload(near, sender, txnHashes) {
+    // Fetch UTXOs for the sender
+    const utxos = await this.fetchUTXOs(sender);
+
+    // Fetch the current fee rate from an external source
+    const feeRate = await this.fetchFeeRate() + 1;
+
+    // Prepare the payload header to send to the NEAR contract
+    const payloadHeader = {
+      sender: sender,
+      utxos: utxos,
+      fee_rate: feeRate,
+      txn_hashes: txnHashes,
+    };
+
+    // Call the NEAR contract method to create the transaction
+    const result = await near.createRedeemAbtcTransaction(payloadHeader);
+
+    // Destructure the result from the NEAR contract
+    const {
+      psbt,
+      utxos: selectedUtxos,
+      estimated_fee: estimatedFee,
+      protocol_fee: protocolFee,
+      receive_amount: receiveAmount,
+      change,
+      yield_provider_gas_fee: yieldProviderGasFee,
+    } = result;
+
+    // Return the necessary information
+    return {
+      psbt,
+      utxos: selectedUtxos,
+      estimatedFee,
+      protocolFee,
+      receiveAmount,
+      change,
+      yieldProviderGasFee
+    };
+  }
+
+  async requestSignatureToMPC(near, btcPayload, publicKey) {
+    const { psbt, utxos } = btcPayload;
+
+    // Bitcoin needs to sign multiple utxos, so we need to pass a signer function
+    const sign = async (tx) => {
+      const btcPayload = Array.from(ethers.getBytes(tx));
+
+      const result = await near.createAtlasSignedPayload(
+        btcPayload,
+        psbt,
+      );
+
+      const big_r = result.big_r.affine_point;
+      const big_s = result.s.scalar;
+
+      return this.reconstructSignature(big_r, big_s);
+    };
+
+    for (let i = 0; i < utxos.length; i++) {
+      console.log(`MPC_SIGN #${i} / ${utxos.length}`);
+      await psbt.signInputAsync(i, { publicKey, sign });
+    }
+
+    psbt.finalizeAllInputs();
+    return psbt.extractTransaction().toHex();
+  }
+
+  reconstructSignature(big_r, big_s) {
+    const r = big_r.slice(2).padStart(64, "0");
+    const s = big_s.padStart(64, "0");
+
+    const rawSignature = Buffer.from(r + s, "hex");
+
+    if (rawSignature.length !== 64) {
+      throw new Error("Invalid signature length.");
+    }
+
+    return rawSignature;
+  }
+
   // This code can be used to actually relay the transaction to the Ethereum network
   async relayTransaction(signedTransaction) {
     //console.log(this.chain_rpc);
@@ -159,6 +287,7 @@ class Bitcoin {
       `${this.chain_rpc}/tx`,
       signedTransaction,
     );
+
     return response.data;
   }
 
@@ -193,9 +322,17 @@ class Bitcoin {
    * @throws {Error} Throws an error if the fee rate data for the specified confirmation target is missing.
    */
   async fetchFeeRate() {
-    const response = await axios.get(`${this.chain_rpc}/fee-estimates`);
-    const confirmationTarget = 6;
-    return response.data[confirmationTarget];
+    try {
+      const response = await axios.get(`${this.chain_rpc}/v1/fees/recommended`);
+      const feeRates = response.data;
+      if (feeRates.fastestFee) {
+        return Math.ceil(feeRates.fastestFee);
+      }
+    } catch (error) {
+      console.warn("Error fetching fee rates by mempool:", error.message);
+    }
+    throw new Error("Cannot estimate bitcoin gas fee rate");
+
   }
 
   /**
@@ -232,6 +369,7 @@ class Bitcoin {
     const { data } = await axios.get(`${this.chain_rpc}/tx/${transactionId}`);
     const tx = new bitcoin.Transaction();
 
+
     tx.version = data.version;
     tx.locktime = data.locktime;
 
@@ -261,6 +399,11 @@ class Bitcoin {
     return tx;
   }
 
+  async fetchRawTransaction(transactionId) {
+    const { data } = await axios.get(`${this.chain_rpc}/tx/${transactionId}`);
+    return data;
+  }
+
   // Function which returns the txn's sender address
   async getBtcSenderAddress(txn) {
     const output = txn.vin[0].prevout.scriptpubkey_address;
@@ -281,7 +424,7 @@ class Bitcoin {
     const treasuryValue = treasuryOutput ? treasuryOutput.value : 0;
 
     return {
-      btcAmount: outputValue + treasuryValue,
+      btcAmount: outputValue,
       feeAmount: treasuryValue
     };
   }
@@ -291,6 +434,9 @@ class Bitcoin {
     let chain = null;
     let address = null;
     let remarks = "";
+    let yieldProviderGasFee = 0;
+    let protocolFee = 0;
+    let mintingFee = 0;
 
     try {
       for (const vout of txn.vout) {
@@ -298,8 +444,17 @@ class Bitcoin {
         const chunks = bitcoin.script.decompile(scriptPubKey);
         if (chunks[0] === bitcoin.opcodes.OP_RETURN) {
           const embeddedData = chunks[1].toString("utf-8");
-          [chain, address] = embeddedData.split(",");
-          return { chain, address, remarks };
+
+          [chain, address, yieldProviderGasFee, protocolFee, mintingFee] = embeddedData.split(",");
+          
+          return {
+            chain,
+            address,
+            yieldProviderGasFee: Number(yieldProviderGasFee),
+            protocolFee: Number(protocolFee),
+            mintingFee: Number(mintingFee),
+            remarks,
+          };
         }
       }
 
@@ -307,7 +462,7 @@ class Bitcoin {
     } catch (error) {
       remarks = `Error from retrieveOpReturnFromTxnHash: ${error.message}`;
       //console.error(remarks);
-      return { chain, address, remarks };
+      return { chain, address, yieldProviderGasFee: Number(yieldProviderGasFee), remarks };
     }
   }
 
@@ -380,7 +535,7 @@ class Bitcoin {
       };
       const response = await fetchWithRetry(axioConfig);
       const time = response.data[0];
-      console.log(`Unconfirmed txn hash ${txn.txId} time: ${time}`);
+      console.log(`Unconfirmed txn hash ${txn.txid} time: ${time}`);
       return time;
     } catch (error) {
       throw new Error(
@@ -390,12 +545,7 @@ class Bitcoin {
   }
 
   // Fetch BTC mempool transactions based on address
-  // To Confirm: https://mempool.space/signet/docs/api/rest#get-address-transactions
-  //    Get transaction history for the specified address/scripthash, sorted with newest first.
-  //    Returns up to 50 mempool transactions plus the first 25 confirmed transactions.
-  //    You can request more confirmed transactions using an after_txid query parameter.
   async fetchTxnsByAddress(address) {
-    //console.log(`${this.chain_rpc}/address/${address}/txs`);
     const axioConfig = {
       url: `${this.chain_rpc}/address/${address}/txs`,
       method: "get",
@@ -403,6 +553,35 @@ class Bitcoin {
     const response = await fetchWithRetry(axioConfig);
 
     return response;
+  }
+
+  /**
+   * Get the count of pending (unconfirmed) outgoing transactions for an address
+   * @param {string} address - The Bitcoin address to check
+   * @returns {Promise<number>} - The number of unconfirmed outgoing transactions
+   */
+  async getPendingOutCount(address) {
+    try {
+      const response = await this.fetchTxnsByAddress(address);
+      
+      // Filter for unconfirmed outgoing transactions
+      const pendingOutgoing = response.data.filter(tx => {
+        // Check if transaction has any input from the address (outgoing)
+        const hasMatchingInput = tx.vin.some(input => 
+          input.prevout.scriptpubkey_address === address
+        );
+        
+        // Check if transaction is unconfirmed
+        const isUnconfirmed = !tx.status.confirmed;
+        
+        return hasMatchingInput && isUnconfirmed;
+      });
+
+      return pendingOutgoing.length;
+    } catch (error) {
+      console.error('Error getting pending outgoing transactions:', error);
+      throw new Error(`Failed to get pending outgoing count: ${error.message}`);
+    }
   }
 
   // Fetch BTC mempool transaction based on transaction ID
@@ -417,12 +596,49 @@ class Bitcoin {
     return response.data;
   }
 
-  async deriveBTCAddress(rootPublicKey, accountId, derivationPath) {
+  /**
+     * Get the number of confirmations for a transaction based on its block height
+     * @param {number} txBlockHeight - The block height of the transaction
+     * @returns {Promise<number>} - The number of confirmations
+     */
+  async getConfirmations(txBlockHeight) {
+    try {
+        // Get the current block height
+        const response = await axios.get(`${this.chain_rpc}/blocks/tip/height`);
+        const currentBlockHeight = response.data;
+
+        // Calculate confirmations (current height - tx block height + 1)
+        const confirmations = currentBlockHeight - txBlockHeight + 1;
+
+        // Return 0 if negative (shouldn't happen in normal cases)
+        return Math.max(0, confirmations);
+    } catch (error) {
+        console.error('Error getting confirmations:', error);
+        throw new Error(`Failed to get confirmations: ${error.message}`);
+    }
+  }
+
+  async getCurrentBlockHeight() {
+    try {
+        // Get the current block height
+        const response = await axios.get(`${this.chain_rpc}/blocks/tip/height`);
+        const currentBlockHeight = response.data;
+        return currentBlockHeight;
+    } catch (error) {
+        console.error('Error getting current block height:', error);
+        throw new Error(`Failed to get current block height: ${error.message}`);
+    }
+  }
+
+  async deriveBTCAddress(near) {
+    const { NETWORK_TYPE } = getConstants();
+
     const publicKey = await derivep2wpkhChildPublicKey(
-      await najPublicKeyStrToUncompressedHexPoint(rootPublicKey),
-      accountId,
-      derivationPath,
+      await najPublicKeyStrToUncompressedHexPoint(await near.nearMPCContract.public_key()),
+      near.contract_id,
+      NETWORK_TYPE.BITCOIN,
     );
+
     const address = await uncompressedHexPointToSegwitAddress(
       publicKey,
       this.network,
@@ -432,37 +648,102 @@ class Bitcoin {
   }
 
   async addUtxosToPsbt(psbt, selectedUtxos) {
-    await Promise.all(
-      selectedUtxos.map(async (utxo) => {
-        // Fetch the transaction details using the txid
-        const transaction = await this.fetchTransaction(utxo.txid);
+    for (const utxo of selectedUtxos) {
+      // Fetch the transaction details using the txid
+      const transaction = await this.fetchTransaction(utxo.txid);
 
-        let inputOptions;
+      let inputOptions;
 
-        // Check if the UTXO is a SegWit transaction
-        if (transaction.outs[utxo.vout].script.includes("0014")) {
-          // SegWit input (witnessUtxo)
-          inputOptions = {
-            hash: utxo.txid,
-            index: utxo.vout,
-            witnessUtxo: {
-              script: transaction.outs[utxo.vout].script, // Script for the specific output
-              value: utxo.value, // Value of the UTXO in satoshis
-            },
-          };
-        } else {
-          // Non-SegWit input (nonWitnessUtxo)
-          inputOptions = {
-            hash: utxo.txid,
-            index: utxo.vout,
-            nonWitnessUtxo: Buffer.from(transaction.toHex(), "hex"), // Full transaction hex for non-SegWit inputs
-          };
-        }
+      // Check script type based on prefix
+      if (transaction.outs[utxo.vout].script.includes("5120")) {
+        // Taproot input (P2TR)
+        inputOptions = {
+          hash: utxo.txid,
+          index: utxo.vout,
+          witnessUtxo: {
+            script: transaction.outs[utxo.vout].script,
+            value: utxo.value,
+          },
+          tapInternalKey: transaction.outs[utxo.vout].script.slice(2), // Remove 5120 prefix
+        };
+      } else if (transaction.outs[utxo.vout].script.includes("0014")) {
+        // SegWit input (P2WPKH)
+        inputOptions = {
+          hash: utxo.txid,
+          index: utxo.vout,
+          witnessUtxo: {
+            script: transaction.outs[utxo.vout].script,
+            value: utxo.value,
+          },
+        };
+      } else {
+        // Legacy input (P2PKH)
+        inputOptions = {
+          hash: utxo.txid,
+          index: utxo.vout,
+          nonWitnessUtxo: Buffer.from(transaction.toHex(), "hex"),
+        };
+      }
 
-        // Add the input to the PSBT
-        psbt.addInput(inputOptions);
-      }),
-    );
+      // Add the input to the PSBT
+      psbt.addInput(inputOptions);
+    }
+  }
+
+  async mpcSignPsbt(near,psbtHex) {
+    // Parse the PSBT
+    const psbt = bitcoin.Psbt.fromHex(psbtHex, {network: this.network});
+    console.log("Full PSBT:", psbt);
+    console.log("PSBT data:", psbt.data);
+    console.log("PSBT inputs:", psbt.data.inputs);
+    console.log("PSBT outputs:", psbt.data.outputs);
+    console.log("PSBT version:", psbt.version);
+    const { publicKey } = await this.deriveBTCAddress(near);
+    const sign = async (tx) => {
+      
+      const btcPayload = Array.from(ethers.getBytes(tx));
+      console.log("Signing transaction:", btcPayload);
+      const result =
+        await near.createAtlasSignedPayload(btcPayload);
+
+      const big_r = result.big_r.affine_point;
+      const big_s = result.s.scalar;
+
+      return this.reconstructSignature(big_r, big_s);
+    };
+
+    // Log the inputs
+    for (let i = 0; i < psbt.data.inputs.length; i++) {
+      console.log(`Signing input ${i}:`, psbt.data.inputs[i]);
+      await psbt.signInputAsync(i, { publicKey, sign });
+    }
+
+    return psbt;
+  }
+
+  async mpcSignMessage(near, message) {
+    const msgHash = magicHash(message, "Bitcoin Signed Message:\n");
+
+    // // Sign the message using NEAR MPC
+    const payload = Array.from(msgHash);
+    const result = await near.createAtlasSignedPayload(payload);
+    
+    const big_r = result.big_r.affine_point;
+    const big_s = result.s.scalar;
+    const recovery_id = parseInt(result.recovery_id) + 27;
+
+    const r = big_r.slice(2).padStart(64, "0");
+    const s = big_s.padStart(64, "0");
+
+    const rawSignatureTemp = Buffer.from(r + s, "hex");
+
+    // Create a 65 byte buffer with recovery_id + r + s
+    const signature = Buffer.concat([
+      Buffer.from([recovery_id]),
+      rawSignatureTemp
+    ]);
+
+    return signature;
   }
 }
 

@@ -1,6 +1,7 @@
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 import { FiMoon, FiSun } from "react-icons/fi";
+import { twMerge } from "tailwind-merge";
 
 interface ThemeToggleProps {}
 
@@ -16,32 +17,23 @@ export const ThemeToggle: React.FC<ThemeToggleProps> = () => {
   }, []);
 
   if (!mounted) {
-    return (
-      <div className="flex h-[40px] w-[68px] items-center justify-center gap-1 rounded-full bg-base-100 p-2">
-        <span className="loading loading-spinner loading-xs text-primary" />
-      </div>
-    );
+    return null;
   }
 
   const lightSelected = resolvedTheme === "light";
 
-  const getPrimaryActive = () => {
-    if (lightSelected) {
-      return "bg-white";
-    } else {
-      return "bg-primary";
-    }
-  };
-
   const iconStyles = (active: boolean) =>
     `rounded-full p-1 transition duration-300 ease-in-out ${
-      active ? getPrimaryActive() : "bg-transparent"
+      active ? "bg-primary text-primary-foreground" : "bg-transparent"
     }`;
 
   return (
     <button
       onClick={() => (lightSelected ? setTheme("dark") : setTheme("light"))}
-      className="flex gap-1 rounded-full bg-base-100 p-2 outline-none"
+      className={twMerge(
+        "h-8 p-1 rounded-[40px] border border-primary items-center gap-1 inline-flex outline-none text-neutral-7",
+        !lightSelected ? "bg-neutral-10" : "bg-neutral-3",
+      )}
     >
       <div className={`${iconStyles(lightSelected)}`}>
         <FiSun size={16} />

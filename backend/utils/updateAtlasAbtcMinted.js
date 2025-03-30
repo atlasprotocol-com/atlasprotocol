@@ -1,8 +1,10 @@
+const _ = require("lodash");
+
 const { getConstants } = require("../constants");
 const { Ethereum } = require("../services/ethereum");
 
 const { getChainConfig } = require("./network.chain.config");
-const { flagsBatch } = require("./batchFlags");
+const { flagsBatch, blockRange } = require("./batchFlags");
 
 async function UpdateAtlasAbtcMinted(allDeposits, near) {
   const batchName = `Batch J UpdateAtlasAbtcMinted`;
@@ -35,7 +37,6 @@ async function UpdateAtlasAbtcMinted(allDeposits, near) {
       acc[deposit.receiving_chain_id].push(deposit);
       return acc;
     }, {});
-
     
     // Process each group of deposits by chain ID
     for (const chainID in groupedTxns) {

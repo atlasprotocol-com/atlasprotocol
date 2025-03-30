@@ -19,9 +19,11 @@ const INTERNAL_NETWORK_NAMES = {
   [Network.MAINNET]: "livenet",
   [Network.TESTNET]: "testnet",
   [Network.SIGNET]: "signet",
+  [Network.TESTNET4]: "testnet4",
 };
 
 export class BitgetWallet extends WalletProvider {
+  readonly name: string = "Bitget Wallet";
   private bitcoinNetworkProvider: any;
   private networkEnv: Network | undefined;
 

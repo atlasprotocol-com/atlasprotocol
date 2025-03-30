@@ -1,0 +1,62 @@
+{
+  "juChainTestnet": {
+    "id": 66633666,
+    "name": "JuChain Testnet",
+    "network": "juchain-testnet",
+    "nativeCurrency": {
+      "decimals": 18,
+      "name": "JU",
+      "symbol": "JU"
+    },
+    "rpcUrls": {
+      "default": { "http": ["https://testnet-rpc.juchain.org"] },
+      "public": { "http": ["https://testnet-rpc.juchain.org"] }
+    },
+    "blockExplorers": {
+      "default": {
+        "name": "JuChain Explorer",
+        "url": "http://explorer-testnet.juchain.org"
+      }
+    }
+  },
+  "polygonAmoy": {
+    "id": 80002,
+    "name": "Polygon Amoy",
+    "network": "polygon-amoy",
+    "nativeCurrency": {
+      "decimals": 18,
+      "name": "POL",
+      "symbol": "POL"
+    },
+    "rpcUrls": {
+      "default": { "http": ["https://rpc.ankr.com/polygon_amoy"] },
+      "public": { "http": ["https://rpc.ankr.com/polygon_amoy"] }
+    },
+    "blockExplorers": {
+      "default": {
+        "name": "PolygonScan",
+        "url": "https://amoy.polygonscan.com/"
+      }
+    }
+  },
+  "sepolia": {
+    "id": 11155111,
+    "name": "Sepolia",
+    "network": "sepolia",
+    "nativeCurrency": {
+      "decimals": 18,
+      "name": "ETH",
+      "symbol": "ETH"
+    },
+    "rpcUrls": {
+      "default": { "http": ["https://eth-sepolia.public.blastapi.io"] },
+      "public": { "http": ["https://eth-sepolia.public.blastapi.io"] }
+    },
+    "blockExplorers": {
+      "default": {
+        "name": "Etherscan",
+        "url": "https://sepolia.etherscan.io"
+      }
+    } 
+  }
+} 

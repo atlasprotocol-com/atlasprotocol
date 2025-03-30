@@ -28,16 +28,17 @@ export const StakingHistories: React.FC<StakingHistoriesProps> = ({
   const combinedStakingHistoriesData = stakingHistoriesAPI
     ? [...stakingHistoriesLocalStorage, ...stakingHistoriesAPI]
     : // If no API data, fallback to using only local storage stakingHistories
-    stakingHistoriesLocalStorage;
+      stakingHistoriesLocalStorage;
 
   // Sort the combined stakingHistories by startTimestamp, newest records first
-  const sortedStakingHistoriesData = combinedStakingHistoriesData.sort((a, b) => 
-    new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+  const sortedStakingHistoriesData = combinedStakingHistoriesData.sort(
+    (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
   );
 
+  console.log(sortedStakingHistoriesData);
   return (
     <div className="card flex flex-col gap-2 bg-base-300 p-4 shadow-sm lg:flex-1">
-      <h3 className="mb-4 font-bold">Staking history</h3>
+      <h3 className="mb-4 font-bold">Staking History</h3>
       {sortedStakingHistoriesData.length === 0 ? (
         <div className="rounded-2xl border border-neutral-content p-4 text-center dark:border-neutral-content/20">
           <p>No history found</p>
@@ -77,6 +78,7 @@ export const StakingHistories: React.FC<StakingHistoriesProps> = ({
                   timestamp,
                   status,
                   remarks,
+                  yieldProviderGasFee
                 } = stakingHistory;
 
                 return (
@@ -86,7 +88,7 @@ export const StakingHistories: React.FC<StakingHistoriesProps> = ({
                     btcSenderAddress={btcSenderAddress}
                     receivingChainId={receivingChainId}
                     receivingAddress={receivingAddress}
-                    btcAmount={btcAmount}
+                    btcAmount={btcAmount - yieldProviderGasFee}
                     minted_txn_hash={minted_txn_hash}
                     timestamp={timestamp}
                     status={status}

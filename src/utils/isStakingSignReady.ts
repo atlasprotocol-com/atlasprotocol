@@ -1,4 +1,4 @@
-import { validateBlockchainAddress } from "@/utils/validateAddress";
+import { isValidAddress } from "@/utils/validateAddress";
 
 // Check if the staking transaction is ready to be signed
 export const isStakingSignReady = (
@@ -10,9 +10,8 @@ export const isStakingSignReady = (
   stakingCap: number,
   totalTVLSat: number,
   stakingReceivingAddress: string,
-  networkType: string,
+  networkType: string
 ): { isReady: boolean; reason: string } => {
-  console.log(networkType);
   // Amount parameters are ready
   const amountParamatersReady = minAmount && maxAmount;
   // App values are filled
@@ -23,10 +22,7 @@ export const isStakingSignReady = (
   // Amount is ready
   const amountIsReady = amountParamatersReady && amountValuesReady;
 
-  const validateAddress = validateBlockchainAddress({
-    networkType,
-    address: stakingReceivingAddress,
-  });
+  const validateAddress = isValidAddress(networkType, stakingReceivingAddress)
 
   if (!amountIsReady) {
     return {
@@ -45,7 +41,7 @@ export const isStakingSignReady = (
   if (!validateAddress) {
     return {
       isReady: false,
-      reason: `${stakingReceivingAddress} is not a valid address for network type ${networkType || "unknown"}`,
+      reason: `${stakingReceivingAddress} is not a valid address for network type ${networkType || 'unknown'}`,
     };
   }
 
@@ -53,4 +49,6 @@ export const isStakingSignReady = (
     isReady: true,
     reason: "",
   };
+
+
 };

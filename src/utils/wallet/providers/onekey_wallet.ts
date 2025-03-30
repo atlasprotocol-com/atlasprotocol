@@ -24,6 +24,7 @@ const INTERNAL_NETWORK_NAMES = {
 };
 
 export class OneKeyWallet extends WalletProvider {
+  readonly name: string = "OneKey";
   private oneKeyWalletInfo: WalletInfo | undefined;
   private oneKeyWallet: any;
   private bitcoinNetworkProvider: any;

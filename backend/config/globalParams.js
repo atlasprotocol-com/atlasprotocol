@@ -5,16 +5,17 @@ let globalParams = {
   minStakingAmount: 0,
   atlasRedemptionFeePercentage: 0,
   atlasDepositFeePercentage: 0,
-  atlasBabylonRewardsFeePercentage: 0,
+  atlasYieldProviderRewardsFeePercentage: 0,
   atlasBridgingFeePercentage: 0,
   atlasTreasuryAddress: null,
   maxRetryCount: 1,
+  lastUnstakingTime: 0,
 };
 
 // Function to fetch and update globalParams
 async function updateGlobalParams(near) {
   try {
-    console.log("Fetching global parameters from NEAR");
+    //console.log("Fetching global parameters from NEAR");
     const fetchedParams = await near.getGlobalParams();
 
     // Update the globalParams object
@@ -26,14 +27,15 @@ async function updateGlobalParams(near) {
       fetchedParams.fee_redemption_bps / 10000;
     globalParams.atlasDepositFeePercentage =
       fetchedParams.fee_deposit_bps / 10000;
-    globalParams.atlasBabylonRewardsFeePercentage =
-      fetchedParams.fee_babylon_rewards_bps / 10000;
+    globalParams.atlasYieldProviderRewardsFeePercentage =
+      fetchedParams.fee_yield_provider_rewards_bps / 10000;
     globalParams.atlasBridgingFeePercentage =
       fetchedParams.fee_bridging_bps / 10000;
     globalParams.atlasTreasuryAddress = fetchedParams.treasury_address;
     globalParams.maxRetryCount = fetchedParams.max_retry_count || 1;
+    globalParams.lastUnstakingTime = fetchedParams.last_unstaking_time || 0;
 
-    console.log("Global parameters loaded successfully:", globalParams);
+    //console.log("Global parameters loaded successfully:", globalParams);
   } catch (error) {
     console.error("Failed to fetch and loaded global params:", error);
   }

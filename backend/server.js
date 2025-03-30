@@ -1,6 +1,11 @@
 /* eslint-disable import/order */
 
 const dotenv = require("dotenv");
+
+// Load environment variables from .env.local or .env based on NODE_ENV
+const envFile = process.env.NODE_ENV === "production" ? ".env" : ".env.local";
+dotenv.config({ path: envFile });
+
 const { globalParams, updateGlobalParams } = require("./config/globalParams");
 const { getTransactionsAndComputeStats } = require("./utils/transactionStats");
 const { UpdateAtlasBtcDeposits } = require("./utils/updateAtlasBtcDeposits");
@@ -12,26 +17,54 @@ const {
   MintaBtcToReceivingChain,
 } = require("./utils/mintaBtcToReceivingChain");
 const {
-  UpdateAtlasBtcRedemptions,
-} = require("./utils/updateAtlasBtcRedemptions");
-const { SendBtcBackToUser } = require("./utils/sendBtcBackToUser");
+  MintBridgeABtcToDestChain,
+} = require("./utils/mintBridgeABtcToDestChain");
+
 const {
   UpdateAtlasBtcBackToUser,
 } = require("./utils/updateAtlasBtcBackToUser");
 const {
   UpdateAtlasAbtcMintedTxnHash,
-} = require("./utils/UpdateAtlasAbtcMintedTxnHash");
+} = require("./utils/updateAtlasAbtcMintedTxnHash");
 const { UpdateAtlasAbtcMinted } = require("./utils/updateAtlasAbtcMinted");
-
+const {
+  UpdateYieldProviderStacked,
+} = require("./utils/updateYieldProviderStacked");
 const {
   fetchAndSetChainConfigs,
   getAllChainConfig,
+  getChainConfig,
 } = require("./utils/network.chain.config");
 const { fetchAndSetConstants, getConstants } = require("./constants");
 
-// Load environment variables from .env.local or .env based on NODE_ENV
-const envFile = process.env.NODE_ENV === "production" ? ".env" : ".env.local";
-dotenv.config({ path: envFile });
+// Ensure StakeToYieldProvider is imported or defined
+const {
+  StakeToYieldProvider,
+  getBithiveDeposits,
+} = require("./utils/stakeToYieldProvider");
+
+const {
+  UpdateAtlasBtcWithdrawnFromYieldProvider,
+} = require("./utils/updateAtlasBtcWithdrawnFromYieldProvider");
+const { SendBtcBackToUser } = require("./utils/sendBtcBackToUser");
+const {
+  estimateRedemptionFees,
+  estimateBridgingFees,
+} = require("./services/bithive");
+const {
+  UpdateAtlasBtcBridgingYieldProviderWithdrawn,
+} = require("./utils/updateAtlasBtcBridgingYieldProviderWithdrawn");
+const {
+  SendBridgingFeesToTreasury,
+} = require("./utils/sendBridgingFeesToTreasury");
+const {
+  RetrieveAndProcessPastNearEvents,
+} = require("./utils/retrieveAndProcessPastNearEvents");
+const { UpdateAtlasBtcDeposited } = require("./utils/updateAtlasBtcDeposited");
+
+const {
+  RetrieveAndProcessPastEvmEvents,
+} = require("./utils/retrieveAndProcessPastEvmEvents");
 
 const express = require("express");
 const cors = require("cors");
@@ -43,17 +76,20 @@ app.use(helmet());
 
 const { Bitcoin } = require("./services/bitcoin");
 const { Near } = require("./services/near");
+const { Ethereum } = require("./services/ethereum");
+const { getTxsOfNetwork } = require("./services/subquery");
+const {
+  processUnstakingAndWithdrawal,
+} = require("./utils/processUnstakingAndWithdrawal");
 
 // Configuration for BTC connection
 const btcConfig = {
-  //btcAtlasDepositAddress: process.env.BTC_ATLAS_DEPOSIT_ADDRESS,
-  btcAtlasDepositAddress:
-    process.env.USE_COBO === "true"
-      ? process.env.COBO_DEPOSIT_ADDRESS
-      : process.env.BTC_ATLAS_DEPOSIT_ADDRESS,
+  btcAtlasDepositAddress: process.env.BTC_ATLAS_DEPOSIT_ADDRESS,
   btcAPI: process.env.BTC_MEMPOOL_API_URL,
   btcNetwork: process.env.BTC_NETWORK,
   btcDerivationPath: process.env.BTC_DERIVATION_PATH,
+  btcAtlasTreasuryAddress: process.env.BTC_ATLAS_TREASURY_ADDRESS,
+  evmAtlasAddress: process.env.EVM_ATLAS_ADDRESS,
 };
 
 const bitcoin = new Bitcoin(btcConfig.btcAPI, btcConfig.btcNetwork);
@@ -70,6 +106,7 @@ const nearConfig = {
   accountId: process.env.NEAR_ACCOUNT_ID,
   pk: process.env.NEAR_PRIVATE_KEY,
   gas: process.env.NEAR_DEFAULT_GAS,
+  bitHiveContractId: process.env.NEAR_BIT_HIVE_CONTRACT_ID,
 };
 
 const near = new Near(
@@ -80,19 +117,22 @@ const near = new Near(
   nearConfig.networkId,
   nearConfig.gas,
   nearConfig.mpcContractId,
+  nearConfig.bitHiveContractId,
 );
 
 app.use(cors());
 app.use(helmet());
 
 const btcAtlasDepositAddress = btcConfig.btcAtlasDepositAddress;
+const evmAtlasAddress = btcConfig.evmAtlasAddress;
 let atlasStats = {};
 let deposits = [];
 let redemptions = [];
 let btcMempool = [];
+let bridgings = [];
 
-const computeStats = () => {
-  atlasStats = getTransactionsAndComputeStats(
+const computeStats = async () => {
+  atlasStats = await getTransactionsAndComputeStats(
     deposits,
     redemptions,
     btcAtlasDepositAddress,
@@ -101,10 +141,24 @@ const computeStats = () => {
 };
 
 // Function to poll Near Atlas deposit records
-const getAllDepositHistory = async () => {
+const getAllDepositHistory = async (limit = 1000) => {
   try {
-    //console.log("Fetching deposits history");
-    deposits = await near.getAllDeposits();
+    console.log("Fetching deposits history");
+    let records = [];
+    let offset = 0;
+    let hasMore = true;
+
+    while (hasMore) {
+      const items = await near.getAllDeposits(offset, limit);
+      records = records.concat(items);
+
+      offset += limit;
+      hasMore = items.length === limit;
+
+      console.log("Deposits records:", records.length);
+    }
+
+    deposits = records;
   } catch (error) {
     console.error(`Failed to fetch staking history: ${error.message}`);
   }
@@ -117,6 +171,16 @@ const getAllRedemptionHistory = async () => {
     redemptions = await near.getAllRedemptions();
   } catch (error) {
     console.error(`Failed to fetch redemption history: ${error.message}`);
+  }
+};
+
+// Function to poll Near Atlas bridging records
+const getAllBridgingHistory = async () => {
+  try {
+    //console.log("Fetching bridgings history");
+    bridgings = await near.getAllBridgings();
+  } catch (error) {
+    console.error(`Failed to fetch bridging history: ${error.message}`);
   }
 };
 
@@ -141,13 +205,13 @@ app.get("/api/v1/atlas/address", async (req, res) => {
 
 app.get("/api/v1/stats", async (req, res) => {
   try {
-    const data = {
-      active_tvl: atlasStats.activeTVLSat,
-      total_tvl: atlasStats.totalTVLSat,
-      total_stakers: atlasStats.totalStakers,
-      unconfirmed_tvl: atlasStats.unconfirmedTVLSat,
-    };
-    res.json({ data });
+    // await getBtcMempoolRecords();
+    // await getAllDepositHistory();
+    // await getAllBridgingHistory();
+    // await getAllRedemptionHistory();
+    await computeStats();
+
+    res.json({ data: { ...atlasStats } });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "ERR_INTERNAL_SERVER_ERROR" });
@@ -156,25 +220,54 @@ app.get("/api/v1/stats", async (req, res) => {
 
 app.get("/api/v1/atlas/redemptionFees", async (req, res) => {
   try {
-    const { sender, amount, redemptionTxnHash } = req.query;
+    const { amount } = req.query;
 
-    const { estimatedFee, receiveAmount, taxAmount } =
-      await bitcoin.getMockPayload(
-        btcConfig.btcAtlasDepositAddress,
-        sender,
-        amount,
-        redemptionTxnHash,
-        globalParams.atlasRedemptionFeePercentage,
-        globalParams.atlasTreasuryAddress,
-      );
+    const feeData = await estimateRedemptionFees(bitcoin, near, amount);
+
+    const protocolFee = globalParams.atlasRedemptionFeePercentage * amount;
 
     const data = {
-      estimatedGasFee: estimatedFee,
-      estimatedReceiveAmount: receiveAmount,
-      atlasRedemptionFee: taxAmount,
+      estimatedRedemptionFee:
+        feeData.estimated_redemption_fee < process.env.DUST_LIMIT
+          ? process.env.DUST_LIMIT
+          : feeData.estimated_redemption_fee,
+      atlasProtocolFee:
+        protocolFee < process.env.DUST_LIMIT
+          ? process.env.DUST_LIMIT
+          : protocolFee,
+      estimatedRedemptionFeeRate: feeData.estimated_redemption_fee_rate,
     };
 
-    //console.log(data);
+    res.json({ data });
+  } catch (error) {
+    console.log("Error getting gas fee: " + error);
+    res.status(500).json({ error: "Error getting gas fee. " + error });
+  }
+});
+
+app.get("/api/v1/atlas/bridgingFees", async (req, res) => {
+  try {
+    const { amount } = req.query;
+
+    const feeData = await estimateBridgingFees(bitcoin, near, amount);
+
+    console.log("feeData", feeData);
+
+    const protocolFee = globalParams.atlasBridgingFeePercentage * amount;
+
+    const data = {
+      estimatedBridgingFee:
+        feeData.estimated_bridging_fee < process.env.DUST_LIMIT
+          ? process.env.DUST_LIMIT
+          : feeData.estimated_bridging_fee,
+      atlasProtocolFee:
+        protocolFee === 0
+          ? 0
+          : protocolFee < process.env.DUST_LIMIT
+            ? process.env.DUST_LIMIT
+            : protocolFee,
+      estimatedBridgingFeeRate: feeData.estimated_bridging_fee_rate,
+    };
 
     res.json({ data });
   } catch (error) {
@@ -195,6 +288,7 @@ app.get("/api/v1/global-params", async (req, res) => {
           atlas_address: btcAtlasDepositAddress,
           deposit_fee_percentage: globalParams.atlasDepositFeePercentage,
           treasury_address: globalParams.atlasTreasuryAddress,
+          evm_address: evmAtlasAddress,
         },
       ],
     };
@@ -214,6 +308,8 @@ app.get("/api/v1/staker/stakingHistories", async (req, res) => {
       return res.status(400).json({ error: "ERR_MISSING_WALLET_ADDRESS" });
     }
 
+    //await getBtcMempoolRecords();
+    //await computeStats();
     const filteredData = deposits
       .filter((record) => record.btc_sender_address === btc_address)
       .map((record) => ({
@@ -226,6 +322,9 @@ app.get("/api/v1/staker/stakingHistories", async (req, res) => {
         timestamp: record.timestamp,
         status: record.status,
         remarks: record.remarks,
+        yield_provider_gas_fee: record.yield_provider_gas_fee,
+        minting_fee: record.minting_fee,
+        protocol_fee: record.protocol_fee,
       }));
 
     const pagination = {
@@ -247,6 +346,9 @@ app.get("/api/v1/staker/redemptionHistories", async (req, res) => {
       return res.status(400).json({ error: "ERR_MISSING_WALLET_ADDRESS" });
     }
 
+    await getAllRedemptionHistory();
+    await computeStats();
+
     const data = redemptions
       .filter((record) => record.btc_receiving_address === btc_address)
       .map((record) => ({
@@ -259,7 +361,39 @@ app.get("/api/v1/staker/redemptionHistories", async (req, res) => {
         status: record.status,
         remarks: record.remarks,
         btc_txn_hash: record.btc_txn_hash,
+        bridging_gas_fee_sat: record.bridging_gas_fee_sat,
+        btc_redemption_fee: record.btc_redemption_fee,
+        protocol_fee: record.protocol_fee,
+        yield_provider_gas_fee: record.yield_provider_gas_fee,
       }));
+
+    const pagination = {
+      next_key: null, // Assuming there is no pagination support for this example
+    };
+
+    res.json({ data, pagination });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "ERR_INTERNAL_SERVER_ERROR" });
+  }
+});
+
+app.get("/api/v1/staker/bridgeHistories", async (req, res) => {
+  try {
+    const { chain_address } = req.query;
+
+    if (!chain_address) {
+      return res.status(400).json({ error: "ERR_MISSING_CHAIN_ADDRESS" });
+    }
+
+    await getAllBridgingHistory();
+    await computeStats();
+
+    const data = bridgings.filter(
+      (record) =>
+        record.dest_chain_address === chain_address ||
+        record.origin_chain_address === chain_address,
+    );
 
     const pagination = {
       next_key: null, // Assuming there is no pagination support for this example
@@ -283,41 +417,112 @@ app.get("/api/v1/chainConfigs", (req, res) => {
   }
 });
 
+app.get("/api/v1/bithive-deposit", async (req, res) => {
+  try {
+    const { publicKey } = await bitcoin.deriveBTCAddress(near);
+    const returnData = await getBithiveDeposits(publicKey.toString("hex"));
+    res.status(200).json(returnData);
+  } catch (error) {
+    console.error("Error fetching bithive deposit:", error);
+    res.status(500).json({ message: "Error fetching bithive deposit" });
+  }
+});
+
+// API endpoint to get derived BTC address
+app.get("/api/derived-address", async (req, res) => {
+  try {
+    const { NETWORK_TYPE } = getConstants();
+    let derivationPath = NETWORK_TYPE.BITCOIN;
+
+    if (!derivationPath) {
+      throw new Error("NETWORK_TYPE.BITCOIN is undefined");
+    }
+
+    const { address: btcAddress, publicKey: btcPublicKey } =
+      await bitcoin.deriveBTCAddress(near);
+
+    const ethereum = new Ethereum(
+      "421614", // Corrected property name
+      "https://sepolia-rollup.arbitrum.io/rpc", // Corrected property name
+      10000000, // Corrected property name
+      "0xC3799bD41505fb8a0b335Ef7Ba52A8486f331b4F", // Corrected property name
+      "../../contract/artifacts/atBTC.abi", // Corrected property name
+    );
+
+    derivationPath = "EVM"; // Corrected property name
+
+    // Generate the derived address for the aBTC minter & sender
+    const evmAddress = await ethereum.deriveEthAddress(
+      await near.nearMPCContract.public_key(),
+      near.contract_id,
+      derivationPath,
+    );
+
+    res.json({
+      evmAddress: evmAddress,
+      btcAddress: btcAddress,
+      btcPublicKey: btcPublicKey.toString("hex"),
+      mpcContractId: near.mpcContractId,
+      contractId: near.contract_id,
+    });
+  } catch (error) {
+    console.error("Error deriving address:", error);
+    res
+      .status(500)
+      .json({ error: "Failed to derive address", details: error.message });
+  }
+});
+
+app.get("/subquery", async (req, res) => {
+  const data = {
+    arbitrum: await getTxsOfNetwork("arbitrum"),
+    optimism: await getTxsOfNetwork("optimism"),
+    near: await getTxsOfNetwork("near"),
+  };
+  res.json(data);
+});
+
 async function runBatch() {
-  await getAllDepositHistory();
-  await getAllRedemptionHistory();
   await getBtcMempoolRecords();
+  await getAllDepositHistory();
+  await getAllBridgingHistory();
+  await getAllRedemptionHistory();
   await computeStats();
+
+  await RetrieveAndProcessPastEvmEvents(near, deposits, redemptions, bridgings);
+  await RetrieveAndProcessPastNearEvents(
+    near,
+    deposits,
+    redemptions,
+    bridgings,
+  );
 
   await UpdateAtlasBtcDeposits(
     btcMempool,
     btcAtlasDepositAddress,
     globalParams.atlasTreasuryAddress,
-    globalParams.atlasDepositFeePercentage,
     near,
     bitcoin,
   );
-
-  await MintaBtcToReceivingChain(near);
-
-  await UpdateAtlasAbtcMintedTxnHash(deposits, near);
-
+  await UpdateAtlasBtcDeposited(deposits, near, bitcoin);
+  await StakeToYieldProvider(deposits, near, bitcoin);
+  await UpdateYieldProviderStacked(deposits, near, bitcoin);
+  await MintaBtcToReceivingChain(deposits, near);
   await UpdateAtlasAbtcMinted(deposits, near);
 
   await WithdrawFailDeposits(deposits, near, bitcoin);
   await UpdateWithdrawFailDeposits(deposits, near, bitcoin);
 
-  await UpdateAtlasBtcRedemptions(near);
+  await UpdateAtlasBtcWithdrawnFromYieldProvider(redemptions, near, bitcoin);
 
-  await SendBtcBackToUser(redemptions, near, bitcoin);
+  await SendBtcBackToUser(near, bitcoin);
+  await UpdateAtlasBtcBackToUser(redemptions, near, bitcoin);
 
-  await UpdateAtlasBtcBackToUser(
-    redemptions,
-    btcMempool,
-    btcAtlasDepositAddress,
-    near,
-    bitcoin,
-  );
+  await MintBridgeABtcToDestChain(near);
+
+  await SendBridgingFeesToTreasury(near, bitcoin);
+
+  await UpdateAtlasBtcBridgingYieldProviderWithdrawn(bridgings, near, bitcoin);
 
   // Delay for 5 seconds before running the batch again
   await new Promise((resolve) => setTimeout(resolve, 5000));
@@ -331,13 +536,21 @@ app.listen(PORT, async () => {
   // Fetch and set chain configs before running the batch processes
   await fetchAndSetChainConfigs(near);
   await fetchAndSetConstants(near); // Load constants
-  console.log(`Server is running on port ${PORT}`);
-  // const derivationPath = "BITCOIN";
-  //   const { address, publicKey } = await bitcoin.deriveBTCAddress(
-  //     await near.nearMPCContract.public_key(),
-  //     near.contract_id,
-  //     derivationPath,
-  //   );
-  // console.log("Bitcoin address: " + address);
+
+  console.log(`Server is running on port ${PORT} | ${nearConfig.contractId}`);
+
   runBatch().catch(console.error);
+
+  // Add the unstaking and withdrawal process to the job scheduler
+  setInterval(async () => {
+    try {
+      await processUnstakingAndWithdrawal(
+        near,
+        bitcoin,
+        globalParams.atlasTreasuryAddress,
+      );
+    } catch (error) {
+      console.error("Error in unstaking and withdrawal process:", error);
+    }
+  }, 60000); // Run every 1 minute
 });

@@ -1,6 +1,6 @@
 const { getConstants } = require("../constants");
 const { globalParams } = require("../config/globalParams");
-const { runWithdrawFailDepositCoboIntegration } = require("./coboIntegration");
+//const { runWithdrawFailDepositCoboIntegration } = require("./coboIntegration");
 
 const { flagsBatch } = require("./batchFlags");
 
@@ -47,7 +47,7 @@ async function WithdrawFailDeposits(allDeposits, near, bitcoin) {
           fee_rate: 0,
         });
         // If USE_COBO is true, run the Cobo integration logic
-        await runWithdrawFailDepositCoboIntegration(result.btc_txn_hash, near);
+        //await runWithdrawFailDepositCoboIntegration(result.btc_txn_hash, near);
       } else {
         // Otherwise, run the original logic
         // To be implememted

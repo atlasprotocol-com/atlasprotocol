@@ -1,17 +1,14 @@
 const { getConstants } = require("../constants");
 
 const { flagsBatch } = require("./batchFlags");
-const { handleCoboTransaction } = require('./coboIntegration');
 
-// BATCH I: Retrieve redemption records, find corresponding record in BTC mempool and updates NEAR redemption.status, timestamp, and btc_txn_hash based on OP_RETURN
 async function UpdateAtlasBtcBackToUser(
-  redemptions,
-  btcMempool,
-  btcAtlasDepositAddress,
+  allRedemptions,
   near,
-  bitcoin,
+  bitcoinInstance,
 ) {
-  const batchName = `Batch I UpdateAtlasBtcBackToUser`;
+  const batchName = `Batch J UpdateAtlasBtcBackToUser`;
+
   const { REDEMPTION_STATUS } = getConstants(); // Access constants dynamically
 
   // Skip if the batch is already running
@@ -22,81 +19,62 @@ async function UpdateAtlasBtcBackToUser(
     flagsBatch.UpdateAtlasBtcBackToUserRunning = true;
 
     // Filter redemptions where status = BTC_PENDING_MEMPOOL_CONFIRMATION or BTC_PENDING_REDEMPTION_FROM_ATLAS_TO_USER
-    const filteredTxns = redemptions.filter(
+    const filteredTxns = allRedemptions.filter(
       (redemption) =>
         redemption.abtc_redemption_address !== "" &&
         redemption.abtc_redemption_chain_id !== "" &&
         redemption.btc_receiving_address !== "" &&
-        (redemption.status === REDEMPTION_STATUS.BTC_PENDING_MEMPOOL_CONFIRMATION ||
-          (redemption.status === REDEMPTION_STATUS.BTC_PENDING_REDEMPTION_FROM_ATLAS_TO_USER &&
-            redemption.btc_txn_hash === "")) &&
-        redemption.remarks === "",
+        redemption.status === REDEMPTION_STATUS.BTC_PENDING_MEMPOOL_CONFIRMATION &&
+        redemption.remarks === "" &&
+        redemption.yield_provider_txn_hash !== "" &&
+        redemption.yield_provider_gas_fee !== 0
     );
 
-    for (let i = 0; i < filteredTxns.length; i++) {
-      const txn = filteredTxns[i];
-      const redemptionTxnHash = txn.txn_hash;
-      let btcTxnHash, timestamp, hasConfirmed;
+    let i = 0;
 
+    filteredTxns.forEach(async (txn) => {
       try {
-        console.log(`\nProcessing ${i + 1} of ${filteredTxns.length} txns...`);
+        i++;
+        console.log(`\nProcessing ${i} of ${filteredTxns.length} txns...`);
 
-        if (process.env.USE_COBO === 'true' && txn.custody_txn_id !== "") {
-          const custodyTxnId = txn.custody_txn_id;
-          // Example COBO logic placeholder, populate this block
-          ({ btcTxnHash, timestamp, hasConfirmed } = await handleCoboTransaction(custodyTxnId));
-        } else {
-          // ({ btcTxnHash, timestamp, hasConfirmed } =
-          //   await bitcoin.getTxnHashAndTimestampFromOpReturnCode(
-          //     btcMempool,
-          //     btcAtlasDepositAddress,
-          //     txn.timestamp,
-          //     redemptionTxnHash,
-          //   ));
-        }
-
-
-        // If BTC mempool transaction found, update the redemption record
-        if (btcTxnHash) {
-          if (!hasConfirmed &&
-            txn.status === REDEMPTION_STATUS.BTC_PENDING_REDEMPTION_FROM_ATLAS_TO_USER) {
-            await near.updateRedemptionPendingBtcMempool(
-              redemptionTxnHash,
-              btcTxnHash,
-            );
-          }
-
-          if (hasConfirmed) {
+        const btcTxn = await bitcoinInstance.fetchTxnByTxnID(txn.btc_txn_hash);
+        
+        if (btcTxn && btcTxn.status && btcTxn.status.confirmed) {
+          // const confirmations = btcTxn.status.block_height 
+          //   ? await bitcoinInstance.getConfirmations(btcTxn.status.block_height) 
+          //   : 0;
+          
+          //   //console.log(`Confirmations: ${confirmations}`);
+            
+          //   if (confirmations > 6) {
             await near.updateRedemptionRedeemed(
-              redemptionTxnHash,
-              btcTxnHash,
-              timestamp,
+              txn.txn_hash,
             );
-          }
-
-          console.log(
-            `Processed record ${i + 1}: Updated Redemption for txn hash ${redemptionTxnHash} and BTC txn hash ${btcTxnHash}`
-          );
+            console.log(
+              `Processed record ${i}: Updated Redemption for txn hash ${txn.txn_hash} and BTC txn hash ${txn.btc_txn_hash}`
+            );
+          // }
         }
-      } catch (error) {
+        
+      }  catch (error) {
         
         const errorMessage = error.body && error.body.error_message 
             ? error.body.error_message 
             : error.toString();
 
         console.error(
-          `Error processing record ${i + 1} for txn hash ${redemptionTxnHash}: `,
+          `Error processing record ${i} for txn hash ${txn.txn_hash}: `,
           errorMessage,
         );
         await near.updateRedemptionRemarks(
-          redemptionTxnHash,
+          txn.txn_hash,
           `Error processing txn: ${errorMessage}`,
         );
 
         // Skip to the next iteration if an error occurs
-        continue;
+        return;
       }
-    }
+    });
 
     console.log(`${batchName} completed successfully.`);
   } catch (error) {

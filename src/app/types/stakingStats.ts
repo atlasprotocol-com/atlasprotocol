@@ -1,6 +1,12 @@
 export interface StakingStats {
-  activeTVLSat: number;
-  totalTVLSat: number;
-  totalStakers: number;
-  unconfirmedTVLSat: number;
+  btcStaked?: number;
+  tvl?: number;
+  atbtcMinted?: number;
+  btcPriceUsd?: number;
+  ethPriceBtc?: number;
+  ethPriceUsd?: number;
+  nearPriceUsd?: number;
+  nearPriceBtc?: number;
+  polPriceUsd?: number;
 }
+

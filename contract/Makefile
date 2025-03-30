@@ -1,5 +1,8 @@
-CONTRACT_ID ?= atlas_audit_v20241223
-FT_CONTRACT_ID ?= atbtc_audit_v20241223
+CONTRACT_ID ?= atlas_testnet4_20250309
+FT_CONTRACT_ID ?= atbtc_testnet4_20250309
+
+# CONTRACT_ID ?= atlas_audit_v20241223
+# FT_CONTRACT_ID ?= atbtc_audit_v20241223
 
 # CONTRACT_ID ?= atlas_audit_v2
 # FT_CONTRACT_ID ?= atbtc_audit_v2
@@ -26,16 +29,20 @@ redeploy:
 	near call $(CONTRACT_ID).velar.testnet add_validator '{"account_id": "velar.testnet", "chain_id": "421614"}' --accountId velar.testnet;
 	near call $(CONTRACT_ID).velar.testnet add_validator '{"account_id": "velar.testnet", "chain_id": "11155420"}' --accountId velar.testnet;
 	near call $(CONTRACT_ID).velar.testnet add_validator '{"account_id": "velar.testnet", "chain_id": "NEAR_TESTNET"}' --accountId velar.testnet;
+	near call $(CONTRACT_ID).velar.testnet add_validator '{"account_id": "velar.testnet", "chain_id": "TESTNET4"}' --accountId velar.testnet;
 
 	near call $(CONTRACT_ID).velar.testnet add_validator '{"account_id": "yeowlin.testnet", "chain_id": "SIGNET"}' --accountId velar.testnet;
 	near call $(CONTRACT_ID).velar.testnet add_validator '{"account_id": "yeowlin.testnet", "chain_id": "421614"}' --accountId velar.testnet;
 	near call $(CONTRACT_ID).velar.testnet add_validator '{"account_id": "yeowlin.testnet", "chain_id": "11155420"}' --accountId velar.testnet;
 	near call $(CONTRACT_ID).velar.testnet add_validator '{"account_id": "yeowlin.testnet", "chain_id": "NEAR_TESTNET"}' --accountId velar.testnet;
+	near call $(CONTRACT_ID).velar.testnet add_validator '{"account_id": "yeowlin.testnet", "chain_id": "TESTNET4"}' --accountId velar.testnet;
 
 	near call $(CONTRACT_ID).velar.testnet add_validator '{"account_id": "buglungtung.testnet", "chain_id": "SIGNET"}' --accountId velar.testnet;
 	near call $(CONTRACT_ID).velar.testnet add_validator '{"account_id": "buglungtung.testnet", "chain_id": "421614"}' --accountId velar.testnet;
 	near call $(CONTRACT_ID).velar.testnet add_validator '{"account_id": "buglungtung.testnet", "chain_id": "11155420"}' --accountId velar.testnet;
 	near call $(CONTRACT_ID).velar.testnet add_validator '{"account_id": "buglungtung.testnet", "chain_id": "NEAR_TESTNET"}' --accountId velar.testnet;
+	near call $(CONTRACT_ID).velar.testnet add_validator '{"account_id": "buglungtung.testnet", "chain_id": "TESTNET4"}' --accountId velar.testnet;
+
 
 redeploy-near-ft:
 	cd tokens && ./build.sh

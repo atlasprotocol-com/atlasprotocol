@@ -98,6 +98,7 @@ dependencies = [
  "secp256k1 0.21.3",
  "serde",
  "serde_json",
+ "sha2",
  "tokio",
 ]
 

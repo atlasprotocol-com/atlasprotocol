@@ -22,9 +22,11 @@ const INTERNAL_NETWORK_NAMES = {
   [Network.MAINNET]: "mainnet",
   [Network.TESTNET]: "testnet",
   [Network.SIGNET]: "signet",
+  [Network.TESTNET4]: "testnet4",
 };
 
 export class TomoWallet extends WalletProvider {
+  readonly name: string = "Tomo";
   private tomoWalletInfo: WalletInfo | undefined;
   private bitcoinNetworkProvider: any;
   private networkEnv: Network | undefined;

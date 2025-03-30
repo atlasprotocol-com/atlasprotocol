@@ -5,7 +5,7 @@ authors = ["Atlas Protocol"]
 edition = "2021"
 
 [lib]
-crate-type = ["cdylib", "rlib"]
+crate-type = ["cdylib"]
 
 [dependencies]
 ethers-core = { version = "2.0.14", default-features = false }
@@ -20,6 +20,7 @@ hex = "0.4"
 primitive-types = "0.8" 
 bitcoin = "0.27"
 secp256k1 = "0.21"
+sha2 = "0.10"
 omni-transaction = { git = "https://github.com/ilblackdragon/omni-transaction-rs" }
 
 
