@@ -96,7 +96,7 @@ async function RetrieveAndProcessPastNearEvents(
         try {
           const timestamp = event.timestamp;
           console.log(event);
-          if (event.type === "mint_redemption") {
+          if (event.type === "mint_deposit") {
             await processMintDepositEvent(event, near);
           } else if (event.type === "burn_bridging") {
             await processBurnBridgeEvent(

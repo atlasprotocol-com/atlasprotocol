@@ -32,16 +32,21 @@ async function MintaBtcToReceivingChain(allDeposits, near) {
 
       for (const depositRecord of filteredTxns) {
         const btcTxnHash = depositRecord.btc_txn_hash;
-        const chainConfig = getChainConfig(depositRecord.receiving_chain_id);
-
-        if (!chainConfig) {
-          console.error(`Chain config not found for chain ID: ${depositRecord.receiving_chain_id}`);
-          continue;
-        }
-
-        console.log("Record to mint aBTC:", depositRecord);
-
+       
         try {
+          const chainConfig = getChainConfig(depositRecord.receiving_chain_id);
+
+          if (!chainConfig) {
+            throw new Error(`Chain config not found for chain ID: ${depositRecord.receiving_chain_id}`);
+          }
+  
+          if (depositRecord.verified_count < chainConfig.validators_threshold) {
+            throw new Error(`Verified count is less than validators threshold: ${depositRecord.verified_count} < ${chainConfig.validators_threshold}`);
+          }
+  
+          console.log("Record to mint aBTC:", depositRecord);
+
+          
           if (chainConfig.networkType === NETWORK_TYPE.EVM) {
             if (
               !address.isValidEthereumAddress(depositRecord.receiving_address)
@@ -50,16 +55,17 @@ async function MintaBtcToReceivingChain(allDeposits, near) {
                 `Invalid receiving address: ${depositRecord.receiving_address}`,
               );
             }
-
+            console.log("chainConfig:", chainConfig);
             const ethereum = new Ethereum(
-              chainConfig.chain_id,
-              chainConfig.chain_rpc_url,
-              chainConfig.gas_limit,
-              chainConfig.abtc_address,
-              chainConfig.abi_path,
+              chainConfig.chainID,
+              chainConfig.chainRpcUrl,
+              chainConfig.gasLimit,
+              chainConfig.aBTCAddress,
+              chainConfig.abiPath,
             );
 
-            let derivationPath = chainConfig.network_type;
+            console.log("ethereum:", ethereum);
+            let derivationPath = chainConfig.networkType;
 
             console.log(`Processing EVM Chain signatures`);
 
@@ -78,7 +84,7 @@ async function MintaBtcToReceivingChain(allDeposits, near) {
               near,
               sender,
               depositRecord.receiving_address,
-              depositRecord.btc_amount - depositRecord.yield_provider_gas_fee,
+              depositRecord.btc_amount - depositRecord.yield_provider_gas_fee - depositRecord.minting_fee - depositRecord.protocol_fee,
               btcTxnHash,
               depositRecord.minting_fee,
             );
@@ -135,6 +141,7 @@ async function MintaBtcToReceivingChain(allDeposits, near) {
 
             console.log(signedTransaction);
           }
+
         } catch (error) {
           let remarks = `Error ${batchName} processing Txn with BTC txn hash ${btcTxnHash}: ${error}`;
           console.error(remarks);

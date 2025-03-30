@@ -102,12 +102,14 @@ export function useGetStakingFee({
       !inputUTXOs.length ||
       protocolFeeSat === undefined ||
       !treasuryAddress ||
-      !mintingFeeSat
+      !mintingFeeSat ||
+      !receivingChainID ||
+      !receivingAddress
     ) {
       return undefined;
     }
 
-    const { stakingFeeSat } = createStakingTx(
+    const { stakingFeeSat, yieldProviderGasFeeSat } = createStakingTx(
       stakingAmountSat,
       atlasAddress,
       btcNetwork,
@@ -118,27 +120,16 @@ export function useGetStakingFee({
       protocolFeeSat,
       mintingFeeSat,
       treasuryAddress,
-      `${receivingChainID},${receivingAddress}`,
+      receivingChainID,
+      receivingAddress,
     );
 
     return {
       amount: stakingFeeSat,
+      yieldProviderGasFee: yieldProviderGasFeeSat,
       formatted: maxDecimals(satoshiToBtc(stakingFeeSat), 8),
     };
-  }, [
-    params?.atlasAddress,
-    btcNetwork,
-    btcAddress,
-    btcPublicKeyNoCoord,
-    stakingAmountSat,
-    feeRate,
-    inputUTXOs,
-    protocolFeeSat,
-    treasuryAddress,
-    mintingFeeSat,
-    receivingChainID,
-    receivingAddress,
-  ]);
+  }, [params?.atlasAddress, btcNetwork, btcAddress, btcPublicKeyNoCoord, stakingAmountSat, feeRate, inputUTXOs, protocolFeeSat, treasuryAddress, mintingFeeSat, receivingChainID, receivingAddress]);
 }
 
 export function useSignStaking() {
@@ -194,7 +185,8 @@ export function useSignStaking() {
       protocolFeeSat,
       mintingFeeSat,
       treasuryAddress,
-      `${stakingReceivingChainID},${stakingReceivingAddress}`,
+      stakingReceivingChainID,
+      stakingReceivingAddress,
     );
     console.log("Staking tx hex", txHash);
     return txHash;

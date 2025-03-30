@@ -12,7 +12,7 @@ const flagsBatch = {
   ValidateAtlasBtcBridgingsRunning: false,
   BridgeaBtcToDestChainRunning: false,
   StakeToYieldProviderRunning: false,
-  UpdateYieldProviderStackedRunning: false,
+  UpdateYieldProviderStakedRunning: false,
   UpdateYieldProviderUnstakedRunning: false,
   UpdateAtlasBtcWithdrawnFromYieldProviderRunning: false,
   UpdateAtlasBtcBridgingYieldProviderWithdrawnRunning: false,

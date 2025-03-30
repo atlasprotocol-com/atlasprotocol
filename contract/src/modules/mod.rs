@@ -7,3 +7,5 @@ pub mod redemptions;
 pub mod bridging;
 pub mod admin;
 pub mod fees;
+pub mod btc_pubkey;
+pub mod migrate;

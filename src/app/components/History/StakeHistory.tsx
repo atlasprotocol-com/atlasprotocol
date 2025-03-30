@@ -217,7 +217,7 @@ export function StakeHistory() {
                         <p className="font-semibold dark:text-neutral-7">
                           Receiving Chain
                         </p>
-                        <p>{chain.networkName}</p>
+                        <p>{chain?.networkName || '-'}</p>
                       </div>
                       <div className="flex justify-between text-sm  mt-1">
                         <p className="text-sm font-semibold dark:text-neutral-7">
@@ -303,17 +303,9 @@ export function StakeHistory() {
                                     <TooltipContent>
                                       <div>
                                         <p>
-                                          Total {BTC_TOKEN} Sent:{" "}
+                                          Total {BTC_TOKEN} Staking:{" "}
                                           {
-                                            maxDecimals(stakingHistory.amountInfo.totalAmount + stakingHistory.amountInfo.yieldProviderGasFee, 8)
-                                          }{" "}
-                                          {BTC_TOKEN}
-                                        </p>
-                                        <p>
-                                          BTC Network Fee (Atlas):{" "}
-                                          {
-                                            stakingHistory.amountInfo
-                                              .yieldProviderGasFee
+                                            maxDecimals(stakingHistory.amountInfo.totalAmount, 8)
                                           }{" "}
                                           {BTC_TOKEN}
                                         </p>
@@ -361,7 +353,7 @@ export function StakeHistory() {
                             <TableCell>
                               {formatTimestamp(stakingHistory.timestamp)}
                             </TableCell>
-                            <TableCell>{chain.networkName}</TableCell>
+                            <TableCell>{chain?.networkName || '-'}</TableCell>
                             <TableCell>
                               <span title={stakingHistory.receivingAddress}>
                                 {trim(stakingHistory.receivingAddress)}

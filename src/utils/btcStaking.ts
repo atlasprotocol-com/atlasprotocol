@@ -1,9 +1,9 @@
 import ecc from "@bitcoinerlab/secp256k1";
 import * as bitcoin from "bitcoinjs-lib";
 import { Psbt, networks } from "bitcoinjs-lib";
-import { ECPairFactory } from "ecpair";
+import { BorshSchema, borshSerialize } from "borsher";
+import zlib from "zlib";
 
-const ECPair = ECPairFactory(ecc);
 bitcoin.initEccLib(ecc);
 
 interface InputWithTapInternalKey {
@@ -38,15 +38,41 @@ export const stakingTransaction = (
   protocolFeeSat: number,
   mintingFeeSat: number,
   treasuryAddress: string,
-  data: string,
+  receivingChainID: string,
+  receivingAddress: string,
   publicKeyNoCoord?: Buffer,
 ) => {
   const psbt = new Psbt({ network: btcWalletNetwork });
   let totalInput = 0;
 
+  let treasuryAmount = protocolFeeSat + mintingFeeSat;
+  let receiverAmount = satoshis - treasuryAmount;
+
+  let totalOutput = receiverAmount + treasuryAmount;
+
   // Add inputs to the PSBT with RBF enabled
   // Update the input creation to use the new interface
-  inputUTXOs.forEach((utxo) => {
+  // Sort UTXOs by value in descending order
+  const sortedUTXOs = [...inputUTXOs].sort((a, b) => b.value - a.value);
+
+  // Select minimum UTXOs needed to cover totalOutput
+  let runningTotal = 0;
+  const selectedUTXOs = [];
+
+  for (const utxo of sortedUTXOs) {
+    totalOutput = totalOutput + 68;
+
+    if (runningTotal >= totalOutput) break;
+
+    selectedUTXOs.push(utxo);
+    runningTotal += utxo.value;
+  }
+
+  if (runningTotal < totalOutput) {
+    throw new Error("Not enough funds to cover output amount");
+  }
+
+  selectedUTXOs.forEach((utxo) => {
     let input: InputWithTapInternalKey = {
       hash: utxo.txid,
       index: utxo.vout,
@@ -64,9 +90,6 @@ export const stakingTransaction = (
     psbt.addInput(input);
     totalInput += utxo.value;
   });
-
-  let treasuryAmount = protocolFeeSat + mintingFeeSat;
-  let receiverAmount = satoshis - treasuryAmount;
 
   // Add outputs to the PSBT
   psbt.addOutput({
@@ -86,12 +109,38 @@ export const stakingTransaction = (
 
   const fee = Math.round(feeRate * estimatedSize);
 
-  // Embed data in the witness stack with staking fee appended
+  const estimatedSizeYieldProviderGasFee =
+    1 * 68 + psbt.txOutputs.length * 34 + 100; // Approximate calculation
+
+  const yieldProviderGasFee = Math.round(
+    feeRate * estimatedSizeYieldProviderGasFee,
+  );
+
+  // Define schema for OP_RETURN data
+  const schema = BorshSchema.Struct({
+    n: BorshSchema.String,
+    a: BorshSchema.String,
+    1: BorshSchema.u16,
+    2: BorshSchema.u16,
+    3: BorshSchema.u16,
+  });
+
+  // Prepare data for encoding
+  const messageData = {
+    n: receivingChainID,
+    a: receivingAddress,
+    1: yieldProviderGasFee,
+    2: protocolFeeSat,
+    3: mintingFeeSat,
+  };
+
+  // Serialize and compress data
+  const borshEncoded = borshSerialize(schema, messageData);
+  const compressedData = zlib.deflateSync(borshEncoded);
+
+  // Embed compressed data in OP_RETURN output
   psbt.addOutput({
-    script: bitcoin.script.compile([
-      bitcoin.opcodes.OP_RETURN,
-      Buffer.from(`${data},${fee},${protocolFeeSat},${mintingFeeSat}`),
-    ]),
+    script: bitcoin.script.compile([bitcoin.opcodes.OP_RETURN, compressedData]),
     value: 0,
   });
 
@@ -103,5 +152,5 @@ export const stakingTransaction = (
     });
   }
 
-  return { psbt, fee };
+  return { psbt, fee, yieldProviderGasFee };
 };

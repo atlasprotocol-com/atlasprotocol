@@ -1,8 +1,8 @@
-const { createRelayerClient } = require('@bithive/relayer-api');
+const { createRelayerClient } = require("@bithive/relayer-api");
 
 const { getConstants } = require("../constants");
 
-
+const { getChainConfig } = require("./network.chain.config");
 const { flagsBatch } = require("./batchFlags");
 
 async function StakeToYieldProvider(allDeposits, near, bitcoinInstance) {
@@ -24,59 +24,69 @@ async function StakeToYieldProvider(allDeposits, near, bitcoinInstance) {
       const { address, publicKey } =
         await bitcoinInstance.deriveBTCAddress(near);
 
-      const unconfirmedCount =
-        await bitcoinInstance.getPendingOutCount(address);
+      // const unconfirmedCount =
+      //   await bitcoinInstance.getPendingOutCount(address);
 
-      console.log("unconfirmedCount: ", unconfirmedCount);
-      console.log("address: ", address);
+      // console.log("unconfirmedCount: ", unconfirmedCount);
+      // console.log("address: ", address);
 
-      if (unconfirmedCount && unconfirmedCount >= 20) {
-        console.log(
-          "Unconfirmed out going transactions > 20. Skipping this run.",
-        );
-        return;
-      }
+      // if (unconfirmedCount && unconfirmedCount >= 20) {
+      //   console.log(
+      //     "Unconfirmed out going transactions > 20. Skipping this run.",
+      //   );
+      //   return;
+      // }
 
       // Filter deposits that need to be processed
-      const filteredDeposits = allDeposits.filter(
-        (deposit) =>
-          deposit.btc_sender_address !== "" &&
-          deposit.receiving_chain_id !== "" &&
-          deposit.receiving_address !== "" &&
-          deposit.status === DEPOSIT_STATUS.BTC_DEPOSITED_INTO_ATLAS &&
-          deposit.remarks === "" &&
-          deposit.minted_txn_hash === "" &&
-          deposit.btc_amount > 0 &&
-          deposit.date_created > 0,
-      ).slice(0, 1); // Get only first record
+      const filteredDeposits = allDeposits
+        .filter(
+          (deposit) => {
+            try {
+              if (deposit.remarks === "") {
+                const chainConfig = getChainConfig(deposit.receiving_chain_id);
+                return deposit.btc_sender_address !== "" &&
+                  deposit.receiving_chain_id !== "" &&
+                  deposit.receiving_address !== "" &&
+                  deposit.status === DEPOSIT_STATUS.BTC_DEPOSITED_INTO_ATLAS &&
+                  deposit.remarks === "" &&
+                  deposit.minted_txn_hash === "" &&
+                  deposit.btc_amount > 0 &&
+                  deposit.date_created > 0 &&
+                  deposit.verified_count >= chainConfig.validators_threshold;
+              }
+            } catch (error) {
+              const remarks = `Chain config not found for chain ID: ${deposit.receiving_chain_id}`;
+              near.updateDepositRemarks(deposit.btc_txn_hash, remarks);
+              return false;
+            }
+          }
+        )
+        .slice(0, 1); // Get only first record
 
       for (const depositRecord of filteredDeposits) {
         console.log("Processing deposit:", depositRecord);
         const btcTxnHash = depositRecord.btc_txn_hash;
-        const btcAmount = depositRecord.btc_amount;
         const yieldProviderGasFee = depositRecord.yield_provider_gas_fee;
-        const protocolFee = depositRecord.protocol_fee;
-        const mintingFee = depositRecord.minting_fee;
 
         try {
+          
           await near.updateDepositPendingYieldProviderDeposit(btcTxnHash);
 
           // Convert publicKey to a string
           const publicKeyString = publicKey.toString("hex");
 
-          const amountToSend =
-            Number(btcAmount) -
-            Number(yieldProviderGasFee) -
-            Number(protocolFee) -
-            Number(mintingFee);
-          console.log("amountToSend: ", amountToSend);
-
+          const utxos = await bitcoinInstance.getUtxosByTxid(
+            address,
+            btcTxnHash,
+          );
+         
           // 1. Build the PSBT that is ready for signing
           const { psbt: unsignedPsbtHex } =
             await relayer.deposit.buildUnsignedPsbt({
+              utxos,
               publicKey: publicKeyString,
               address,
-              amount: amountToSend,
+              btcTxnHash,
               fee: Number(yieldProviderGasFee),
             });
 
@@ -102,12 +112,10 @@ async function StakeToYieldProvider(allDeposits, near, bitcoinInstance) {
           await near.updateYieldProviderTxnHash(btcTxnHash, txHash);
 
           console.log(`${batchName} completed successfully.`);
-
-          
-
         } catch (error) {
           let remarks = "";
           console.log("error: ", error);
+
           // Log the error data if available
           if (error.response && error.response.data.error.message) {
             console.log("error.response.data", error.response.data);
@@ -116,7 +124,21 @@ async function StakeToYieldProvider(allDeposits, near, bitcoinInstance) {
             remarks = `Error staking to yield provider: ${error} - ${error.reason}`;
           }
           console.error(remarks);
-          await near.updateDepositRemarks(btcTxnHash, remarks);
+          if (error.message.includes("Empty UTXOs")) {
+            console.log("Empty UTXOs error");
+            const spendingTxs = await bitcoinInstance.findSpendingTransaction(btcTxnHash);
+            console.log("spendingTxs: ", spendingTxs);
+            if (spendingTxs) {
+              await near.updateYieldProviderTxnHash(btcTxnHash, spendingTxs);
+            }
+            else {
+              await near.updateDepositRemarks(btcTxnHash, remarks);
+            }
+          }
+          else {
+            
+            await near.updateDepositRemarks(btcTxnHash, remarks);
+          }
           break;
         }
       }

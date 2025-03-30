@@ -11,10 +11,13 @@ export interface AppContextType {
   btcPublicKeyNoCoord: string | undefined;
   btcNetwork: Network | undefined;
   btcRefreshBalance: () => void;
+  btcManualMinusBalance: (balance: number) => void;
 }
 
 export const ATLAS_BTC_TOKEN = "atBTC";
 export const BTC_TOKEN = "tBTC";
+
+const emptyFunction = () => {};
 
 export const defaultAppContext: AppContextType = {
   BTC_TOKEN: BTC_TOKEN,
@@ -23,7 +26,8 @@ export const defaultAppContext: AppContextType = {
   btcAddress: undefined,
   btcPublicKeyNoCoord: undefined,
   btcNetwork: undefined,
-  btcRefreshBalance: () => {},
+  btcRefreshBalance: emptyFunction,
+  btcManualMinusBalance: emptyFunction,
 };
 
 export const AppContext =

@@ -9,27 +9,30 @@ export interface StakePreviewProps {
   onClose: () => void;
   feeRate?: number;
   stakingFee?: number;
+  yieldProviderGasFee?: number;
   receivingAddress?: string;
   receivingChain?: string;
   stakingAmount?: number;
   protocolFee?: number;
   mintingFee?: number;
+  minStakingAmount?: number;
   onConfirm?: () => void;
   isPending?: boolean;
   isUTXOsReady?: boolean;
 }
-const MININUM_STAKING_AMOUNT = 20000 / 1e8; // 0.0002 BTC
 
 export function StakePreview({
   open,
   onClose,
   feeRate,
   stakingFee,
+  yieldProviderGasFee,
   protocolFee,
   receivingAddress,
   receivingChain,
   stakingAmount,
   mintingFee,
+  minStakingAmount,
   onConfirm,
   isPending,
   isUTXOsReady,
@@ -43,7 +46,7 @@ export function StakePreview({
       ? Number(
           (
             (Number(stakingAmount) -
-              Number(stakingFee) -
+              Number(yieldProviderGasFee) -
               Number(protocolFee) -
               Number(mintingFee)) /
             100000000
@@ -55,6 +58,10 @@ export function StakePreview({
     ? (stakingAmount + Number(stakingFee)) / 100000000
     : 0;
   const stakingFeeBtc = stakingFee ? stakingFee / 100000000 : 0;
+
+  const yieldProviderGasFeeBtc = yieldProviderGasFee
+    ? yieldProviderGasFee / 100000000
+    : 0;
 
   const actualAtBTCReceivedUsd =
     actualAtBTCReceived !== 0 && btcPriceUsd
@@ -69,6 +76,11 @@ export function StakePreview({
   const stakingFeeUsd =
     stakingFeeBtc && btcPriceUsd
       ? (stakingFeeBtc * btcPriceUsd).toFixed(2)
+      : "--";
+
+  const yieldProviderGasFeeUsd =
+    yieldProviderGasFeeBtc && btcPriceUsd
+      ? (yieldProviderGasFeeBtc * btcPriceUsd).toFixed(2)
       : "--";
 
   const protocolFeeUsd =
@@ -148,13 +160,13 @@ export function StakePreview({
         </div>
         <div className="rounded-lg border border-neutral-5  dark:border-neutral-8 dark:bg-neutral-10 p-3 flex-1">
           <p className="text-caption text-sm font-semibold">
-            BTC Network Fee (Staking Provider)
+            BTC Network Fee (Yield Provider)
           </p>
           <p className="text-base font-semibold break-all">
-            {stakingFeeBtc.toFixed(8) || "--"} {BTC_TOKEN}{" "}
+            {yieldProviderGasFeeBtc.toFixed(8) || "--"} {BTC_TOKEN}{" "}
             <span className="text-sm text-neutral-7">
               <br />
-              (≈{stakingFeeUsd} USD)
+              (≈{yieldProviderGasFeeUsd} USD)
             </span>
           </p>
         </div>
@@ -187,22 +199,23 @@ export function StakePreview({
       </div>
       {!isUTXOsReady && (
         <div className="mt-4">
-          <p className="text-caption text-base font-semibold">
+          <p className="text-caption text-base font-semibold text-red-500">
             There are pending transactions. Please wait for them to confirm.
           </p>
         </div>
       )}
-      {actualAtBTCReceived <= MININUM_STAKING_AMOUNT && (
+      {actualAtBTCReceived <= 0.0001 && (
         <div className="mt-4">
-          <p className="text-caption text-base font-semibold">
-            The amount you stake is less than the minimum staking amount.
+          <p className="text-caption text-base font-semibold text-red-500">
+            The net amount you stake is less than the minimum staking amount of
+            0.0001 {BTC_TOKEN}.
           </p>
         </div>
       )}
       <Button
         className="mt-4 w-full"
         onClick={onConfirm}
-        disabled={!isUTXOsReady || actualAtBTCReceived <= 0}
+        disabled={!isUTXOsReady || actualAtBTCReceived <= 0.0001}
       >
         Stake
       </Button>

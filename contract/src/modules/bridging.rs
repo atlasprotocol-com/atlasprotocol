@@ -5,7 +5,13 @@ use crate::constants::near_gas::*;
 use crate::constants::status::*;
 use crate::modules::signer::*;
 use crate::modules::structs::BridgingRecord;
+use crate::modules::structs::CreatePayloadResult;
+use crate::modules::structs::UtxoInput;
 use crate::AtlasExt;
+use bitcoin::blockdata::transaction::{Transaction, TxOut};
+use bitcoin::consensus::encode::serialize;
+use bitcoin::util::address::Address;
+use bitcoin::util::psbt::PartiallySignedTransaction as Psbt;
 use ethers_core::types::{H160, U256};
 use hex::FromHex;
 use near_sdk::env::keccak256;
@@ -21,12 +27,6 @@ use omni_transaction::transaction_builder::{
 use omni_transaction::types::EVM;
 use serde_json::json;
 use std::str::FromStr;
-use bitcoin::util::psbt::PartiallySignedTransaction as Psbt;
-use bitcoin::blockdata::transaction::{Transaction, TxOut};
-use bitcoin::consensus::encode::serialize;
-use bitcoin::util::address::Address;
-use crate::modules::structs::CreatePayloadResult;
-use crate::modules::structs::UtxoInput;
 
 #[near_bindgen]
 impl Atlas {
@@ -82,19 +82,28 @@ impl Atlas {
         self.bridgings.get(&txn_hash).cloned()
     }
 
-    pub fn get_bridgings_for_yield_provider_by_status_and_timestamp(&self, yield_provider_status: u8, timestamp: u64) -> Vec<BridgingRecord> {
+    pub fn get_bridgings_for_yield_provider_by_status_and_timestamp(
+        &self,
+        yield_provider_status: u8,
+        timestamp: u64,
+    ) -> Vec<BridgingRecord> {
         self.bridgings
             .values()
             .filter(|record| {
                 record.status == BRG_ABTC_MINTED_TO_DEST
-                && record.yield_provider_status == yield_provider_status
-                && record.verified_count >= self.chain_configs.get_chain_config(record.dest_chain_id.clone()).unwrap().validators_threshold
-                && record.yield_provider_remarks.is_empty()
-                && record.timestamp <= timestamp
+                    && record.yield_provider_status == yield_provider_status
+                    && record.verified_count
+                        >= self
+                            .chain_configs
+                            .get_chain_config(record.dest_chain_id.clone())
+                            .unwrap()
+                            .validators_threshold
+                    && record.yield_provider_remarks.is_empty()
+                    && record.timestamp <= timestamp
             })
             .cloned()
             .collect()
-    }   
+    }
 
     pub fn get_bridgings_by_origin_chain_id_and_address(
         &self,
@@ -140,12 +149,12 @@ impl Atlas {
 
     pub fn get_all_bridgings(&self) -> Vec<BridgingRecord> {
         let mut valid_records = Vec::new();
-    
+
         for record in self.bridgings.values() {
             // No need to match since we're not dealing with Results
             valid_records.push(record.clone());
         }
-        
+
         valid_records
     }
 
@@ -296,7 +305,12 @@ impl Atlas {
                             }
 
                             // Ensure the BTC amount is properly converted to U256 (Ethereum uint256)
-                            let amount = U256::from(bridging.abtc_amount - bridging.protocol_fee - bridging.yield_provider_gas_fee - bridging.minting_fee_sat);
+                            let amount = U256::from(
+                                bridging.abtc_amount
+                                    - bridging.protocol_fee
+                                    - bridging.yield_provider_gas_fee
+                                    - bridging.minting_fee_sat,
+                            );
 
                             let to_address_str =
                                 chain_config.abtc_address.strip_prefix("0x").unwrap();
@@ -552,7 +566,7 @@ impl Atlas {
                     || bridging.dest_chain_id != mempool_bridging.dest_chain_id
                     || bridging.dest_chain_address != mempool_bridging.dest_chain_address
                     || bridging.abtc_amount != mempool_bridging.abtc_amount
-                    || bridging.timestamp != mempool_bridging.timestamp
+                    //|| bridging.timestamp != mempool_bridging.timestamp       /* bridging.timestamp is being updated upon any status change */
                     || bridging.status != mempool_bridging.status
                     || bridging.remarks != mempool_bridging.remarks
                 {
@@ -605,16 +619,16 @@ impl Atlas {
                 && !bridging.origin_chain_id.is_empty()
                 && !bridging.dest_chain_address.is_empty()
                 && !bridging.dest_chain_id.is_empty()
-                //&& !bridging.remarks.is_empty()
+            //&& !bridging.remarks.is_empty()
             {
                 match bridging.status {
                     BRG_ABTC_BURNT => {
                         bridging.remarks.clear();
-                    },
+                    }
                     BRG_ABTC_PENDING_BRIDGE_FROM_ORIGIN_TO_DEST => {
                         bridging.status = BRG_ABTC_BURNT;
                         bridging.remarks.clear();
-                    },
+                    }
                     _ => {
                         // No action needed for other statuses
                     }
@@ -628,7 +642,6 @@ impl Atlas {
         }
     }
 
-
     pub fn rollback_bridging_yield_provider_status_by_txn_hash(&mut self, txn_hash: String) {
         self.assert_not_paused();
 
@@ -641,31 +654,30 @@ impl Atlas {
                 && !bridging.origin_chain_id.is_empty()
                 && !bridging.dest_chain_address.is_empty()
                 && !bridging.dest_chain_id.is_empty()
-                //&& !bridging.yield_provider_remarks.is_empty()
+            //&& !bridging.yield_provider_remarks.is_empty()
             {
                 match bridging.yield_provider_status {
-                    
                     BRG_ABTC_BURNT => {
                         bridging.yield_provider_remarks.clear();
-                    },
+                    }
                     BRG_ABTC_PENDING_YIELD_PROVIDER_UNSTAKE => {
                         bridging.yield_provider_remarks.clear();
-                    },
+                    }
                     BRG_ABTC_YIELD_PROVIDER_UNSTAKE_PROCESSING => {
                         bridging.yield_provider_status = BRG_ABTC_BURNT;
                         bridging.yield_provider_remarks.clear();
-                    },
+                    }
                     BRG_ABTC_PENDING_YIELD_PROVIDER_WITHDRAW => {
                         bridging.yield_provider_status = BRG_ABTC_YIELD_PROVIDER_UNSTAKED;
                         bridging.yield_provider_remarks.clear();
-                    },
+                    }
                     BRG_ABTC_YIELD_PROVIDER_WITHDRAWN => {
                         bridging.yield_provider_remarks.clear();
-                    },
+                    }
                     BRG_ABTC_YIELD_PROVIDER_FEE_SENDING_TO_TREASURY => {
                         bridging.yield_provider_status = BRG_ABTC_YIELD_PROVIDER_WITHDRAWN;
                         bridging.yield_provider_remarks.clear();
-                    },
+                    }
                     _ => {
                         // No action needed for other statuses
                     }
@@ -703,13 +715,13 @@ impl Atlas {
                             bridging.verified_count,
                             chain_config.validators_threshold
                         );
-                        
+
                         return Some((
                             key.clone(),
                             bridging.abtc_amount,
                             bridging.minting_fee_sat,
                             bridging.protocol_fee,
-                            bridging.yield_provider_gas_fee
+                            bridging.yield_provider_gas_fee,
                         ));
                     }
                 }
@@ -718,8 +730,6 @@ impl Atlas {
 
         None // If no matching bridging record is found, return None
     }
-
-
 
     pub fn get_first_valid_bridging_fees_unstaked(&self) -> Option<(String, u64, u64, u64, u64)> {
         for (key, bridging) in self.bridgings.iter() {
@@ -749,7 +759,7 @@ impl Atlas {
                             bridging.abtc_amount,
                             bridging.minting_fee_sat,
                             bridging.protocol_fee,
-                            bridging.yield_provider_gas_fee
+                            bridging.yield_provider_gas_fee,
                         ));
                     }
                 }
@@ -759,28 +769,30 @@ impl Atlas {
         None // If no matching bridging record is found, return None
     }
 
-   
-
     pub fn update_bridging_fees_pending_yield_provider_unstake(&mut self, txn_hash: String) {
         self.assert_not_paused();
         self.assert_admin();
 
-         // Validate input parameters
-         assert!(!txn_hash.is_empty(), "Transaction hash cannot be empty");
+        // Validate input parameters
+        assert!(!txn_hash.is_empty(), "Transaction hash cannot be empty");
 
         if let Some(bridging) = self.bridgings.get(&txn_hash) {
             // Check if bridging record meets requirements
-            if bridging.yield_provider_status == BRG_ABTC_BURNT 
+            if bridging.yield_provider_status == BRG_ABTC_BURNT
                 && bridging.status == BRG_ABTC_MINTED_TO_DEST
-                && bridging.yield_provider_remarks.is_empty() 
-                && bridging.remarks.is_empty() {
-                
+                && bridging.yield_provider_remarks.is_empty()
+                && bridging.remarks.is_empty()
+            {
                 // Get chain config and verify threshold
-                if let Some(chain_config) = self.chain_configs.get_chain_config(bridging.dest_chain_id.clone()) {
+                if let Some(chain_config) = self
+                    .chain_configs
+                    .get_chain_config(bridging.dest_chain_id.clone())
+                {
                     if bridging.verified_count >= chain_config.validators_threshold {
                         // Update the status
                         let mut updated_bridging = bridging.clone();
-                        updated_bridging.yield_provider_status = BRG_ABTC_PENDING_YIELD_PROVIDER_UNSTAKE;
+                        updated_bridging.yield_provider_status =
+                            BRG_ABTC_PENDING_YIELD_PROVIDER_UNSTAKE;
                         self.bridgings.insert(txn_hash, updated_bridging);
                     }
                 }
@@ -797,24 +809,28 @@ impl Atlas {
 
         if let Some(bridging) = self.bridgings.get(&txn_hash) {
             // Check if bridging record meets requirements
-            if bridging.yield_provider_status == BRG_ABTC_PENDING_YIELD_PROVIDER_UNSTAKE 
-                && bridging.yield_provider_remarks.is_empty() {
-                
+            if bridging.yield_provider_status == BRG_ABTC_PENDING_YIELD_PROVIDER_UNSTAKE
+                && bridging.yield_provider_remarks.is_empty()
+            {
                 // Get chain config and verify threshold
-                if let Some(chain_config) = self.chain_configs.get_chain_config(bridging.dest_chain_id.clone()) {
+                if let Some(chain_config) = self
+                    .chain_configs
+                    .get_chain_config(bridging.dest_chain_id.clone())
+                {
                     if bridging.verified_count >= chain_config.validators_threshold {
                         // Update the status
                         let mut updated_bridging = bridging.clone();
-                        updated_bridging.yield_provider_status = BRG_ABTC_YIELD_PROVIDER_UNSTAKE_PROCESSING;
+                        updated_bridging.yield_provider_status =
+                            BRG_ABTC_YIELD_PROVIDER_UNSTAKE_PROCESSING;
                         updated_bridging.timestamp = env::block_timestamp() / 1_000_000_000;
-                        
+
                         self.bridgings.insert(txn_hash, updated_bridging);
                     }
                 }
             }
         }
     }
-    
+
     pub fn update_bridging_fees_yield_provider_unstaked(&mut self, txn_hash: String) {
         self.assert_not_paused();
         self.assert_admin();
@@ -824,11 +840,14 @@ impl Atlas {
 
         if let Some(bridging) = self.bridgings.get(&txn_hash) {
             // Check if bridging record meets requirements
-            if bridging.yield_provider_status == BRG_ABTC_YIELD_PROVIDER_UNSTAKE_PROCESSING 
-                && bridging.yield_provider_remarks.is_empty() {
-                
+            if bridging.yield_provider_status == BRG_ABTC_YIELD_PROVIDER_UNSTAKE_PROCESSING
+                && bridging.yield_provider_remarks.is_empty()
+            {
                 // Get chain config and verify threshold
-                if let Some(chain_config) = self.chain_configs.get_chain_config(bridging.dest_chain_id.clone()) {
+                if let Some(chain_config) = self
+                    .chain_configs
+                    .get_chain_config(bridging.dest_chain_id.clone())
+                {
                     if bridging.verified_count >= chain_config.validators_threshold {
                         // Update the status
                         let mut updated_bridging = bridging.clone();
@@ -849,15 +868,19 @@ impl Atlas {
 
         if let Some(bridging) = self.bridgings.get(&txn_hash) {
             // Check if bridging record meets requirements
-            if bridging.yield_provider_status == BRG_ABTC_YIELD_PROVIDER_UNSTAKE_PROCESSING 
-                && bridging.yield_provider_remarks.is_empty() {
-                
+            if bridging.yield_provider_status == BRG_ABTC_YIELD_PROVIDER_UNSTAKE_PROCESSING
+                && bridging.yield_provider_remarks.is_empty()
+            {
                 // Get chain config and verify threshold
-                if let Some(chain_config) = self.chain_configs.get_chain_config(bridging.dest_chain_id.clone()) {
+                if let Some(chain_config) = self
+                    .chain_configs
+                    .get_chain_config(bridging.dest_chain_id.clone())
+                {
                     if bridging.verified_count >= chain_config.validators_threshold {
                         // Update the status
                         let mut updated_bridging = bridging.clone();
-                        updated_bridging.yield_provider_status = BRG_ABTC_PENDING_YIELD_PROVIDER_WITHDRAW;
+                        updated_bridging.yield_provider_status =
+                            BRG_ABTC_PENDING_YIELD_PROVIDER_WITHDRAW;
                         self.bridgings.insert(txn_hash, updated_bridging);
                     }
                 }
@@ -865,25 +888,37 @@ impl Atlas {
         }
     }
 
-    pub fn update_bridging_fees_yield_provider_withdrawing(&mut self, txn_hash: String, yield_provider_txn_hash: String, average_gas_used: u64) {
+    pub fn update_bridging_fees_yield_provider_withdrawing(
+        &mut self,
+        txn_hash: String,
+        yield_provider_txn_hash: String,
+        average_gas_used: u64,
+    ) {
         self.assert_not_paused();
         self.assert_admin();
 
         // Validate input parameters
         assert!(!txn_hash.is_empty(), "Transaction hash cannot be empty");
-        assert!(!yield_provider_txn_hash.is_empty(), "Yield provider transaction hash cannot be empty");
+        assert!(
+            !yield_provider_txn_hash.is_empty(),
+            "Yield provider transaction hash cannot be empty"
+        );
 
         if let Some(bridging) = self.bridgings.get(&txn_hash) {
             // Check if bridging record meets requirements
             if bridging.yield_provider_status == BRG_ABTC_PENDING_YIELD_PROVIDER_WITHDRAW
-                && bridging.yield_provider_remarks.is_empty() {
-                
+                && bridging.yield_provider_remarks.is_empty()
+            {
                 // Get chain config and verify threshold
-                if let Some(chain_config) = self.chain_configs.get_chain_config(bridging.dest_chain_id.clone()) {
+                if let Some(chain_config) = self
+                    .chain_configs
+                    .get_chain_config(bridging.dest_chain_id.clone())
+                {
                     if bridging.verified_count >= chain_config.validators_threshold {
                         // Update the status and yield provider txn hash
                         let mut updated_bridging = bridging.clone();
-                        updated_bridging.yield_provider_status = BRG_ABTC_YIELD_PROVIDER_WITHDRAWING;
+                        updated_bridging.yield_provider_status =
+                            BRG_ABTC_YIELD_PROVIDER_WITHDRAWING;
                         updated_bridging.yield_provider_txn_hash = yield_provider_txn_hash;
                         updated_bridging.yield_provider_gas_fee = average_gas_used;
                         self.bridgings.insert(txn_hash, updated_bridging);
@@ -902,13 +937,16 @@ impl Atlas {
 
         if let Some(bridging) = self.bridgings.get(&txn_hash) {
             // Check if bridging record meets requirements
-            if bridging.yield_provider_status == BRG_ABTC_YIELD_PROVIDER_WITHDRAWING 
+            if bridging.yield_provider_status == BRG_ABTC_YIELD_PROVIDER_WITHDRAWING
                 && bridging.yield_provider_remarks.is_empty()
                 && !bridging.yield_provider_txn_hash.is_empty()
-                && bridging.yield_provider_gas_fee != 0 {
-                
+                && bridging.yield_provider_gas_fee != 0
+            {
                 // Get chain config and verify threshold
-                if let Some(chain_config) = self.chain_configs.get_chain_config(bridging.dest_chain_id.clone()) {
+                if let Some(chain_config) = self
+                    .chain_configs
+                    .get_chain_config(bridging.dest_chain_id.clone())
+                {
                     if bridging.verified_count >= chain_config.validators_threshold {
                         // Update the status
                         let mut updated_bridging = bridging.clone();
@@ -920,7 +958,11 @@ impl Atlas {
         }
     }
 
-    pub fn update_bridging_fees_yield_provider_remarks(&mut self, txn_hash: String, remarks: String) {
+    pub fn update_bridging_fees_yield_provider_remarks(
+        &mut self,
+        txn_hash: String,
+        remarks: String,
+    ) {
         self.assert_not_paused();
         self.assert_admin();
 
@@ -935,7 +977,7 @@ impl Atlas {
             env::panic_str("Bridging record not found");
         }
     }
-    
+
     pub fn create_send_bridging_fees_transaction(
         &mut self,
         sender: String,
@@ -958,14 +1000,17 @@ impl Atlas {
                 && bridging.yield_provider_remarks.is_empty()
                 && bridging.remarks.is_empty()
             {
-                if let Some(chain_config) = self.chain_configs.get_chain_config(bridging.dest_chain_id.clone()) {
+                if let Some(chain_config) = self
+                    .chain_configs
+                    .get_chain_config(bridging.dest_chain_id.clone())
+                {
                     if bridging.verified_count >= chain_config.validators_threshold {
                         // Add to running totals
                         total_protocol_fees += bridging.protocol_fee;
                         total_minting_fees += bridging.minting_fee_sat;
                         total_bridging_gas_fees += bridging.bridging_gas_fee_sat;
                         total_yield_provider_gas_fees += bridging.yield_provider_gas_fee;
-                        
+
                         txn_hashes_to_process.push(txn_hash.clone());
                     }
                 }
@@ -984,7 +1029,9 @@ impl Atlas {
             };
         }
 
-        let total_required_amount = total_protocol_fees + total_minting_fees + total_bridging_gas_fees - total_yield_provider_gas_fees;
+        let total_required_amount =
+            total_protocol_fees + total_minting_fees + total_bridging_gas_fees
+                - total_yield_provider_gas_fees;
 
         // Sort UTXOs in ascending order (smallest first)
         let mut sorted_utxos = utxos.clone();
@@ -1004,7 +1051,10 @@ impl Atlas {
         }
 
         if total_input < total_required_amount {
-            env::panic_str("Not enough UTXOs to cover the transaction");
+            env::panic_str(&format!(
+                "Not enough UTXOs to cover the transaction. Total input: {}, Required: {}",
+                total_input, total_required_amount
+            ));
         }
 
         // Initialize transaction structure
@@ -1015,14 +1065,17 @@ impl Atlas {
             output: vec![],
         };
 
-
         let calculated_merkle_root = Atlas::calculate_merkle_root(txn_hashes_to_process.clone());
 
         // Estimate transaction size
         let input_size = (selected_utxos.len() as u64) * 148; // P2PKH input size
         let op_return_size = 32 + 10; // Merkle root (32 bytes) + OP_RETURN overhead
         let output_size = 34 + op_return_size; // One P2PKH output (treasury) + OP_RETURN
-        let change_size = if total_input > total_required_amount { 34 } else { 0 };
+        let change_size = if total_input > total_required_amount {
+            34
+        } else {
+            0
+        };
 
         let tx_size = 10 + input_size + output_size + change_size;
         let estimated_fee = tx_size * fee_rate;
@@ -1070,7 +1123,9 @@ impl Atlas {
         for txn_hash in &txn_hashes_to_process {
             if let Some(mut bridging) = self.bridgings.get(txn_hash).cloned() {
                 bridging.yield_provider_status = BRG_ABTC_YIELD_PROVIDER_FEE_SENDING_TO_TREASURY;
-                bridging.actual_gas_fee_sat = estimated_fee.checked_div(txn_hashes_to_process.len() as u64).unwrap_or(0);
+                bridging.actual_gas_fee_sat = estimated_fee
+                    .checked_div(txn_hashes_to_process.len() as u64)
+                    .unwrap_or(0);
                 self.bridgings.insert(txn_hash.clone(), bridging);
             }
         }
@@ -1090,17 +1145,33 @@ impl Atlas {
         }
     }
 
-    pub fn verify_bridging_txn_hash_in_merkle_root(&self, merkle_root: String, treasury_btc_txn_hash: String, txn_hash_to_verify: String) -> bool {
+    pub fn verify_bridging_txn_hash_in_merkle_root(
+        &self,
+        merkle_root: String,
+        treasury_btc_txn_hash: String,
+        txn_hash_to_verify: String,
+    ) -> bool {
         // Validate input parameters
         assert!(!merkle_root.is_empty(), "Merkle root cannot be empty");
-        assert!(!treasury_btc_txn_hash.is_empty(), "BTC transaction hash cannot be empty");
-        assert!(!txn_hash_to_verify.is_empty(), "Transaction hash to verify cannot be empty");
+        assert!(
+            !treasury_btc_txn_hash.is_empty(),
+            "BTC transaction hash cannot be empty"
+        );
+        assert!(
+            !txn_hash_to_verify.is_empty(),
+            "Transaction hash to verify cannot be empty"
+        );
 
-        log!("Verifying txn_hash {} in merkle root {} for BTC txn {}", 
-            txn_hash_to_verify, merkle_root, treasury_btc_txn_hash);
+        log!(
+            "Verifying txn_hash {} in merkle root {} for BTC txn {}",
+            txn_hash_to_verify,
+            merkle_root,
+            treasury_btc_txn_hash
+        );
 
         // Get all bridging records with the given btc_txn_hash
-        let txn_hashes: Vec<String> = self.bridgings
+        let txn_hashes: Vec<String> = self
+            .bridgings
             .values()
             .filter(|bridging| bridging.treasury_btc_txn_hash == treasury_btc_txn_hash)
             .map(|bridging| bridging.txn_hash.clone())
@@ -1108,19 +1179,32 @@ impl Atlas {
 
         // If no transactions found with the given btc_txn_hash, return false
         if txn_hashes.is_empty() {
-            log!("No bridging records found for BTC txn {}", treasury_btc_txn_hash);
+            log!(
+                "No bridging records found for BTC txn {}",
+                treasury_btc_txn_hash
+            );
             return false;
         }
 
-        log!("Found {} bridging records for BTC txn {}", txn_hashes.len(), treasury_btc_txn_hash);
+        log!(
+            "Found {} bridging records for BTC txn {}",
+            txn_hashes.len(),
+            treasury_btc_txn_hash
+        );
 
         // Check if txn_hash_to_verify exists in the list
         if !txn_hashes.contains(&txn_hash_to_verify) {
-            log!("Transaction hash {} not found in bridging records", txn_hash_to_verify);
+            log!(
+                "Transaction hash {} not found in bridging records",
+                txn_hash_to_verify
+            );
             return false;
         }
 
-        log!("Transaction hash {} found in bridging records", txn_hash_to_verify);
+        log!(
+            "Transaction hash {} found in bridging records",
+            txn_hash_to_verify
+        );
 
         // Calculate merkle root from the transaction hashes
         let calculated_merkle_root = Atlas::calculate_merkle_root(txn_hashes.clone());
@@ -1130,17 +1214,24 @@ impl Atlas {
 
         let result = calculated_merkle_root == merkle_root;
         log!("Merkle root verification result: {}", result);
-        
+
         result
     }
 
-    pub fn update_bridging_sending_fee_to_treasury(&mut self, txn_hashes: Vec<String>, treasury_btc_txn_hash: String) {  
+    pub fn update_bridging_sending_fee_to_treasury(
+        &mut self,
+        txn_hashes: Vec<String>,
+        treasury_btc_txn_hash: String,
+    ) {
         self.assert_not_paused();
         self.assert_admin();
 
         // Validate input parameters
         assert!(!txn_hashes.is_empty(), "Transaction hashes cannot be empty");
-        assert!(!treasury_btc_txn_hash.is_empty(), "Treasury BTC transaction hash cannot be empty");
+        assert!(
+            !treasury_btc_txn_hash.is_empty(),
+            "Treasury BTC transaction hash cannot be empty"
+        );
 
         // Process all transaction hashes
         for txn_hash in txn_hashes {
@@ -1152,11 +1243,15 @@ impl Atlas {
                     && bridging.remarks.is_empty()
                 {
                     // Get chain config and verify threshold
-                    if let Some(chain_config) = self.chain_configs.get_chain_config(bridging.dest_chain_id.clone()) {
+                    if let Some(chain_config) = self
+                        .chain_configs
+                        .get_chain_config(bridging.dest_chain_id.clone())
+                    {
                         if bridging.verified_count >= chain_config.validators_threshold {
                             // Update the status
                             let mut updated_bridging = bridging.clone();
-                            updated_bridging.yield_provider_status = BRG_ABTC_SENDING_FEE_TO_TREASURY;
+                            updated_bridging.yield_provider_status =
+                                BRG_ABTC_SENDING_FEE_TO_TREASURY;
                             updated_bridging.treasury_btc_txn_hash = treasury_btc_txn_hash.clone();
 
                             self.bridgings.insert(txn_hash.clone(), updated_bridging);
@@ -1189,18 +1284,23 @@ impl Atlas {
     }
 
     pub fn get_bridging_records_to_send_btc(&self) -> Vec<BridgingRecord> {
-        self.bridgings.values()
+        self.bridgings
+            .values()
             .filter(|bridging| {
                 // Check basic status requirements
                 if bridging.yield_provider_status != BRG_ABTC_YIELD_PROVIDER_WITHDRAWN
                     || bridging.status != BRG_ABTC_MINTED_TO_DEST
                     || !bridging.yield_provider_remarks.is_empty()
-                    || !bridging.remarks.is_empty() {
+                    || !bridging.remarks.is_empty()
+                {
                     return false;
                 }
 
                 // Validate chain config and threshold
-                if let Some(chain_config) = self.chain_configs.get_chain_config(bridging.dest_chain_id.clone()) {
+                if let Some(chain_config) = self
+                    .chain_configs
+                    .get_chain_config(bridging.dest_chain_id.clone())
+                {
                     bridging.verified_count >= chain_config.validators_threshold
                 } else {
                     false

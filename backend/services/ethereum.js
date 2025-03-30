@@ -479,16 +479,16 @@ class Ethereum {
   //   );
   // }
 
-  // async getPastMintEventsInBatches(startBlock, endBlock, batchSize) {
-  //   console.log(`Fetching Events in batches... ${startBlock} -> ${endBlock}`);
+  async getPastMintEventsInBatches(startBlock, endBlock, batchSize) {
+    console.log(`Fetching Events in batches... ${startBlock} -> ${endBlock}`);
 
-  //   return this._scanEvents(
-  //     EVENT_NAME.MINT_DEPOSIT,
-  //     startBlock,
-  //     endBlock,
-  //     batchSize,
-  //   );
-  // }
+    return this._scanEvents(
+      EVENT_NAME.MINT_DEPOSIT,
+      startBlock,
+      endBlock,
+      batchSize,
+    );
+  }
 
   // async getPastMintBridgeEventsInBatches(startBlock, endBlock, batchSize) {
   //   console.log(`Fetching Events in batches... ${startBlock} -> ${endBlock}`);
