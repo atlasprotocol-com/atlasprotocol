@@ -733,18 +733,18 @@ app.listen(PORT, async () => {
 
   setInterval(async () => {
     await UpdateYieldProviderStaked(deposits, bithiveRecords, near);
-  }, 5000); 
+  }, 10000); 
 
   setInterval(async () => {
     await UpdateAtlasAbtcMinted(deposits, near);
-  }, 5000);
+  }, 10000);
 
   setInterval(async () => {
     await StakeToYieldProvider(deposits, near, bitcoin);
     await MintaBtcToReceivingChain(deposits, near);
-  }, 5000);
+  }, 10000);
 
   setInterval(async () => {
     await UpdateAtlasBtcDeposited(deposits, near, bitcoin);
-  }, 5000);
+  }, 10000);
 });
