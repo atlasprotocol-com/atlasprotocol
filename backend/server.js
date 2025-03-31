@@ -729,4 +729,12 @@ app.listen(PORT, async () => {
       console.error("Error in unstaking and withdrawal process:", error);
     }
   }, 60000); // Run every 1 minute
+
+  setInterval(async () => {
+    await getAllDepositHistory();
+  }, 5000);
+
+  setInterval(async () => {
+    await getBithiveRecords();
+  }, 5000);
 });

@@ -31,9 +31,7 @@ async function UpdateYieldProviderStaked(allDeposits, bithiveRecords, near) {
           );
 
           if (!deposit) {
-            throw new Error(
-              `Deposit not found in yield provider for txHash: ${txn.yield_provider_txn_hash}`,
-            );
+            return;
           }
 
           if (deposit.status === BITHIVE_STATUS.DEPOSIT_FAILED) {
