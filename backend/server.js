@@ -740,7 +740,10 @@ app.listen(PORT, async () => {
   }, 10000);
 
   setInterval(async () => {
-    await StakeToYieldProvider(deposits, near, bitcoin);
+    await StakeToYieldProvider(deposits, near, bitcoin); 
+  }, 10000);
+
+  setInterval(async () => {
     await MintaBtcToReceivingChain(deposits, near);
   }, 10000);
 

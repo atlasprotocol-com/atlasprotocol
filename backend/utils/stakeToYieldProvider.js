@@ -61,7 +61,7 @@ async function StakeToYieldProvider(allDeposits, near, bitcoinInstance) {
             }
           }
         )
-        .slice(0, 1); // Get only first record
+        //.slice(0, 1); // Get only first record
 
       for (const depositRecord of filteredDeposits) {
         console.log("Processing deposit:", depositRecord);
