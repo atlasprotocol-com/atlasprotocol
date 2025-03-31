@@ -689,16 +689,16 @@ async function runBatch() {
   // await WithdrawFailDeposits(deposits, near, bitcoin);
   // await UpdateWithdrawFailDeposits(deposits, near, bitcoin);
 
-  await UpdateAtlasBtcWithdrawnFromYieldProvider(redemptions, near, bitcoin);
+  // await UpdateAtlasBtcWithdrawnFromYieldProvider(redemptions, near, bitcoin);
 
-  await SendBtcBackToUser(near, bitcoin);
-  await UpdateAtlasBtcBackToUser(redemptions, near, bitcoin);
+  // await SendBtcBackToUser(near, bitcoin);
+  // await UpdateAtlasBtcBackToUser(redemptions, near, bitcoin);
 
-  await MintBridgeABtcToDestChain(near);
+  // await MintBridgeABtcToDestChain(near);
 
-  await SendBridgingFeesToTreasury(near, bitcoin);
+  // await SendBridgingFeesToTreasury(near, bitcoin);
 
-  await UpdateAtlasBtcBridgingYieldProviderWithdrawn(bridgings, near, bitcoin);
+  // await UpdateAtlasBtcBridgingYieldProviderWithdrawn(bridgings, near, bitcoin);
 
   // Delay for 5 seconds before running the batch again
   await new Promise((resolve) => setTimeout(resolve, 5000));

@@ -37,7 +37,7 @@ async function MintaBtcToReceivingChain(allDeposits, near) {
 
           const deposit = await near.getDepositByBtcTxnHash(btcTxnHash);
 
-          // Another check to ensure the onchain deposit is in the correct status
+          // Another check to ensure the onchain deposit record is in the correct status
           if (deposit.status !== DEPOSIT_STATUS.BTC_YIELD_PROVIDER_DEPOSITED) {
             continue;
           }
