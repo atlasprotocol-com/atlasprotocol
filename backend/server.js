@@ -658,10 +658,8 @@ app.get("/api/v1/check-minted-txn", async (req, res) => {
 
 async function runBatch() {
   await getBtcMempoolRecords();
-  getAllDepositHistory();
   await getAllBridgingHistory();
   await getAllRedemptionHistory();
-  getBithiveRecords();
   await computeStats();
 
   await RetrieveAndProcessPastEvmEvents(near, deposits, redemptions, bridgings);
@@ -680,11 +678,6 @@ async function runBatch() {
     bitcoin,
   );
   await UpdateAtlasBtcDeposited(deposits, near, bitcoin);
-  await StakeToYieldProvider(deposits, near, bitcoin);
-  await UpdateYieldProviderStaked(deposits, bithiveRecords, near);
-  await MintaBtcToReceivingChain(deposits, near);
-
-  await UpdateAtlasAbtcMinted(deposits, near);
 
   // await WithdrawFailDeposits(deposits, near, bitcoin);
   // await UpdateWithdrawFailDeposits(deposits, near, bitcoin);
@@ -736,5 +729,18 @@ app.listen(PORT, async () => {
 
   setInterval(async () => {
     await getBithiveRecords();
+  }, 5000);
+
+  setInterval(async () => {
+    await UpdateYieldProviderStaked(deposits, bithiveRecords, near);
+  }, 5000); 
+
+  setInterval(async () => {
+    await UpdateAtlasAbtcMinted(deposits, near);
+  }, 5000);
+
+  setInterval(async () => {
+    await StakeToYieldProvider(deposits, near, bitcoin);
+    await MintaBtcToReceivingChain(deposits, near);
   }, 5000);
 });
