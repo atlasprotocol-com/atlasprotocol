@@ -26,18 +26,25 @@ async function UpdateYieldProviderStaked(allDeposits, bithiveRecords, near) {
 
       for (const txn of filteredTxns) {
         try {
-          const deposit = bithiveRecords.find(
+
+          const deposit = await near.getDepositByBtcTxnHash(txn.btc_txn_hash);
+
+          if (deposit.status !== DEPOSIT_STATUS.BTC_PENDING_YIELD_PROVIDER_DEPOSIT) {
+            continue;
+          }
+
+          const bithiveDeposit = bithiveRecords.find(
             (d) => d.depositTxHash === txn.yield_provider_txn_hash,
           );
 
-          if (!deposit) {
+          if (!bithiveDeposit) {
             return;
           }
 
-          if (deposit.status === BITHIVE_STATUS.DEPOSIT_FAILED) {
+          if (bithiveDeposit.status === BITHIVE_STATUS.DEPOSIT_FAILED) {
             console.log(BITHIVE_STATUS.DEPOSIT_FAILED)           
-            console.log("deposit.status", deposit.status);
-            console.log(deposit);
+            console.log("deposit.status", bithiveDeposit.status);
+            console.log(bithiveDeposit);
             throw new Error(
               `Yield provider returned failed deposit`,
             );
@@ -50,6 +57,7 @@ async function UpdateYieldProviderStaked(allDeposits, bithiveRecords, near) {
           if (!ok) {
             continue;
           }
+
           await near.updateDepositYieldProviderDeposited(txn.btc_txn_hash);
         } catch (error) {
           let remarks = error.toString();
