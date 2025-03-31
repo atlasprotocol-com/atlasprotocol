@@ -1,13 +1,10 @@
-const { createRelayerClient } = require("@bithive/relayer-api");
-
 const { getConstants } = require("../constants");
 
 const { flagsBatch } = require("./batchFlags");
 
-async function UpdateYieldProviderStaked(allDeposits, near, bitcoinInstance) {
+async function UpdateYieldProviderStaked(allDeposits, bithiveRecords, near) {
   const batchName = `Batch C UpdateYieldProviderStaked`;
-  const relayer = createRelayerClient({ url: process.env.BITHIVE_RELAYER_URL });
-
+  
   // Check if a previous batch is still running
   if (flagsBatch.UpdateYieldProviderStakedRunning) {
     console.log(`Previous ${batchName} incomplete. Skipping this run.`);
@@ -18,10 +15,6 @@ async function UpdateYieldProviderStaked(allDeposits, near, bitcoinInstance) {
       flagsBatch.UpdateYieldProviderStakedRunning = true;
       const { DEPOSIT_STATUS, BITHIVE_STATUS } = getConstants(); // Access constants dynamically
 
-      const { publicKey } = await bitcoinInstance.deriveBTCAddress(near);
-
-      const publicKeyString = publicKey.toString("hex");
-
       // Filter deposits that need to be processed
       const filteredTxns = allDeposits.filter(
         (deposit) =>
@@ -31,14 +24,9 @@ async function UpdateYieldProviderStaked(allDeposits, near, bitcoinInstance) {
           deposit.remarks === "",
       );
 
-      // Fetch all deposits once
-      const { deposits } = await relayer.user.getDeposits({
-        publicKey: publicKeyString,
-      });
-      console.log("Number of yield provider records:", deposits.length);
       for (const txn of filteredTxns) {
         try {
-          const deposit = deposits.find(
+          const deposit = bithiveRecords.find(
             (d) => d.depositTxHash === txn.yield_provider_txn_hash,
           );
 
@@ -48,9 +36,9 @@ async function UpdateYieldProviderStaked(allDeposits, near, bitcoinInstance) {
             );
           }
 
-          if (deposit.status === DEPOSIT_STATUS.DEPOSIT_FAILED) {
+          if (deposit.status === BITHIVE_STATUS.DEPOSIT_FAILED) {
             throw new Error(
-              `Yield provider deposit returned failed for txHash: ${txn.yield_provider_txn_hash}`,
+              `Yield provider returned failed deposit`,
             );
           }
 
@@ -63,11 +51,12 @@ async function UpdateYieldProviderStaked(allDeposits, near, bitcoinInstance) {
           }
           await near.updateDepositYieldProviderDeposited(txn.btc_txn_hash);
         } catch (error) {
+          let remarks = error.toString();
           console.log(
             "Error updating stake to yield provider deposited:",
-            error,
+            remarks,
           );
-          await near.updateDepositRemarks(txn.btc_txn_hash, error);
+          await near.updateDepositRemarks(txn.btc_txn_hash, remarks.toString());
         }
       }
     } catch (error) {

@@ -89,6 +89,7 @@ class Near {
           "get_redemptions_to_send_btc",
           "get_bridging_records_to_send_btc",
           "get_pubkey_by_address",
+          "get_deposits_count",
         ],
         changeMethods: [
           "insert_deposit_btc",
@@ -147,7 +148,7 @@ class Near {
         this.account,
         this.bitHiveContractId,
         {
-          viewMethods: ["get_deposit", "view_account", "get_summary"],
+          viewMethods: ["get_deposit", "view_account", "get_summary", "get_deposits"],
         },
       );
     } catch (error) {
@@ -1630,6 +1631,10 @@ class Near {
       );
       return [];
     }
+  }
+
+  async getTotalDepositsCount() {
+    return this.makeNearRpcViewCall("get_deposits_count", {});
   }
 }
 

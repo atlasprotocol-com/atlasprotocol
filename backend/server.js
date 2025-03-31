@@ -149,26 +149,46 @@ const computeStats = async () => {
 // Function to poll Near Atlas deposit records
 const getAllDepositHistory = async (limit = 1000) => {
   try {
-    console.log("Fetching deposits history");
-    let records = [];
-    let offset = 0;
-    let hasMore = true;
-
-    while (hasMore) {
-      const items = await near.getAllDeposits(offset, limit);
-      records = records.concat(items);
-
-      offset += limit;
-      hasMore = items.length === limit;
-
-      console.log("Deposits records:", records.length);
+    //console.log("[getAllDepositHistory] Starting at", new Date().toISOString());
+    
+    // First, get the first batch to check if there are any deposits
+    const firstBatch = await near.getAllDeposits(0, limit);
+    
+    if (firstBatch.length === 0) {
+      deposits = [];
+      console.log("[getAllDepositHistory] No deposits found");
+      return;
     }
 
-    deposits = records;
+    let allDeposits = [...firstBatch];
+
+    // Get total count from NEAR to calculate number of batches needed
+    const totalCount = await near.getTotalDepositsCount();
+    const totalBatches = Math.ceil(totalCount / limit);
+
+    // Create an array of promises for parallel fetching
+    const batchPromises = [];
+    for (let i = 1; i < totalBatches; i++) {
+      const currentOffset = i * limit;
+      batchPromises.push(near.getAllDeposits(currentOffset, limit));
+    }
+
+    // Fetch all batches in parallel
+    const batchResults = await Promise.all(batchPromises);
+    
+    // Combine all results
+    batchResults.forEach(batch => {
+      allDeposits = allDeposits.concat(batch);
+    });
+
+    deposits = allDeposits;
+
+    console.log("[getAllDepositHistory] Total deposits fetched:", deposits.length);
   } catch (error) {
-    console.error(`Failed to fetch staking history: ${error.message}`);
+    console.error(`[getAllDepositHistory] Failed: ${error.message}`);
   }
 };
+
 
 // Function to poll Near Atlas redemption records
 const getAllRedemptionHistory = async () => {
@@ -200,6 +220,18 @@ const getBtcMempoolRecords = async () => {
     console.error(`Failed to fetch Btc Mempool records: ${error.message}`);
   }
 };
+
+const getBithiveRecords = async () => {
+  try {
+    //console.log("[getBithiveRecords] Starting at", new Date().toISOString());
+    const { publicKey } = await bitcoin.deriveBTCAddress(near);
+    //console.log("[getBithiveRecords] Got public key, fetching deposits");
+    bithiveRecords = await getBithiveDeposits(publicKey.toString("hex"), deposits.length);
+    //console.log("[getBithiveRecords] Completed at", new Date().toISOString());
+  } catch (error) { 
+    console.error(`[getBithiveRecords] Failed: ${error.message}`);
+  }
+};  
 
 app.get("/api/v1/atlas/address", async (req, res) => {
   try {
@@ -426,9 +458,7 @@ app.get("/api/v1/chainConfigs", (req, res) => {
 
 app.get("/api/v1/bithive-deposit", async (req, res) => {
   try {
-    const { publicKey } = await bitcoin.deriveBTCAddress(near);
-    const returnData = await getBithiveDeposits(publicKey.toString("hex"));
-    res.status(200).json(returnData);
+    res.status(200).json(bithiveRecords);
   } catch (error) {
     console.error("Error fetching bithive deposit:", error);
     res.status(500).json({ message: "Error fetching bithive deposit" });
@@ -609,6 +639,7 @@ async function runBatch() {
   await getAllDepositHistory();
   await getAllBridgingHistory();
   await getAllRedemptionHistory();
+  await getBithiveRecords(),
   await computeStats();
 
   await RetrieveAndProcessPastEvmEvents(near, deposits, redemptions, bridgings);
@@ -628,13 +659,13 @@ async function runBatch() {
   );
   await UpdateAtlasBtcDeposited(deposits, near, bitcoin);
   await StakeToYieldProvider(deposits, near, bitcoin);
-  await UpdateYieldProviderStaked(deposits, near, bitcoin);
+  await UpdateYieldProviderStaked(deposits, bithiveRecords, near);
   await MintaBtcToReceivingChain(deposits, near);
 
   await UpdateAtlasAbtcMinted(deposits, near);
 
-  await WithdrawFailDeposits(deposits, near, bitcoin);
-  await UpdateWithdrawFailDeposits(deposits, near, bitcoin);
+  // await WithdrawFailDeposits(deposits, near, bitcoin);
+  // await UpdateWithdrawFailDeposits(deposits, near, bitcoin);
 
   await UpdateAtlasBtcWithdrawnFromYieldProvider(redemptions, near, bitcoin);
 
