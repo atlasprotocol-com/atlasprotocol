@@ -1,8 +1,9 @@
 // Configuration flags for file generation
 const CONFIG = {
-  GENERATE_DEPOSITS_XLSX: false,         // Set to false to skip deposits.xlsx generation
-  GENERATE_DEPOSITS_QUEST2_XLSX: true,  // Set to false to skip deposits-quest2.xlsx generation
+  GENERATE_DEPOSITS_XLSX: true,         // Set to true to enable deposits.xlsx generation
+  GENERATE_DEPOSITS_QUEST2_XLSX: false,  // Set to true to enable deposits-quest2.xlsx generation
   GENERATE_UTXOS_XLSX: false,           // Set to true to enable UTXOs.xlsx generation
+  GENERATE_PUBKEY_XLSX: false,           // Set to true to enable pubkeys.xlsx generation
   
   DEPOSITS: {
     MAX_RECORDS: null,            // Set to null for all records, or a number for limit
@@ -14,6 +15,11 @@ const CONFIG = {
     INPUT_FILE: "deposits-quest2.xlsx",  // Fixed input file to read from and write to
     BATCH_SIZE: 50,                       // Number of rows to process in parallel
     SAVE_INTERVAL: 100                    // Save file every N rows processed
+  },
+  
+  PUBKEY: {
+    BATCH_SIZE: 1000,                   // How many records to fetch per API call
+    OUTPUT_FILE: "pubkeys.xlsx"         // Output filename for pubkeys batch
   },
   
   UTXOS: {
@@ -721,6 +727,76 @@ async function processDepositsQuest2() {
   }
 }
 
+// Add new functions for pubkey processing
+async function fetchPubkeys() {
+  return new Promise((resolve, reject) => {
+    let allPubkeys = [];
+    let fromIndex = 0;
+    const limit = CONFIG.PUBKEY.BATCH_SIZE;
+
+    const fetchPage = () => {
+      exec(
+        `near view v2.atlas_public_testnet.testnet get_all_btc_pubkeys '{"from_index": ${fromIndex}, "limit": ${limit}}'`,
+        { maxBuffer: 1024 * 1024 * 100 }, // 100 MB buffer
+        (error, stdout, stderr) => {
+          if (error) {
+            console.error(`Error executing CLI command: ${error.message}`);
+            return reject(error);
+          }
+          if (stderr) {
+            console.error(`NEAR CLI stderr: ${stderr}`);
+          }
+          try {
+            const records = parseRecordsSeparately(stdout);
+            console.log(`Parsed ${records.length} pubkey records from index ${fromIndex}`);
+            
+            allPubkeys = allPubkeys.concat(records);
+            
+            // If no more records, resolve
+            if (records.length < limit) {
+              return resolve(allPubkeys);
+            }
+            
+            fromIndex += limit;
+            fetchPage(); // Fetch the next page
+          } catch (e) {
+            console.error("Failed to parse pubkey records:", e);
+            reject(e);
+          }
+        }
+      );
+    };
+
+    fetchPage(); // Start fetching pages
+  });
+}
+
+async function exportPubkeysToExcel(pubkeys) {
+  const workbook = new ExcelJS.Workbook();
+  const worksheet = workbook.addWorksheet("BTC Pubkeys");
+  
+  // Define columns based on BtcAddressPubKeyRecord struct
+  worksheet.columns = [
+    { header: "BTC Address", key: "btc_address", width: 70 },
+    { header: "Public Key", key: "public_key", width: 70 }
+  ];
+  
+  // Add data rows
+  pubkeys.forEach(record => {
+    worksheet.addRow({
+      btc_address: record.btc_address,
+      public_key: record.public_key
+    });
+  });
+  
+  // Style the header row
+  worksheet.getRow(1).font = { bold: true };
+  
+  const filePath = path.join(__dirname, CONFIG.PUBKEY.OUTPUT_FILE);
+  await workbook.xlsx.writeFile(filePath);
+  console.log(`✅ Successfully exported ${pubkeys.length} pubkey records to ${filePath}`);
+}
+
 /**
  * Main function to execute the process.
  */
@@ -759,6 +835,24 @@ async function main() {
       console.log(`⏱️ Duration: ${formatDuration(startTime, endTime)}`);
     } else {
       console.log("\nℹ️ Skipping deposits-quest2.xlsx processing (disabled in CONFIG)");
+    }
+    
+    if (CONFIG.GENERATE_PUBKEY_XLSX) {
+      const startTime = new Date();
+      console.log(`\n⏳ Starting pubkeys.xlsx generation at ${formatDate(startTime)}`);
+      
+      console.log("⏳ Fetching pubkey records from NEAR...");
+      const pubkeys = await fetchPubkeys();
+      console.log(`✅ Retrieved ${pubkeys.length} pubkey records.`);
+      
+      console.log("⏳ Exporting to Excel...");
+      await exportPubkeysToExcel(pubkeys);
+      
+      const endTime = new Date();
+      console.log(`✅ Completed pubkeys.xlsx generation at ${formatDate(endTime)}`);
+      console.log(`⏱️ Duration: ${formatDuration(startTime, endTime)}`);
+    } else {
+      console.log("\nℹ️ Skipping pubkeys.xlsx generation (disabled in CONFIG)");
     }
     
     if (CONFIG.GENERATE_UTXOS_XLSX) {
