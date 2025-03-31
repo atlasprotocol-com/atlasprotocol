@@ -56,9 +56,9 @@ async function UpdateYieldProviderStaked(allDeposits, bithiveRecords, near) {
           }
 
           const ok =
-            deposit.status === BITHIVE_STATUS.DEPOSIT_CONFIRMED ||
-            deposit.status === BITHIVE_STATUS.DEPOSIT_CONFIRMED_INVALID ||
-            deposit.status === BITHIVE_STATUS.WITHDRAW_CONFIRMED;
+          bithiveDeposit.status === BITHIVE_STATUS.DEPOSIT_CONFIRMED ||
+          bithiveDeposit.status === BITHIVE_STATUS.DEPOSIT_CONFIRMED_INVALID ||
+          bithiveDeposit.status === BITHIVE_STATUS.WITHDRAW_CONFIRMED;
           if (!ok) {
             continue;
           }
