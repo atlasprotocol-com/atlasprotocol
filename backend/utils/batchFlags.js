@@ -1,5 +1,8 @@
 // batchFlags.js
 const flagsBatch = {
+  GetAllDepositHistoryRunning: false,
+  GetBithiveRecordsRunning: false,
+  
   UpdateAtlasBtcDepositsRunning: false,
   ValidateAtlasBtcDepositsRunning: false,
   MintaBtcToReceivingChainRunning: false,

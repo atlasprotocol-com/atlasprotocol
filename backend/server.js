@@ -8,6 +8,7 @@ dotenv.config({ path: envFile });
 
 const { globalParams, updateGlobalParams } = require("./config/globalParams");
 const { getTransactionsAndComputeStats } = require("./utils/transactionStats");
+const { flagsBatch } = require("./utils/batchFlags");
 const {
   UpdateAtlasBtcDeposits,
   processNewDeposit,
@@ -148,6 +149,14 @@ const computeStats = async () => {
 
 // Function to poll Near Atlas deposit records
 const getAllDepositHistory = async (limit = 1000) => {
+
+  if (flagsBatch.GetAllDepositHistoryRunning) {
+    console.log("[getAllDepositHistory] GetAllDepositHistoryRunning is running");
+    return;
+  }
+
+  flagsBatch.GetAllDepositHistoryRunning = true;
+
   try {
     //console.log("[getAllDepositHistory] Starting at", new Date().toISOString());
     
@@ -187,6 +196,9 @@ const getAllDepositHistory = async (limit = 1000) => {
   } catch (error) {
     console.error(`[getAllDepositHistory] Failed: ${error.message}`);
   }
+  finally {
+    flagsBatch.GetAllDepositHistoryRunning = false;
+  }
 };
 
 
@@ -222,6 +234,13 @@ const getBtcMempoolRecords = async () => {
 };
 
 const getBithiveRecords = async () => {
+  if (flagsBatch.GetBithiveRecordsRunning) {
+    console.log("[getBithiveRecords] GetBithiveRecordsRunning is running");
+    return;
+  }
+
+  flagsBatch.GetBithiveRecordsRunning = true;
+
   try {
     //console.log("[getBithiveRecords] Starting at", new Date().toISOString());
     const { publicKey } = await bitcoin.deriveBTCAddress(near);
@@ -230,6 +249,9 @@ const getBithiveRecords = async () => {
     //console.log("[getBithiveRecords] Completed at", new Date().toISOString());
   } catch (error) { 
     console.error(`[getBithiveRecords] Failed: ${error.message}`);
+  }
+  finally {
+    flagsBatch.GetBithiveRecordsRunning = false;
   }
 };  
 
@@ -636,10 +658,10 @@ app.get("/api/v1/check-minted-txn", async (req, res) => {
 
 async function runBatch() {
   await getBtcMempoolRecords();
-  await getAllDepositHistory();
+  getAllDepositHistory();
   await getAllBridgingHistory();
   await getAllRedemptionHistory();
-  await getBithiveRecords(),
+  getBithiveRecords();
   await computeStats();
 
   await RetrieveAndProcessPastEvmEvents(near, deposits, redemptions, bridgings);
