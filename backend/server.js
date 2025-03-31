@@ -677,7 +677,7 @@ async function runBatch() {
     near,
     bitcoin,
   );
-  await UpdateAtlasBtcDeposited(deposits, near, bitcoin);
+  
 
   // await WithdrawFailDeposits(deposits, near, bitcoin);
   // await UpdateWithdrawFailDeposits(deposits, near, bitcoin);
@@ -742,5 +742,9 @@ app.listen(PORT, async () => {
   setInterval(async () => {
     await StakeToYieldProvider(deposits, near, bitcoin);
     await MintaBtcToReceivingChain(deposits, near);
+  }, 5000);
+
+  setInterval(async () => {
+    await UpdateAtlasBtcDeposited(deposits, near, bitcoin);
   }, 5000);
 });
