@@ -35,6 +35,9 @@ async function UpdateYieldProviderStaked(allDeposits, bithiveRecords, near) {
           }
 
           if (deposit.status === BITHIVE_STATUS.DEPOSIT_FAILED) {
+            console.log(BITHIVE_STATUS.DEPOSIT_FAILED)           
+            console.log("deposit.status", deposit.status);
+            console.log(deposit);
             throw new Error(
               `Yield provider returned failed deposit`,
             );
