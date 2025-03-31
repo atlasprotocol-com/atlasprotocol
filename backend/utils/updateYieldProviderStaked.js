@@ -24,9 +24,12 @@ async function UpdateYieldProviderStaked(allDeposits, bithiveRecords, near) {
           deposit.remarks === "",
       );
 
+      console.log("filteredTxns: ", filteredTxns.length);
+      console.log("bithiveRecords: ", bithiveRecords.length);
+
       for (const txn of filteredTxns) {
         try {
-          console.log("txn to update to staked: ", txn);
+          
           const deposit = await near.getDepositByBtcTxnHash(txn.btc_txn_hash);
 
           // Another check to ensure the onchain deposit is in the correct status
@@ -39,6 +42,7 @@ async function UpdateYieldProviderStaked(allDeposits, bithiveRecords, near) {
           );
 
           if (!bithiveDeposit) {
+            console.log("bithiveDeposit not found for txn: ", txn);
             return;
           }
 
