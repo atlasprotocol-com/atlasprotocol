@@ -161,7 +161,7 @@ const Home: React.FC<HomeProps> = () => {
               <div className="flex gap-4 flex-col lg:flex-row">
                 <div className="flex-1 flex flex-col gap-4">
                   <Stats />
-                  <button onClick={handleGetInfo}>Get Info</button>
+                  {/* <button onClick={handleGetInfo}>Get Info</button> */}
                   <Card>
                     <div
                       className={`py-6 ${
