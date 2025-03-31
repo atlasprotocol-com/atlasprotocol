@@ -26,7 +26,7 @@ async function UpdateYieldProviderStaked(allDeposits, bithiveRecords, near) {
 
       for (const txn of filteredTxns) {
         try {
-
+          console.log("txn to update to staked: ", txn);
           const deposit = await near.getDepositByBtcTxnHash(txn.btc_txn_hash);
 
           // Another check to ensure the onchain deposit is in the correct status
@@ -43,9 +43,6 @@ async function UpdateYieldProviderStaked(allDeposits, bithiveRecords, near) {
           }
 
           if (bithiveDeposit.status === BITHIVE_STATUS.DEPOSIT_FAILED) {
-            console.log(BITHIVE_STATUS.DEPOSIT_FAILED)           
-            console.log("deposit.status", bithiveDeposit.status);
-            console.log(bithiveDeposit);
             throw new Error(
               `Yield provider returned failed deposit`,
             );
@@ -72,6 +69,7 @@ async function UpdateYieldProviderStaked(allDeposits, bithiveRecords, near) {
     } catch (error) {
       console.log("Error updating stake to yield provider deposited:", error);
     } finally {
+      console.log(`${batchName}. Completed run...`);
       flagsBatch.UpdateYieldProviderStakedRunning = false;
     }
   }
