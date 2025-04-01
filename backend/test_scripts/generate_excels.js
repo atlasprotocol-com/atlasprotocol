@@ -3,16 +3,8 @@ const CONFIG = {
   GENERATE_DEPOSITS_XLSX: false,        // Set to true to enable deposits.xlsx generation
   GENERATE_DEPOSITS_QUEST2_XLSX: false,  // Set to true to enable deposits-quest2.xlsx generation
   GENERATE_UTXOS_XLSX: false,           // Set to true to enable UTXOs.xlsx generation
-  GENERATE_PUBKEY_XLSX: true,          // Set to true to enable pubkeys.xlsx generation
-  
-  STATUS: {
-    DEPOSIT_EXISTS: "Deposit already exists",
-    PROCESSING_INITIATED: "Processing initiated",
-    PROCESSING_FAILED: "Processing failed",
-    ERROR: "Error",
-    YES: "Yes",
-    NO: "No"
-  },
+  GENERATE_PUBKEY_XLSX: false,          // Set to true to enable pubkeys.xlsx generation
+  GENERATE_NEAR_BLOCKS_XLSX: true,      // Set to true to enable nearblocks.xlsx generation
   
   DEPOSITS: {
     OUTPUT_FILE: "deposits.xlsx",       // Output filename for deposits batch
@@ -35,7 +27,24 @@ const CONFIG = {
   UTXOS: {
     OUTPUT_FILE: "UTXOs.xlsx",          // Output filename for UTXOs batch
     ATLAS_VAULT_ADDRESS: 'tb1q9ruq3vlgj79l27euc2wq79wxzae2t86z4adkkv',  // Atlas vault address on testnet4
-    SAVE_INTERVAL: 50                   // Save file every N rows processed
+    SAVE_INTERVAL: 50,                  // Save file every N rows processed
+    STATUS: {
+      DEPOSIT_EXISTS: "Deposit already exists",
+      PROCESSING_INITIATED: "Processing initiated",
+      PROCESSING_FAILED: "Processing failed",
+      ERROR: "Error",
+      YES: "Yes",
+      NO: "No"
+    }
+  },
+  
+  NEAR: {
+    START_BLOCK: 189828205,            // Starting block number to scan from
+    CONTRACT: "atbtc_v2.atlas_public_testnet.testnet",  // NEAR contract to monitor
+    OUTPUT_FILE: "nearblocks.xlsx",    // Output filename
+    SAVE_INTERVAL: 1,                  // Save file every N blocks processed
+    WORKSHEET_NAME: "NEAR Blocks",     // Name of the worksheet in Excel file
+    RPC_ENDPOINT: "https://neart.lava.build"  // NEAR RPC endpoint
   }
 };
 
@@ -53,13 +62,13 @@ const axios = require('axios');
 function formatDate(date) {
   return date.toLocaleString('en-GB', {
     day: '2-digit',
-    month: 'short',
+    month: '2-digit',
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
     hour12: false
-  });
+  }).replace(/\//g, '');
 }
 
 function formatDuration(startTime, endTime) {
@@ -305,10 +314,12 @@ async function exportToExcel(deposits) {
     { header: "Protocol Fee", key: "protocol_fee", width: 15 },
     { header: "Minted Txn Hash", key: "minted_txn_hash", width: 50 },
     { header: "Minting Fee", key: "minting_fee", width: 15 },
-    { header: "Timestamp", key: "timestamp", width: 20 },
+    { header: "Timestamp UNIX", key: "timestamp", width: 15 },
+    { header: "Timestamp", key: "formatted_timestamp", width: 20 },
     { header: "Status", key: "status", width: 10 },
     { header: "Remarks", key: "remarks", width: 100 },
-    { header: "Date Created", key: "date_created", width: 20 },
+    { header: "Date Created UNIX", key: "date_created", width: 20 },
+    { header: "Date Created", key: "formatted_date_created", width: 20 },
     { header: "Verified Count", key: "verified_count", width: 15 },
     { header: "Yield Provider Gas Fee", key: "yield_provider_gas_fee", width: 20 },
     { header: "Yield Provider Txn Hash", key: "yield_provider_txn_hash", width: 50 },
@@ -336,9 +347,11 @@ async function exportToExcel(deposits) {
       minted_txn_hash: deposit.minted_txn_hash,
       minting_fee: deposit.minting_fee,
       timestamp: deposit.timestamp,
+      formatted_timestamp: formatDate(new Date(deposit.timestamp / 1000000)),
       status: deposit.status,
       remarks: deposit.remarks,
       date_created: deposit.date_created,
+      formatted_date_created: formatDate(new Date(deposit.date_created / 1000000)),
       verified_count: deposit.verified_count,
       yield_provider_gas_fee: deposit.yield_provider_gas_fee,
       yield_provider_txn_hash: deposit.yield_provider_txn_hash,
@@ -528,18 +541,18 @@ async function processAndExportUTXOs(utxos) {
         try {
           await processNewDeposit(utxo.txid);
           console.log(`✅ [${i + 1}/${totalUTXOs}] Successfully initiated processing for ${utxo.txid}`);
-          processingStatus = CONFIG.STATUS.PROCESSING_INITIATED;
+          processingStatus = CONFIG.UTXOS.STATUS.PROCESSING_INITIATED;
         } catch (error) {
           console.error(`❌ [${i + 1}/${totalUTXOs}] Failed to process deposit for ${utxo.txid}: ${error.message}`);
-          processingStatus = `${CONFIG.STATUS.PROCESSING_FAILED}: ${error.message}`;
+          processingStatus = `${CONFIG.UTXOS.STATUS.PROCESSING_FAILED}: ${error.message}`;
         }
       } else {
         console.log(`ℹ️ [${i + 1}/${totalUTXOs}] Deposit already exists for ${utxo.txid}`);
-        processingStatus = CONFIG.STATUS.DEPOSIT_EXISTS;
+        processingStatus = CONFIG.UTXOS.STATUS.DEPOSIT_EXISTS;
       }
     } catch (error) {
       console.error(`❌ [${i + 1}/${totalUTXOs}] Error processing UTXO ${utxo.txid}:`, error);
-      processingStatus = `${CONFIG.STATUS.ERROR}: ${error.message}`;
+      processingStatus = `${CONFIG.UTXOS.STATUS.ERROR}: ${error.message}`;
     }
     
     // Check if UTXO exists in Excel file
@@ -552,7 +565,7 @@ async function processAndExportUTXOs(utxos) {
         const row = worksheet.getRow(rowNumber);
         if (row.getCell(1).text === utxo.txid) {
           // Update the status in the Excel file
-          row.getCell(8).value = depositExists ? CONFIG.STATUS.YES : CONFIG.STATUS.NO;
+          row.getCell(8).value = depositExists ? CONFIG.UTXOS.STATUS.YES : CONFIG.UTXOS.STATUS.NO;
           row.getCell(9).value = processingStatus;
           await row.commit();
           console.log(`✅ Updated existing UTXO ${utxo.txid}`);
@@ -578,7 +591,7 @@ async function processAndExportUTXOs(utxos) {
       newRow.getCell(5).value = utxo.status.block_height;
       newRow.getCell(6).value = utxo.status.block_hash;
       newRow.getCell(7).value = utxo.status.block_time;
-      newRow.getCell(8).value = depositExists ? CONFIG.STATUS.YES : CONFIG.STATUS.NO;
+      newRow.getCell(8).value = depositExists ? CONFIG.UTXOS.STATUS.YES : CONFIG.UTXOS.STATUS.NO;
       newRow.getCell(9).value = processingStatus;
       
       // Commit the new row
@@ -989,6 +1002,353 @@ async function fetchAndExportUTXOs() {
   }
 }
 
+// Function to get current block number
+async function getCurrentBlock() {
+  try {
+    const response = await axios.post(CONFIG.NEAR.RPC_ENDPOINT, {
+      jsonrpc: "2.0",
+      method: "block",
+      params: { finality: "final" },
+      id: 1
+    });
+    
+    if (response.data.error) {
+      throw new Error(`RPC Error: ${response.data.error.message}`);
+    }
+    
+    return response.data.result.header.height;
+  } catch (error) {
+    console.error(`Error getting current block: ${error.message}`);
+    throw error;
+  }
+}
+
+// Function to get block details
+async function getBlockDetails(blockNumber) {
+  try {
+    const response = await axios.post(CONFIG.NEAR.RPC_ENDPOINT, {
+      jsonrpc: "2.0",
+      method: "block",
+      params: { block_id: blockNumber },
+      id: 1
+    });
+    
+    if (response.data.error) {
+      throw new Error(`RPC Error: ${response.data.error.message}`);
+    }
+    
+    return response.data.result;
+  } catch (error) {
+    console.error(`Error getting block ${blockNumber}: ${error.message}`);
+    throw error;
+  }
+}
+
+// Function to get the last block number from existing Excel file
+async function getLastBlockFromExcel(filePath) {
+  try {
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.readFile(filePath);
+    const worksheet = workbook.getWorksheet(CONFIG.NEAR.WORKSHEET_NAME);
+    
+    if (!worksheet || worksheet.rowCount <= 1) { // Only header row
+      return null;
+    }
+    
+    // Get the last row's block number
+    const lastRow = worksheet.getRow(worksheet.rowCount);
+    return lastRow.getCell("block_number").value;
+  } catch (error) {
+    console.error(`❌ Error reading existing Excel file: ${error.message}`);
+    return null;
+  }
+}
+
+// Function to clean up incomplete data from a specific block
+async function cleanupIncompleteBlock(filePath, blockNumber) {
+  try {
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.readFile(filePath);
+    const worksheet = workbook.getWorksheet(CONFIG.NEAR.WORKSHEET_NAME);
+    
+    if (!worksheet) {
+      return;
+    }
+    
+    // Find and remove all rows with the specified block number
+    let rowIndex = worksheet.rowCount;
+    while (rowIndex > 1) { // Skip header row
+      const row = worksheet.getRow(rowIndex);
+      if (row.getCell("block_number").value === blockNumber) {
+        worksheet.spliceRows(rowIndex, 1);
+      } else {
+        break; // Stop when we find a row with a different block number
+      }
+      rowIndex--;
+    }
+    
+    // Save the cleaned up file
+    await workbook.xlsx.writeFile(filePath);
+    console.log(`🧹 Cleaned up incomplete data from block ${blockNumber}`);
+  } catch (error) {
+    console.error(`❌ Error cleaning up incomplete block: ${error.message}`);
+  }
+}
+
+// Add this new function before processAndExportBlocks
+async function getTransactionHashFromReceiptId(receiptId) {
+  try {
+    const response = await axios.post(CONFIG.NEAR.RPC_ENDPOINT, {
+      jsonrpc: "2.0",
+      method: "EXPERIMENTAL_receipt",
+      params: [receiptId],
+      id: 1
+    });
+    
+    if (response.data.error) {
+      console.error(`Error getting receipt details: ${response.data.error.message}`);
+      return null;
+    }
+    
+    // The receipt data includes the transaction hash in the receipt object
+    return response.data.result.receipt.transaction_hash;
+  } catch (error) {
+    console.error(`Error getting receipt details for receipt ${receiptId}: ${error.message}`);
+    return null;
+  }
+}
+
+// Add this new function before processAndExportBlocks
+async function checkTransactionStatus(txHash) {
+  try {
+    const response = await axios.post(CONFIG.NEAR.RPC_ENDPOINT, {
+      jsonrpc: "2.0",
+      method: "EXPERIMENTAL_tx_status",
+      params: [txHash],
+      id: 1
+    });
+    
+    if (response.data.error) {
+      console.error(`Error checking transaction status: ${response.data.error.message}`);
+      return false;
+    }
+    
+    const status = response.data.result.status;
+    // Check if the transaction was successful
+    return status && (
+      status.SuccessValue !== undefined || 
+      status.SuccessReceiptId !== undefined
+    );
+  } catch (error) {
+    console.error(`Error checking transaction status for ${txHash}: ${error.message}`);
+    return false;
+  }
+}
+
+// Main function to process blocks and export to Excel
+async function processAndExportBlocks() {
+  const startTime = new Date();
+  console.log("\n🔍 Starting NEAR blocks processing...");
+  console.log(`⏰ Batch start time: ${formatDate(startTime)}`);
+  
+  const filePath = path.join(__dirname, CONFIG.NEAR.OUTPUT_FILE);
+  let workbook;
+  let worksheet;
+  
+  try {
+    // Check if file exists and get last block number
+    const lastBlock = await getLastBlockFromExcel(filePath);
+    if (lastBlock) {
+      console.log(`📄 Found existing file with last block: ${lastBlock}`);
+      // Clean up any incomplete data from the last block
+      await cleanupIncompleteBlock(filePath, lastBlock);
+      // Update START_BLOCK to continue from the last complete block
+      CONFIG.NEAR.START_BLOCK = lastBlock + 1;
+      console.log(`🔄 Continuing from block: ${CONFIG.NEAR.START_BLOCK}`);
+      
+      // Load existing workbook
+      workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.readFile(filePath);
+      worksheet = workbook.getWorksheet(CONFIG.NEAR.WORKSHEET_NAME);
+    } else {
+      // Create new workbook
+      workbook = new ExcelJS.Workbook();
+      worksheet = workbook.addWorksheet(CONFIG.NEAR.WORKSHEET_NAME);
+      
+      // Define columns
+      worksheet.columns = [
+        { header: "Near Block Number", key: "block_number", width: 15 },
+        { header: "Timestamp Unix", key: "timestamp", width: 15 },
+        { header: "Timestamp", key: "formatted_timestamp", width: 20 },
+        { header: "Near Txn Hash", key: "txn_hash", width: 70 },
+        { header: "Account ID", key: "account_id", width: 30 },
+        { header: "atBTC Amount", key: "atbtc_amount", width: 15 },
+        { header: "BTC Txn Hash", key: "btc_txn_hash", width: 70 },
+        { header: "Event Type", key: "event_type", width: 20 }
+      ];
+      
+      // Style the header row
+      worksheet.getRow(1).font = { bold: true };
+    }
+    
+    let lastSaveBlock = CONFIG.NEAR.START_BLOCK;
+    
+    // Get current block number
+    //const currentBlock = await getCurrentBlock();
+    const currentBlock = 189828210;
+    console.log(`📊 Current block: ${currentBlock}`);
+    console.log(`📊 Starting from block: ${CONFIG.NEAR.START_BLOCK}`);
+    
+    // Process each block
+    for (let blockNumber = CONFIG.NEAR.START_BLOCK; blockNumber <= currentBlock; blockNumber++) {
+      console.log(`\n⏳ Processing block ${blockNumber}/${currentBlock}`);
+      
+      try {
+        // Get block details
+        const blockData = await getBlockDetails(blockNumber);
+        console.log(`\n📊 Block Details:`, JSON.stringify(blockData, null, 2));
+        
+        // NEAR timestamps are in nanoseconds, convert to milliseconds
+        const blockTimestamp = blockData.header.timestamp / 1000000;
+        console.log(`📊 Block timestamp: ${new Date(blockTimestamp).toISOString()}`);
+        
+        // Process each transaction in the block
+        if (blockData.chunks.length > 0) {
+          // Sort chunks by shard_id to process in order
+          const sortedChunks = [...blockData.chunks].sort((a, b) => a.shard_id - b.shard_id);
+          
+          // Process each chunk
+          for (const chunk of sortedChunks) {
+            console.log(`\n🔍 Processing chunk ${chunk.shard_id} (hash: ${chunk.chunk_hash})`);
+            
+            // Get transaction details for this chunk
+            const chunkResponse = await axios.post(CONFIG.NEAR.RPC_ENDPOINT, {
+              jsonrpc: "2.0",
+              method: "chunk",
+              params: { chunk_id: chunk.chunk_hash },
+              id: 1
+            });
+            
+            if (chunkResponse.data.error) {
+              console.error(`❌ Error getting chunk details: ${chunkResponse.data.error.message}`);
+              continue;
+            }
+            
+            const chunkData = chunkResponse.data.result;
+            console.log(`\n📊 Chunk Data Structure:`, JSON.stringify(chunkData, null, 2));
+            
+            // Process receipts directly from chunk data
+            if (chunkData.receipts) {
+              console.log(`\n📝 Processing ${chunkData.receipts.length} receipts in chunk`);
+              for (const receipt of chunkData.receipts) {
+                console.log(`\n🔍 Checking receipt:`, JSON.stringify(receipt, null, 2));
+                
+                // Check if the receipt is to our target contract
+                if (receipt.receiver_id === CONFIG.NEAR.CONTRACT) {
+                  console.log(`✅ Found receipt for contract ${receipt.receiver_id}`);
+                  
+                  // Check actions in the receipt
+                  if (receipt.receipt.Action && receipt.receipt.Action.actions) {
+                    console.log(`📝 Found ${receipt.receipt.Action.actions.length} actions in receipt`);
+                    for (const action of receipt.receipt.Action.actions) {
+                      console.log(`\n🔍 Processing action:`, JSON.stringify(action, null, 2));
+                      if (action.FunctionCall && 
+                          ['burn_redeem', 'burn_bridge', 'mint_bridge', 'mint_deposit'].includes(action.FunctionCall.method_name)) {
+                        try {
+                          // Parse the function call arguments
+                          const args = JSON.parse(Buffer.from(action.FunctionCall.args, 'base64').toString());
+                          console.log(`📝 Parsed function call args:`, JSON.stringify(args, null, 2));
+                          
+                          // Extract BTC transaction hash from args
+                          if (args.btc_txn_hash) {
+                            console.log(`✅ Found relevant event: ${action.FunctionCall.method_name} with BTC txn hash: ${args.btc_txn_hash}`);
+                            
+                            // Add a row for the event
+                            const timestamp = new Date(blockTimestamp);
+                            // Get transaction hash from receipt ID
+                            const txnHash = await getTransactionHashFromReceiptId(receipt.receipt_id);
+                            
+                            // Check if the transaction was successful
+                            if (txnHash) {
+                              const isSuccessful = await checkTransactionStatus(txnHash);
+                              if (isSuccessful) {
+                                worksheet.addRow({
+                                  block_number: blockNumber,
+                                  timestamp: Math.floor(blockTimestamp / 1000),
+                                  formatted_timestamp: formatDate(timestamp),
+                                  txn_hash: txnHash,
+                                  account_id: args.account_id,
+                                  atbtc_amount: args.amount,
+                                  btc_txn_hash: args.btc_txn_hash,
+                                  event_type: action.FunctionCall.method_name
+                                });
+                                console.log(`✅ Added row for successful event: ${action.FunctionCall.method_name}`);
+                              } else {
+                                console.log(`⏭️ Skipping unsuccessful transaction: ${txnHash}`);
+                              }
+                            } else {
+                              console.log(`⏭️ Skipping receipt without transaction hash: ${receipt.receipt_id}`);
+                            }
+                          }
+                        } catch (e) {
+                          console.error(`❌ Error parsing function call args: ${e.message}`);
+                          console.error(`❌ Raw args: ${action.FunctionCall.args}`);
+                        }
+                      }
+                    }
+                  }
+                } else {
+                  console.log(`⏭️ Skipping receipt to different contract: ${receipt.receiver_id}`);
+                }
+              }
+            }
+          }
+        }
+        
+        // Save based on SAVE_INTERVAL
+        if (blockNumber - lastSaveBlock >= CONFIG.NEAR.SAVE_INTERVAL) {
+          try {
+            await workbook.xlsx.writeFile(filePath);
+            console.log(`💾 Saved progress: ${blockNumber}/${currentBlock} blocks processed`);
+            lastSaveBlock = blockNumber;
+          } catch (error) {
+            console.error(`❌ Error saving file: ${error.message}`);
+          }
+        }
+        
+        //return;
+        
+        // Add a small delay to avoid rate limiting
+        await delay(100);
+        
+      } catch (error) {
+        console.error(`❌ Error processing block ${blockNumber}: ${error.message}`);
+        // Continue with next block even if current one fails
+        continue;
+      }
+    }
+    
+    // Final save
+    try {
+      await workbook.xlsx.writeFile(filePath);
+      const endTime = new Date();
+      const durationMs = endTime - startTime;
+      const hours = Math.floor(durationMs / (1000 * 60 * 60));
+      const minutes = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((durationMs % (1000 * 60)) / 1000);
+      
+      console.log(`\n✅ Successfully exported NEAR blocks data to ${filePath}`);
+      console.log(`⏰ Batch end time: ${formatDate(endTime)}`);
+      console.log(`⏱️ Duration: ${hours}h ${minutes}m ${seconds}s`);
+    } catch (error) {
+      console.error(`❌ Error saving final file: ${error.message}`);
+    }
+    
+  } catch (error) {
+    console.error("❌ Error:", error);
+  }
+}
+
 /**
  * Main function to execute the process.
  */
@@ -1031,7 +1391,7 @@ async function main() {
     
     if (CONFIG.GENERATE_PUBKEY_XLSX) {
       const startTime = new Date();
-      console.log(`\n⏳ Starting pubkeys.xlsx generation at ${formatDate(startTime)}`);
+      console.log(`\n⏳ Starting pubkeys.xlsx generation at ${formatDate(startTime)}`);      
       
       console.log("⏳ Fetching pubkey records from NEAR...");
       const pubkeys = await fetchPubkeys();
@@ -1058,6 +1418,19 @@ async function main() {
       console.log(`⏱️ Duration: ${formatDuration(startTime, endTime)}`);
     } else {
       console.log("\nℹ️ Skipping UTXOs.xlsx generation (disabled in CONFIG)");
+    }
+    
+    if (CONFIG.GENERATE_NEAR_BLOCKS_XLSX) {
+      const startTime = new Date();
+      console.log(`\n⏳ Starting nearblocks.xlsx generation at ${formatDate(startTime)}`);
+      
+      await processAndExportBlocks();
+      
+      const endTime = new Date();
+      console.log(`✅ Completed nearblocks.xlsx generation at ${formatDate(endTime)}`);
+      console.log(`⏱️ Duration: ${formatDuration(startTime, endTime)}`);
+    } else {
+      console.log("\nℹ️ Skipping nearblocks.xlsx generation (disabled in CONFIG)");
     }
     
     const mainEndTime = new Date();
