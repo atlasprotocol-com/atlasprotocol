@@ -582,33 +582,60 @@ app.get("/api/v1/process-new-deposit", async (req, res) => {
   }
 });
 
+// Queue for processing BTC pubkey insertions
+const insertPubkeyQueue = [];
+let isProcessing = false;
+
+async function processPubkeyQueue() {
+  if (isProcessing || insertPubkeyQueue.length === 0) return;
+  
+  isProcessing = true;
+  const { btcAddress, publicKey, res } = insertPubkeyQueue.shift();
+
+  try {
+    await near.insertBtcPubkey(btcAddress, publicKey);
+    res.json({
+      success: true,
+      message: "Successfully processed BTC pubkey", 
+    });
+  } catch (error) {
+    console.error("Error processing BTC pubkey:", error);
+    res.status(500).json({
+      error: "Failed to process BTC pubkey",
+      details: error.message,
+    });
+  }
+
+  isProcessing = false;
+  processPubkeyQueue(); // Process next item in queue
+}
+
 app.get("/api/v1/insert-btc-pubkey", async (req, res) => {
   try {
     const { btcAddress, publicKey } = req.query;
-
     if (!btcAddress || !publicKey) {
       return res.status(400).json({
         error: "Both BTC address and public key are required",
       });
     }
 
-    // Check if address already exists
+    // Check if address already exists before queueing
     const existingPubkey = await near.getPubkeyByAddress(btcAddress);
     if (existingPubkey) {
+      console.log("BTC address already has an associated public key");
       return res.status(409).json({
         error: "BTC address already has an associated public key",
       });
     }
 
-    await near.insertBtcPubkey(btcAddress, publicKey);
-    res.json({
-      success: true,
-      message: "Successfully inserted BTC pubkey",
-    });
+    // Add request to queue if pubkey doesn't exist
+    insertPubkeyQueue.push({ btcAddress, publicKey, res });
+    processPubkeyQueue();
+
   } catch (error) {
-    console.error("Error inserting BTC pubkey:", error);
+    console.error("Error queueing BTC pubkey insertion:", error);
     res.status(500).json({
-      error: "Failed to insert BTC pubkey",
+      error: "Failed to queue BTC pubkey insertion", 
       details: error.message,
     });
   }

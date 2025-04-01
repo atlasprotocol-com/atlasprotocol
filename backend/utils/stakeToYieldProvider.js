@@ -73,7 +73,7 @@ async function StakeToYieldProvider(allDeposits, near, bitcoinInstance) {
           const deposit = await near.getDepositByBtcTxnHash(btcTxnHash);
 
           // Another check to ensure the onchain deposit is in the correct status
-          if (deposit.status === DEPOSIT_STATUS.BTC_DEPOSITED_INTO_ATLAS) {
+          if (deposit.status === DEPOSIT_STATUS.BTC_DEPOSITED_INTO_ATLAS && deposit.remarks === "") {
             await near.updateDepositPendingYieldProviderDeposit(btcTxnHash);
           }
           else {

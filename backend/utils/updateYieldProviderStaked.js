@@ -36,7 +36,7 @@ async function UpdateYieldProviderStaked(allDeposits, bithiveRecords, near) {
           const deposit = await near.getDepositByBtcTxnHash(txn.btc_txn_hash);
 
           // Another check to ensure the onchain deposit is in the correct status
-          if (deposit.status !== DEPOSIT_STATUS.BTC_PENDING_YIELD_PROVIDER_DEPOSIT) {
+          if (deposit.status !== DEPOSIT_STATUS.BTC_PENDING_YIELD_PROVIDER_DEPOSIT || deposit.remarks !== "") {
             continue;
           }
 
