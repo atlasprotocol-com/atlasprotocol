@@ -118,10 +118,11 @@ async function StakeToYieldProvider(allDeposits, near, bitcoinInstance) {
           });
 
           console.log("txHash:", txHash);
-
-          console.log("Status updated");
+          console.log("Updating Yield provider txn hash");
 
           await near.updateYieldProviderTxnHash(btcTxnHash, txHash);
+
+          console.log("Yield provider txn hash updated");
 
           console.log(`${batchName} completed successfully.`);
         } catch (error) {
