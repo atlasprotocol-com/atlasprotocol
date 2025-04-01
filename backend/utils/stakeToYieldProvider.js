@@ -63,10 +63,10 @@ async function StakeToYieldProvider(allDeposits, near, bitcoinInstance) {
         )
         //.slice(0, 1); // Get only first record
 
-        console.log("filteredDeposits: ", filteredDeposits.length);
+        console.log("filteredDeposits in stakeToYieldProvider: ", filteredDeposits.length);
         let i = 0;
       for (const depositRecord of filteredDeposits) {
-        console.log(i++);
+        console.log("stakeToYieldProvider loop: ", i++);
         console.log("Processing deposit:", depositRecord);
         const btcTxnHash = depositRecord.btc_txn_hash;
         const yieldProviderGasFee = depositRecord.yield_provider_gas_fee;
