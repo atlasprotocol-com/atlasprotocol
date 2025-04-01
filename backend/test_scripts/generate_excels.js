@@ -1,3 +1,5 @@
+// This script generates Excel files which contains different information.
+
 // Configuration flags for file generation
 const CONFIG = {
   GENERATE_DEPOSITS_XLSX: false,        // Set to true to enable deposits.xlsx generation
@@ -40,16 +42,17 @@ const CONFIG = {
   
   NEAR: {
     START_BLOCK: 189828205,            // Starting block number to scan from
-    CONTRACT: "atbtc_v2.atlas_public_testnet.testnet",  // NEAR contract to monitor
+    CONTRACT: "v2.atlas_public_testnet.testnet",  // Updated contract ID
     OUTPUT_FILE: "nearblocks.xlsx",    // Output filename
-    SAVE_INTERVAL: 1,                  // Save file every N blocks processed
+    SAVE_INTERVAL: 50,                  // Save file every N blocks processed
     WORKSHEET_NAME: "NEAR Blocks",     // Name of the worksheet in Excel file
     RPC_ENDPOINT: "https://neart.lava.build"  // NEAR RPC endpoint
   }
 };
 
-// This script exports deposit records from NEAR to an Excel file.
-// It also fetches UTXO records from mempool.space API and exports them to an Excel file.
+// Initialize NEAR provider
+const { providers } = require("near-api-js");
+const provider = new providers.JsonRpcProvider({ url: CONFIG.NEAR.RPC_ENDPOINT });
 
 console.log("⏳ Starting script initialization...");
 
@@ -57,6 +60,73 @@ const { exec } = require("child_process");
 const path = require("path");
 const ExcelJS = require("exceljs");
 const axios = require('axios');
+
+/**
+ * Fetches deposit records from NEAR using the CLI with pagination.
+ */
+async function fetchDeposits() {
+  return new Promise((resolve, reject) => {
+    let allDeposits = [];
+    let fromIndex = 0;
+    const limit = CONFIG.DEPOSITS.BATCH_SIZE;
+    
+    const fetchPage = () => {
+      const command = `near view v2.atlas_public_testnet.testnet get_all_deposits '{"from_index": ${fromIndex}, "limit": ${limit}}'`;
+      //console.log(`\n🔍 Executing command: ${command}`);
+      
+      exec(
+        command,
+        { maxBuffer: 1024 * 1024 * 100 }, // 100 MB buffer
+        (error, stdout, stderr) => {
+          if (error) {
+            console.error(`Error executing CLI command: ${error.message}`);
+            return reject(error);
+          }
+          if (stderr) {
+            console.error(`NEAR CLI stderr: ${stderr}`);
+          }
+          try {
+            const records = parseRecordsSeparately(stdout);
+            console.log(`Parsed ${records.length} records from index ${fromIndex}`);
+            
+            // Add warning if records count is less than batch size
+            if (records.length < limit) {
+              console.log(`⚠️ Warning: Received ${records.length} records, expected ${limit} records`);
+            }
+            
+            // Add records up to MAX_RECORDS limit if specified
+            if (CONFIG.DEPOSITS.MAX_RECORDS !== null) {
+              const remainingSlots = CONFIG.DEPOSITS.MAX_RECORDS - allDeposits.length;
+              const recordsToAdd = records.slice(0, remainingSlots);
+              allDeposits = allDeposits.concat(recordsToAdd);
+              
+              // If we've reached MAX_RECORDS, resolve
+              if (allDeposits.length >= CONFIG.DEPOSITS.MAX_RECORDS) {
+                console.log(`Reached configured limit of ${CONFIG.DEPOSITS.MAX_RECORDS} records`);
+                return resolve(allDeposits);
+              }
+            } else {
+              allDeposits = allDeposits.concat(records);
+            }
+            
+            // If no more records or we've hit the limit, resolve
+            if (records.length === 0) {
+              return resolve(allDeposits);
+            }
+            
+            fromIndex += limit;
+            fetchPage(); // Fetch the next page
+          } catch (e) {
+            console.error("Failed to parse deposit records:", e);
+            reject(e);
+          }
+        }
+      );
+    };
+
+    fetchPage(); // Start fetching pages
+  });
+}
 
 // Add these utility functions at the top of the file
 function formatDate(date) {
@@ -228,73 +298,6 @@ function parseRecordsSeparately(rawOutput) {
   });
   
   return records;
-}
-
-/**
- * Fetches deposit records from NEAR using the CLI with pagination.
- */
-async function fetchDeposits() {
-  return new Promise((resolve, reject) => {
-    let allDeposits = [];
-    let fromIndex = 0;
-    const limit = CONFIG.DEPOSITS.BATCH_SIZE;
-    
-    const fetchPage = () => {
-      const command = `near view v2.atlas_public_testnet.testnet get_all_deposits '{"from_index": ${fromIndex}, "limit": ${limit}}'`;
-      //console.log(`\n🔍 Executing command: ${command}`);
-      
-      exec(
-        command,
-        { maxBuffer: 1024 * 1024 * 100 }, // 100 MB buffer
-        (error, stdout, stderr) => {
-          if (error) {
-            console.error(`Error executing CLI command: ${error.message}`);
-            return reject(error);
-          }
-          if (stderr) {
-            console.error(`NEAR CLI stderr: ${stderr}`);
-          }
-          try {
-            const records = parseRecordsSeparately(stdout);
-            console.log(`Parsed ${records.length} records from index ${fromIndex}`);
-            
-            // Add warning if records count is less than batch size
-            if (records.length < limit) {
-              console.log(`⚠️ Warning: Received ${records.length} records, expected ${limit} records`);
-            }
-            
-            // Add records up to MAX_RECORDS limit if specified
-            if (CONFIG.DEPOSITS.MAX_RECORDS !== null) {
-              const remainingSlots = CONFIG.DEPOSITS.MAX_RECORDS - allDeposits.length;
-              const recordsToAdd = records.slice(0, remainingSlots);
-              allDeposits = allDeposits.concat(recordsToAdd);
-              
-              // If we've reached MAX_RECORDS, resolve
-              if (allDeposits.length >= CONFIG.DEPOSITS.MAX_RECORDS) {
-                console.log(`Reached configured limit of ${CONFIG.DEPOSITS.MAX_RECORDS} records`);
-                return resolve(allDeposits);
-              }
-            } else {
-              allDeposits = allDeposits.concat(records);
-            }
-            
-            // If no more records or we've hit the limit, resolve
-            if (records.length === 0) {
-              return resolve(allDeposits);
-            }
-            
-            fromIndex += limit;
-            fetchPage(); // Fetch the next page
-          } catch (e) {
-            console.error("Failed to parse deposit records:", e);
-            reject(e);
-          }
-        }
-      );
-    };
-
-    fetchPage(); // Start fetching pages
-  });
 }
 
 /**
@@ -511,6 +514,14 @@ async function processAndExportUTXOs(utxos) {
     worksheet = result.worksheet;
     existingTxIds = result.existingTxIds;
     txIdToStatus = result.txIdToStatus;
+    
+    // Verify workbook and worksheet are properly initialized
+    if (!workbook || !worksheet) {
+      throw new Error("Failed to initialize workbook or worksheet");
+    }
+    
+    console.log(`📊 Initial worksheet row count: ${worksheet.rowCount}`);
+    console.log(`📊 Initial existing UTXOs count: ${existingTxIds.size}`);
   } catch (error) {
     console.error("❌ Error reading existing UTXOs:", error);
     // Create a new workbook if there was an error
@@ -1005,18 +1016,8 @@ async function fetchAndExportUTXOs() {
 // Function to get current block number
 async function getCurrentBlock() {
   try {
-    const response = await axios.post(CONFIG.NEAR.RPC_ENDPOINT, {
-      jsonrpc: "2.0",
-      method: "block",
-      params: { finality: "final" },
-      id: 1
-    });
-    
-    if (response.data.error) {
-      throw new Error(`RPC Error: ${response.data.error.message}`);
-    }
-    
-    return response.data.result.header.height;
+    const latestBlock = await provider.block({ finality: "final" });
+    return Number(latestBlock.header.height);
   } catch (error) {
     console.error(`Error getting current block: ${error.message}`);
     throw error;
@@ -1026,18 +1027,8 @@ async function getCurrentBlock() {
 // Function to get block details
 async function getBlockDetails(blockNumber) {
   try {
-    const response = await axios.post(CONFIG.NEAR.RPC_ENDPOINT, {
-      jsonrpc: "2.0",
-      method: "block",
-      params: { block_id: blockNumber },
-      id: 1
-    });
-    
-    if (response.data.error) {
-      throw new Error(`RPC Error: ${response.data.error.message}`);
-    }
-    
-    return response.data.result;
+    const block = await provider.block({ blockId: blockNumber });
+    return block;
   } catch (error) {
     console.error(`Error getting block ${blockNumber}: ${error.message}`);
     throw error;
@@ -1055,9 +1046,18 @@ async function getLastBlockFromExcel(filePath) {
       return null;
     }
     
-    // Get the last row's block number
+    // Get the last row
     const lastRow = worksheet.getRow(worksheet.rowCount);
-    return lastRow.getCell("block_number").value;
+    
+    // Get the value from the first column of the last row
+    const lastBlock = lastRow.getCell(1).value;
+    
+    if (lastBlock === undefined || lastBlock === null) {
+      console.log('❌ No block number found in last row');
+      return null;
+    }
+    
+    return lastBlock;
   } catch (error) {
     console.error(`❌ Error reading existing Excel file: ${error.message}`);
     return null;
@@ -1079,7 +1079,7 @@ async function cleanupIncompleteBlock(filePath, blockNumber) {
     let rowIndex = worksheet.rowCount;
     while (rowIndex > 1) { // Skip header row
       const row = worksheet.getRow(rowIndex);
-      if (row.getCell("block_number").value === blockNumber) {
+      if (row.getCell(1).value === blockNumber) {
         worksheet.spliceRows(rowIndex, 1);
       } else {
         break; // Stop when we find a row with a different block number
@@ -1162,8 +1162,8 @@ async function processAndExportBlocks() {
       console.log(`📄 Found existing file with last block: ${lastBlock}`);
       // Clean up any incomplete data from the last block
       await cleanupIncompleteBlock(filePath, lastBlock);
-      // Update START_BLOCK to continue from the last complete block
-      CONFIG.NEAR.START_BLOCK = lastBlock + 1;
+      // Set START_BLOCK to the last block to process only new blocks
+      CONFIG.NEAR.START_BLOCK = lastBlock;
       console.log(`🔄 Continuing from block: ${CONFIG.NEAR.START_BLOCK}`);
       
       // Load existing workbook
@@ -1194,8 +1194,8 @@ async function processAndExportBlocks() {
     let lastSaveBlock = CONFIG.NEAR.START_BLOCK;
     
     // Get current block number
-    //const currentBlock = await getCurrentBlock();
-    const currentBlock = 189828210;
+    //const currentBlock = 189828210;
+    const currentBlock = await getCurrentBlock();
     console.log(`📊 Current block: ${currentBlock}`);
     console.log(`📊 Starting from block: ${CONFIG.NEAR.START_BLOCK}`);
     
@@ -1206,100 +1206,51 @@ async function processAndExportBlocks() {
       try {
         // Get block details
         const blockData = await getBlockDetails(blockNumber);
-        console.log(`\n📊 Block Details:`, JSON.stringify(blockData, null, 2));
+        const blockTimestamp = blockData.header.timestamp;
+        //console.log(`\n📊 Block Details:`, JSON.stringify(blockData, null, 2));        
         
-        // NEAR timestamps are in nanoseconds, convert to milliseconds
-        const blockTimestamp = blockData.header.timestamp / 1000000;
-        console.log(`📊 Block timestamp: ${new Date(blockTimestamp).toISOString()}`);
-        
-        // Process each transaction in the block
-        if (blockData.chunks.length > 0) {
-          // Sort chunks by shard_id to process in order
-          const sortedChunks = [...blockData.chunks].sort((a, b) => a.shard_id - b.shard_id);
+        // Process each chunk in the block
+        for (const chunk of blockData.chunks) {
+          if (chunk.tx_root === "11111111111111111111111111111111") {
+            continue;
+          }
           
-          // Process each chunk
-          for (const chunk of sortedChunks) {
-            console.log(`\n🔍 Processing chunk ${chunk.shard_id} (hash: ${chunk.chunk_hash})`);
-            
-            // Get transaction details for this chunk
-            const chunkResponse = await axios.post(CONFIG.NEAR.RPC_ENDPOINT, {
-              jsonrpc: "2.0",
-              method: "chunk",
-              params: { chunk_id: chunk.chunk_hash },
-              id: 1
-            });
-            
-            if (chunkResponse.data.error) {
-              console.error(`❌ Error getting chunk details: ${chunkResponse.data.error.message}`);
+          // Get chunk details
+          const chunkData = await provider.chunk(chunk.chunk_hash);
+          
+          if (!chunkData || !chunkData.transactions) {
+            continue;
+          }
+          
+          // Process each transaction in the chunk
+          for (const tx of chunkData.transactions) {
+            if (tx.receiver_id !== CONFIG.NEAR.CONTRACT) {
               continue;
             }
             
-            const chunkData = chunkResponse.data.result;
-            console.log(`\n📊 Chunk Data Structure:`, JSON.stringify(chunkData, null, 2));
+            // Get events using getPastEventsByMintedTxnHash
+            const events = await getPastEventsByMintedTxnHash(tx.hash);
             
-            // Process receipts directly from chunk data
-            if (chunkData.receipts) {
-              console.log(`\n📝 Processing ${chunkData.receipts.length} receipts in chunk`);
-              for (const receipt of chunkData.receipts) {
-                console.log(`\n🔍 Checking receipt:`, JSON.stringify(receipt, null, 2));
+            for (const event of events) {
+              if (event.type === "mint_deposit" && event.btcTxnHash) {
+                const timestamp = new Date(blockTimestamp / 1000000);
                 
-                // Check if the receipt is to our target contract
-                if (receipt.receiver_id === CONFIG.NEAR.CONTRACT) {
-                  console.log(`✅ Found receipt for contract ${receipt.receiver_id}`);
-                  
-                  // Check actions in the receipt
-                  if (receipt.receipt.Action && receipt.receipt.Action.actions) {
-                    console.log(`📝 Found ${receipt.receipt.Action.actions.length} actions in receipt`);
-                    for (const action of receipt.receipt.Action.actions) {
-                      console.log(`\n🔍 Processing action:`, JSON.stringify(action, null, 2));
-                      if (action.FunctionCall && 
-                          ['burn_redeem', 'burn_bridge', 'mint_bridge', 'mint_deposit'].includes(action.FunctionCall.method_name)) {
-                        try {
-                          // Parse the function call arguments
-                          const args = JSON.parse(Buffer.from(action.FunctionCall.args, 'base64').toString());
-                          console.log(`📝 Parsed function call args:`, JSON.stringify(args, null, 2));
-                          
-                          // Extract BTC transaction hash from args
-                          if (args.btc_txn_hash) {
-                            console.log(`✅ Found relevant event: ${action.FunctionCall.method_name} with BTC txn hash: ${args.btc_txn_hash}`);
-                            
-                            // Add a row for the event
-                            const timestamp = new Date(blockTimestamp);
-                            // Get transaction hash from receipt ID
-                            const txnHash = await getTransactionHashFromReceiptId(receipt.receipt_id);
-                            
-                            // Check if the transaction was successful
-                            if (txnHash) {
-                              const isSuccessful = await checkTransactionStatus(txnHash);
-                              if (isSuccessful) {
-                                worksheet.addRow({
-                                  block_number: blockNumber,
-                                  timestamp: Math.floor(blockTimestamp / 1000),
-                                  formatted_timestamp: formatDate(timestamp),
-                                  txn_hash: txnHash,
-                                  account_id: args.account_id,
-                                  atbtc_amount: args.amount,
-                                  btc_txn_hash: args.btc_txn_hash,
-                                  event_type: action.FunctionCall.method_name
-                                });
-                                console.log(`✅ Added row for successful event: ${action.FunctionCall.method_name}`);
-                              } else {
-                                console.log(`⏭️ Skipping unsuccessful transaction: ${txnHash}`);
-                              }
-                            } else {
-                              console.log(`⏭️ Skipping receipt without transaction hash: ${receipt.receipt_id}`);
-                            }
-                          }
-                        } catch (e) {
-                          console.error(`❌ Error parsing function call args: ${e.message}`);
-                          console.error(`❌ Raw args: ${action.FunctionCall.args}`);
-                        }
-                      }
-                    }
-                  }
-                } else {
-                  console.log(`⏭️ Skipping receipt to different contract: ${receipt.receiver_id}`);
-                }
+                // Add row for the event
+                const newRow = worksheet.addRow({
+                  block_number: blockNumber,
+                  timestamp: Math.floor(blockTimestamp / 1000000),
+                  formatted_timestamp: formatDate(timestamp),
+                  txn_hash: event.transactionHash,
+                  account_id: event.accountId,
+                  atbtc_amount: event.amount,
+                  btc_txn_hash: event.btcTxnHash,
+                  event_type: event.type
+                });
+                
+                // Commit the new row
+                await newRow.commit();
+                
+                console.log(`✅ Added row for event: ${event.type} with BTC txn hash: ${event.btcTxnHash}`);
               }
             }
           }
@@ -1307,42 +1258,26 @@ async function processAndExportBlocks() {
         
         // Save based on SAVE_INTERVAL
         if (blockNumber - lastSaveBlock >= CONFIG.NEAR.SAVE_INTERVAL) {
-          try {
-            await workbook.xlsx.writeFile(filePath);
-            console.log(`💾 Saved progress: ${blockNumber}/${currentBlock} blocks processed`);
-            lastSaveBlock = blockNumber;
-          } catch (error) {
-            console.error(`❌ Error saving file: ${error.message}`);
-          }
+          await workbook.xlsx.writeFile(filePath);
+          console.log(`💾 Saved progress: ${blockNumber}/${currentBlock} blocks processed`);
+          lastSaveBlock = blockNumber;
         }
-        
-        //return;
         
         // Add a small delay to avoid rate limiting
         await delay(100);
         
       } catch (error) {
         console.error(`❌ Error processing block ${blockNumber}: ${error.message}`);
-        // Continue with next block even if current one fails
         continue;
       }
     }
     
     // Final save
-    try {
-      await workbook.xlsx.writeFile(filePath);
-      const endTime = new Date();
-      const durationMs = endTime - startTime;
-      const hours = Math.floor(durationMs / (1000 * 60 * 60));
-      const minutes = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((durationMs % (1000 * 60)) / 1000);
-      
-      console.log(`\n✅ Successfully exported NEAR blocks data to ${filePath}`);
-      console.log(`⏰ Batch end time: ${formatDate(endTime)}`);
-      console.log(`⏱️ Duration: ${hours}h ${minutes}m ${seconds}s`);
-    } catch (error) {
-      console.error(`❌ Error saving final file: ${error.message}`);
-    }
+    await workbook.xlsx.writeFile(filePath);
+    const endTime = new Date();
+    console.log(`\n✅ Successfully exported NEAR blocks data to ${filePath}`);
+    console.log(`⏰ Batch end time: ${formatDate(endTime)}`);
+    console.log(`⏱️ Duration: ${formatDuration(startTime, endTime)}`);
     
   } catch (error) {
     console.error("❌ Error:", error);
@@ -1373,7 +1308,7 @@ async function main() {
       console.log(`✅ Completed deposits.xlsx generation at ${formatDate(endTime)}`);
       console.log(`⏱️ Duration: ${formatDuration(startTime, endTime)}`);
     } else {
-      console.log("\nℹ️ Skipping deposits.xlsx generation (disabled in CONFIG)");
+      console.log("\nℹ️  Skipping deposits.xlsx generation (disabled in CONFIG)");
     }
     
     if (CONFIG.GENERATE_DEPOSITS_QUEST2_XLSX) {
@@ -1386,7 +1321,7 @@ async function main() {
       console.log(`✅ Completed deposits-quest2.xlsx processing at ${formatDate(endTime)}`);
       console.log(`⏱️ Duration: ${formatDuration(startTime, endTime)}`);
     } else {
-      console.log("\nℹ️ Skipping deposits-quest2.xlsx processing (disabled in CONFIG)");
+      console.log("\nℹ️  Skipping deposits-quest2.xlsx processing (disabled in CONFIG)");
     }
     
     if (CONFIG.GENERATE_PUBKEY_XLSX) {
@@ -1404,7 +1339,7 @@ async function main() {
       console.log(`✅ Completed pubkeys.xlsx generation at ${formatDate(endTime)}`);
       console.log(`⏱️ Duration: ${formatDuration(startTime, endTime)}`);
     } else {
-      console.log("\nℹ️ Skipping pubkeys.xlsx generation (disabled in CONFIG)");
+      console.log("\nℹ️  Skipping pubkeys.xlsx generation (disabled in CONFIG)");
     }
     
     if (CONFIG.GENERATE_UTXOS_XLSX) {
@@ -1417,7 +1352,7 @@ async function main() {
       console.log(`✅ Completed UTXOs.xlsx generation at ${formatDate(endTime)}`);
       console.log(`⏱️ Duration: ${formatDuration(startTime, endTime)}`);
     } else {
-      console.log("\nℹ️ Skipping UTXOs.xlsx generation (disabled in CONFIG)");
+      console.log("\nℹ️  Skipping UTXOs.xlsx generation (disabled in CONFIG)");
     }
     
     if (CONFIG.GENERATE_NEAR_BLOCKS_XLSX) {
@@ -1430,7 +1365,7 @@ async function main() {
       console.log(`✅ Completed nearblocks.xlsx generation at ${formatDate(endTime)}`);
       console.log(`⏱️ Duration: ${formatDuration(startTime, endTime)}`);
     } else {
-      console.log("\nℹ️ Skipping nearblocks.xlsx generation (disabled in CONFIG)");
+      console.log("\nℹ️  Skipping nearblocks.xlsx generation (disabled in CONFIG)");
     }
     
     const mainEndTime = new Date();
@@ -1442,6 +1377,59 @@ async function main() {
     console.error("❌ Error:", error);
     console.log(`🏁 Main process failed at ${formatDate(mainEndTime)}`);
     console.log(`⏱️ Total Duration: ${formatDuration(mainStartTime, mainEndTime)}`);
+  }
+}
+
+async function getPastEventsByMintedTxnHash(mintedTxnHash) {
+  try {
+    const events = [];
+
+    const txResult = await provider.txStatus(mintedTxnHash, CONFIG.NEAR.CONTRACT);
+
+    // Find receipt with ft_mint event
+    const receipt = txResult.receipts_outcome.find((outcome) =>
+      outcome.outcome.logs.some((log) => {
+        try {
+          const event = JSON.parse(log.replace("EVENT_JSON:", ""));
+          return event.event === "ft_mint";
+        } catch (e) {
+          return false;
+        }
+      }),
+    );
+
+    if (receipt && receipt.outcome.status.SuccessValue === "") {
+      const logEntry = receipt.outcome.logs.find((log) => {
+        try {
+          const event = JSON.parse(log.replace("EVENT_JSON:", ""));
+          return event.event === "ft_mint";
+        } catch (e) {
+          return false;
+        }
+      });
+
+      if (logEntry) {
+        const event = JSON.parse(logEntry.replace("EVENT_JSON:", ""));
+        const memo = JSON.parse(event.data[0].memo);
+        const amount = JSON.parse(event.data[0].amount);
+        const btcTxnHash = memo.btc_txn_hash;
+        const accountId = memo.address;
+
+        events.push({
+          type: "mint_deposit",
+          btcTxnHash: btcTxnHash,
+          accountId: accountId,
+          amount: amount,
+          receiptId: receipt.id,
+          transactionHash: mintedTxnHash
+        });
+      }
+    }
+
+    return events;
+  } catch (error) {
+    console.error("Error getting past events by minted transaction hash:", error);
+    return [];
   }
 }
 
