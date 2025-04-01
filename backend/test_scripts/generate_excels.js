@@ -44,7 +44,7 @@ const CONFIG = {
     START_BLOCK: 189828205,            // Starting block number to scan from
     CONTRACT: "v2.atlas_public_testnet.testnet",  // Updated contract ID
     OUTPUT_FILE: "nearblocks.xlsx",    // Output filename
-    SAVE_INTERVAL: 50,                  // Save file every N blocks processed
+    SAVE_INTERVAL: 25,                  // Save file every N blocks processed
     WORKSHEET_NAME: "NEAR Blocks",     // Name of the worksheet in Excel file
     RPC_ENDPOINT: "https://neart.lava.build"  // NEAR RPC endpoint
   }
@@ -1145,6 +1145,27 @@ async function checkTransactionStatus(txHash) {
   }
 }
 
+// Add this function before processAndExportBlocks
+function createNearBlocksWorksheet(workbook, existingWorksheet = null) {
+  const worksheet = existingWorksheet || workbook.addWorksheet(CONFIG.NEAR.WORKSHEET_NAME);
+  
+  // Define columns
+  worksheet.columns = [
+    { header: "Near Block Number", key: "block_number", width: 15 },
+    { header: "Timestamp Unix", key: "timestamp", width: 15 },
+    { header: "Timestamp", key: "formatted_timestamp", width: 20 },
+    { header: "Near Txn Hash", key: "txn_hash", width: 70 },
+    { header: "Account ID", key: "account_id", width: 30 },
+    { header: "atBTC Amount", key: "atbtc_amount", width: 15 },
+    { header: "BTC Txn Hash", key: "btc_txn_hash", width: 70 },
+    { header: "Event Type", key: "event_type", width: 20 }
+  ];
+  
+  // Style the header row
+  worksheet.getRow(1).font = { bold: true };
+  return worksheet;
+}
+
 // Main function to process blocks and export to Excel
 async function processAndExportBlocks() {
   const startTime = new Date();
@@ -1170,25 +1191,13 @@ async function processAndExportBlocks() {
       workbook = new ExcelJS.Workbook();
       await workbook.xlsx.readFile(filePath);
       worksheet = workbook.getWorksheet(CONFIG.NEAR.WORKSHEET_NAME);
+      
+      // Define columns for existing worksheet
+      worksheet = createNearBlocksWorksheet(workbook, worksheet);
     } else {
       // Create new workbook
       workbook = new ExcelJS.Workbook();
-      worksheet = workbook.addWorksheet(CONFIG.NEAR.WORKSHEET_NAME);
-      
-      // Define columns
-      worksheet.columns = [
-        { header: "Near Block Number", key: "block_number", width: 15 },
-        { header: "Timestamp Unix", key: "timestamp", width: 15 },
-        { header: "Timestamp", key: "formatted_timestamp", width: 20 },
-        { header: "Near Txn Hash", key: "txn_hash", width: 70 },
-        { header: "Account ID", key: "account_id", width: 30 },
-        { header: "atBTC Amount", key: "atbtc_amount", width: 15 },
-        { header: "BTC Txn Hash", key: "btc_txn_hash", width: 70 },
-        { header: "Event Type", key: "event_type", width: 20 }
-      ];
-      
-      // Style the header row
-      worksheet.getRow(1).font = { bold: true };
+      worksheet = createNearBlocksWorksheet(workbook);
     }
     
     let lastSaveBlock = CONFIG.NEAR.START_BLOCK;
