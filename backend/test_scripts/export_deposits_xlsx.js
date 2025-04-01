@@ -1,30 +1,41 @@
 // Configuration flags for file generation
 const CONFIG = {
-  GENERATE_DEPOSITS_XLSX: true,         // Set to true to enable deposits.xlsx generation
+  GENERATE_DEPOSITS_XLSX: false,        // Set to true to enable deposits.xlsx generation
   GENERATE_DEPOSITS_QUEST2_XLSX: false,  // Set to true to enable deposits-quest2.xlsx generation
   GENERATE_UTXOS_XLSX: false,           // Set to true to enable UTXOs.xlsx generation
-  GENERATE_PUBKEY_XLSX: false,           // Set to true to enable pubkeys.xlsx generation
+  GENERATE_PUBKEY_XLSX: true,          // Set to true to enable pubkeys.xlsx generation
+  
+  STATUS: {
+    DEPOSIT_EXISTS: "Deposit already exists",
+    PROCESSING_INITIATED: "Processing initiated",
+    PROCESSING_FAILED: "Processing failed",
+    ERROR: "Error",
+    YES: "Yes",
+    NO: "No"
+  },
   
   DEPOSITS: {
-    MAX_RECORDS: null,            // Set to null for all records, or a number for limit
-    BATCH_SIZE: 500,              // How many records to fetch per API call
-    OUTPUT_FILE: "deposits.xlsx"  // Output filename for deposits batch
+    OUTPUT_FILE: "deposits.xlsx",       // Output filename for deposits batch
+    MAX_RECORDS: null,                  // Set to null for all records, or a number for limit
+    BATCH_SIZE: 500                     // How many records to fetch per API call
   },
   
   DEPOSITS_QUEST2: {
-    INPUT_FILE: "deposits-quest2.xlsx",  // Fixed input file to read from and write to
-    BATCH_SIZE: 50,                       // Number of rows to process in parallel
-    SAVE_INTERVAL: 100                    // Save file every N rows processed
+    INPUT_FILE: "deposits-quest2.xlsx", // Fixed input file to read from and write to
+    BATCH_SIZE: 50,                     // Number of rows to process in parallel
+    SAVE_INTERVAL: 100                  // Save file every N rows processed
   },
   
   PUBKEY: {
-    BATCH_SIZE: 1000,                   // How many records to fetch per API call
-    OUTPUT_FILE: "pubkeys.xlsx"         // Output filename for pubkeys batch
+    OUTPUT_FILE: "pubkeys.xlsx",        // Output filename for pubkeys batch
+    BATCH_SIZE: 500,                    // How many records to fetch per API call
+    SAVE_INTERVAL: 500                  // Save file every N records processed
   },
   
   UTXOS: {
+    OUTPUT_FILE: "UTXOs.xlsx",          // Output filename for UTXOs batch
     ATLAS_VAULT_ADDRESS: 'tb1q9ruq3vlgj79l27euc2wq79wxzae2t86z4adkkv',  // Atlas vault address on testnet4
-    OUTPUT_FILE: "UTXOs.xlsx"    // Output filename for UTXOs batch
+    SAVE_INTERVAL: 50                   // Save file every N rows processed
   }
 };
 
@@ -63,6 +74,11 @@ function formatDuration(startTime, endTime) {
   if (seconds > 0 || parts.length === 0) parts.push(`${seconds}s`);
   
   return parts.join(' ');
+}
+
+// Add delay utility function at the top with other utility functions
+function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 /**
@@ -208,15 +224,18 @@ function parseRecordsSeparately(rawOutput) {
 /**
  * Fetches deposit records from NEAR using the CLI with pagination.
  */
-function fetchDeposits() {
+async function fetchDeposits() {
   return new Promise((resolve, reject) => {
     let allDeposits = [];
     let fromIndex = 0;
     const limit = CONFIG.DEPOSITS.BATCH_SIZE;
-
+    
     const fetchPage = () => {
+      const command = `near view v2.atlas_public_testnet.testnet get_all_deposits '{"from_index": ${fromIndex}, "limit": ${limit}}'`;
+      //console.log(`\n🔍 Executing command: ${command}`);
+      
       exec(
-        `near view v2.atlas_public_testnet.testnet get_all_deposits '{"from_index": ${fromIndex}, "limit": ${limit}}'`,
+        command,
         { maxBuffer: 1024 * 1024 * 100 }, // 100 MB buffer
         (error, stdout, stderr) => {
           if (error) {
@@ -229,6 +248,11 @@ function fetchDeposits() {
           try {
             const records = parseRecordsSeparately(stdout);
             console.log(`Parsed ${records.length} records from index ${fromIndex}`);
+            
+            // Add warning if records count is less than batch size
+            if (records.length < limit) {
+              console.log(`⚠️ Warning: Received ${records.length} records, expected ${limit} records`);
+            }
             
             // Add records up to MAX_RECORDS limit if specified
             if (CONFIG.DEPOSITS.MAX_RECORDS !== null) {
@@ -340,9 +364,12 @@ async function exportToExcel(deposits) {
  * Checks if a deposit exists for a given BTC transaction hash
  */
 async function checkDepositExists(btcTxnHash) {
-  return new Promise((resolve, reject) => {
+  return new Promise(async (resolve, reject) => {
     const command = `near view v2.atlas_public_testnet.testnet get_deposit_by_btc_txn_hash '{"btc_txn_hash": "${btcTxnHash}"}'`;
     //console.log(`\n🔍 Executing CLI command:\n${command}`);
+    
+    // Add 0.8 second delay before executing the command
+    await delay(800);
     
     exec(command, (error, stdout, stderr) => {
       if (error) {
@@ -381,15 +408,10 @@ async function processNewDeposit(btcTxnHash) {
 }
 
 /**
- * Process UTXOs and export to Excel in a single pass
+ * Creates a new UTXOs worksheet with the correct columns
  */
-async function processAndExportUTXOs(utxos) {
-  console.log("\n🔍 Processing and exporting UTXOs...");
-  const workbook = new ExcelJS.Workbook();
+function createUTXOWorksheet(workbook) {
   const worksheet = workbook.addWorksheet("UTXOs");
-  const totalUTXOs = utxos.length;
-  
-  // Define columns
   worksheet.columns = [
     { header: "Transaction ID", key: "txid", width: 70 },
     { header: "Output Index", key: "vout", width: 15 },
@@ -401,6 +423,91 @@ async function processAndExportUTXOs(utxos) {
     { header: "Deposit Exists", key: "deposit_exists", width: 15 },
     { header: "Processing Status", key: "processing_status", width: 30 }
   ];
+  // Style the header row
+  worksheet.getRow(1).font = { bold: true };
+  return worksheet;
+}
+
+/**
+ * Reads existing UTXOs from the Excel file and returns an array of transaction IDs
+ * along with their processing status
+ */
+async function readExistingUTXOs() {
+  const workbook = new ExcelJS.Workbook();
+  const filePath = path.join(__dirname, CONFIG.UTXOS.OUTPUT_FILE);
+  
+  try {
+    await workbook.xlsx.readFile(filePath);
+    const worksheet = workbook.getWorksheet(1) || workbook.worksheets[0];
+    
+    if (!worksheet) {
+      console.log("ℹ️ No existing UTXOs file found or file is empty, will create new file");
+      // Create a new workbook with the correct columns
+      const newWorkbook = new ExcelJS.Workbook();
+      const newWorksheet = createUTXOWorksheet(newWorkbook);
+      return { existingTxIds: new Set(), txIdToStatus: new Map(), workbook: newWorkbook, worksheet: newWorksheet };
+    }
+    
+    const existingTxIds = new Set();
+    const txIdToStatus = new Map();
+    
+    // Skip header row
+    for (let row = 2; row <= worksheet.rowCount; row++) {
+      const txId = worksheet.getCell(row, 1).text; // Transaction ID is in first column
+      const status = worksheet.getCell(row, 9).text; // Processing Status is in 9th column
+      existingTxIds.add(txId);
+      txIdToStatus.set(txId, status);
+    }
+    
+    console.log(`📊 Found existing UTXOs file at ${filePath}`);
+    console.log(`📈 Total rows in file: ${worksheet.rowCount}`);
+    console.log(`📝 Number of unique UTXOs: ${existingTxIds.size}`);
+    return { existingTxIds, txIdToStatus, workbook, worksheet };
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      console.log(`ℹ️ No existing UTXOs file found at ${filePath}, will create new file`);
+      // Create a new workbook with the correct columns
+      const newWorkbook = new ExcelJS.Workbook();
+      const newWorksheet = createUTXOWorksheet(newWorkbook);
+      return { existingTxIds: new Set(), txIdToStatus: new Map(), workbook: newWorkbook, worksheet: newWorksheet };
+    }
+    // For any other error, still create a new workbook instead of throwing
+    console.log(`ℹ️ Error reading UTXOs file: ${error.message}, will create new file`);
+    const newWorkbook = new ExcelJS.Workbook();
+    const newWorksheet = createUTXOWorksheet(newWorkbook);
+    return { existingTxIds: new Set(), txIdToStatus: new Map(), workbook: newWorkbook, worksheet: newWorksheet };
+  }
+}
+
+/**
+ * Process UTXOs and export to Excel in a single pass
+ */
+async function processAndExportUTXOs(utxos) {
+  console.log("\n🔍 Processing and exporting UTXOs...");
+  
+  let workbook;
+  let worksheet;
+  let existingTxIds = new Set();
+  let txIdToStatus = new Map();
+  let lastSaveCount = 0; // Initialize to 0 to track processed UTXOs
+  
+  try {
+    // Read existing UTXOs or create new workbook
+    const result = await readExistingUTXOs();
+    workbook = result.workbook;
+    worksheet = result.worksheet;
+    existingTxIds = result.existingTxIds;
+    txIdToStatus = result.txIdToStatus;
+  } catch (error) {
+    console.error("❌ Error reading existing UTXOs:", error);
+    // Create a new workbook if there was an error
+    workbook = new ExcelJS.Workbook();
+    worksheet = createUTXOWorksheet(workbook);
+    console.log("ℹ️ Created new workbook due to error, will process all UTXOs");
+  }
+  
+  const totalUTXOs = utxos.length;
+  const filePath = path.join(__dirname, CONFIG.UTXOS.OUTPUT_FILE);
   
   // Process each UTXO and add to Excel in a single loop
   for (let i = 0; i < utxos.length; i++) {
@@ -421,56 +528,92 @@ async function processAndExportUTXOs(utxos) {
         try {
           await processNewDeposit(utxo.txid);
           console.log(`✅ [${i + 1}/${totalUTXOs}] Successfully initiated processing for ${utxo.txid}`);
-          processingStatus = 'Processing initiated';
+          processingStatus = CONFIG.STATUS.PROCESSING_INITIATED;
         } catch (error) {
           console.error(`❌ [${i + 1}/${totalUTXOs}] Failed to process deposit for ${utxo.txid}: ${error.message}`);
-          processingStatus = `Processing failed: ${error.message}`;
+          processingStatus = `${CONFIG.STATUS.PROCESSING_FAILED}: ${error.message}`;
         }
       } else {
-        console.log(`ℹ️ [${i + 1}/${totalUTXOs}] Deposit already exists for ${utxo.txid}, skipping processing`);
-        processingStatus = 'Deposit already exists';
+        console.log(`ℹ️ [${i + 1}/${totalUTXOs}] Deposit already exists for ${utxo.txid}`);
+        processingStatus = CONFIG.STATUS.DEPOSIT_EXISTS;
       }
     } catch (error) {
       console.error(`❌ [${i + 1}/${totalUTXOs}] Error processing UTXO ${utxo.txid}:`, error);
-      processingStatus = `Error: ${error.message}`;
+      processingStatus = `${CONFIG.STATUS.ERROR}: ${error.message}`;
     }
     
-    // Add row to Excel only after all processing is complete
-    worksheet.addRow({
-      txid: utxo.txid,
-      vout: utxo.vout,
-      value: utxo.value,
-      confirmed: utxo.status.confirmed,
-      block_height: utxo.status.block_height,
-      block_hash: utxo.status.block_hash,
-      block_time: utxo.status.block_time,
-      deposit_exists: depositExists ? 'Yes' : 'No',
-      processing_status: processingStatus
-    });
+    // Check if UTXO exists in Excel file
+    if (existingTxIds.has(utxo.txid)) {
+      console.log(`ℹ️ [${i + 1}/${totalUTXOs}] UTXO ${utxo.txid} exists in file, updating record...`);
+      
+      // Find the row with this UTXO
+      let rowNumber = 2; // Start from row 2 (after header)
+      while (rowNumber <= worksheet.rowCount) {
+        const row = worksheet.getRow(rowNumber);
+        if (row.getCell(1).text === utxo.txid) {
+          // Update the status in the Excel file
+          row.getCell(8).value = depositExists ? CONFIG.STATUS.YES : CONFIG.STATUS.NO;
+          row.getCell(9).value = processingStatus;
+          await row.commit();
+          console.log(`✅ Updated existing UTXO ${utxo.txid}`);
+          break;
+        }
+        rowNumber++;
+      }
+    } else {
+      console.log(`ℹ️ [${i + 1}/${totalUTXOs}] UTXO ${utxo.txid} not found in file, adding new record...`);
+      
+      // Log current row count before adding
+      const beforeRowCount = worksheet.rowCount;
+      console.log(`📊 Current row count before adding: ${beforeRowCount}`);
+      
+      // Add new row to Excel
+      const newRow = worksheet.addRow();
+      
+      // Set values for each cell explicitly
+      newRow.getCell(1).value = utxo.txid;
+      newRow.getCell(2).value = utxo.vout;
+      newRow.getCell(3).value = utxo.value;
+      newRow.getCell(4).value = utxo.status.confirmed;
+      newRow.getCell(5).value = utxo.status.block_height;
+      newRow.getCell(6).value = utxo.status.block_hash;
+      newRow.getCell(7).value = utxo.status.block_time;
+      newRow.getCell(8).value = depositExists ? CONFIG.STATUS.YES : CONFIG.STATUS.NO;
+      newRow.getCell(9).value = processingStatus;
+      
+      // Commit the new row
+      await newRow.commit();
+      
+      // Log row count after adding
+      const afterRowCount = worksheet.rowCount;
+      console.log(`📊 Row count after adding: ${afterRowCount}`);
+      
+      // Update our tracking sets
+      existingTxIds.add(utxo.txid);
+      txIdToStatus.set(utxo.txid, processingStatus);
+      console.log(`✅ Added new UTXO ${utxo.txid}`);
+    }
+    
+    // Save based on SAVE_INTERVAL of processed UTXOs
+    const processedCount = i + 1;
+    if (processedCount - lastSaveCount >= CONFIG.UTXOS.SAVE_INTERVAL) {
+      try {
+        await workbook.xlsx.writeFile(filePath);
+        console.log(`💾 Saved progress: ${processedCount}/${totalUTXOs} UTXOs processed (${worksheet.rowCount - 1} rows in file)`);
+        lastSaveCount = processedCount;
+      } catch (error) {
+        console.error(`❌ Error saving file: ${error.message}`);
+      }
+    }
   }
   
-  // Style the header row
-  worksheet.getRow(1).font = { bold: true };
-  
-  // Save the Excel file
-  const filePath = path.join(__dirname, CONFIG.UTXOS.OUTPUT_FILE);
-  await workbook.xlsx.writeFile(filePath);
-  console.log(`\n✅ Successfully processed and exported ${utxos.length} UTXO records to ${filePath}`);
-}
-
-/**
- * Main function to fetch and export UTXOs
- */
-async function fetchAndExportUTXOs() {
+  // Final save at the end of processing
   try {
-    console.log("⏳ Fetching UTXO records from mempool.space...");
-    const utxos = await fetchUTXOs();
-    console.log(`✅ Retrieved ${utxos.length} UTXO records.`);
-    
-    // Process and export UTXOs in a single pass
-    await processAndExportUTXOs(utxos);
+    await workbook.xlsx.writeFile(filePath);
+    console.log(`\n✅ Successfully processed and exported ${utxos.length} UTXO records to ${filePath}`);
+    console.log(`📊 Total rows in file: ${worksheet.rowCount - 1}`); // Subtract 1 for header row
   } catch (error) {
-    console.error("❌ Error:", error);
+    console.error(`❌ Error saving final file: ${error.message}`);
   }
 }
 
@@ -778,23 +921,72 @@ async function exportPubkeysToExcel(pubkeys) {
   // Define columns based on BtcAddressPubKeyRecord struct
   worksheet.columns = [
     { header: "BTC Address", key: "btc_address", width: 70 },
-    { header: "Public Key", key: "public_key", width: 70 }
+    { header: "Public Key", key: "public_key", width: 70 },
+    { header: "Staked", key: "staked", width: 10 }
   ];
-  
-  // Add data rows
-  pubkeys.forEach(record => {
-    worksheet.addRow({
-      btc_address: record.btc_address,
-      public_key: record.public_key
-    });
-  });
   
   // Style the header row
   worksheet.getRow(1).font = { bold: true };
   
   const filePath = path.join(__dirname, CONFIG.PUBKEY.OUTPUT_FILE);
-  await workbook.xlsx.writeFile(filePath);
-  console.log(`✅ Successfully exported ${pubkeys.length} pubkey records to ${filePath}`);
+  let lastSaveCount = 0;
+  
+  // Fetch all deposits first
+  console.log("⏳ Fetching all deposit records to check staking status...");
+  const deposits = await fetchDeposits();
+  console.log(`✅ Retrieved ${deposits.length} deposit records`);
+  
+  // Create a Set of BTC addresses that have deposits
+  const stakedAddresses = new Set(deposits.map(deposit => deposit.btc_sender_address));
+  
+  // Process pubkeys in batches
+  for (let i = 0; i < pubkeys.length; i++) {
+    const record = pubkeys[i];
+    const isStaked = stakedAddresses.has(record.btc_address);
+    
+    // Add row with staking status
+    worksheet.addRow({
+      btc_address: record.btc_address,
+      public_key: record.public_key,
+      staked: isStaked ? "Yes" : "No"
+    });
+    
+    // Save based on SAVE_INTERVAL
+    const processedCount = i + 1;
+    if (processedCount - lastSaveCount >= CONFIG.PUBKEY.SAVE_INTERVAL) {
+      try {
+        await workbook.xlsx.writeFile(filePath);
+        console.log(`💾 Saved progress: ${processedCount}/${pubkeys.length} pubkey records processed`);
+        lastSaveCount = processedCount;
+      } catch (error) {
+        console.error(`❌ Error saving file: ${error.message}`);
+      }
+    }
+  }
+  
+  // Final save
+  try {
+    await workbook.xlsx.writeFile(filePath);
+    console.log(`✅ Successfully exported ${pubkeys.length} pubkey records to ${filePath}`);
+  } catch (error) {
+    console.error(`❌ Error saving final file: ${error.message}`);
+  }
+}
+
+/**
+ * Main function to fetch and export UTXOs
+ */
+async function fetchAndExportUTXOs() {
+  try {
+    console.log("⏳ Fetching UTXO records from mempool.space...");
+    const utxos = await fetchUTXOs();
+    console.log(`✅ Retrieved ${utxos.length} UTXO records.`);
+    
+    // Process and export UTXOs in a single pass
+    await processAndExportUTXOs(utxos);
+  } catch (error) {
+    console.error("❌ Error:", error);
+  }
 }
 
 /**
