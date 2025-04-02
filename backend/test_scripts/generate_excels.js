@@ -11,7 +11,9 @@ const CONFIG = {
   DEPOSITS: {
     OUTPUT_FILE: "deposits.xlsx",       // Output filename for deposits batch
     MAX_RECORDS: null,                  // Set to null for all records, or a number for limit
-    BATCH_SIZE: 500                     // How many records to fetch per API call
+    BATCH_SIZE: 500,                    // How many records to fetch per API call
+    START_INDEX: 0,                  // Starting index for fetching deposits
+    PRINT_CLI_OUTPUT: false              // Set to true to print raw CLI output
   },
   
   DEPOSITS_QUEST2: {
@@ -23,7 +25,8 @@ const CONFIG = {
   PUBKEY: {
     OUTPUT_FILE: "pubkeys.xlsx",        // Output filename for pubkeys batch
     BATCH_SIZE: 500,                    // How many records to fetch per API call
-    SAVE_INTERVAL: 500                  // Save file every N records processed
+    SAVE_INTERVAL: 500,                 // Save file every N records processed
+    START_INDEX: 0                      // Starting index for fetching pubkeys
   },
   
   UTXOS: {
@@ -41,13 +44,15 @@ const CONFIG = {
   },
   
   NEAR: {
-    START_BLOCK: 189828205,            // Starting block number to scan from
+    //START_BLOCK: 189828205,            // Starting block number to scan from for first testnet deposit
+    START_BLOCK: 190172631,            // Starting block number to scan from
     CONTRACT: "v2.atlas_public_testnet.testnet",  // Updated contract ID
     OUTPUT_FILE: "nearblocks.xlsx",    // Output filename
+    ERROR_OUTPUT_FILE: "nearblocks_errors.txt",  // File to log block processing errors
     WORKSHEET_NAME: "NEAR Blocks",     // Name of the worksheet in Excel file
     RPC_ENDPOINT: "https://neart.lava.build",  // NEAR RPC endpoint
-    THREAD_COUNT: 100,                   // Number of parallel threads to process blocks
-    BLOCKS_PER_THREAD: 10               // Number of blocks each thread processes
+    THREAD_COUNT: 100,                 // Number of parallel threads to process blocks
+    BLOCKS_PER_THREAD: 10              // Number of blocks each thread processes
   }
 };
 
@@ -61,6 +66,7 @@ const { exec } = require("child_process");
 const path = require("path");
 const ExcelJS = require("exceljs");
 const axios = require('axios');
+const fs = require('fs').promises;
 
 /**
  * Fetches deposit records from NEAR using the CLI with pagination.
@@ -68,12 +74,15 @@ const axios = require('axios');
 async function fetchDeposits() {
   return new Promise((resolve, reject) => {
     let allDeposits = [];
-    let fromIndex = 0;
+    let startIndex = CONFIG.DEPOSITS.START_INDEX;
     const limit = CONFIG.DEPOSITS.BATCH_SIZE;
     
     const fetchPage = () => {
-      const command = `near view v2.atlas_public_testnet.testnet get_all_deposits '{"from_index": ${fromIndex}, "limit": ${limit}}'`;
-      //console.log(`\n🔍 Executing command: ${command}`);
+      const command = `near view v2.atlas_public_testnet.testnet get_all_deposits '{"from_index": ${startIndex}, "limit": ${limit}}'`;
+      
+      if (CONFIG.DEPOSITS.PRINT_CLI_OUTPUT) {
+        console.log(`\n🔍 Executing command: ${command}`);
+      }
       
       exec(
         command,
@@ -87,8 +96,12 @@ async function fetchDeposits() {
             console.error(`NEAR CLI stderr: ${stderr}`);
           }
           try {
+            if (CONFIG.DEPOSITS.PRINT_CLI_OUTPUT) {
+              console.log(`📄 Raw CLI output:\n${stdout}`);
+            }
+            
             const records = parseRecordsSeparately(stdout);
-            console.log(`Parsed ${records.length} records from index ${fromIndex}`);
+            console.log(`Parsed ${records.length} records from index ${startIndex}`);
             
             // Add warning if records count is less than batch size
             if (records.length < limit) {
@@ -115,7 +128,7 @@ async function fetchDeposits() {
               return resolve(allDeposits);
             }
             
-            fromIndex += limit;
+            startIndex += limit;
             fetchPage(); // Fetch the next page
           } catch (e) {
             console.error("Failed to parse deposit records:", e);
@@ -131,15 +144,14 @@ async function fetchDeposits() {
 
 // Add these utility functions at the top of the file
 function formatDate(date) {
-  return date.toLocaleString('en-GB', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false
-  }).replace(/\//g, '');
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const seconds = String(date.getSeconds()).padStart(2, '0');
+  
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 }
 
 function formatDuration(startTime, endTime) {
@@ -351,11 +363,11 @@ async function exportToExcel(deposits) {
       minted_txn_hash: deposit.minted_txn_hash,
       minting_fee: deposit.minting_fee,
       timestamp: deposit.timestamp,
-      formatted_timestamp: formatDate(new Date(deposit.timestamp / 1000000)),
+      formatted_timestamp: formatDate(new Date(deposit.timestamp * 1000)),
       status: deposit.status,
       remarks: deposit.remarks,
       date_created: deposit.date_created,
-      formatted_date_created: formatDate(new Date(deposit.date_created / 1000000)),
+      formatted_date_created: formatDate(new Date(deposit.date_created * 1000)),
       verified_count: deposit.verified_count,
       yield_provider_gas_fee: deposit.yield_provider_gas_fee,
       yield_provider_txn_hash: deposit.yield_provider_txn_hash,
@@ -763,7 +775,6 @@ async function checkLPShares(accountId, poolId) {
     });
   });
 }
-
 // Modify the processDepositsQuest2 function to check multiple pools
 async function processDepositsQuest2() {
   console.log("\n🔍 Processing deposits-quest2.xlsx...");
@@ -905,12 +916,12 @@ async function processDepositsQuest2() {
 async function fetchPubkeys() {
   return new Promise((resolve, reject) => {
     let allPubkeys = [];
-    let fromIndex = 0;
+    let startIndex = CONFIG.PUBKEY.START_INDEX;
     const limit = CONFIG.PUBKEY.BATCH_SIZE;
 
     const fetchPage = () => {
       exec(
-        `near view v2.atlas_public_testnet.testnet get_all_btc_pubkeys '{"from_index": ${fromIndex}, "limit": ${limit}}'`,
+        `near view v2.atlas_public_testnet.testnet get_all_btc_pubkeys '{"from_index": ${startIndex}, "limit": ${limit}}'`,
         { maxBuffer: 1024 * 1024 * 100 }, // 100 MB buffer
         (error, stdout, stderr) => {
           if (error) {
@@ -922,7 +933,7 @@ async function fetchPubkeys() {
           }
           try {
             const records = parseRecordsSeparately(stdout);
-            console.log(`Parsed ${records.length} pubkey records from index ${fromIndex}`);
+            console.log(`Parsed ${records.length} pubkey records from index ${startIndex}`);
             
             allPubkeys = allPubkeys.concat(records);
             
@@ -931,7 +942,7 @@ async function fetchPubkeys() {
               return resolve(allPubkeys);
             }
             
-            fromIndex += limit;
+            startIndex += limit;
             fetchPage(); // Fetch the next page
           } catch (e) {
             console.error("Failed to parse pubkey records:", e);
@@ -1093,10 +1104,69 @@ function createNearBlocksWorksheet(workbook, existingWorksheet = null) {
 }
 
 // Add this new function before processAndExportBlocks
+async function getPastEventsByMintedTxnHash(mintedTxnHash, threadId, blockNumber) {
+  try {
+    const events = [];
+
+    const txResult = await provider.txStatus(mintedTxnHash, CONFIG.NEAR.CONTRACT);
+
+    // Find receipt with ft_mint event
+    const receipt = txResult.receipts_outcome.find((outcome) =>
+      outcome.outcome.logs.some((log) => {
+        try {
+          const event = JSON.parse(log.replace("EVENT_JSON:", ""));
+          return event.event === "ft_mint";
+        } catch (e) {
+          return false;
+        }
+      }),
+    );
+
+    if (receipt && receipt.outcome.status.SuccessValue === "") {
+      const logEntry = receipt.outcome.logs.find((log) => {
+        try {
+          const event = JSON.parse(log.replace("EVENT_JSON:", ""));
+          return event.event === "ft_mint";
+        } catch (e) {
+          return false;
+        }
+      });
+
+      if (logEntry) {
+        const event = JSON.parse(logEntry.replace("EVENT_JSON:", ""));
+        const memo = JSON.parse(event.data[0].memo);
+        const amount = JSON.parse(event.data[0].amount);
+        const btcTxnHash = memo.btc_txn_hash;
+        const accountId = memo.address;
+
+        events.push({
+          type: "mint_deposit",
+          btcTxnHash: btcTxnHash,
+          accountId: accountId,
+          amount: amount,
+          receiptId: receipt.id,
+          transactionHash: mintedTxnHash
+        });
+      }
+    }
+
+    return { events, error: null };
+  } catch (error) {
+    console.error("Error getting past events by minted transaction hash:", error);
+    // Return error instead of writing to file
+    return { 
+      events: [], 
+      error: `Thread ${threadId}: Block ${blockNumber} - Error getting past events for txn ${mintedTxnHash}: ${error.message}`
+    };
+  }
+}
+
+// Add this new function before processAndExportBlocks
 async function processBlockRange(startBlock, endBlock, threadId) {
   console.log(`\n🧵 Thread ${threadId}: Processing blocks ${startBlock} to ${endBlock}`);
   
   const blockResults = [];
+  const threadErrors = []; // Collect errors for this thread
   
   for (let blockNumber = startBlock; blockNumber <= endBlock; blockNumber++) {
     try {
@@ -1124,7 +1194,12 @@ async function processBlockRange(startBlock, endBlock, threadId) {
           }
           
           // Get events using getPastEventsByMintedTxnHash
-          const events = await getPastEventsByMintedTxnHash(tx.hash);
+          const { events, error } = await getPastEventsByMintedTxnHash(tx.hash, threadId, blockNumber);
+          
+          // Add any error to thread errors
+          if (error) {
+            threadErrors.push(error);
+          }
           
           for (const event of events) {
             if (event.type === "mint_deposit" && event.btcTxnHash) {
@@ -1152,10 +1227,11 @@ async function processBlockRange(startBlock, endBlock, threadId) {
       
     } catch (error) {
       console.error(`❌ Thread ${threadId}: Error processing block ${blockNumber}: ${error.message}`);
+      threadErrors.push(`Thread ${threadId}: Block ${blockNumber} - ${error.message}`);
     }
   }
   
-  return blockResults;
+  return { blockResults, threadErrors };
 }
 
 // Add this new function before processAndExportBlocks
@@ -1199,13 +1275,22 @@ async function processBatch(workbook, worksheet, startBlock, currentBlock, threa
     // Wait for all threads to complete
     const batchResults = await Promise.all(batchPromises);
     
-    // Flatten results from all threads
-    const allResults = batchResults.flat();
+    // Flatten results and errors from all threads
+    const allResults = batchResults.flatMap(result => result.blockResults);
+    const allErrors = batchResults.flatMap(result => result.threadErrors);
     
     // Save results to Excel
     if (allResults.length > 0) {
       await saveBlockResultsToExcel(workbook, worksheet, allResults, filePath);
       console.log(`💾 Saved batch ${batchIndex + 1} results: ${allResults.length} events processed`);
+    }
+    
+    // Save errors to error file if any
+    if (allErrors.length > 0) {
+      const errorFilePath = path.join(__dirname, CONFIG.NEAR.ERROR_OUTPUT_FILE);
+      const errorMessages = allErrors.join('\n') + '\n';
+      await fs.appendFile(errorFilePath, errorMessages);
+      console.log(`⚠️ Logged ${allErrors.length} errors to ${CONFIG.NEAR.ERROR_OUTPUT_FILE}`);
     }
     
     const batchEndTime = new Date();
@@ -1261,7 +1346,7 @@ async function processAndExportBlocks() {
           console.log(`📄 No existing blocks found, starting from configured block: ${CONFIG.NEAR.START_BLOCK}`);
           lastProcessedBlock = CONFIG.NEAR.START_BLOCK;
         }
-        lastProcessedBlock = 189846631;       //uncomment this line to continue from a specific block + 1
+        lastProcessedBlock = CONFIG.NEAR.START_BLOCK;       //uncomment this line to continue from a specific block + 1
 
         console.log(`\n📊 Current block: ${currentBlock}`);
         console.log(`📊 Last processed block: ${lastProcessedBlock}`);
@@ -1304,7 +1389,7 @@ async function main() {
       console.log(`\n⏳ Starting deposits.xlsx generation at ${formatDate(startTime)}`);
       
       console.log("⏳ Fetching deposit records from NEAR...");
-      console.log(`ℹ️ Processing ${CONFIG.DEPOSITS.MAX_RECORDS === null ? 'all' : CONFIG.DEPOSITS.MAX_RECORDS} records`);
+      console.log(`ℹ️  Processing ${CONFIG.DEPOSITS.MAX_RECORDS === null ? 'all' : CONFIG.DEPOSITS.MAX_RECORDS} records`);
       const deposits = await fetchDeposits();
       console.log(`✅ Retrieved ${deposits.length} deposit records.`);
 
@@ -1384,59 +1469,6 @@ async function main() {
     console.error("❌ Error:", error);
     console.log(`🏁 Main process failed at ${formatDate(mainEndTime)}`);
     console.log(`⏱️ Total Duration: ${formatDuration(mainStartTime, mainEndTime)}`);
-  }
-}
-
-async function getPastEventsByMintedTxnHash(mintedTxnHash) {
-  try {
-    const events = [];
-
-    const txResult = await provider.txStatus(mintedTxnHash, CONFIG.NEAR.CONTRACT);
-
-    // Find receipt with ft_mint event
-    const receipt = txResult.receipts_outcome.find((outcome) =>
-      outcome.outcome.logs.some((log) => {
-        try {
-          const event = JSON.parse(log.replace("EVENT_JSON:", ""));
-          return event.event === "ft_mint";
-        } catch (e) {
-          return false;
-        }
-      }),
-    );
-
-    if (receipt && receipt.outcome.status.SuccessValue === "") {
-      const logEntry = receipt.outcome.logs.find((log) => {
-        try {
-          const event = JSON.parse(log.replace("EVENT_JSON:", ""));
-          return event.event === "ft_mint";
-        } catch (e) {
-          return false;
-        }
-      });
-
-      if (logEntry) {
-        const event = JSON.parse(logEntry.replace("EVENT_JSON:", ""));
-        const memo = JSON.parse(event.data[0].memo);
-        const amount = JSON.parse(event.data[0].amount);
-        const btcTxnHash = memo.btc_txn_hash;
-        const accountId = memo.address;
-
-        events.push({
-          type: "mint_deposit",
-          btcTxnHash: btcTxnHash,
-          accountId: accountId,
-          amount: amount,
-          receiptId: receipt.id,
-          transactionHash: mintedTxnHash
-        });
-      }
-    }
-
-    return events;
-  } catch (error) {
-    console.error("Error getting past events by minted transaction hash:", error);
-    return [];
   }
 }
 
