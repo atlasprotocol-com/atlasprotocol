@@ -44,9 +44,10 @@ const CONFIG = {
     START_BLOCK: 189828205,            // Starting block number to scan from
     CONTRACT: "v2.atlas_public_testnet.testnet",  // Updated contract ID
     OUTPUT_FILE: "nearblocks.xlsx",    // Output filename
-    SAVE_INTERVAL: 25,                  // Save file every N blocks processed
     WORKSHEET_NAME: "NEAR Blocks",     // Name of the worksheet in Excel file
-    RPC_ENDPOINT: "https://neart.lava.build"  // NEAR RPC endpoint
+    RPC_ENDPOINT: "https://neart.lava.build",  // NEAR RPC endpoint
+    THREAD_COUNT: 100,                   // Number of parallel threads to process blocks
+    BLOCKS_PER_THREAD: 10               // Number of blocks each thread processes
   }
 };
 
@@ -575,6 +576,12 @@ async function processAndExportUTXOs(utxos) {
       while (rowNumber <= worksheet.rowCount) {
         const row = worksheet.getRow(rowNumber);
         if (row.getCell(1).text === utxo.txid) {
+          // Skip update if current status is already DEPOSIT_EXISTS
+          if (row.getCell(9).value === CONFIG.UTXOS.STATUS.DEPOSIT_EXISTS) {
+            console.log(`ℹ️ Skipping update for UTXO ${utxo.txid} - already marked as deposit exists`);
+            break;
+          }
+          
           // Update the status in the Excel file
           row.getCell(8).value = depositExists ? CONFIG.UTXOS.STATUS.YES : CONFIG.UTXOS.STATUS.NO;
           row.getCell(9).value = processingStatus;
@@ -1064,87 +1071,6 @@ async function getLastBlockFromExcel(filePath) {
   }
 }
 
-// Function to clean up incomplete data from a specific block
-async function cleanupIncompleteBlock(filePath, blockNumber) {
-  try {
-    const workbook = new ExcelJS.Workbook();
-    await workbook.xlsx.readFile(filePath);
-    const worksheet = workbook.getWorksheet(CONFIG.NEAR.WORKSHEET_NAME);
-    
-    if (!worksheet) {
-      return;
-    }
-    
-    // Find and remove all rows with the specified block number
-    let rowIndex = worksheet.rowCount;
-    while (rowIndex > 1) { // Skip header row
-      const row = worksheet.getRow(rowIndex);
-      if (row.getCell(1).value === blockNumber) {
-        worksheet.spliceRows(rowIndex, 1);
-      } else {
-        break; // Stop when we find a row with a different block number
-      }
-      rowIndex--;
-    }
-    
-    // Save the cleaned up file
-    await workbook.xlsx.writeFile(filePath);
-    console.log(`🧹 Cleaned up incomplete data from block ${blockNumber}`);
-  } catch (error) {
-    console.error(`❌ Error cleaning up incomplete block: ${error.message}`);
-  }
-}
-
-// Add this new function before processAndExportBlocks
-async function getTransactionHashFromReceiptId(receiptId) {
-  try {
-    const response = await axios.post(CONFIG.NEAR.RPC_ENDPOINT, {
-      jsonrpc: "2.0",
-      method: "EXPERIMENTAL_receipt",
-      params: [receiptId],
-      id: 1
-    });
-    
-    if (response.data.error) {
-      console.error(`Error getting receipt details: ${response.data.error.message}`);
-      return null;
-    }
-    
-    // The receipt data includes the transaction hash in the receipt object
-    return response.data.result.receipt.transaction_hash;
-  } catch (error) {
-    console.error(`Error getting receipt details for receipt ${receiptId}: ${error.message}`);
-    return null;
-  }
-}
-
-// Add this new function before processAndExportBlocks
-async function checkTransactionStatus(txHash) {
-  try {
-    const response = await axios.post(CONFIG.NEAR.RPC_ENDPOINT, {
-      jsonrpc: "2.0",
-      method: "EXPERIMENTAL_tx_status",
-      params: [txHash],
-      id: 1
-    });
-    
-    if (response.data.error) {
-      console.error(`Error checking transaction status: ${response.data.error.message}`);
-      return false;
-    }
-    
-    const status = response.data.result.status;
-    // Check if the transaction was successful
-    return status && (
-      status.SuccessValue !== undefined || 
-      status.SuccessReceiptId !== undefined
-    );
-  } catch (error) {
-    console.error(`Error checking transaction status for ${txHash}: ${error.message}`);
-    return false;
-  }
-}
-
 // Add this function before processAndExportBlocks
 function createNearBlocksWorksheet(workbook, existingWorksheet = null) {
   const worksheet = existingWorksheet || workbook.addWorksheet(CONFIG.NEAR.WORKSHEET_NAME);
@@ -1166,7 +1092,132 @@ function createNearBlocksWorksheet(workbook, existingWorksheet = null) {
   return worksheet;
 }
 
-// Main function to process blocks and export to Excel
+// Add this new function before processAndExportBlocks
+async function processBlockRange(startBlock, endBlock, threadId) {
+  console.log(`\n🧵 Thread ${threadId}: Processing blocks ${startBlock} to ${endBlock}`);
+  
+  const blockResults = [];
+  
+  for (let blockNumber = startBlock; blockNumber <= endBlock; blockNumber++) {
+    try {
+      // Get block details
+      const blockData = await getBlockDetails(blockNumber);
+      const blockTimestamp = blockData.header.timestamp;
+      
+      // Process each chunk in the block
+      for (const chunk of blockData.chunks) {
+        if (chunk.tx_root === "11111111111111111111111111111111") {
+          continue;
+        }
+        
+        // Get chunk details
+        const chunkData = await provider.chunk(chunk.chunk_hash);
+        
+        if (!chunkData || !chunkData.transactions) {
+          continue;
+        }
+        
+        // Process each transaction in the chunk
+        for (const tx of chunkData.transactions) {
+          if (tx.receiver_id !== CONFIG.NEAR.CONTRACT) {
+            continue;
+          }
+          
+          // Get events using getPastEventsByMintedTxnHash
+          const events = await getPastEventsByMintedTxnHash(tx.hash);
+          
+          for (const event of events) {
+            if (event.type === "mint_deposit" && event.btcTxnHash) {
+              const timestamp = new Date(blockTimestamp / 1000000);
+              
+              blockResults.push({
+                block_number: blockNumber,
+                timestamp: Math.floor(blockTimestamp / 1000000),
+                formatted_timestamp: formatDate(timestamp),
+                txn_hash: event.transactionHash,
+                account_id: event.accountId,
+                atbtc_amount: event.amount,
+                btc_txn_hash: event.btcTxnHash,
+                event_type: event.type
+              });
+              
+              console.log(`✅ Thread ${threadId}: Added event for block ${blockNumber}: ${event.type} with BTC txn hash: ${event.btcTxnHash}`);
+            }
+          }
+        }
+      }
+      
+      // Add a small delay to avoid rate limiting
+      await delay(100);
+      
+    } catch (error) {
+      console.error(`❌ Thread ${threadId}: Error processing block ${blockNumber}: ${error.message}`);
+    }
+  }
+  
+  return blockResults;
+}
+
+// Add this new function before processAndExportBlocks
+async function saveBlockResultsToExcel(workbook, worksheet, blockResults, filePath) {
+  // Sort results by block number to maintain sequence
+  blockResults.sort((a, b) => a.block_number - b.block_number);
+  
+  // Add rows to Excel
+  for (const result of blockResults) {
+    const newRow = worksheet.addRow(result);
+    await newRow.commit();
+  }
+  
+  // Save the file
+  await workbook.xlsx.writeFile(filePath);
+}
+
+// Add this new function before processAndExportBlocks
+async function processBatch(workbook, worksheet, startBlock, currentBlock, threadCount, blocksPerThread, filePath) {
+  const totalBlocks = currentBlock - startBlock + 1;
+  const totalBatches = Math.ceil(totalBlocks / (threadCount * blocksPerThread));
+  
+  for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
+    const batchStartTime = new Date();
+    console.log(`\n🔄 Processing batch ${batchIndex + 1}/${totalBatches}`);
+    console.log(`⏰ Batch start time: ${formatDate(batchStartTime)}`);
+    
+    const batchPromises = [];
+    const batchStartBlock = startBlock + (batchIndex * threadCount * blocksPerThread);
+    
+    // Create thread tasks
+    for (let threadIndex = 0; threadIndex < threadCount; threadIndex++) {
+      const threadStartBlock = batchStartBlock + (threadIndex * blocksPerThread);
+      const threadEndBlock = Math.min(threadStartBlock + blocksPerThread - 1, currentBlock);
+      
+      if (threadStartBlock <= currentBlock) {
+        batchPromises.push(processBlockRange(threadStartBlock, threadEndBlock, threadIndex + 1));
+      }
+    }
+    
+    // Wait for all threads to complete
+    const batchResults = await Promise.all(batchPromises);
+    
+    // Flatten results from all threads
+    const allResults = batchResults.flat();
+    
+    // Save results to Excel
+    if (allResults.length > 0) {
+      await saveBlockResultsToExcel(workbook, worksheet, allResults, filePath);
+      console.log(`💾 Saved batch ${batchIndex + 1} results: ${allResults.length} events processed`);
+    }
+    
+    const batchEndTime = new Date();
+    console.log(`⏰ Batch end time: ${formatDate(batchEndTime)}`);
+    console.log(`⏱️ Batch duration: ${formatDuration(batchStartTime, batchEndTime)}`);
+    
+    // Add a small delay between batches to avoid rate limiting
+    await delay(200);
+  }
+}
+
+// Modify the processAndExportBlocks function
 async function processAndExportBlocks() {
   const startTime = new Date();
   console.log("\n🔍 Starting NEAR blocks processing...");
@@ -1181,11 +1232,7 @@ async function processAndExportBlocks() {
     const lastBlock = await getLastBlockFromExcel(filePath);
     if (lastBlock) {
       console.log(`📄 Found existing file with last block: ${lastBlock}`);
-      // Clean up any incomplete data from the last block
-      await cleanupIncompleteBlock(filePath, lastBlock);
-      // Set START_BLOCK to the last block to process only new blocks
-      CONFIG.NEAR.START_BLOCK = lastBlock;
-      console.log(`🔄 Continuing from block: ${CONFIG.NEAR.START_BLOCK}`);
+      console.log(`🔄 Continuing from block: ${lastBlock + 1}`);
       
       // Load existing workbook
       workbook = new ExcelJS.Workbook();
@@ -1200,93 +1247,44 @@ async function processAndExportBlocks() {
       worksheet = createNearBlocksWorksheet(workbook);
     }
     
-    let lastSaveBlock = CONFIG.NEAR.START_BLOCK;
+    const threadCount = CONFIG.NEAR.THREAD_COUNT;
+    const blocksPerThread = CONFIG.NEAR.BLOCKS_PER_THREAD;
     
-    // Get current block number
-    //const currentBlock = 189828210;
-    const currentBlock = await getCurrentBlock();
-    console.log(`📊 Current block: ${currentBlock}`);
-    console.log(`📊 Starting from block: ${CONFIG.NEAR.START_BLOCK}`);
-    
-    // Process each block
-    for (let blockNumber = CONFIG.NEAR.START_BLOCK; blockNumber <= currentBlock; blockNumber++) {
-      console.log(`\n⏳ Processing block ${blockNumber}/${currentBlock}`);
-      
+    while (true) {
       try {
-        // Get block details
-        const blockData = await getBlockDetails(blockNumber);
-        const blockTimestamp = blockData.header.timestamp;
-        //console.log(`\n📊 Block Details:`, JSON.stringify(blockData, null, 2));        
+        // Get current block number
+        const currentBlock = await getCurrentBlock();
         
-        // Process each chunk in the block
-        for (const chunk of blockData.chunks) {
-          if (chunk.tx_root === "11111111111111111111111111111111") {
-            continue;
-          }
+        // Get the last processed block from Excel file
+        let lastProcessedBlock = await getLastBlockFromExcel(filePath);
+        if (!lastProcessedBlock) {
+          console.log(`📄 No existing blocks found, starting from configured block: ${CONFIG.NEAR.START_BLOCK}`);
+          lastProcessedBlock = CONFIG.NEAR.START_BLOCK;
+        }
+        lastProcessedBlock = 189846631;       //uncomment this line to continue from a specific block + 1
+
+        console.log(`\n📊 Current block: ${currentBlock}`);
+        console.log(`📊 Last processed block: ${lastProcessedBlock}`);
+        
+        if (currentBlock > lastProcessedBlock) {
+          const blocksToProcess = currentBlock - lastProcessedBlock;
+          console.log(`📊 Processing ${blocksToProcess} new blocks`);
           
-          // Get chunk details
-          const chunkData = await provider.chunk(chunk.chunk_hash);
-          
-          if (!chunkData || !chunkData.transactions) {
-            continue;
-          }
-          
-          // Process each transaction in the chunk
-          for (const tx of chunkData.transactions) {
-            if (tx.receiver_id !== CONFIG.NEAR.CONTRACT) {
-              continue;
-            }
-            
-            // Get events using getPastEventsByMintedTxnHash
-            const events = await getPastEventsByMintedTxnHash(tx.hash);
-            
-            for (const event of events) {
-              if (event.type === "mint_deposit" && event.btcTxnHash) {
-                const timestamp = new Date(blockTimestamp / 1000000);
-                
-                // Add row for the event
-                const newRow = worksheet.addRow({
-                  block_number: blockNumber,
-                  timestamp: Math.floor(blockTimestamp / 1000000),
-                  formatted_timestamp: formatDate(timestamp),
-                  txn_hash: event.transactionHash,
-                  account_id: event.accountId,
-                  atbtc_amount: event.amount,
-                  btc_txn_hash: event.btcTxnHash,
-                  event_type: event.type
-                });
-                
-                // Commit the new row
-                await newRow.commit();
-                
-                console.log(`✅ Added row for event: ${event.type} with BTC txn hash: ${event.btcTxnHash}`);
-              }
-            }
-          }
+          // Process the new blocks
+          await processBatch(workbook, worksheet, lastProcessedBlock + 1, currentBlock, threadCount, blocksPerThread, filePath);
+        } else {
+          console.log("⏳ No new blocks to process, waiting...");
         }
         
-        // Save based on SAVE_INTERVAL
-        if (blockNumber - lastSaveBlock >= CONFIG.NEAR.SAVE_INTERVAL) {
-          await workbook.xlsx.writeFile(filePath);
-          console.log(`💾 Saved progress: ${blockNumber}/${currentBlock} blocks processed`);
-          lastSaveBlock = blockNumber;
-        }
-        
-        // Add a small delay to avoid rate limiting
-        await delay(100);
+        // Wait for a while before checking for new blocks
+        await delay(5000); // Check every 5 seconds for new blocks
         
       } catch (error) {
-        console.error(`❌ Error processing block ${blockNumber}: ${error.message}`);
-        continue;
+        console.error("❌ Error in processing loop:", error);
+        // Wait a bit longer on error before retrying
+        await delay(10000);
       }
     }
-    
-    // Final save
-    await workbook.xlsx.writeFile(filePath);
-    const endTime = new Date();
-    console.log(`\n✅ Successfully exported NEAR blocks data to ${filePath}`);
-    console.log(`⏰ Batch end time: ${formatDate(endTime)}`);
-    console.log(`⏱️ Duration: ${formatDuration(startTime, endTime)}`);
     
   } catch (error) {
     console.error("❌ Error:", error);
