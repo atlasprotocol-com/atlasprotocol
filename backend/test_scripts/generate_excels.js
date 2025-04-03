@@ -13,18 +13,19 @@ logTime("Script started");
 
 // Configuration flags for file generation
 const CONFIG = {
-  GENERATE_DEPOSITS_XLSX: false,        // Set to true to enable deposits.xlsx generation
+  GENERATE_DEPOSITS_XLSX: true,        // Set to true to enable deposits.xlsx generation
   GENERATE_DEPOSITS_QUEST2_XLSX: false,  // Set to true to enable deposits-quest2.xlsx generation
   GENERATE_UTXOS_XLSX: false,           // Set to true to enable UTXOs.xlsx generation
   GENERATE_PUBKEY_XLSX: false,          // Set to true to enable pubkeys.xlsx generation
-  GENERATE_NEAR_BLOCKS_XLSX: true,      // Set to true to enable nearblocks.xlsx generation
-  PROCESS_DEPOSITS_STATUS_21: false,     // Set to true to process deposits with status 21
+  GENERATE_NEAR_BLOCKS_XLSX: false,      // Set to true to enable nearblocks.xlsx generation
+  GENERATE_DEPOSITS_STATUS_21_XLSX: false,     // Set to true to process deposits with status 21
   
   DEPOSITS: {
     OUTPUT_FILE: "deposits.xlsx",       // Output filename for deposits batch
     MAX_RECORDS: null,                  // Set to null for all records, or a number for limit
     BATCH_SIZE: 500,                    // How many records to fetch per API call
     START_INDEX: 0,                     // Starting index for fetching deposits
+    END_INDEX: null,                    // Set to null for no end index, or a number to stop at
     PRINT_CLI_OUTPUT: false,            // Set to true to print raw CLI output
     COLUMNS: {
       BTC_TXN_HASH: 1,                  // Column index for BTC Txn Hash
@@ -62,8 +63,8 @@ const CONFIG = {
   },
   
   NEAR: {
-    START_BLOCK: 189828204,            // Starting block number to scan from for first testnet deposit
-    //START_BLOCK: 191550000,            // Starting block number to scan from
+    //START_BLOCK: 189828204,            // Starting block number to scan from for first testnet deposit
+    START_BLOCK: 191562323,            // Starting block number to scan from
     CONTRACT: "v2.atlas_public_testnet.testnet",  // Updated contract ID
     OUTPUT_FILE: "nearblocks.xlsx",    // Output filename
     ERROR_OUTPUT_FILE: "nearblocks_errors.txt",  // File to log block processing errors
@@ -77,7 +78,11 @@ const CONFIG = {
       NEAR_TXN_HASH: 4,                 // Column index for Near Txn Hash
       BTC_TXN_HASH: 7,                  // Column index for BTC Txn Hash      
     }
-  }
+  },
+  
+  DEPOSITS_STATUS_21: {
+    OUTPUT_FILE: "deposits-status-21.xlsx"  // Output filename for status 21 deposits
+  },
 };
 
 logTime("CONFIG loaded");
@@ -89,7 +94,7 @@ const FEATURE_DEPENDENCIES = {
   GENERATE_UTXOS_XLSX: ['excelJs', 'axios'],
   GENERATE_PUBKEY_XLSX: ['excelJs'],
   GENERATE_NEAR_BLOCKS_XLSX: ['excelJs', 'nearApi'],
-  PROCESS_DEPOSITS_STATUS_21: ['excelJs', 'axios']
+  GENERATE_DEPOSITS_STATUS_21_XLSX: ['excelJs', 'axios']
 };
 
 // Global variables for modules
@@ -308,7 +313,7 @@ function parseRecordsSeparately(rawOutput) {
 /**
  * Exports deposit records to an Excel file using ExcelJS.
  */
-async function exportToExcel(deposits) {  
+async function exportToExcel(deposits, filePath = null) {  
   const workbook = new excelJs.Workbook();
   const worksheet = workbook.addWorksheet("Deposits");
   
@@ -332,20 +337,12 @@ async function exportToExcel(deposits) {
     { header: "Yield Provider Gas Fee", key: "yield_provider_gas_fee", width: 20 },
     { header: "Yield Provider Txn Hash", key: "yield_provider_txn_hash", width: 50 },
     { header: "Retry Count", key: "retry_count", width: 15 },
-    { header: "Minted Txn Hash Verified Count", key: "minted_txn_hash_verified_count", width: 15 },
-
-    // New simplified Burrow columns (Not used)
-    { header: "Burrow Borrowed Tokens", key: "burrow_borrowed_tokens", width: 10 },
-    { header: "Burrow Collateral Tokens", key: "burrow_collateral_tokens", width: 10 },
-    
-    // Add new column for active order pool IDs (Not used)
-    { header: "Active Order Pool IDs", key: "active_order_pool_ids", width: 10 }
+    { header: "Minted Txn Hash Verified Count", key: "minted_txn_hash_verified_count", width: 15 }
   ];
   
   // Add data rows
   deposits.forEach(deposit => {
     worksheet.addRow({
-      // All existing deposit fields...
       btc_txn_hash: deposit.btc_txn_hash,
       btc_sender_address: deposit.btc_sender_address,
       receiving_chain_id: deposit.receiving_chain_id,
@@ -364,21 +361,17 @@ async function exportToExcel(deposits) {
       yield_provider_gas_fee: deposit.yield_provider_gas_fee,
       yield_provider_txn_hash: deposit.yield_provider_txn_hash,
       retry_count: deposit.retry_count,
-      minted_txn_hash_verified_count: deposit.minted_txn_hash_verified_count,
-      
-      // Set empty values for the last three columns
-      burrow_borrowed_tokens: '',
-      burrow_collateral_tokens: '',
-      active_order_pool_ids: ''
+      minted_txn_hash_verified_count: deposit.minted_txn_hash_verified_count
     });
   });
   
   // Style the header row
   worksheet.getRow(1).font = { bold: true };
   
-  const filePath = path.join(__dirname, CONFIG.DEPOSITS.OUTPUT_FILE);
-  await workbook.xlsx.writeFile(filePath);
-  console.log(`✅ Successfully exported ${deposits.length} deposit records to ${filePath}`);
+  // Use provided filePath or default to CONFIG.DEPOSITS.OUTPUT_FILE
+  const outputPath = filePath || path.join(__dirname, CONFIG.DEPOSITS.OUTPUT_FILE);
+  await workbook.xlsx.writeFile(outputPath);
+  console.log(`✅ Successfully exported ${deposits.length} deposit records to ${outputPath}`);
 }
 
 /**
@@ -1030,7 +1023,18 @@ async function fetchDeposits() {
     const limit = CONFIG.DEPOSITS.BATCH_SIZE;
     
     const fetchPage = () => {
-      const command = `near view v2.atlas_public_testnet.testnet get_all_deposits '{"from_index": ${startIndex}, "limit": ${limit}}'`;
+      // Check if we've reached the end index
+      if (CONFIG.DEPOSITS.END_INDEX !== null && startIndex >= CONFIG.DEPOSITS.END_INDEX) {
+        console.log(`Reached configured end index of ${CONFIG.DEPOSITS.END_INDEX}`);
+        return resolve(allDeposits);
+      }
+      
+      // Adjust limit if we're close to the end index
+      const adjustedLimit = CONFIG.DEPOSITS.END_INDEX !== null 
+        ? Math.min(limit, CONFIG.DEPOSITS.END_INDEX - startIndex)
+        : limit;
+      
+      const command = `near view v2.atlas_public_testnet.testnet get_all_deposits '{"from_index": ${startIndex}, "limit": ${adjustedLimit}}'`;
       
       if (CONFIG.DEPOSITS.PRINT_CLI_OUTPUT) {
         console.log(`\n🔍 Executing command: ${command}`);
@@ -1056,8 +1060,8 @@ async function fetchDeposits() {
             console.log(`Parsed ${records.length} records from index ${startIndex}`);
             
             // Add warning if records count is less than batch size
-            if (records.length < limit) {
-              console.log(`⚠️ Warning: Received ${records.length} records, expected ${limit} records`);
+            if (records.length < adjustedLimit) {
+              console.log(`⚠️ Warning: Received ${records.length} records, expected ${adjustedLimit} records`);
             }
             
             // Add records up to MAX_RECORDS limit if specified
@@ -1080,7 +1084,7 @@ async function fetchDeposits() {
               return resolve(allDeposits);
             }
             
-            startIndex += limit;
+            startIndex += adjustedLimit;
             fetchPage(); // Fetch the next page
           } catch (e) {
             console.error("Failed to parse deposit records:", e);
@@ -1288,7 +1292,7 @@ async function processBlockRange(startBlock, endBlock, threadId) {
       }
       
       // Add a small delay to avoid rate limiting
-      await delay(100);
+      await delay(200);
       
     } catch (error) {
       console.error(`❌ Thread ${threadId}: Error processing block ${blockNumber}: ${error.message}`);
@@ -1363,7 +1367,7 @@ async function processBatch(workbook, worksheet, startBlock, currentBlock, threa
     console.log(`⏱️ Batch duration: ${formatDuration(batchStartTime, batchEndTime)}`);
 
     // Add a small delay between batches to avoid rate limiting
-    await delay(200);
+    await delay(300);
   }
 }
 
@@ -1444,17 +1448,26 @@ async function processDepositsStatus21() {
   console.log("\n🔍 Processing deposits with status 21...");
   
   try {
-    // Read deposits.xlsx
-    const depositsWorkbook = new excelJs.Workbook();
-    const depositsFilePath = path.join(__dirname, CONFIG.DEPOSITS.OUTPUT_FILE);
-    await depositsWorkbook.xlsx.readFile(depositsFilePath);
+    // Fetch all deposits
+    console.log("⏳ Fetching all deposit records from NEAR...");
+    const deposits = await fetchDeposits();
+    console.log(`✅ Retrieved ${deposits.length} deposit records`);
     
-    const depositsWorksheet = depositsWorkbook.getWorksheet(1) || depositsWorkbook.worksheets[0];
-    if (!depositsWorksheet) {
-      throw new Error("Worksheet not found in deposits.xlsx");
-    }
+    // Filter deposits with status 21, empty remarks, and empty minted txn hash
+    const filteredDeposits = deposits.filter(deposit => 
+      deposit.status === 21 && 
+      (!deposit.remarks || deposit.remarks.trim() === '') && 
+      (!deposit.minted_txn_hash || deposit.minted_txn_hash.trim() === '')
+    );
     
-    // Read nearblocks.xlsx
+    console.log(`📊 Found ${filteredDeposits.length} records matching criteria`);
+    
+    // Export filtered deposits to Excel
+    const filePath = path.join(__dirname, CONFIG.DEPOSITS_STATUS_21.OUTPUT_FILE);
+    await exportToExcel(filteredDeposits, filePath);
+    
+    // Read nearblocks.xlsx and create map of BTC Txn Hash to NEAR Txn Hash
+    console.log("⏳ Reading nearblocks.xlsx to create transaction map...");
     const nearBlocksWorkbook = new excelJs.Workbook();
     const nearBlocksFilePath = path.join(__dirname, CONFIG.NEAR.OUTPUT_FILE);
     await nearBlocksWorkbook.xlsx.readFile(nearBlocksFilePath);
@@ -1464,14 +1477,7 @@ async function processDepositsStatus21() {
       throw new Error("Worksheet not found in nearblocks.xlsx");
     }
     
-    // Initialize counters
-    let totalRecords = 0;
-    let filteredRecords = 0;
-    let noMatchingNearTxn = 0;
-    let successCount = 0;
-    let failedCount = 0;
-    
-    // Create a map of BTC Txn Hash to NEAR Txn Hash from nearblocks.xlsx
+    // Create a map of BTC Txn Hash to NEAR Txn Hash
     const nearTxnMap = new Map();
     for (let rowNumber = 2; rowNumber <= nearBlocksWorksheet.rowCount; rowNumber++) {
       const row = nearBlocksWorksheet.getRow(rowNumber);
@@ -1481,55 +1487,78 @@ async function processDepositsStatus21() {
         nearTxnMap.set(btcTxnHash, nearTxnHash);
       }
     }
+    console.log(`✅ Created map with ${nearTxnMap.size} NEAR transaction records`);
     
-    // Process each row in deposits.xlsx
-    for (let rowNumber = 2; rowNumber <= depositsWorksheet.rowCount; rowNumber++) {
-      const row = depositsWorksheet.getRow(rowNumber);
-      const status = row.getCell(CONFIG.DEPOSITS.COLUMNS.STATUS).value;
-      const mintedTxnHash = row.getCell(CONFIG.DEPOSITS.COLUMNS.MINTED_TXN_HASH).value;
-      const remarks = row.getCell(CONFIG.DEPOSITS.COLUMNS.REMARKS).value;
-      const btcTxnHash = row.getCell(CONFIG.DEPOSITS.COLUMNS.BTC_TXN_HASH).value;
+    // Now process each record by calling the API
+    console.log("\n⏳ Processing records by calling API...");
+    let successCount = 0;
+    let failedCount = 0;
+    let noMatchingNearTxn = 0;
+    let filteredRecords = 0;
+    
+    for (const deposit of filteredDeposits) {
+      filteredRecords++;
+      console.log(`\n⏳ Processing record ${filteredRecords} of ${filteredDeposits.length}: ${deposit.btc_txn_hash}`);
       
-      totalRecords++;
-      
-      // Filter records with status 21, empty minted_txn_hash and empty remarks
-      if (status === 21 && (!mintedTxnHash || mintedTxnHash.trim() === '') && (!remarks || remarks.trim() === '')) {
-        filteredRecords++;
+      try {
+        // Find corresponding NEAR transaction hash from map
+        const nearTxnHash = nearTxnMap.get(deposit.btc_txn_hash);
         
+        if (!nearTxnHash) {
+          console.log(`⚠️ No matching NEAR transaction found for BTC Txn Hash: ${deposit.btc_txn_hash}`);
+          noMatchingNearTxn++;
+          failedCount++;
+          continue;
+        }
+        
+        // Call the API to check minted transaction
+        console.log(`⏳ Initiating deposit processing for BTC Txn Hash: ${deposit.btc_txn_hash}`);
         try {
-          // Find corresponding NEAR transaction hash
-          const nearTxnHash = nearTxnMap.get(btcTxnHash);
-          
-          if (!nearTxnHash) {
-            console.log(`\n⚠️ No matching NEAR transaction found for BTC Txn Hash: ${btcTxnHash}`);
-            noMatchingNearTxn++;
-            continue;
-          }
-          
-          // Call the API to check minted transaction
-          const response = await axios.get(`https://testnet.atlasprotocol.com/api/v1/check-minted-txn?btcTxnHash=${btcTxnHash}&mintedTxnHash=${nearTxnHash}`);
+          const response = await axios.get(`https://testnet.atlasprotocol.com/api/v1/check-minted-txn?btcTxnHash=${deposit.btc_txn_hash}&mintedTxnHash=${nearTxnHash}`);
           
           if (response.data.success) {
-            console.log(`✅ Successfully checked minted transaction for BTC Txn Hash: ${btcTxnHash}`);
+            console.log(`✅ Successfully checked minted transaction for BTC Txn Hash: ${deposit.btc_txn_hash}`);
             successCount++;
           } else {
-            console.log(`❌ Failed to check minted transaction for BTC Txn Hash: ${btcTxnHash}: ${response.data.message}`);
+            console.log(`❌ Failed to check minted transaction for BTC Txn Hash: ${deposit.btc_txn_hash}: ${response.data.message}`);
             failedCount++;
           }
         } catch (error) {
-          console.error(`❌ Error processing BTC Txn Hash ${btcTxnHash}:`, error);
+          if (error.response) {
+            // The request was made and the server responded with a status code
+            // that falls out of the range of 2xx
+            const statusCode = error.response.status;
+            const errorMessage = error.response.data?.message || 'Unknown error';
+            
+            if (statusCode === 504) {
+              console.log(`❌ Gateway Timeout (504) for BTC Txn Hash ${deposit.btc_txn_hash}`);
+            } else {
+              console.log(`❌ API Error for BTC Txn Hash ${deposit.btc_txn_hash}: ${statusCode} - ${errorMessage}`);
+            }
+          } else if (error.request) {
+            // The request was made but no response was received
+            console.log(`❌ Network Error for BTC Txn Hash ${deposit.btc_txn_hash}: No response received`);
+          } else {
+            // Something happened in setting up the request that triggered an Error
+            console.log(`❌ Error for BTC Txn Hash ${deposit.btc_txn_hash}: ${error.message}`);
+          }
           failedCount++;
         }
+        
+        // Add a small delay between API calls to avoid rate limiting
+        await delay(500);
+        
+      } catch (error) {
+        console.error(`❌ Error processing BTC Txn Hash ${deposit.btc_txn_hash}:`, error);
+        failedCount++;
       }
     }
     
-    // Print summary statistics
-    console.log("\n📊 Batch Processing Summary:");
-    console.log(`📝 Total records processed: ${totalRecords}`);
-    console.log(`🔍 Filtered records (status 21, empty minted_txn_hash, empty remarks): ${filteredRecords}`);
-    console.log(`❌ No matching NEAR transaction: ${noMatchingNearTxn}`);
+    // Print final summary
+    console.log("\n📊 Final Processing Summary:");
     console.log(`✅ Successfully processed: ${successCount}`);
-    console.log(`⚠️ Failed to process: ${failedCount}`);
+    console.log(`❌ Failed to process: ${failedCount}`);
+    console.log(`⚠️ No matching NEAR transaction: ${noMatchingNearTxn}`);
     
   } catch (error) {
     console.error("❌ Error processing deposits with status 21:", error);
@@ -1658,7 +1687,7 @@ async function main() {
       console.log("\nℹ️  Skipping nearblocks.xlsx generation (disabled in CONFIG)");
     }
     
-    if (CONFIG.PROCESS_DEPOSITS_STATUS_21) {
+    if (CONFIG.GENERATE_DEPOSITS_STATUS_21_XLSX) {
       const startTime = new Date();
       console.log(`\n⏳ Starting deposits status 21 processing at ${formatDate(startTime)}`);
       
