@@ -1,3 +1,14 @@
+// Add timing utility at the top
+const startTime = process.hrtime();
+
+function logTime(message) {
+  const [seconds, nanoseconds] = process.hrtime(startTime);
+  const milliseconds = (seconds * 1000) + (nanoseconds / 1000000);
+  console.log(`[${milliseconds.toFixed(2)}ms] ${message}`);
+}
+
+logTime("Script started");
+
 // This script generates Excel files which contains different information.
 
 // Configuration flags for file generation
@@ -7,13 +18,20 @@ const CONFIG = {
   GENERATE_UTXOS_XLSX: false,           // Set to true to enable UTXOs.xlsx generation
   GENERATE_PUBKEY_XLSX: false,          // Set to true to enable pubkeys.xlsx generation
   GENERATE_NEAR_BLOCKS_XLSX: true,      // Set to true to enable nearblocks.xlsx generation
+  PROCESS_DEPOSITS_STATUS_21: false,     // Set to true to process deposits with status 21
   
   DEPOSITS: {
     OUTPUT_FILE: "deposits.xlsx",       // Output filename for deposits batch
     MAX_RECORDS: null,                  // Set to null for all records, or a number for limit
     BATCH_SIZE: 500,                    // How many records to fetch per API call
-    START_INDEX: 0,                  // Starting index for fetching deposits
-    PRINT_CLI_OUTPUT: false              // Set to true to print raw CLI output
+    START_INDEX: 0,                     // Starting index for fetching deposits
+    PRINT_CLI_OUTPUT: false,            // Set to true to print raw CLI output
+    COLUMNS: {
+      BTC_TXN_HASH: 1,                  // Column index for BTC Txn Hash
+      MINTED_TXN_HASH: 7,               // Column index for Minted Txn Hash
+      STATUS: 11,                       // Column index for Status      
+      REMARKS: 12                       // Column index for Remarks
+    }
   },
   
   DEPOSITS_QUEST2: {
@@ -44,103 +62,77 @@ const CONFIG = {
   },
   
   NEAR: {
-    //START_BLOCK: 189828205,            // Starting block number to scan from for first testnet deposit
-    START_BLOCK: 190172631,            // Starting block number to scan from
+    START_BLOCK: 189828204,            // Starting block number to scan from for first testnet deposit
+    //START_BLOCK: 191550000,            // Starting block number to scan from
     CONTRACT: "v2.atlas_public_testnet.testnet",  // Updated contract ID
     OUTPUT_FILE: "nearblocks.xlsx",    // Output filename
     ERROR_OUTPUT_FILE: "nearblocks_errors.txt",  // File to log block processing errors
     WORKSHEET_NAME: "NEAR Blocks",     // Name of the worksheet in Excel file
     RPC_ENDPOINT: "https://neart.lava.build",  // NEAR RPC endpoint
-    THREAD_COUNT: 100,                 // Number of parallel threads to process blocks
-    BLOCKS_PER_THREAD: 10              // Number of blocks each thread processes
+    //RPC_ENDPOINT: "https://rpc.testnet.fastnear.com",  // NEAR RPC endpoint    
+    THREAD_COUNT: 10,                  // Number of parallel threads to process blocks
+    BLOCKS_PER_THREAD: 5,              // Number of blocks each thread processes
+    COLUMNS: {
+      // Only include columns used in processDepositsStatus21
+      NEAR_TXN_HASH: 4,                 // Column index for Near Txn Hash
+      BTC_TXN_HASH: 7,                  // Column index for BTC Txn Hash      
+    }
   }
 };
 
-// Initialize NEAR provider
-const { providers } = require("near-api-js");
-const provider = new providers.JsonRpcProvider({ url: CONFIG.NEAR.RPC_ENDPOINT });
+logTime("CONFIG loaded");
+
+// Define required dependencies for each feature
+const FEATURE_DEPENDENCIES = {
+  GENERATE_DEPOSITS_XLSX: ['excelJs'],
+  GENERATE_DEPOSITS_QUEST2_XLSX: ['excelJs', 'axios'],
+  GENERATE_UTXOS_XLSX: ['excelJs', 'axios'],
+  GENERATE_PUBKEY_XLSX: ['excelJs'],
+  GENERATE_NEAR_BLOCKS_XLSX: ['excelJs', 'nearApi'],
+  PROCESS_DEPOSITS_STATUS_21: ['excelJs', 'axios']
+};
+
+// Global variables for modules
+let excelJs = null;
+let axios = null;
+let nearApi = null;
+let provider = null;
+
+// Optimized lazy loading functions
+async function loadNearApi() {
+  if (!nearApi) {
+    logTime("Loading near-api-js...");
+    nearApi = require("near-api-js");
+    provider = new nearApi.providers.JsonRpcProvider({ url: CONFIG.NEAR.RPC_ENDPOINT });
+    logTime("near-api-js loaded");
+  }
+  return nearApi;
+}
+
+async function loadExcelJS() {
+  if (!excelJs) {
+    logTime("Loading excelJs...");
+    excelJs = require("exceljs");
+    logTime("Loaded excelJs");
+  }
+  return excelJs;
+}
+
+async function loadAxios() {
+  if (!axios) {
+    logTime("Loading axios...");
+    axios = require('axios');
+    logTime("Loaded axios");
+  }
+  return axios;
+}
 
 console.log("⏳ Starting script initialization...");
 
+// Only load essential built-in modules at startup
 const { exec } = require("child_process");
 const path = require("path");
-const ExcelJS = require("exceljs");
-const axios = require('axios');
 const fs = require('fs').promises;
-
-/**
- * Fetches deposit records from NEAR using the CLI with pagination.
- */
-async function fetchDeposits() {
-  return new Promise((resolve, reject) => {
-    let allDeposits = [];
-    let startIndex = CONFIG.DEPOSITS.START_INDEX;
-    const limit = CONFIG.DEPOSITS.BATCH_SIZE;
-    
-    const fetchPage = () => {
-      const command = `near view v2.atlas_public_testnet.testnet get_all_deposits '{"from_index": ${startIndex}, "limit": ${limit}}'`;
-      
-      if (CONFIG.DEPOSITS.PRINT_CLI_OUTPUT) {
-        console.log(`\n🔍 Executing command: ${command}`);
-      }
-      
-      exec(
-        command,
-        { maxBuffer: 1024 * 1024 * 100 }, // 100 MB buffer
-        (error, stdout, stderr) => {
-          if (error) {
-            console.error(`Error executing CLI command: ${error.message}`);
-            return reject(error);
-          }
-          if (stderr) {
-            console.error(`NEAR CLI stderr: ${stderr}`);
-          }
-          try {
-            if (CONFIG.DEPOSITS.PRINT_CLI_OUTPUT) {
-              console.log(`📄 Raw CLI output:\n${stdout}`);
-            }
-            
-            const records = parseRecordsSeparately(stdout);
-            console.log(`Parsed ${records.length} records from index ${startIndex}`);
-            
-            // Add warning if records count is less than batch size
-            if (records.length < limit) {
-              console.log(`⚠️ Warning: Received ${records.length} records, expected ${limit} records`);
-            }
-            
-            // Add records up to MAX_RECORDS limit if specified
-            if (CONFIG.DEPOSITS.MAX_RECORDS !== null) {
-              const remainingSlots = CONFIG.DEPOSITS.MAX_RECORDS - allDeposits.length;
-              const recordsToAdd = records.slice(0, remainingSlots);
-              allDeposits = allDeposits.concat(recordsToAdd);
-              
-              // If we've reached MAX_RECORDS, resolve
-              if (allDeposits.length >= CONFIG.DEPOSITS.MAX_RECORDS) {
-                console.log(`Reached configured limit of ${CONFIG.DEPOSITS.MAX_RECORDS} records`);
-                return resolve(allDeposits);
-              }
-            } else {
-              allDeposits = allDeposits.concat(records);
-            }
-            
-            // If no more records or we've hit the limit, resolve
-            if (records.length === 0) {
-              return resolve(allDeposits);
-            }
-            
-            startIndex += limit;
-            fetchPage(); // Fetch the next page
-          } catch (e) {
-            console.error("Failed to parse deposit records:", e);
-            reject(e);
-          }
-        }
-      );
-    };
-
-    fetchPage(); // Start fetching pages
-  });
-}
 
 // Add these utility functions at the top of the file
 function formatDate(date) {
@@ -316,8 +308,8 @@ function parseRecordsSeparately(rawOutput) {
 /**
  * Exports deposit records to an Excel file using ExcelJS.
  */
-async function exportToExcel(deposits) {
-  const workbook = new ExcelJS.Workbook();
+async function exportToExcel(deposits) {  
+  const workbook = new excelJs.Workbook();
   const worksheet = workbook.addWorksheet("Deposits");
   
   worksheet.columns = [
@@ -462,7 +454,7 @@ function createUTXOWorksheet(workbook) {
  * along with their processing status
  */
 async function readExistingUTXOs() {
-  const workbook = new ExcelJS.Workbook();
+  const workbook = new excelJs.Workbook();
   const filePath = path.join(__dirname, CONFIG.UTXOS.OUTPUT_FILE);
   
   try {
@@ -472,7 +464,7 @@ async function readExistingUTXOs() {
     if (!worksheet) {
       console.log("ℹ️ No existing UTXOs file found or file is empty, will create new file");
       // Create a new workbook with the correct columns
-      const newWorkbook = new ExcelJS.Workbook();
+      const newWorkbook = new excelJs.Workbook();
       const newWorksheet = createUTXOWorksheet(newWorkbook);
       return { existingTxIds: new Set(), txIdToStatus: new Map(), workbook: newWorkbook, worksheet: newWorksheet };
     }
@@ -496,13 +488,13 @@ async function readExistingUTXOs() {
     if (error.code === 'ENOENT') {
       console.log(`ℹ️ No existing UTXOs file found at ${filePath}, will create new file`);
       // Create a new workbook with the correct columns
-      const newWorkbook = new ExcelJS.Workbook();
+      const newWorkbook = new excelJs.Workbook();
       const newWorksheet = createUTXOWorksheet(newWorkbook);
       return { existingTxIds: new Set(), txIdToStatus: new Map(), workbook: newWorkbook, worksheet: newWorksheet };
     }
     // For any other error, still create a new workbook instead of throwing
     console.log(`ℹ️ Error reading UTXOs file: ${error.message}, will create new file`);
-    const newWorkbook = new ExcelJS.Workbook();
+    const newWorkbook = new excelJs.Workbook();
     const newWorksheet = createUTXOWorksheet(newWorkbook);
     return { existingTxIds: new Set(), txIdToStatus: new Map(), workbook: newWorkbook, worksheet: newWorksheet };
   }
@@ -538,7 +530,7 @@ async function processAndExportUTXOs(utxos) {
   } catch (error) {
     console.error("❌ Error reading existing UTXOs:", error);
     // Create a new workbook if there was an error
-    workbook = new ExcelJS.Workbook();
+    workbook = new excelJs.Workbook();
     worksheet = createUTXOWorksheet(workbook);
     console.log("ℹ️ Created new workbook due to error, will process all UTXOs");
   }
@@ -775,13 +767,14 @@ async function checkLPShares(accountId, poolId) {
     });
   });
 }
+
 // Modify the processDepositsQuest2 function to check multiple pools
 async function processDepositsQuest2() {
   console.log("\n🔍 Processing deposits-quest2.xlsx...");
   
   try {
     // Read the existing Excel file
-    const workbook = new ExcelJS.Workbook();
+    const workbook = new excelJs.Workbook();
     const filePath = path.join(__dirname, CONFIG.DEPOSITS_QUEST2.INPUT_FILE);
     // console.log(`📄 Reading file from ${filePath}`);
     await workbook.xlsx.readFile(filePath);
@@ -913,7 +906,7 @@ async function processDepositsQuest2() {
 }
 
 // Add new functions for pubkey processing
-async function fetchPubkeys() {
+async function fetchPubkeys() {  
   return new Promise((resolve, reject) => {
     let allPubkeys = [];
     let startIndex = CONFIG.PUBKEY.START_INDEX;
@@ -956,8 +949,8 @@ async function fetchPubkeys() {
   });
 }
 
-async function exportPubkeysToExcel(pubkeys) {
-  const workbook = new ExcelJS.Workbook();
+async function exportPubkeysToExcel(pubkeys) {  
+  const workbook = new excelJs.Workbook();
   const worksheet = workbook.addWorksheet("BTC Pubkeys");
   
   // Define columns based on BtcAddressPubKeyRecord struct
@@ -1016,19 +1009,90 @@ async function exportPubkeysToExcel(pubkeys) {
 }
 
 /**
- * Main function to fetch and export UTXOs
+ * Fetches UTXOs and exports them to Excel in a single function
  */
 async function fetchAndExportUTXOs() {
-  try {
-    console.log("⏳ Fetching UTXO records from mempool.space...");
-    const utxos = await fetchUTXOs();
-    console.log(`✅ Retrieved ${utxos.length} UTXO records.`);
+  console.log("⏳ Fetching UTXOs from mempool.space...");
+  const utxos = await fetchUTXOs();
+  console.log(`✅ Retrieved ${utxos.length} UTXOs`);
+  
+  console.log("⏳ Processing and exporting UTXOs to Excel...");
+  await processAndExportUTXOs(utxos);
+}
+
+/**
+ * Fetches deposit records from NEAR using the CLI with pagination.
+ */
+async function fetchDeposits() {
+  return new Promise((resolve, reject) => {
+    let allDeposits = [];
+    let startIndex = CONFIG.DEPOSITS.START_INDEX;
+    const limit = CONFIG.DEPOSITS.BATCH_SIZE;
     
-    // Process and export UTXOs in a single pass
-    await processAndExportUTXOs(utxos);
-  } catch (error) {
-    console.error("❌ Error:", error);
-  }
+    const fetchPage = () => {
+      const command = `near view v2.atlas_public_testnet.testnet get_all_deposits '{"from_index": ${startIndex}, "limit": ${limit}}'`;
+      
+      if (CONFIG.DEPOSITS.PRINT_CLI_OUTPUT) {
+        console.log(`\n🔍 Executing command: ${command}`);
+      }
+      
+      exec(
+        command,
+        { maxBuffer: 1024 * 1024 * 100 }, // 100 MB buffer
+        (error, stdout, stderr) => {
+          if (error) {
+            console.error(`Error executing CLI command: ${error.message}`);
+            return reject(error);
+          }
+          if (stderr) {
+            console.error(`NEAR CLI stderr: ${stderr}`);
+          }
+          try {
+            if (CONFIG.DEPOSITS.PRINT_CLI_OUTPUT) {
+              console.log(`📄 Raw CLI output:\n${stdout}`);
+            }
+            
+            const records = parseRecordsSeparately(stdout);
+            console.log(`Parsed ${records.length} records from index ${startIndex}`);
+            
+            // Add warning if records count is less than batch size
+            if (records.length < limit) {
+              console.log(`⚠️ Warning: Received ${records.length} records, expected ${limit} records`);
+            }
+            
+            // Add records up to MAX_RECORDS limit if specified
+            if (CONFIG.DEPOSITS.MAX_RECORDS !== null) {
+              const remainingSlots = CONFIG.DEPOSITS.MAX_RECORDS - allDeposits.length;
+              const recordsToAdd = records.slice(0, remainingSlots);
+              allDeposits = allDeposits.concat(recordsToAdd);
+              
+              // If we've reached MAX_RECORDS, resolve
+              if (allDeposits.length >= CONFIG.DEPOSITS.MAX_RECORDS) {
+                console.log(`Reached configured limit of ${CONFIG.DEPOSITS.MAX_RECORDS} records`);
+                return resolve(allDeposits);
+              }
+            } else {
+              allDeposits = allDeposits.concat(records);
+            }
+            
+            // If no more records or we've hit the limit, resolve
+            if (records.length === 0) {
+              return resolve(allDeposits);
+            }
+            
+            startIndex += limit;
+            fetchPage(); // Fetch the next page
+          } catch (e) {
+            console.error("Failed to parse deposit records:", e);
+            reject(e);
+          }
+        }
+      );
+    };
+    
+    // Start fetching
+    fetchPage();
+  });
 }
 
 // Function to get current block number
@@ -1056,7 +1120,7 @@ async function getBlockDetails(blockNumber) {
 // Function to get the last block number from existing Excel file
 async function getLastBlockFromExcel(filePath) {
   try {
-    const workbook = new ExcelJS.Workbook();
+    const workbook = new excelJs.Workbook();
     await workbook.xlsx.readFile(filePath);
     const worksheet = workbook.getWorksheet(CONFIG.NEAR.WORKSHEET_NAME);
     
@@ -1199,6 +1263,7 @@ async function processBlockRange(startBlock, endBlock, threadId) {
           // Add any error to thread errors
           if (error) {
             threadErrors.push(error);
+
           }
           
           for (const event of events) {
@@ -1215,7 +1280,7 @@ async function processBlockRange(startBlock, endBlock, threadId) {
                 btc_txn_hash: event.btcTxnHash,
                 event_type: event.type
               });
-              
+
               console.log(`✅ Thread ${threadId}: Added event for block ${blockNumber}: ${event.type} with BTC txn hash: ${event.btcTxnHash}`);
             }
           }
@@ -1296,7 +1361,7 @@ async function processBatch(workbook, worksheet, startBlock, currentBlock, threa
     const batchEndTime = new Date();
     console.log(`⏰ Batch end time: ${formatDate(batchEndTime)}`);
     console.log(`⏱️ Batch duration: ${formatDuration(batchStartTime, batchEndTime)}`);
-    
+
     // Add a small delay between batches to avoid rate limiting
     await delay(200);
   }
@@ -1320,7 +1385,7 @@ async function processAndExportBlocks() {
       console.log(`🔄 Continuing from block: ${lastBlock + 1}`);
       
       // Load existing workbook
-      workbook = new ExcelJS.Workbook();
+      workbook = new excelJs.Workbook();
       await workbook.xlsx.readFile(filePath);
       worksheet = workbook.getWorksheet(CONFIG.NEAR.WORKSHEET_NAME);
       
@@ -1328,7 +1393,7 @@ async function processAndExportBlocks() {
       worksheet = createNearBlocksWorksheet(workbook, worksheet);
     } else {
       // Create new workbook
-      workbook = new ExcelJS.Workbook();
+      workbook = new excelJs.Workbook();
       worksheet = createNearBlocksWorksheet(workbook);
     }
     
@@ -1354,7 +1419,7 @@ async function processAndExportBlocks() {
         if (currentBlock > lastProcessedBlock) {
           const blocksToProcess = currentBlock - lastProcessedBlock;
           console.log(`📊 Processing ${blocksToProcess} new blocks`);
-          
+
           // Process the new blocks
           await processBatch(workbook, worksheet, lastProcessedBlock + 1, currentBlock, threadCount, blocksPerThread, filePath);
         } else {
@@ -1369,10 +1434,106 @@ async function processAndExportBlocks() {
         // Wait a bit longer on error before retrying
         await delay(10000);
       }
-    }
-    
+    }    
   } catch (error) {
     console.error("❌ Error:", error);
+  }
+}
+
+async function processDepositsStatus21() {
+  console.log("\n🔍 Processing deposits with status 21...");
+  
+  try {
+    // Read deposits.xlsx
+    const depositsWorkbook = new excelJs.Workbook();
+    const depositsFilePath = path.join(__dirname, CONFIG.DEPOSITS.OUTPUT_FILE);
+    await depositsWorkbook.xlsx.readFile(depositsFilePath);
+    
+    const depositsWorksheet = depositsWorkbook.getWorksheet(1) || depositsWorkbook.worksheets[0];
+    if (!depositsWorksheet) {
+      throw new Error("Worksheet not found in deposits.xlsx");
+    }
+    
+    // Read nearblocks.xlsx
+    const nearBlocksWorkbook = new excelJs.Workbook();
+    const nearBlocksFilePath = path.join(__dirname, CONFIG.NEAR.OUTPUT_FILE);
+    await nearBlocksWorkbook.xlsx.readFile(nearBlocksFilePath);
+    
+    const nearBlocksWorksheet = nearBlocksWorkbook.getWorksheet(1) || nearBlocksWorkbook.worksheets[0];
+    if (!nearBlocksWorksheet) {
+      throw new Error("Worksheet not found in nearblocks.xlsx");
+    }
+    
+    // Initialize counters
+    let totalRecords = 0;
+    let filteredRecords = 0;
+    let noMatchingNearTxn = 0;
+    let successCount = 0;
+    let failedCount = 0;
+    
+    // Create a map of BTC Txn Hash to NEAR Txn Hash from nearblocks.xlsx
+    const nearTxnMap = new Map();
+    for (let rowNumber = 2; rowNumber <= nearBlocksWorksheet.rowCount; rowNumber++) {
+      const row = nearBlocksWorksheet.getRow(rowNumber);
+      const btcTxnHash = row.getCell(CONFIG.NEAR.COLUMNS.BTC_TXN_HASH).value;
+      const nearTxnHash = row.getCell(CONFIG.NEAR.COLUMNS.NEAR_TXN_HASH).value;
+      if (btcTxnHash && nearTxnHash) {
+        nearTxnMap.set(btcTxnHash, nearTxnHash);
+      }
+    }
+    
+    // Process each row in deposits.xlsx
+    for (let rowNumber = 2; rowNumber <= depositsWorksheet.rowCount; rowNumber++) {
+      const row = depositsWorksheet.getRow(rowNumber);
+      const status = row.getCell(CONFIG.DEPOSITS.COLUMNS.STATUS).value;
+      const mintedTxnHash = row.getCell(CONFIG.DEPOSITS.COLUMNS.MINTED_TXN_HASH).value;
+      const remarks = row.getCell(CONFIG.DEPOSITS.COLUMNS.REMARKS).value;
+      const btcTxnHash = row.getCell(CONFIG.DEPOSITS.COLUMNS.BTC_TXN_HASH).value;
+      
+      totalRecords++;
+      
+      // Filter records with status 21, empty minted_txn_hash and empty remarks
+      if (status === 21 && (!mintedTxnHash || mintedTxnHash.trim() === '') && (!remarks || remarks.trim() === '')) {
+        filteredRecords++;
+        
+        try {
+          // Find corresponding NEAR transaction hash
+          const nearTxnHash = nearTxnMap.get(btcTxnHash);
+          
+          if (!nearTxnHash) {
+            console.log(`\n⚠️ No matching NEAR transaction found for BTC Txn Hash: ${btcTxnHash}`);
+            noMatchingNearTxn++;
+            continue;
+          }
+          
+          // Call the API to check minted transaction
+          const response = await axios.get(`https://testnet.atlasprotocol.com/api/v1/check-minted-txn?btcTxnHash=${btcTxnHash}&mintedTxnHash=${nearTxnHash}`);
+          
+          if (response.data.success) {
+            console.log(`✅ Successfully checked minted transaction for BTC Txn Hash: ${btcTxnHash}`);
+            successCount++;
+          } else {
+            console.log(`❌ Failed to check minted transaction for BTC Txn Hash: ${btcTxnHash}: ${response.data.message}`);
+            failedCount++;
+          }
+        } catch (error) {
+          console.error(`❌ Error processing BTC Txn Hash ${btcTxnHash}:`, error);
+          failedCount++;
+        }
+      }
+    }
+    
+    // Print summary statistics
+    console.log("\n📊 Batch Processing Summary:");
+    console.log(`📝 Total records processed: ${totalRecords}`);
+    console.log(`🔍 Filtered records (status 21, empty minted_txn_hash, empty remarks): ${filteredRecords}`);
+    console.log(`❌ No matching NEAR transaction: ${noMatchingNearTxn}`);
+    console.log(`✅ Successfully processed: ${successCount}`);
+    console.log(`⚠️ Failed to process: ${failedCount}`);
+    
+  } catch (error) {
+    console.error("❌ Error processing deposits with status 21:", error);
+    throw error;
   }
 }
 
@@ -1384,15 +1545,52 @@ async function main() {
   console.log(`\n🚀 Main process starting at ${formatDate(mainStartTime)}`);
   
   try {
+    // Preload dependencies based on enabled features
+    const enabledFeatures = Object.entries(CONFIG)
+      .filter(([key, value]) => typeof value === 'boolean' && value)
+      .map(([key]) => key);
+    
+    const requiredDependencies = new Set();
+    enabledFeatures.forEach(feature => {
+      if (FEATURE_DEPENDENCIES[feature]) {
+        FEATURE_DEPENDENCIES[feature].forEach(dep => requiredDependencies.add(dep));
+      }
+    });
+    
+    console.log("\n📦 Preloading required dependencies...");
+    const preloadPromises = [];
+    
+    if (requiredDependencies.has('excelJs')) {
+      preloadPromises.push(loadExcelJS());
+    }
+    if (requiredDependencies.has('nearApi')) {
+      preloadPromises.push(loadNearApi());
+    }
+    if (requiredDependencies.has('axios')) {
+      preloadPromises.push(loadAxios());
+    }
+    
+    await Promise.all(preloadPromises);
+    console.log("✅ Dependencies preloaded successfully");
+    
+    // Continue with initial processing
     if (CONFIG.GENERATE_DEPOSITS_XLSX) {
       const startTime = new Date();
-      console.log(`\n⏳ Starting deposits.xlsx generation at ${formatDate(startTime)}`);
+      console.log("\n🔍 Starting deposits processing...");
+      console.log(`⏰ Batch start time: ${formatDate(startTime)}`);
       
+      // First, fetch all deposits
       console.log("⏳ Fetching deposit records from NEAR...");
-      console.log(`ℹ️  Processing ${CONFIG.DEPOSITS.MAX_RECORDS === null ? 'all' : CONFIG.DEPOSITS.MAX_RECORDS} records`);
-      const deposits = await fetchDeposits();
-      console.log(`✅ Retrieved ${deposits.length} deposit records.`);
-
+      let deposits;
+      try {
+        deposits = await fetchDeposits();
+        console.log(`✅ Retrieved ${deposits.length} deposit records.`);
+      } catch (error) {
+        console.error("❌ Failed to fetch deposits:", error);
+        throw error;
+      }
+      
+      // Export to Excel
       console.log("⏳ Exporting to Excel...");
       await exportToExcel(deposits);
       
@@ -1460,6 +1658,19 @@ async function main() {
       console.log("\nℹ️  Skipping nearblocks.xlsx generation (disabled in CONFIG)");
     }
     
+    if (CONFIG.PROCESS_DEPOSITS_STATUS_21) {
+      const startTime = new Date();
+      console.log(`\n⏳ Starting deposits status 21 processing at ${formatDate(startTime)}`);
+      
+      await processDepositsStatus21();
+      
+      const endTime = new Date();
+      console.log(`✅ Completed deposits status 21 processing at ${formatDate(endTime)}`);
+      console.log(`⏱️ Duration: ${formatDuration(startTime, endTime)}`);
+    } else {
+      console.log("\nℹ️  Skipping deposits status 21 processing (disabled in CONFIG)");
+    }
+    
     const mainEndTime = new Date();
     console.log(`\n🏁 Main process completed at ${formatDate(mainEndTime)}`);
     console.log(`⏱️ Total Duration: ${formatDuration(mainStartTime, mainEndTime)}`);
@@ -1470,6 +1681,13 @@ async function main() {
     console.log(`🏁 Main process failed at ${formatDate(mainEndTime)}`);
     console.log(`⏱️ Total Duration: ${formatDuration(mainStartTime, mainEndTime)}`);
   }
+
+  // Add timing log at the end of the script
+  logTime("Script completed");
 }
 
-main();
+// Start the main process
+main().catch(error => {
+  console.error("❌ Fatal error:", error);
+  process.exit(1);
+});
