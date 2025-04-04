@@ -86,7 +86,7 @@ async function runWithdrawFailDepositIntegration(near, bitcoin, result) {
     console.log(JSON.stringify(result, null, 2));
     console.log(relayedTxHash);
     console.log("------------------------------------");
-    await near.updateDepositCustodyTxnId(result.btc_txn_hash, relayedTxHash);
+    await near.updateDepositRefundTxnId(result.btc_txn_hash, relayedTxHash);
   } catch (error) {
     console.error(`Error ${result.btc_txn_hash}:`, error);
     await near.updateDepositRemarks(

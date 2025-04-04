@@ -100,7 +100,7 @@ class Near {
           "update_deposit_minted_txn_hash",
           "update_deposit_minted",
           "update_deposit_btc_deposited",
-          "update_deposit_custody_txn_id",
+          "update_deposit_refund_txn_id",
           "create_atlas_signed_payload",
           "create_redeem_abtc_transaction",
           "update_redemption_pending_btc_mempool",
@@ -148,7 +148,12 @@ class Near {
         this.account,
         this.bitHiveContractId,
         {
-          viewMethods: ["get_deposit", "view_account", "get_summary", "get_deposits"],
+          viewMethods: [
+            "get_deposit",
+            "view_account",
+            "get_summary",
+            "get_deposits",
+          ],
         },
       );
     } catch (error) {
@@ -289,10 +294,10 @@ class Near {
     );
   }
 
-  async updateDepositCustodyTxnId(btc_txn_hash, custody_txn_id) {
-    return this.makeNearRpcChangeCall("update_deposit_custody_txn_id", {
+  async updateDepositRefundTxnId(btc_txn_hash, refund_txn_id) {
+    return this.makeNearRpcChangeCall("update_deposit_refund_txn_id", {
       btc_txn_hash,
-      custody_txn_id,
+      refund_txn_id,
     });
   }
 

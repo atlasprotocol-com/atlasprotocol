@@ -22,16 +22,15 @@ async function UpdateWithdrawFailDeposits(allDeposits, near, bitcoin) {
 
   try {
     const refundingDeposits = allDeposits.filter(
-      (d) =>
-        d.status === DEPOSIT_STATUS.DEP_BTC_REFUNDING && !!d.custody_txn_id,
+      (d) => d.status === DEPOSIT_STATUS.DEP_BTC_REFUNDING && !!d.refund_txn_id,
     );
 
     for (let deposit of refundingDeposits) {
-      const tx = await bitcoin.fetchTxnByTxnID(deposit.custody_txn_id);
+      const tx = await bitcoin.fetchTxnByTxnID(deposit.refund_txn_id);
       const confirmed = tx && tx.status && tx.status.confirmed;
 
       console.log(
-        `[${deposit.btc_txn_hash}] withdraw_tx: ${deposit.custody_txn_id} status: ${tx.status.confirmed}`,
+        `[${deposit.btc_txn_hash}] withdraw_tx: ${deposit.refund_txn_id} status: ${tx.status.confirmed}`,
       );
       if (confirmed) {
         await near.updateWithdrawFailDepositStatus(
