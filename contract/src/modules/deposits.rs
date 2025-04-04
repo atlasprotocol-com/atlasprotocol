@@ -111,7 +111,7 @@ impl Atlas {
             yield_provider_txn_hash,
             retry_count: 0,
             minted_txn_hash_verified_count: 0,
-            custody_txn_id: "".to_string(),
+            refund_txn_id: "".to_string(),
         };
 
         self.deposits.insert(btc_txn_hash, record);
@@ -1364,21 +1364,21 @@ impl Atlas {
         env::panic_str("Deposit is not found.")
     }
 
-    pub fn update_deposit_custody_txn_id(&mut self, btc_txn_hash: String, custody_txn_id: String) {
+    pub fn update_deposit_refund_txn_id(&mut self, btc_txn_hash: String, refund_txn_id: String) {
         self.assert_not_paused();
         self.assert_admin();
 
         // Validate input parameters
         assert!(!btc_txn_hash.is_empty(), "Transaction hash cannot be empty");
         assert!(
-            !custody_txn_id.is_empty(),
+            !refund_txn_id.is_empty(),
             "Custody transaction ID cannot be empty"
         );
 
         // Retrieve the redemption record based on txn_hash
         if let Some(mut deposit) = self.deposits.get(&btc_txn_hash.clone()).cloned() {
-            if deposit.status == DEP_BTC_REFUNDING && deposit.custody_txn_id.is_empty() {
-                deposit.custody_txn_id = custody_txn_id.clone();
+            if deposit.status == DEP_BTC_REFUNDING && deposit.refund_txn_id.is_empty() {
+                deposit.refund_txn_id = refund_txn_id.clone();
                 self.deposits.insert(btc_txn_hash.clone(), deposit);
             } else {
                 env::panic_str("Deposit is not in invalid conditions.");
@@ -1400,7 +1400,7 @@ impl Atlas {
 
         // Retrieve the redemption record based on txn_hash
         if let Some(mut deposit) = self.deposits.get(&btc_txn_hash.clone()).cloned() {
-            if deposit.status == DEP_BTC_REFUNDING && !deposit.custody_txn_id.is_empty() {
+            if deposit.status == DEP_BTC_REFUNDING && !deposit.refund_txn_id.is_empty() {
                 deposit.status = DEP_BTC_REFUNDED;
                 self.deposits.insert(btc_txn_hash.clone(), deposit);
             } else {
@@ -1444,7 +1444,7 @@ impl Atlas {
         remarks: String,
         retry_count: u8,
         verified_count: u8,
-        custody_txn_id: String,
+        refund_txn_id: String,
     ) {
         // Validate input parameters
         assert!(!txn_hash.is_empty(), "Transaction hash cannot be empty");
@@ -1455,7 +1455,7 @@ impl Atlas {
             deposit.remarks = remarks;
             deposit.retry_count = retry_count;
             deposit.verified_count = verified_count;
-            deposit.custody_txn_id = custody_txn_id;
+            deposit.refund_txn_id = refund_txn_id;
 
             // Update the deposit record in the map
             self.deposits.insert(txn_hash.clone(), deposit);

@@ -46,7 +46,7 @@ pub struct DepositRecord {
     pub yield_provider_txn_hash: String,
     pub retry_count: u8,
     pub minted_txn_hash_verified_count: u8,
-    pub custody_txn_id: String,
+    pub refund_txn_id: String,
 }
 
 #[derive(BorshDeserialize, BorshSerialize, Deserialize, Serialize, Clone)]
@@ -139,4 +139,3 @@ pub struct BtcAddressPubKeyRecord {
     pub btc_address: String,
     pub public_key: String,
 }
-
