@@ -1364,29 +1364,31 @@ impl Atlas {
         env::panic_str("Deposit is not found.")
     }
 
-    pub fn update_deposit_refund_txn_id(&mut self, btc_txn_hash: String, refund_txn_id: String) {
-        self.assert_not_paused();
-        self.assert_admin();
+    /// Returns a vector of unique BTC sender addresses from all deposits
+    /// The addresses are returned in no particular order
+    pub fn get_unique_btc_sender_addresses(&self) -> Vec<String> {
+        let mut unique_addresses = std::collections::HashSet::new();
 
-        // Validate input parameters
-        assert!(!btc_txn_hash.is_empty(), "Transaction hash cannot be empty");
-        assert!(
-            !refund_txn_id.is_empty(),
-            "Custody transaction ID cannot be empty"
-        );
-
-        // Retrieve the redemption record based on txn_hash
-        if let Some(mut deposit) = self.deposits.get(&btc_txn_hash.clone()).cloned() {
-            if deposit.status == DEP_BTC_REFUNDING && deposit.refund_txn_id.is_empty() {
-                deposit.refund_txn_id = refund_txn_id.clone();
-                self.deposits.insert(btc_txn_hash.clone(), deposit);
-            } else {
-                env::panic_str("Deposit is not in invalid conditions.");
+        // Iterate through all deposits and collect unique addresses
+        for deposit in self.deposits.values() {
+            if !deposit.btc_sender_address.is_empty() {
+                unique_addresses.insert(deposit.btc_sender_address.clone());
             }
-        } else {
-            env::panic_str("Deposit record not found");
         }
+
+        // Convert the HashSet to a Vec and return
+        unique_addresses.into_iter().collect()
     }
+
+    /// Returns a vector of deposits that have non-empty remarks
+    pub fn get_deposits_with_remarks(&self) -> Vec<DepositRecord> {
+        self.deposits
+            .values()
+            .filter(|deposit| !deposit.remarks.is_empty())
+            .cloned()
+            .collect()
+    }
+
     pub fn update_withdraw_fail_deposit_status(&mut self, btc_txn_hash: String, timestamp: u64) {
         self.assert_not_paused();
         self.assert_admin();
@@ -1411,29 +1413,28 @@ impl Atlas {
         }
     }
 
-    /// Returns a vector of unique BTC sender addresses from all deposits
-    /// The addresses are returned in no particular order
-    pub fn get_unique_btc_sender_addresses(&self) -> Vec<String> {
-        let mut unique_addresses = std::collections::HashSet::new();
+    pub fn update_deposit_refund_txn_id(&mut self, btc_txn_hash: String, refund_txn_id: String) {
+        self.assert_not_paused();
+        self.assert_admin();
 
-        // Iterate through all deposits and collect unique addresses
-        for deposit in self.deposits.values() {
-            if !deposit.btc_sender_address.is_empty() {
-                unique_addresses.insert(deposit.btc_sender_address.clone());
+        // Validate input parameters
+        assert!(!btc_txn_hash.is_empty(), "Transaction hash cannot be empty");
+        assert!(
+            !refund_txn_id.is_empty(),
+            "Custody transaction ID cannot be empty"
+        );
+
+        // Retrieve the redemption record based on txn_hash
+        if let Some(mut deposit) = self.deposits.get(&btc_txn_hash.clone()).cloned() {
+            if deposit.status == DEP_BTC_REFUNDING && deposit.refund_txn_id.is_empty() {
+                deposit.refund_txn_id = refund_txn_id.clone();
+                self.deposits.insert(btc_txn_hash.clone(), deposit);
+            } else {
+                env::panic_str("Deposit is not in invalid conditions.");
             }
+        } else {
+            env::panic_str("Deposit record not found");
         }
-
-        // Convert the HashSet to a Vec and return
-        unique_addresses.into_iter().collect()
-    }
-
-    /// Returns a vector of deposits that have non-empty remarks
-    pub fn get_deposits_with_remarks(&self) -> Vec<DepositRecord> {
-        self.deposits
-            .values()
-            .filter(|deposit| !deposit.remarks.is_empty())
-            .cloned()
-            .collect()
     }
 
     /// Updates specific fields of a deposit record identified by its txn_hash

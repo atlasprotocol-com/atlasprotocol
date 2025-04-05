@@ -1,18 +1,18 @@
 use crate::chain_configs::ChainConfigs;
 use crate::global_params::GlobalParams;
 use crate::modules::structs::{BridgingRecord, DepositRecord, RedemptionRecord};
-use crate::Atlas;
-use crate::AtlasExt;
+use crate::{Atlas, DepositRecordOld};
+use crate::{AtlasExt, BtcAddressPubKeyRecord};
 use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::{env, near_bindgen, store::IterableMap, AccountId};
 
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct OldState {
-    pub deposits: IterableMap<String, DepositRecord>,
+    pub deposits: IterableMap<String, DepositRecordOld>,
     pub redemptions: IterableMap<String, RedemptionRecord>,
     pub bridgings: IterableMap<String, BridgingRecord>,
-    pub validators: IterableMap<AccountId, Vec<String>>, // list of validators: <AccountId -> Vector of authorised chains (chain_id)>
-    pub verifications: IterableMap<String, Vec<AccountId>>, // list of verifications: <Txn Hash of deposit/redemption/bridging -> Vector of validators (AccountId)>
+    pub validators: IterableMap<AccountId, Vec<String>>,
+    pub verifications: IterableMap<String, Vec<AccountId>>,
     pub owner_id: AccountId,
     pub proposed_owner_id: Option<AccountId>,
     pub admin_id: AccountId,
@@ -21,6 +21,7 @@ pub struct OldState {
     pub chain_configs: ChainConfigs,
     pub paused: bool,
     pub production_mode: bool,
+    pub btc_pubkey: IterableMap<String, BtcAddressPubKeyRecord>,
 }
 
 #[near_bindgen]
@@ -60,6 +61,7 @@ impl Atlas {
 
         Self {
             deposits: new_deposits,
+            // deposits: old_state.deposits,
             redemptions: old_state.redemptions,
             bridgings: old_state.bridgings,
             owner_id: old_state.owner_id,
