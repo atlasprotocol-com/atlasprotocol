@@ -24,32 +24,45 @@ async function UpdateYieldProviderStaked(allDeposits, bithiveRecords, near) {
           deposit.remarks === "",
       );
 
+      console.log("filteredTxns: ", filteredTxns.length);
+      const relevantBithiveRecords = bithiveRecords.filter(record => 
+        filteredTxns.some(txn => txn.yield_provider_txn_hash === record.depositTxHash)
+      );
+      console.log("Relevant bithiveRecords: ", relevantBithiveRecords.length);
+
       for (const txn of filteredTxns) {
         try {
-          const deposit = bithiveRecords.find(
+          
+          const deposit = await near.getDepositByBtcTxnHash(txn.btc_txn_hash);
+
+          // Another check to ensure the onchain deposit is in the correct status
+          if (deposit.status !== DEPOSIT_STATUS.BTC_PENDING_YIELD_PROVIDER_DEPOSIT || deposit.remarks !== "") {
+            continue;
+          }
+
+          const bithiveDeposit = relevantBithiveRecords.find(
             (d) => d.depositTxHash === txn.yield_provider_txn_hash,
           );
 
-          if (!deposit) {
+          if (!bithiveDeposit) {
+            console.log("bithiveDeposit not found for txn: ", txn);
             return;
           }
 
-          if (deposit.status === BITHIVE_STATUS.DEPOSIT_FAILED) {
-            console.log(BITHIVE_STATUS.DEPOSIT_FAILED)           
-            console.log("deposit.status", deposit.status);
-            console.log(deposit);
+          if (bithiveDeposit.status === BITHIVE_STATUS.DEPOSIT_FAILED) {
             throw new Error(
               `Yield provider returned failed deposit`,
             );
           }
 
           const ok =
-            deposit.status === BITHIVE_STATUS.DEPOSIT_CONFIRMED ||
-            deposit.status === BITHIVE_STATUS.DEPOSIT_CONFIRMED_INVALID ||
-            deposit.status === BITHIVE_STATUS.WITHDRAW_CONFIRMED;
+          bithiveDeposit.status === BITHIVE_STATUS.DEPOSIT_CONFIRMED ||
+          bithiveDeposit.status === BITHIVE_STATUS.DEPOSIT_CONFIRMED_INVALID ||
+          bithiveDeposit.status === BITHIVE_STATUS.WITHDRAW_CONFIRMED;
           if (!ok) {
             continue;
           }
+
           await near.updateDepositYieldProviderDeposited(txn.btc_txn_hash);
         } catch (error) {
           let remarks = error.toString();
@@ -63,6 +76,7 @@ async function UpdateYieldProviderStaked(allDeposits, bithiveRecords, near) {
     } catch (error) {
       console.log("Error updating stake to yield provider deposited:", error);
     } finally {
+      console.log(`${batchName}. Completed run...`);
       flagsBatch.UpdateYieldProviderStakedRunning = false;
     }
   }

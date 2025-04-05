@@ -61,16 +61,28 @@ async function StakeToYieldProvider(allDeposits, near, bitcoinInstance) {
             }
           }
         )
-        .slice(0, 1); // Get only first record
+        //.slice(0, 1); // Get only first record
 
-      for (const depositRecord of filteredDeposits) {
+        console.log("filteredDeposits in stakeToYieldProvider: ", filteredDeposits.length);
+
+      for (let i = 0; i < filteredDeposits.length; i++) {
+        const depositRecord = filteredDeposits[i];
+        console.log("stakeToYieldProvider loop: ", i);
         console.log("Processing deposit:", depositRecord);
         const btcTxnHash = depositRecord.btc_txn_hash;
         const yieldProviderGasFee = depositRecord.yield_provider_gas_fee;
 
         try {
           
-          await near.updateDepositPendingYieldProviderDeposit(btcTxnHash);
+          const deposit = await near.getDepositByBtcTxnHash(btcTxnHash);
+
+          // Another check to ensure the onchain deposit is in the correct status
+          if (deposit.status === DEPOSIT_STATUS.BTC_DEPOSITED_INTO_ATLAS && deposit.remarks === "") {
+            await near.updateDepositPendingYieldProviderDeposit(btcTxnHash);
+          }
+          else {
+            continue;
+          }
 
           // Convert publicKey to a string
           const publicKeyString = publicKey.toString("hex");
@@ -106,10 +118,11 @@ async function StakeToYieldProvider(allDeposits, near, bitcoinInstance) {
           });
 
           console.log("txHash:", txHash);
-
-          console.log("Status updated");
+          console.log("Updating Yield provider txn hash");
 
           await near.updateYieldProviderTxnHash(btcTxnHash, txHash);
+
+          console.log("Yield provider txn hash updated");
 
           console.log(`${batchName} completed successfully.`);
         } catch (error) {
@@ -136,10 +149,8 @@ async function StakeToYieldProvider(allDeposits, near, bitcoinInstance) {
             }
           }
           else {
-            
             await near.updateDepositRemarks(btcTxnHash, remarks);
           }
-          break;
         }
       }
     } catch (error) {
