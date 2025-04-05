@@ -1,11 +1,11 @@
-CONTRACT_ID ?= atlas_signet_20250316
-FT_CONTRACT_ID ?= atbtc_signet_20250316
+CONTRACT_ID ?= atlas_signet_20250405
+FT_CONTRACT_ID ?= atbtc_signet_20250405
 
-# CONTRACT_ID ?= atlas_audit_v20241223
-# FT_CONTRACT_ID ?= atbtc_audit_v20241223
 
-# CONTRACT_ID ?= atlas_audit_v2
-# FT_CONTRACT_ID ?= atbtc_audit_v2
+migrate: 
+	./build.sh
+	near deploy $(CONTRACT_ID).velar.testnet res/atlas_protocol.wasm;
+	near call $(CONTRACT_ID).velar.testnet migrate {} --accountId velar.testnet
 
 redeploy-all: redeploy redeploy-near-ft
 

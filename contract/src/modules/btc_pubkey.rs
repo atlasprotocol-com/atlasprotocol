@@ -1,20 +1,14 @@
 use crate::atlas::Atlas;
-use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::near_bindgen;
-use near_sdk::store::IterableMap;
-use near_sdk::AccountId;
-use near_sdk::PanicOnDefault;
-use crate::AtlasExt;
 use crate::modules::structs::BtcAddressPubKeyRecord;
+use crate::AtlasExt;
+use near_sdk::near_bindgen;
 
 #[near_bindgen]
 impl Atlas {
-
     pub fn insert_btc_pubkey(&mut self, btc_address: String, public_key: String) {
-
         self.assert_not_paused();
         self.assert_admin();
-        
+
         // Validate input parameters
         assert!(!btc_address.is_empty(), "BTC address cannot be empty.");
         assert!(!public_key.is_empty(), "Public key cannot be empty.");
@@ -44,12 +38,15 @@ impl Atlas {
 
     pub fn get_all_btc_pubkeys(&self, from_index: u64, limit: u64) -> Vec<BtcAddressPubKeyRecord> {
         // Validate input parameters
-        assert!(limit > 0 && limit <= 1000, "Limit must be between 1 and 1000");
-        
+        assert!(
+            limit > 0 && limit <= 1000,
+            "Limit must be between 1 and 1000"
+        );
+
         // Calculate the end index
         let total_records = self.btc_pubkey.len() as u64;
         let end_index = std::cmp::min(from_index + limit, total_records);
-        
+
         // Return empty vector if starting index is beyond total records
         if from_index >= total_records {
             return Vec::new();
@@ -78,4 +75,4 @@ impl Atlas {
         // Return the number of records that were deleted
         records_count as u64
     }
-} 
+}

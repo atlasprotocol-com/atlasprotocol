@@ -28,6 +28,28 @@ pub struct Atlas {
 
 #[derive(BorshDeserialize, BorshSerialize, Deserialize, Serialize, Clone)]
 #[borsh(crate = "near_sdk::borsh")]
+pub struct DepositRecordOld {
+    pub btc_txn_hash: String,
+    pub btc_sender_address: String,
+    pub receiving_chain_id: String,
+    pub receiving_address: String,
+    pub btc_amount: u64,
+    pub protocol_fee: u64,
+    pub minted_txn_hash: String,
+    pub minting_fee: u64,
+    pub timestamp: u64,
+    pub status: u8,
+    pub remarks: String,
+    pub date_created: u64,
+    pub verified_count: u8,
+    pub yield_provider_gas_fee: u64,
+    pub yield_provider_txn_hash: String,
+    pub retry_count: u8,
+    pub minted_txn_hash_verified_count: u8,
+}
+
+#[derive(BorshDeserialize, BorshSerialize, Deserialize, Serialize, Clone)]
+#[borsh(crate = "near_sdk::borsh")]
 pub struct DepositRecord {
     pub btc_txn_hash: String,
     pub btc_sender_address: String,
@@ -46,7 +68,7 @@ pub struct DepositRecord {
     pub yield_provider_txn_hash: String,
     pub retry_count: u8,
     pub minted_txn_hash_verified_count: u8,
-    pub custody_txn_id: String,
+    pub refund_txn_id: String,
 }
 
 #[derive(BorshDeserialize, BorshSerialize, Deserialize, Serialize, Clone)]
@@ -139,4 +161,3 @@ pub struct BtcAddressPubKeyRecord {
     pub btc_address: String,
     pub public_key: String,
 }
-
