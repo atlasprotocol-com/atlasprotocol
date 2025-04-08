@@ -149,9 +149,10 @@ const computeStats = async () => {
 
 // Function to poll Near Atlas deposit records
 const getAllDepositHistory = async (limit = 1000) => {
-
   if (flagsBatch.GetAllDepositHistoryRunning) {
-    console.log("[getAllDepositHistory] GetAllDepositHistoryRunning is running");
+    console.log(
+      "[getAllDepositHistory] GetAllDepositHistoryRunning is running",
+    );
     return;
   }
 
@@ -159,10 +160,10 @@ const getAllDepositHistory = async (limit = 1000) => {
 
   try {
     //console.log("[getAllDepositHistory] Starting at", new Date().toISOString());
-    
+
     // First, get the first batch to check if there are any deposits
     const firstBatch = await near.getAllDeposits(0, limit);
-    
+
     if (firstBatch.length === 0) {
       deposits = [];
       console.log("[getAllDepositHistory] No deposits found");
@@ -184,23 +185,24 @@ const getAllDepositHistory = async (limit = 1000) => {
 
     // Fetch all batches in parallel
     const batchResults = await Promise.all(batchPromises);
-    
+
     // Combine all results
-    batchResults.forEach(batch => {
+    batchResults.forEach((batch) => {
       allDeposits = allDeposits.concat(batch);
     });
 
     deposits = allDeposits;
 
-    console.log("[getAllDepositHistory] Total deposits fetched:", deposits.length);
+    console.log(
+      "[getAllDepositHistory] Total deposits fetched:",
+      deposits.length,
+    );
   } catch (error) {
     console.error(`[getAllDepositHistory] Failed: ${error.message}`);
-  }
-  finally {
+  } finally {
     flagsBatch.GetAllDepositHistoryRunning = false;
   }
 };
-
 
 // Function to poll Near Atlas redemption records
 const getAllRedemptionHistory = async () => {
@@ -245,15 +247,17 @@ const getBithiveRecords = async () => {
     //console.log("[getBithiveRecords] Starting at", new Date().toISOString());
     const { publicKey } = await bitcoin.deriveBTCAddress(near);
     //console.log("[getBithiveRecords] Got public key, fetching deposits");
-    bithiveRecords = await getBithiveDeposits(publicKey.toString("hex"), deposits.length);
+    bithiveRecords = await getBithiveDeposits(
+      publicKey.toString("hex"),
+      deposits.length,
+    );
     //console.log("[getBithiveRecords] Completed at", new Date().toISOString());
-  } catch (error) { 
+  } catch (error) {
     console.error(`[getBithiveRecords] Failed: ${error.message}`);
-  }
-  finally {
+  } finally {
     flagsBatch.GetBithiveRecordsRunning = false;
   }
-};  
+};
 
 app.get("/api/v1/atlas/address", async (req, res) => {
   try {
@@ -588,7 +592,7 @@ let isProcessing = false;
 
 async function processPubkeyQueue() {
   if (isProcessing || insertPubkeyQueue.length === 0) return;
-  
+
   isProcessing = true;
   const { btcAddress, publicKey, res } = insertPubkeyQueue.shift();
 
@@ -596,7 +600,7 @@ async function processPubkeyQueue() {
     await near.insertBtcPubkey(btcAddress, publicKey);
     res.json({
       success: true,
-      message: "Successfully processed BTC pubkey", 
+      message: "Successfully processed BTC pubkey",
     });
   } catch (error) {
     console.error("Error processing BTC pubkey:", error);
@@ -631,11 +635,10 @@ app.get("/api/v1/insert-btc-pubkey", async (req, res) => {
     // Add request to queue if pubkey doesn't exist
     insertPubkeyQueue.push({ btcAddress, publicKey, res });
     processPubkeyQueue();
-
   } catch (error) {
     console.error("Error queueing BTC pubkey insertion:", error);
     res.status(500).json({
-      error: "Failed to queue BTC pubkey insertion", 
+      error: "Failed to queue BTC pubkey insertion",
       details: error.message,
     });
   }
@@ -704,15 +707,13 @@ async function runBatch() {
     near,
     bitcoin,
   );
-  
 
   // await WithdrawFailDeposits(deposits, near, bitcoin);
   // await UpdateWithdrawFailDeposits(deposits, near, bitcoin);
 
-  // await UpdateAtlasBtcWithdrawnFromYieldProvider(redemptions, near, bitcoin);
-
-  // await SendBtcBackToUser(near, bitcoin);
-  // await UpdateAtlasBtcBackToUser(redemptions, near, bitcoin);
+  await UpdateAtlasBtcWithdrawnFromYieldProvider(redemptions, near, bitcoin);
+  await SendBtcBackToUser(near, bitcoin);
+  await UpdateAtlasBtcBackToUser(redemptions, near, bitcoin);
 
   // await MintBridgeABtcToDestChain(near);
 
@@ -760,14 +761,14 @@ app.listen(PORT, async () => {
 
   setInterval(async () => {
     await UpdateYieldProviderStaked(deposits, bithiveRecords, near);
-  }, 10000); 
+  }, 10000);
 
   setInterval(async () => {
     await UpdateAtlasAbtcMinted(deposits, near);
   }, 10000);
 
   setInterval(async () => {
-    await StakeToYieldProvider(deposits, near, bitcoin); 
+    await StakeToYieldProvider(deposits, near, bitcoin);
   }, 10000);
 
   setInterval(async () => {
