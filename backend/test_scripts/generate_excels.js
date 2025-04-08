@@ -13,8 +13,8 @@ logTime("Script started");
 
 // Configuration flags for file generation
 const CONFIG = {
-  GENERATE_DEPOSITS_XLSX: true,        // Set to true to enable deposits.xlsx generation
-  GENERATE_DEPOSITS_QUEST2_XLSX: false,  // Set to true to enable deposits-quest2.xlsx generation
+  GENERATE_DEPOSITS_XLSX: false,        // Set to true to enable deposits.xlsx generation
+  GENERATE_DEPOSITS_QUEST2_XLSX: true,  // Set to true to enable deposits-quest2.xlsx generation
   GENERATE_UTXOS_XLSX: false,           // Set to true to enable UTXOs.xlsx generation
   GENERATE_PUBKEY_XLSX: false,          // Set to true to enable pubkeys.xlsx generation
   GENERATE_NEAR_BLOCKS_XLSX: false,      // Set to true to enable nearblocks.xlsx generation
@@ -64,9 +64,13 @@ const CONFIG = {
   
   NEAR: {
     //START_BLOCK: 189828204,            // Starting block number to scan from for first testnet deposit
-    START_BLOCK: 191562323,            // Starting block number to scan from
-    CONTRACT: "v2.atlas_public_testnet.testnet",  // Updated contract ID
-    OUTPUT_FILE: "nearblocks.xlsx",    // Output filename
+    START_BLOCK: 191847350,            // Starting block number to scan from
+    //CONTRACT: "atlas_testnet4_v2.velar.testnet",  // Atlas contract ID    
+    CONTRACT: "v2.atlas_public_testnet.testnet",  // Atlas contract ID
+    //ATBTC_CONTRACT: "atbtc_testnet4_v2.velar.testnet",  // ATBTC contract ID
+    ATBTC_CONTRACT: "atbtc_v2.atlas_public_testnet.testnet",  // ATBTC contract ID
+    OUTPUT_FILE_DEPOSIT: "nearblocks_deposit.xlsx",    // Output filename for deposit events
+    OUTPUT_FILE_REDEEM: "nearblocks_redeem.xlsx",      // Output filename for redeem events
     ERROR_OUTPUT_FILE: "nearblocks_errors.txt",  // File to log block processing errors
     WORKSHEET_NAME: "NEAR Blocks",     // Name of the worksheet in Excel file
     RPC_ENDPOINT: "https://neart.lava.build",  // NEAR RPC endpoint
@@ -303,7 +307,7 @@ function parseRecordsSeparately(rawOutput) {
       return JSON.parse(fixedText);
     } catch (e) {
       console.error("Failed to parse record:", recordText);
-      throw e;
+      return null;
     }
   });
   
@@ -379,7 +383,7 @@ async function exportToExcel(deposits, filePath = null) {
  */
 async function checkDepositExists(btcTxnHash) {
   return new Promise(async (resolve, reject) => {
-    const command = `near view v2.atlas_public_testnet.testnet get_deposit_by_btc_txn_hash '{"btc_txn_hash": "${btcTxnHash}"}'`;
+    const command = `near view ${CONFIG.NEAR.CONTRACT} get_deposit_by_btc_txn_hash '{"btc_txn_hash": "${btcTxnHash}"}'`;
     //console.log(`\n🔍 Executing CLI command:\n${command}`);
     
     // Add 0.8 second delay before executing the command
@@ -907,7 +911,7 @@ async function fetchPubkeys() {
 
     const fetchPage = () => {
       exec(
-        `near view v2.atlas_public_testnet.testnet get_all_btc_pubkeys '{"from_index": ${startIndex}, "limit": ${limit}}'`,
+        `near view ${CONFIG.NEAR.CONTRACT} get_all_btc_pubkeys '{"from_index": ${startIndex}, "limit": ${limit}}'`,
         { maxBuffer: 1024 * 1024 * 100 }, // 100 MB buffer
         (error, stdout, stderr) => {
           if (error) {
@@ -1034,7 +1038,7 @@ async function fetchDeposits() {
         ? Math.min(limit, CONFIG.DEPOSITS.END_INDEX - startIndex)
         : limit;
       
-      const command = `near view v2.atlas_public_testnet.testnet get_all_deposits '{"from_index": ${startIndex}, "limit": ${adjustedLimit}}'`;
+      const command = `near view ${CONFIG.NEAR.CONTRACT} get_all_deposits '{"from_index": ${startIndex}, "limit": ${adjustedLimit}}'`;
       
       if (CONFIG.DEPOSITS.PRINT_CLI_OUTPUT) {
         console.log(`\n🔍 Executing command: ${command}`);
@@ -1110,61 +1114,31 @@ async function getCurrentBlock() {
   }
 }
 
-// Function to get block details
-async function getBlockDetails(blockNumber) {
-  try {
-    const block = await provider.block({ blockId: blockNumber });
-    return block;
-  } catch (error) {
-    console.error(`Error getting block ${blockNumber}: ${error.message}`);
-    throw error;
-  }
-}
-
-// Function to get the last block number from existing Excel file
-async function getLastBlockFromExcel(filePath) {
-  try {
-    const workbook = new excelJs.Workbook();
-    await workbook.xlsx.readFile(filePath);
-    const worksheet = workbook.getWorksheet(CONFIG.NEAR.WORKSHEET_NAME);
-    
-    if (!worksheet || worksheet.rowCount <= 1) { // Only header row
-      return null;
-    }
-    
-    // Get the last row
-    const lastRow = worksheet.getRow(worksheet.rowCount);
-    
-    // Get the value from the first column of the last row
-    const lastBlock = lastRow.getCell(1).value;
-    
-    if (lastBlock === undefined || lastBlock === null) {
-      console.log('❌ No block number found in last row');
-      return null;
-    }
-    
-    return lastBlock;
-  } catch (error) {
-    console.error(`❌ Error reading existing Excel file: ${error.message}`);
-    return null;
-  }
-}
-
 // Add this function before processAndExportBlocks
-function createNearBlocksWorksheet(workbook, existingWorksheet = null) {
-  const worksheet = existingWorksheet || workbook.addWorksheet(CONFIG.NEAR.WORKSHEET_NAME);
+function createNearBlocksWorksheet(workbook, eventType) {
+  const worksheet = workbook.addWorksheet(`${CONFIG.NEAR.WORKSHEET_NAME} ${eventType}`);
   
-  // Define columns
-  worksheet.columns = [
+  // Define base columns that are common to both event types
+  const baseColumns = [
     { header: "Near Block Number", key: "block_number", width: 15 },
     { header: "Timestamp Unix", key: "timestamp", width: 15 },
     { header: "Timestamp", key: "formatted_timestamp", width: 20 },
-    { header: "Near Txn Hash", key: "txn_hash", width: 70 },
+    { header: "Near Txn Hash", key: "tx_hash", width: 70 },
     { header: "Account ID", key: "account_id", width: 30 },
-    { header: "atBTC Amount", key: "atbtc_amount", width: 15 },
-    { header: "BTC Txn Hash", key: "btc_txn_hash", width: 70 },
-    { header: "Event Type", key: "event_type", width: 20 }
+    { header: "atBTC Amount", key: "amount", width: 15 }
   ];
+
+  // Add event-specific column based on event type
+  if (eventType === "mint_deposit") {
+    baseColumns.push({ header: "BTC Txn Hash", key: "btc_txn_hash", width: 70 });
+  } else if (eventType === "burn_redeem") {
+    baseColumns.push({ header: "BTC Address", key: "btc_address", width: 70 });
+  }
+
+  // Add event type column
+  baseColumns.push({ header: "Event Type", key: "event_type", width: 20 });
+  
+  worksheet.columns = baseColumns;
   
   // Style the header row
   worksheet.getRow(1).font = { bold: true };
@@ -1172,156 +1146,191 @@ function createNearBlocksWorksheet(workbook, existingWorksheet = null) {
 }
 
 // Add this new function before processAndExportBlocks
-async function getPastEventsByMintedTxnHash(mintedTxnHash, threadId, blockNumber) {
-  try {
-    const events = [];
-
-    const txResult = await provider.txStatus(mintedTxnHash, CONFIG.NEAR.CONTRACT);
-
-    // Find receipt with ft_mint event
-    const receipt = txResult.receipts_outcome.find((outcome) =>
-      outcome.outcome.logs.some((log) => {
-        try {
-          const event = JSON.parse(log.replace("EVENT_JSON:", ""));
-          return event.event === "ft_mint";
-        } catch (e) {
-          return false;
-        }
-      }),
-    );
-
-    if (receipt && receipt.outcome.status.SuccessValue === "") {
-      const logEntry = receipt.outcome.logs.find((log) => {
-        try {
-          const event = JSON.parse(log.replace("EVENT_JSON:", ""));
-          return event.event === "ft_mint";
-        } catch (e) {
-          return false;
-        }
-      });
-
-      if (logEntry) {
-        const event = JSON.parse(logEntry.replace("EVENT_JSON:", ""));
-        const memo = JSON.parse(event.data[0].memo);
-        const amount = JSON.parse(event.data[0].amount);
-        const btcTxnHash = memo.btc_txn_hash;
-        const accountId = memo.address;
-
-        events.push({
-          type: "mint_deposit",
-          btcTxnHash: btcTxnHash,
-          accountId: accountId,
-          amount: amount,
-          receiptId: receipt.id,
-          transactionHash: mintedTxnHash
-        });
-      }
-    }
-
-    return { events, error: null };
-  } catch (error) {
-    console.error("Error getting past events by minted transaction hash:", error);
-    // Return error instead of writing to file
-    return { 
-      events: [], 
-      error: `Thread ${threadId}: Block ${blockNumber} - Error getting past events for txn ${mintedTxnHash}: ${error.message}`
-    };
-  }
-}
-
-// Add this new function before processAndExportBlocks
 async function processBlockRange(startBlock, endBlock, threadId) {
   console.log(`\n🧵 Thread ${threadId}: Processing blocks ${startBlock} to ${endBlock}`);
   
-  const blockResults = [];
-  const threadErrors = []; // Collect errors for this thread
-  
+  const depositResults = [];
+  const redeemResults = [];
+  const threadErrors = [];
+
   for (let blockNumber = startBlock; blockNumber <= endBlock; blockNumber++) {
     try {
-      // Get block details
-      const blockData = await getBlockDetails(blockNumber);
-      const blockTimestamp = blockData.header.timestamp;
-      
-      // Process each chunk in the block
-      for (const chunk of blockData.chunks) {
+      const block = await provider.block({ blockId: blockNumber });
+      const chunks = block.chunks;
+
+      for (const chunk of chunks) {
         if (chunk.tx_root === "11111111111111111111111111111111") {
           continue;
         }
-        
-        // Get chunk details
+
         const chunkData = await provider.chunk(chunk.chunk_hash);
-        
-        if (!chunkData || !chunkData.transactions) {
-          continue;
-        }
-        
-        // Process each transaction in the chunk
-        for (const tx of chunkData.transactions) {
-          if (tx.receiver_id !== CONFIG.NEAR.CONTRACT) {
-            continue;
-          }
-          
-          // Get events using getPastEventsByMintedTxnHash
-          const { events, error } = await getPastEventsByMintedTxnHash(tx.hash, threadId, blockNumber);
-          
-          // Add any error to thread errors
-          if (error) {
-            threadErrors.push(error);
+        const transactions = chunkData.transactions || [];
 
-          }
-          
-          for (const event of events) {
-            if (event.type === "mint_deposit" && event.btcTxnHash) {
-              const timestamp = new Date(blockTimestamp / 1000000);
-              
-              blockResults.push({
-                block_number: blockNumber,
-                timestamp: Math.floor(blockTimestamp / 1000000),
-                formatted_timestamp: formatDate(timestamp),
-                txn_hash: event.transactionHash,
-                account_id: event.accountId,
-                atbtc_amount: event.amount,
-                btc_txn_hash: event.btcTxnHash,
-                event_type: event.type
-              });
-
-              console.log(`✅ Thread ${threadId}: Added event for block ${blockNumber}: ${event.type} with BTC txn hash: ${event.btcTxnHash}`);
+        for (const tx of transactions) {
+          try {
+            // Skip transactions not sent to our contracts
+            if (tx.receiver_id !== CONFIG.NEAR.CONTRACT && tx.receiver_id !== CONFIG.NEAR.ATBTC_CONTRACT) {
+              continue;
             }
+
+            const txStatus = await provider.txStatus(tx.hash, tx.signer_id);
+            const receipts = txStatus.receipts_outcome || [];
+
+            // Process logs in a single loop
+            for (const receipt of receipts) {
+              const logs = receipt.outcome.logs || [];
+              
+              // Process logs in a single loop
+              for (const log of logs) {
+                if (log.includes("EVENT_JSON:")) {
+                  
+                  const eventData = JSON.parse(log.split("EVENT_JSON:")[1]);
+                  const timestamp = Math.floor(block.header.timestamp / 1000000000);  // Convert from nanoseconds to seconds and round down
+                  
+                  let accountId = "";
+                  let amount = "";
+                  let btcInfo = "";
+
+                  if (log.includes("ft_mint")) {
+                                        
+                    try {
+                      // Get the first item from the data array
+                      const mintData = eventData.data[0];
+                      amount = mintData.amount;
+                      
+                      if (mintData.memo) {
+                        const memo = JSON.parse(mintData.memo);
+                        accountId = memo.address;
+                        btcInfo = memo.btc_txn_hash;
+                      }
+                    } catch (error) {
+                      console.error(`❌ Thread ${threadId}: Error parsing memo in block ${blockNumber}:`, error);
+                    }                                        
+                    
+                    depositResults.push({
+                      block_number: blockNumber,
+                      timestamp: timestamp,
+                      formatted_timestamp: formatDate(new Date(timestamp * 1000)),
+                      tx_hash: tx.hash,
+                      account_id: accountId,
+                      amount: amount,
+                      btc_txn_hash: btcInfo,
+                      event_type: "mint_deposit"
+                    });
+                    console.log(`✅ Thread ${threadId}: Added deposit event in block ${blockNumber}`);
+                  } else if (log.includes("ft_burn_redeem")) {
+
+                    try {
+                      // Get the first item from the data array
+                      const redeemData = eventData.data[0];
+                      amount = redeemData.amount;
+                      accountId = redeemData.owner_id;
+                      
+                      if (redeemData.memo) {
+                        const memo = JSON.parse(redeemData.memo);
+                        
+                        btcInfo = memo.btcAddress;
+                      }
+                    } catch (error) {
+                      console.error(`❌ Thread ${threadId}: Error parsing memo in block ${blockNumber}:`, error);
+                    }    
+
+                    redeemResults.push({
+                      block_number: blockNumber,
+                      timestamp: timestamp,
+                      formatted_timestamp: formatDate(new Date(timestamp * 1000)),
+                      tx_hash: tx.hash,
+                      account_id: accountId,
+                      amount: amount,
+                      btc_address: btcInfo,
+                      event_type: "burn_redeem"
+                    });
+                    console.log(`✅ Thread ${threadId}: Added redeem event in block ${blockNumber}`);
+                  }
+                }
+              }
+            }
+          } catch (error) {
+            console.error(`❌ Thread ${threadId}: Error processing transaction in block ${blockNumber}:`, error);
+            threadErrors.push(`Thread ${threadId}: Block ${blockNumber}, Tx ${tx.hash} - ${error.message}`);
           }
         }
       }
-      
-      // Add a small delay to avoid rate limiting
-      await delay(200);
-      
     } catch (error) {
-      console.error(`❌ Thread ${threadId}: Error processing block ${blockNumber}: ${error.message}`);
+      console.error(`❌ Thread ${threadId}: Error processing block ${blockNumber}:`, error);
       threadErrors.push(`Thread ${threadId}: Block ${blockNumber} - ${error.message}`);
     }
+
+    // Add a small delay to avoid rate limiting
+    await delay(200);
   }
-  
-  return { blockResults, threadErrors };
+
+  return { depositResults, redeemResults, threadErrors };
 }
 
 // Add this new function before processAndExportBlocks
-async function saveBlockResultsToExcel(workbook, worksheet, blockResults, filePath) {
+async function saveBlockResultsToExcel(blockResults, filePath, eventType) {
+  console.log(`\n💾 Attempting to save ${blockResults.length} ${eventType} events to ${filePath}`);
+  
+  // Create or load workbook
+  const workbook = new excelJs.Workbook();
+  const worksheetName = `${CONFIG.NEAR.WORKSHEET_NAME} ${eventType}`;
+  let worksheet;
+  
+  try {
+    // Try to load existing file
+    await workbook.xlsx.readFile(filePath);
+    worksheet = workbook.getWorksheet(worksheetName);
+    
+    if (!worksheet) {
+      worksheet = createNearBlocksWorksheet(workbook, eventType);
+    }
+  } catch (error) {
+    worksheet = createNearBlocksWorksheet(workbook, eventType);
+  }
+  
   // Sort results by block number to maintain sequence
   blockResults.sort((a, b) => a.block_number - b.block_number);
   
-  // Add rows to Excel
+  // Add new rows with explicit column mapping
   for (const result of blockResults) {
-    const newRow = worksheet.addRow(result);
+    const newRow = worksheet.addRow();
+    
+    // Map each column explicitly using 1-based indices
+    newRow.getCell(1).value = result.block_number;        // Near Block Number
+    newRow.getCell(2).value = result.timestamp;           // Timestamp Unix
+    newRow.getCell(3).value = result.formatted_timestamp; // Timestamp
+    newRow.getCell(4).value = result.tx_hash;             // Near Txn Hash
+    newRow.getCell(5).value = result.account_id;          // Account ID
+    newRow.getCell(6).value = result.amount;              // atBTC Amount
+    
+    // Add event-specific column (7th column)
+    if (eventType === "mint_deposit") {
+      newRow.getCell(7).value = result.btc_txn_hash;      // BTC Txn Hash
+    } else if (eventType === "burn_redeem") {
+      newRow.getCell(7).value = result.btc_address;       // BTC Address
+    }
+    
+    newRow.getCell(8).value = result.event_type;          // Event Type
+    
     await newRow.commit();
   }
   
   // Save the file
-  await workbook.xlsx.writeFile(filePath);
+  try {
+    await workbook.xlsx.writeFile(filePath);
+    console.log(`✅ Successfully saved ${blockResults.length} ${eventType} events to ${filePath}`);
+  } catch (error) {
+    console.error(`❌ Error saving file ${filePath}:`, error);
+    throw error;
+  }
 }
 
 // Add this new function before processAndExportBlocks
-async function processBatch(workbook, worksheet, startBlock, currentBlock, threadCount, blocksPerThread, filePath) {
+async function processBatch(startBlock, currentBlock, threadCount, blocksPerThread) {
   const totalBlocks = currentBlock - startBlock + 1;
   const totalBatches = Math.ceil(totalBlocks / (threadCount * blocksPerThread));
+  const errorFilePath = path.join(__dirname, CONFIG.NEAR.ERROR_OUTPUT_FILE);
   
   for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
     const batchStartTime = new Date();
@@ -1345,21 +1354,31 @@ async function processBatch(workbook, worksheet, startBlock, currentBlock, threa
     const batchResults = await Promise.all(batchPromises);
     
     // Flatten results and errors from all threads
-    const allResults = batchResults.flatMap(result => result.blockResults);
+    const allDepositResults = batchResults.flatMap(result => result.depositResults);
+    const allRedeemResults = batchResults.flatMap(result => result.redeemResults);
     const allErrors = batchResults.flatMap(result => result.threadErrors);
     
-    // Save results to Excel
-    if (allResults.length > 0) {
-      await saveBlockResultsToExcel(workbook, worksheet, allResults, filePath);
-      console.log(`💾 Saved batch ${batchIndex + 1} results: ${allResults.length} events processed`);
+    // Log errors to file if any occurred
+    if (allErrors.length > 0) {
+      try {
+        await fs.appendFile(errorFilePath, allErrors.join('\n') + '\n');
+        console.log(`⚠️ Logged ${allErrors.length} errors to ${errorFilePath}`);
+      } catch (error) {
+        console.error("Error writing to error file:", error);
+      }
     }
     
-    // Save errors to error file if any
-    if (allErrors.length > 0) {
-      const errorFilePath = path.join(__dirname, CONFIG.NEAR.ERROR_OUTPUT_FILE);
-      const errorMessages = allErrors.join('\n') + '\n';
-      await fs.appendFile(errorFilePath, errorMessages);
-      console.log(`⚠️ Logged ${allErrors.length} errors to ${CONFIG.NEAR.ERROR_OUTPUT_FILE}`);
+    // Save results to Excel
+    if (allDepositResults.length > 0) {
+      const depositFilePath = path.join(__dirname, CONFIG.NEAR.OUTPUT_FILE_DEPOSIT);
+      await saveBlockResultsToExcel(allDepositResults, depositFilePath, "mint_deposit");
+      console.log(`💾 Saved batch ${batchIndex + 1} deposit results: ${allDepositResults.length} events processed`);
+    }
+    
+    if (allRedeemResults.length > 0) {
+      const redeemFilePath = path.join(__dirname, CONFIG.NEAR.OUTPUT_FILE_REDEEM);
+      await saveBlockResultsToExcel(allRedeemResults, redeemFilePath, "burn_redeem");
+      console.log(`💾 Saved batch ${batchIndex + 1} redeem results: ${allRedeemResults.length} events processed`);
     }
     
     const batchEndTime = new Date();
@@ -1377,71 +1396,23 @@ async function processAndExportBlocks() {
   console.log("\n🔍 Starting NEAR blocks processing...");
   console.log(`⏰ Batch start time: ${formatDate(startTime)}`);
   
-  const filePath = path.join(__dirname, CONFIG.NEAR.OUTPUT_FILE);
-  let workbook;
-  let worksheet;
+  // Get the current block number
+  const currentBlock = await getCurrentBlock();
+  console.log(`Current block number: ${currentBlock}`);
+
+  // Use START_BLOCK from config
+  const startBlock = CONFIG.NEAR.START_BLOCK;
+  console.log(`Starting from block ${startBlock} based on config`);
+
+  // Process blocks in batches using the processBatch function
+  await processBatch(
+    startBlock,
+    currentBlock,
+    CONFIG.NEAR.THREAD_COUNT,
+    CONFIG.NEAR.BLOCKS_PER_THREAD
+  );
   
-  try {
-    // Check if file exists and get last block number
-    const lastBlock = await getLastBlockFromExcel(filePath);
-    if (lastBlock) {
-      console.log(`📄 Found existing file with last block: ${lastBlock}`);
-      console.log(`🔄 Continuing from block: ${lastBlock + 1}`);
-      
-      // Load existing workbook
-      workbook = new excelJs.Workbook();
-      await workbook.xlsx.readFile(filePath);
-      worksheet = workbook.getWorksheet(CONFIG.NEAR.WORKSHEET_NAME);
-      
-      // Define columns for existing worksheet
-      worksheet = createNearBlocksWorksheet(workbook, worksheet);
-    } else {
-      // Create new workbook
-      workbook = new excelJs.Workbook();
-      worksheet = createNearBlocksWorksheet(workbook);
-    }
-    
-    const threadCount = CONFIG.NEAR.THREAD_COUNT;
-    const blocksPerThread = CONFIG.NEAR.BLOCKS_PER_THREAD;
-    
-    while (true) {
-      try {
-        // Get current block number
-        const currentBlock = await getCurrentBlock();
-        
-        // Get the last processed block from Excel file
-        let lastProcessedBlock = await getLastBlockFromExcel(filePath);
-        if (!lastProcessedBlock) {
-          console.log(`📄 No existing blocks found, starting from configured block: ${CONFIG.NEAR.START_BLOCK}`);
-          lastProcessedBlock = CONFIG.NEAR.START_BLOCK;
-        }
-        lastProcessedBlock = CONFIG.NEAR.START_BLOCK;       //uncomment this line to continue from a specific block + 1
-
-        console.log(`\n📊 Current block: ${currentBlock}`);
-        console.log(`📊 Last processed block: ${lastProcessedBlock}`);
-        
-        if (currentBlock > lastProcessedBlock) {
-          const blocksToProcess = currentBlock - lastProcessedBlock;
-          console.log(`📊 Processing ${blocksToProcess} new blocks`);
-
-          // Process the new blocks
-          await processBatch(workbook, worksheet, lastProcessedBlock + 1, currentBlock, threadCount, blocksPerThread, filePath);
-        } else {
-          console.log("⏳ No new blocks to process, waiting...");
-        }
-        
-        // Wait for a while before checking for new blocks
-        await delay(5000); // Check every 5 seconds for new blocks
-        
-      } catch (error) {
-        console.error("❌ Error in processing loop:", error);
-        // Wait a bit longer on error before retrying
-        await delay(10000);
-      }
-    }    
-  } catch (error) {
-    console.error("❌ Error:", error);
-  }
+  console.log("\n✅ NEAR blocks processing completed");
 }
 
 async function processDepositsStatus21() {
@@ -1469,7 +1440,7 @@ async function processDepositsStatus21() {
     // Read nearblocks.xlsx and create map of BTC Txn Hash to NEAR Txn Hash
     console.log("⏳ Reading nearblocks.xlsx to create transaction map...");
     const nearBlocksWorkbook = new excelJs.Workbook();
-    const nearBlocksFilePath = path.join(__dirname, CONFIG.NEAR.OUTPUT_FILE);
+    const nearBlocksFilePath = path.join(__dirname, CONFIG.NEAR.OUTPUT_FILE_DEPOSIT);
     await nearBlocksWorkbook.xlsx.readFile(nearBlocksFilePath);
     
     const nearBlocksWorksheet = nearBlocksWorkbook.getWorksheet(1) || nearBlocksWorkbook.worksheets[0];
