@@ -38,7 +38,9 @@ const CONFIG = {
   DEPOSITS_QUEST2: {
     INPUT_FILE: "deposits-quest2.xlsx", // Fixed input file to read from and write to
     BATCH_SIZE: 50,                     // Number of rows to process in parallel
-    SAVE_INTERVAL: 100                  // Save file every N rows processed
+    SAVE_INTERVAL: 100,                 // Save file every N rows processed
+    START_INDEX: 2699,                     // Starting row index (0-based, excluding header)
+    END_INDEX: 3152,                     // Ending row index (null for all rows)
   },
   
   PUBKEY: {
@@ -64,7 +66,7 @@ const CONFIG = {
   
   NEAR: {
     //START_BLOCK: 189828204,            // Starting block number to scan from for first testnet deposit
-    START_BLOCK: 191847350,            // Starting block number to scan from
+    START_BLOCK: 192275800,            // Starting block number to scan from
     //CONTRACT: "atlas_testnet4_v2.velar.testnet",  // Atlas contract ID    
     CONTRACT: "v2.atlas_public_testnet.testnet",  // Atlas contract ID
     //ATBTC_CONTRACT: "atbtc_testnet4_v2.velar.testnet",  // ATBTC contract ID
@@ -793,26 +795,32 @@ async function processDepositsQuest2() {
       throw new Error("Excel file headers do not match expected format");
     }
     
+    // Calculate actual start and end rows based on configuration
     const totalRows = worksheet.rowCount;
-    const totalRecords = totalRows - 1; // Exclude header row
-    console.log(`Found ${totalRecords} records to process`);
+    const startRow = Math.max(2, CONFIG.DEPOSITS_QUEST2.START_INDEX + 2); // +2 because row 1 is header and we want 0-based index
+    const endRow = CONFIG.DEPOSITS_QUEST2.END_INDEX !== null 
+      ? Math.min(CONFIG.DEPOSITS_QUEST2.END_INDEX + 2, totalRows) 
+      : totalRows;
+    
+    const totalRecords = endRow - startRow + 1;
+    console.log(`Found ${totalRecords} records to process (rows ${startRow}-${endRow})`);
     
     const POOL_IDS = [2482, 2483, 2492];
     let lastSaveRow = 0;
     let totalUpdated = 0;
     
     // Process rows in batches
-    for (let startRow = 2; startRow <= totalRows; startRow += CONFIG.DEPOSITS_QUEST2.BATCH_SIZE) {
-      const endRow = Math.min(startRow + CONFIG.DEPOSITS_QUEST2.BATCH_SIZE - 1, totalRows);
+    for (let currentStartRow = startRow; currentStartRow <= endRow; currentStartRow += CONFIG.DEPOSITS_QUEST2.BATCH_SIZE) {
+      const currentEndRow = Math.min(currentStartRow + CONFIG.DEPOSITS_QUEST2.BATCH_SIZE - 1, endRow);
       const batchPromises = [];
       
       // Calculate display numbers (subtract 1 to account for header)
-      const displayStart = startRow - 1;
-      const displayEnd = endRow - 1;
+      const displayStart = currentStartRow - 1;
+      const displayEnd = currentEndRow - 1;
       
       console.log(`\n📝 Processing batch [${displayStart}-${displayEnd}] of ${totalRecords}`);
       
-      for (let rowNumber = startRow; rowNumber <= endRow; rowNumber++) {
+      for (let rowNumber = currentStartRow; rowNumber <= currentEndRow; rowNumber++) {
         batchPromises.push((async () => {
           const row = worksheet.getRow(rowNumber);
           const receivingAddress = row.getCell(1).text;
@@ -885,10 +893,10 @@ async function processDepositsQuest2() {
       }
       
       // Save periodically to avoid data loss
-      if (endRow - lastSaveRow >= CONFIG.DEPOSITS_QUEST2.SAVE_INTERVAL) {
+      if (currentEndRow - lastSaveRow >= CONFIG.DEPOSITS_QUEST2.SAVE_INTERVAL) {
         await workbook.xlsx.writeFile(filePath);
-        console.log(`💾 Saved progress: ${endRow - 1}/${totalRecords} rows processed, total ${totalUpdated} rows updated`);
-        lastSaveRow = endRow;
+        console.log(`💾 Saved progress: ${currentEndRow - 1}/${totalRecords} rows processed, total ${totalUpdated} rows updated`);
+        lastSaveRow = currentEndRow;
       }
     }
     
@@ -1438,14 +1446,14 @@ async function processDepositsStatus21() {
     await exportToExcel(filteredDeposits, filePath);
     
     // Read nearblocks.xlsx and create map of BTC Txn Hash to NEAR Txn Hash
-    console.log("⏳ Reading nearblocks.xlsx to create transaction map...");
+    console.log(`⏳ Reading ${CONFIG.NEAR.OUTPUT_FILE_DEPOSIT} to create transaction map...`);
     const nearBlocksWorkbook = new excelJs.Workbook();
     const nearBlocksFilePath = path.join(__dirname, CONFIG.NEAR.OUTPUT_FILE_DEPOSIT);
     await nearBlocksWorkbook.xlsx.readFile(nearBlocksFilePath);
     
     const nearBlocksWorksheet = nearBlocksWorkbook.getWorksheet(1) || nearBlocksWorkbook.worksheets[0];
     if (!nearBlocksWorksheet) {
-      throw new Error("Worksheet not found in nearblocks.xlsx");
+      throw new Error(`Worksheet not found in ${CONFIG.NEAR.OUTPUT_FILE_DEPOSIT}`);
     }
     
     // Create a map of BTC Txn Hash to NEAR Txn Hash
