@@ -3,7 +3,7 @@ const { getConstants } = require("../constants");
 const { flagsBatch } = require("./batchFlags");
 
 async function UpdateYieldProviderStaked(allDeposits, bithiveRecords, near) {
-  const batchName = `Batch C UpdateYieldProviderStaked`;
+  const batchName = `Batch D UpdateYieldProviderStaked`;
   
   // Check if a previous batch is still running
   if (flagsBatch.UpdateYieldProviderStakedRunning) {

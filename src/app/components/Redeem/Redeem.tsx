@@ -162,6 +162,27 @@ export function Redeem({ btcAddress }: RedeemProps) {
   const { mutateAsync: burnRedeem, isPending: burnRedeemPending } =
     useEVMAbtcBurnRedeem();
 
+  const addDummyRedemptionRecord = (txHash: string) => {
+    if (!previewData || !selectedChain || !fromAddress) return;
+
+    const newRecord: Redemptions = {
+      txnHash: `${selectedChain.chainID},${txHash}`,
+      abtcRedemptionAddress: fromAddress,
+      abtcRedemptionChainId: selectedChain.chainID,
+      btcReceivingAddress: previewData.address,
+      abtcAmount: previewData.amountSat,
+      timestamp: Math.floor(Date.now() / 1000).toString(),
+      status: RedemptionStatus.ABTC_BURNT,
+      remarks: "",
+      btcTxnHash: "",
+      protocolFee: redeemFee?.atlasProtocolFee || 0,
+      yieldProviderGasFee: 0,
+      btcRedemptionFee: 0,
+    };
+
+    setRedemptionHistoriesLocalStorage([newRecord, ...redemptionHistoriesLocalStorage]);
+  };
+
   const onSubmit = async (data: SchemaType) => {
     if (!params.data) return;
 
@@ -219,33 +240,17 @@ export function Redeem({ btcAddress }: RedeemProps) {
         });
 
         evmTxHash = r.transactionHash;
-
-        // Add dummy record to local storage
-        const newRecord: Redemptions = {
-          txnHash: selectedChain.chainID + "," + evmTxHash,
-          abtcRedemptionAddress: fromAddress,
-          abtcRedemptionChainId: selectedChain.chainID,
-          btcReceivingAddress: previewData.address,
-          abtcAmount: previewData.amountSat,
-          timestamp: Math.floor(Date.now() / 1000).toString(),
-          status: RedemptionStatus.ABTC_BURNT,
-          remarks: "",
-          btcTxnHash: "",
-          protocolFee: redeemFee?.atlasProtocolFee || 0,
-          yieldProviderGasFee: 0,
-          btcRedemptionFee: 0,
-        };
-
-        setRedemptionHistoriesLocalStorage([newRecord, ...redemptionHistoriesLocalStorage]);
-
+        addDummyRedemptionRecord(evmTxHash);
         refetchABTCBalance();
       }
 
       if (selectedChain?.networkType === "NEAR") {
-        await nearBurnRedeem({
+        const result = await nearBurnRedeem({
           amount: previewData.amountSat.toString(),
           btcAddress: previewData.address,
         });
+
+        addDummyRedemptionRecord(result ? result.transaction_hash : "");
         refetchABTCBalance();
       }
 

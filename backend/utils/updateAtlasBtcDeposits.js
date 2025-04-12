@@ -12,7 +12,6 @@ async function UpdateAtlasBtcDeposits(
   bitcoin,
 ) {
   const batchName = `Batch A UpdateAtlasBtcDeposits`;
-  console.log(treasuryAddress);
 
   if (flagsBatch.UpdateAtlasBtcDepositsRunning) {
     return;

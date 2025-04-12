@@ -1,0 +1,9 @@
+{
+  "lastWithdrawalTxHash": "",
+  "withdrawalFee": 0,
+  "totalNewAmount": 0,
+  "totalRecords": 0,
+  "readySendToUser": false,
+  "errorMessage": "",
+  "sendToUserBtcTxnHash": ""
+}

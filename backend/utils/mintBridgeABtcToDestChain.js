@@ -5,7 +5,7 @@ const { flagsBatch } = require("./batchFlags");
 
 const GAS_FOR_MINT_CALL = 100; // Gas for minting call
 
-const batchName = `--------- BridgeaBtcToDestChain ---------`;
+const batchName = `Batch K BridgeaBtcToDestChain`;
 async function MintBridgeABtcToDestChain(near) {
   if (flagsBatch.BridgeaBtcToDestChainRunning) {
     return;

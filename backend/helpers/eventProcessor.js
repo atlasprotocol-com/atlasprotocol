@@ -58,10 +58,19 @@ async function processMintDepositEvent(event, near) {
     depositRecord.minted_txn_hash === "" &&
     depositRecord.remarks === ""
   ) {
-    await near.updateDepositMintedTxnHash(btcTxnHash, transactionHash);
-    console.log(
-      `Updated deposit for btc_txn_hash: ${btcTxnHash} with transactionHash: ${transactionHash}`,
-    );
+    try {
+      await near.updateDepositMintedTxnHash(btcTxnHash, transactionHash);
+      console.log(
+        `Updated deposit for btc_txn_hash: ${btcTxnHash} with transactionHash: ${transactionHash}`,
+      );
+    } catch (error) {
+      const remarks = `Error updating deposit minted txn hash for btc_txn_hash: ${btcTxnHash} with transactionHash: ${transactionHash}`;
+      console.error(
+        remarks,
+        error,
+      );
+      await near.updateDepositRemarks(btcTxnHash, remarks);
+    }
   }
 }
 

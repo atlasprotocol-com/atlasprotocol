@@ -1,4 +1,16 @@
 const { getConstants } = require("../constants");
+const {
+  detectNetwork,
+  getMintDepositEntities,
+  isEnableSubquery,
+  getBurnRedeemEntities,
+} = require("../services/subquery");
+const {
+  processMintDepositEvent,
+  processBurnRedeemEvent,
+  processBurnBridgeEvent,
+  processMintBridgeEvent,
+} = require("../helpers/eventProcessor");
 
 const { getAllChainConfig } = require("./network.chain.config");
 const { flagsBatch } = require("./batchFlags");
@@ -6,20 +18,9 @@ const {
   setBlockCursor,
   getBlockCursor,
 } = require("./batchTime/lastScannedBlockHelper");
-const {
-  processMintDepositEvent,
-  processBurnRedeemEvent,
-  processBurnBridgeEvent,
-  processMintBridgeEvent,
-} = require("../helpers/eventProcessor");
-const {
-  detectNetwork,
-  getMintDepositEntities,
-  isEnableSubquery,
-  getBurnRedeemEntities,
-} = require("../services/subquery");
 
-const batchName = "---------- RetrieveAndProcessPastNearEvents ----------";
+
+const batchName = "Batch P RetrieveAndProcessPastNearEvents";
 
 async function RetrieveAndProcessPastNearEvents(
   near,
@@ -48,10 +49,8 @@ async function RetrieveAndProcessPastNearEvents(
       console.log(
         `${batchName} Chain ID: ${chain.chainID}, aBTC: ${chain.aBTCAddress}, RPC URL: ${chain.chainRpcUrl}`,
       );
-
       if (isEnableSubquery()) {
         const network = detectNetwork(chain.chainRpcUrl);
-
         if (network) {
           console.log(
             `[SUBQUERY ${chain.chainID} ${network}] --------- ENABLED ---------`,
@@ -185,6 +184,7 @@ async function doWithSubqueryForDeposits(chain, network, near, allDeposits) {
       deposit.remarks === "" &&
       deposit.receiving_chain_id === chain.chainID,
   );
+  
   const records = await getMintDepositEntities(
     network,
     filteredTxns.map((deposit) => deposit.btc_txn_hash),

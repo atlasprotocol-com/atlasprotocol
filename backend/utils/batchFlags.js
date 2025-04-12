@@ -1,6 +1,7 @@
 // batchFlags.js
 const flagsBatch = {
   GetAllDepositHistoryRunning: false,
+  GetAllRedemptionHistoryRunning: false,
   GetBithiveRecordsRunning: false,
   
   UpdateAtlasBtcDepositsRunning: false,
@@ -24,6 +25,8 @@ const flagsBatch = {
   ProcessUnstakingAndWithdrawalRunning: false,
   SendBridgingFeesToTreasuryRunning: false,
   UpdateAtlasBtcDepositedRunning: false,
+  UpdateAtlasBtcWithdrawingFromYieldProviderRunning: false,
+  UpdateAtlasRedemptionPendingBtcMempoolRunning: false,
 };
 
 function blockRange(block, start = 1000, end = 2000) {

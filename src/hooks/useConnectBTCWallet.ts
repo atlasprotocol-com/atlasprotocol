@@ -70,14 +70,14 @@ export function useConnectBTCWallet({
           await apiWrapper(
             "GET",
             "/api/v1/insert-btc-pubkey",
-            "Error inserting BTC public key",
+            "Error while capturing BTC public key",
             {
               btcAddress: address,
               publicKey: publicHeyHex,
             },
           );
         } catch (error) {
-          console.error("Error inserting BTC public key:", error);
+          console.error("Error while capturing BTC public key:", error);
         }
 
         onSuccessfulConnectRef();

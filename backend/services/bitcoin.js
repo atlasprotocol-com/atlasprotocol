@@ -218,9 +218,81 @@ class Bitcoin {
     };
   }
   
-  async createPayload(near, sender, txnHashes) {
-    // Fetch UTXOs for the sender
-    const utxos = await this.fetchUTXOs(sender);
+  async fetchUTXOByTxIds(address, txId, findUnspent = false) {
+    let currentTxId = txId;
+
+    const response = await axios.get(
+      `${this.chain_rpc}/address/${address}/utxo`,
+    );
+    
+    while (true) {
+      
+      const utxos = response.data
+        .filter(utxo => utxo.txid === currentTxId)
+        .map((utxo) => ({
+          txid: utxo.txid,
+          vout: utxo.vout,
+          value: utxo.value,
+          script: "",
+        }));
+
+      if (!findUnspent || utxos.length > 0) {
+        return utxos;
+      }
+
+      // If no UTXOs found and findUnspent is true, look for spending transaction
+      const spendingTx = await this.findSpendingTransaction(currentTxId, address);
+      if (!spendingTx) {
+        return []; // No spending transaction found
+      }
+      currentTxId = spendingTx;
+    }
+  }
+
+  async getLastSpentUTXO(address, txId) {
+    let currentTxId = txId;
+    let lastSpentUTXO = null;
+
+    while (true) {
+      const spendingTx = await this.findSpendingTransaction(currentTxId, address);
+      if (!spendingTx) {
+        break; // No more spending transactions found
+      }
+
+      // Get UTXO details for this transaction
+      const response = await axios.get(
+        `${this.chain_rpc}/address/${address}/utxo`,
+      );
+
+      const utxos = response.data
+        .filter(utxo => utxo.txid === currentTxId)
+        .map((utxo) => ({
+          txid: utxo.txid,
+          vout: utxo.vout,
+          value: utxo.value,
+          script: "",
+        }));
+
+      if (utxos.length > 0) {
+        lastSpentUTXO = utxos[0];
+      }
+
+      currentTxId = spendingTx;
+    }
+
+    return lastSpentUTXO;
+  }
+
+  async createPayload(near, sender, txnHashes, useUtxoTxId, findUnspent = false) {
+    // Fetch UTXOs based on parameters
+    let utxos;
+    if (useUtxoTxId) {
+      utxos = await this.fetchUTXOByTxIds(sender, useUtxoTxId, findUnspent);
+    } else {
+      utxos = await this.fetchUTXOs(sender);
+    }
+
+    console.log("utxo to use for payload: ", utxos);
 
     // Fetch the current fee rate from an external source
     const feeRate = await this.fetchFeeRate() + 1;
@@ -572,14 +644,40 @@ class Bitcoin {
     return response.data;
   }
 
-  async fetchTxSpentByTxnID(txnID) {
-    const axioConfig = {
-      url: `${this.chain_rpc}/tx/${txnID}/outspend/0`,
-      method: "get",
-    };
-    const response = await fetchWithRetry(axioConfig);
+  async fetchTxSpentByTxnID(txnID, address) {
+    try {
+      // First get the transaction to find number of outputs
+      const tx = await this.fetchTxnByTxnID(txnID);
+     
+      // Filter outputs to only include those matching the address
+      const matchingVouts = tx.vout;
 
-    return response.data;
+      // Check spent status for each matching vout sequentially  
+      for (let i = 0; i < matchingVouts.length; i++) {
+        const vout = matchingVouts[i];
+        if (vout.scriptpubkey_address === address) {
+          const axioConfig = {
+            url: `${this.chain_rpc}/tx/${txnID}/outspend/${i}`,
+            method: "get"
+          };
+          const response = await fetchWithRetry(axioConfig);
+          const status = response.data;
+          
+          // Return first spent output found
+          if (status.spent) {
+            console.log("1st output spent found: ", status);
+            return status;
+          }
+        }
+      }
+
+      // If no spent outputs found
+      return {spent: false};
+
+    } catch (error) {
+      console.error('Error checking spent outputs:', error);
+      throw new Error(`Failed to check spent outputs for ${txnID}: ${error.message}`);
+    }
   }
 
   /**
@@ -749,12 +847,11 @@ class Bitcoin {
     }
   }
 
-  async findSpendingTransaction(txid) {
+  async findSpendingTransaction(txid, address) {
     try {
       // Fetch the original transaction
-      const txn = await this.fetchTxSpentByTxnID(txid);
-      console.log("txn.vot: ", txn);
-
+      const txn = await this.fetchTxSpentByTxnID(txid, address);
+     
       if (txn.spent) {
         return txn.txid;
       }

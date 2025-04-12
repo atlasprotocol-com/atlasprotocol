@@ -72,6 +72,13 @@ const { UpdateAtlasBtcDeposited } = require("./utils/updateAtlasBtcDeposited");
 const {
   RetrieveAndProcessPastEvmEvents,
 } = require("./utils/retrieveAndProcessPastEvmEvents");
+const {
+  UpdateAtlasBtcWithdrawingFromYieldProvider,
+} = require("./utils/updateAtlasBtcWithdrawingFromYieldProvider");
+
+const {
+  UpdateAtlasRedemptionPendingBtcMempool,
+} = require("./utils/updateAtlasRedemptionPendingBtcMempool");
 
 const express = require("express");
 const cors = require("cors");
@@ -88,6 +95,8 @@ const { getTxsOfNetwork } = require("./services/subquery");
 const {
   processUnstakingAndWithdrawal,
 } = require("./utils/processUnstakingAndWithdrawal");
+
+const UpdateSendToUserBtcTxnHash = require('./helpers/updateSendToUserBtcTxnHash');
 
 // Configuration for BTC connection
 const btcConfig = {
@@ -137,7 +146,7 @@ let deposits = [];
 let redemptions = [];
 let btcMempool = [];
 let bridgings = [];
-
+let bithiveRecords = [];
 const computeStats = async () => {
   atlasStats = await getTransactionsAndComputeStats(
     deposits,
@@ -205,12 +214,53 @@ const getAllDepositHistory = async (limit = 1000) => {
 };
 
 // Function to poll Near Atlas redemption records
-const getAllRedemptionHistory = async () => {
+const getAllRedemptionHistory = async (limit = 1000) => {
+  if (flagsBatch.GetAllRedemptionHistoryRunning) {
+    console.log("[getAllRedemptionHistory] GetAllRedemptionHistoryRunning is running");
+    return;
+  }
+
+  flagsBatch.GetAllRedemptionHistoryRunning = true;
+
   try {
-    //console.log("Fetching redemptions history");
-    redemptions = await near.getAllRedemptions();
+    // First, get the first batch to check if there are any redemptions
+    const firstBatch = await near.getAllRedemptions(0, limit);
+    
+    if (firstBatch.length === 0) {
+      redemptions = [];
+      console.log("[getAllRedemptionHistory] No redemptions found");
+      return;
+    }
+
+    let allRedemptions = [...firstBatch];
+
+    // Get total count from NEAR to calculate number of batches needed
+    const totalCount = await near.getTotalRedemptionsCount();
+    const totalBatches = Math.ceil(totalCount / limit);
+
+    // Create an array of promises for parallel fetching
+    const batchPromises = [];
+    for (let i = 1; i < totalBatches; i++) {
+      const currentOffset = i * limit;
+      batchPromises.push(near.getAllRedemptions(currentOffset, limit));
+    }
+
+    // Fetch all batches in parallel
+    const batchResults = await Promise.all(batchPromises);
+    
+    // Combine all results
+    batchResults.forEach(batch => {
+      allRedemptions = allRedemptions.concat(batch);
+    });
+
+    redemptions = allRedemptions;
+
+    console.log("[getAllRedemptionHistory] Total redemptions fetched:", redemptions.length);
   } catch (error) {
-    console.error(`Failed to fetch redemption history: ${error.message}`);
+    console.error(`[getAllRedemptionHistory] Failed: ${error.message}`);
+  }
+  finally {
+    flagsBatch.GetAllRedemptionHistoryRunning = false;
   }
 };
 
@@ -686,10 +736,35 @@ app.get("/api/v1/check-minted-txn", async (req, res) => {
   }
 });
 
+// API endpoint to update BTC transaction hash
+app.get('/api/v1/update-send-to-user-btc-txn-hash', async (req, res) => {
+  try {
+      const result = await UpdateSendToUserBtcTxnHash.updateBtcTxnHash(bitcoin);
+      
+      if (result.success) {
+          res.status(200).json({
+              success: true,
+              message: result.message,
+              data: result.data
+          });
+      } else {
+          res.status(400).json({
+              success: false,
+              message: result.message
+          });
+      }
+  } catch (error) {
+      console.error('Error in update-send-to-user-btc-txn-hash:', error);
+      res.status(500).json({
+          success: false,
+          message: error.message || 'Internal server error'
+      });
+  }
+});
+
 async function runBatch() {
   await getBtcMempoolRecords();
   await getAllBridgingHistory();
-  await getAllRedemptionHistory();
   await computeStats();
 
   await RetrieveAndProcessPastEvmEvents(near, deposits, redemptions, bridgings);
@@ -710,10 +785,6 @@ async function runBatch() {
 
   // await WithdrawFailDeposits(deposits, near, bitcoin);
   // await UpdateWithdrawFailDeposits(deposits, near, bitcoin);
-
-  await UpdateAtlasBtcWithdrawnFromYieldProvider(redemptions, near, bitcoin);
-  await SendBtcBackToUser(near, bitcoin);
-  await UpdateAtlasBtcBackToUser(redemptions, near, bitcoin);
 
   // await MintBridgeABtcToDestChain(near);
 
@@ -744,6 +815,8 @@ app.listen(PORT, async () => {
       await processUnstakingAndWithdrawal(
         near,
         bitcoin,
+        redemptions,
+        bridgings,
         globalParams.atlasTreasuryAddress,
       );
     } catch (error) {
@@ -753,6 +826,10 @@ app.listen(PORT, async () => {
 
   setInterval(async () => {
     await getAllDepositHistory();
+  }, 5000);
+
+  setInterval(async () => {
+    await getAllRedemptionHistory();
   }, 5000);
 
   setInterval(async () => {
@@ -778,4 +855,43 @@ app.listen(PORT, async () => {
   setInterval(async () => {
     await UpdateAtlasBtcDeposited(deposits, near, bitcoin);
   }, 10000);
+  
+  setInterval(async () => {
+    await UpdateAtlasBtcWithdrawingFromYieldProvider(redemptions, bridgings, near);
+  }, 10000);
+
+  setInterval(async () => {
+    await UpdateAtlasBtcWithdrawnFromYieldProvider(redemptions, near, bithiveRecords);
+  }, 10000);
+
+  setInterval(async () => {
+    await SendBtcBackToUser(near, redemptions, bitcoin);
+  }, 10000);
+
+  setInterval(async () => {
+    await UpdateAtlasRedemptionPendingBtcMempool(near, redemptions);
+  }, 10000);
+
+  setInterval(async () => {
+    await UpdateAtlasBtcBackToUser(redemptions, near, bitcoin);
+  }, 10000);
 });
+
+app.post('/api/v1/update-send-to-user-btc-txn-hash', async (req, res) => {
+    try {
+        const result = await UpdateSendToUserBtcTxnHash.updateBtcTxnHash(bitcoin);
+        if (result.success) {
+            res.json(result);
+        } else {
+            res.status(400).json(result);
+        }
+    } catch (error) {
+        console.error('Error in update-send-to-user-btc-txn-hash endpoint:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+});
+
+

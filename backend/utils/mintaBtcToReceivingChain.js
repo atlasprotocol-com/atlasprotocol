@@ -6,7 +6,7 @@ const { flagsBatch } = require("./batchFlags");
 const { getChainConfig } = require("./network.chain.config");
 
 async function MintaBtcToReceivingChain(allDeposits, near) {
-  const batchName = `Batch D MintaBtcToReceivingChain`;
+  const batchName = `Batch E MintaBtcToReceivingChain`;
 
   if (flagsBatch.MintaBtcToReceivingChainRunning) {
     return;

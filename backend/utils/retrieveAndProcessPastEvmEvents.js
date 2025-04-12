@@ -23,7 +23,7 @@ const {
   getBurnRedeemEntities,
 } = require("../services/subquery");
 
-const batchName = `Batch RetrieveAndProcessPastEvmEvents`;
+const batchName = `Batch O RetrieveAndProcessPastEvmEvents`;
 
 async function RetrieveAndProcessPastEvmEvents(
   near,

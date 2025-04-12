@@ -90,6 +90,7 @@ class Near {
           "get_bridging_records_to_send_btc",
           "get_pubkey_by_address",
           "get_deposits_count",
+          "get_redemptions_count",
         ],
         changeMethods: [
           "insert_deposit_btc",
@@ -392,15 +393,12 @@ class Near {
   }
 
   async updateRedemptionPendingBtcMempool(
-    txnHashes,
+    txnHash,
     btcTxnHash,
-    estimatedFee,
-    protocolFee,
   ) {
-    console.log(txnHashes);
-    console.log(btcTxnHash);
+
     return this.makeNearRpcChangeCall("update_redemption_pending_btc_mempool", {
-      txn_hashes: txnHashes,
+      txn_hash: txnHash,
       btc_txn_hash: btcTxnHash,
     });
   }
@@ -518,7 +516,7 @@ class Near {
           );
           return this.provider.txStatus(txnhash, this.contract_id, "FINAL");
         },
-        { retries: 10 },
+        { retries: 5 },
       );
       if (!tx || !tx.status || !tx.status.SuccessValue) {
         const failure = JSON.stringify(tx && tx.status);
@@ -1640,6 +1638,10 @@ class Near {
 
   async getTotalDepositsCount() {
     return this.makeNearRpcViewCall("get_deposits_count", {});
+  }
+
+  async getTotalRedemptionsCount() {
+    return this.makeNearRpcViewCall("get_redemptions_count", {});
   }
 }
 

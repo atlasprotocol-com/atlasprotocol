@@ -1,18 +1,22 @@
 const bitcoin = require("bitcoinjs-lib");
 const { createRelayerClient } = require("@bithive/relayer-api");
 
+const WithdrawalFromYieldProviderHelper = require('../helpers/withdrawalFromYieldProviderHelper');
 const { getConstants } = require("../constants");
 const unstakingConfig = require("../config/unstakingConfig");
 const { globalParams, updateGlobalParams } = require("../config/globalParams");
 
+const { getChainConfig } = require("./network.chain.config");
 const { flagsBatch } = require("./batchFlags");
 
 async function processUnstakingAndWithdrawal(
   near,
   bitcoinInstance,
+  redemptions,
+  bridgings,
   atlasTreasuryAddress,
 ) {
-  const batchName = "Batch ProcessUnstakingAndWithdrawal";
+  const batchName = "Batch N ProcessUnstakingAndWithdrawal";
   const relayer = createRelayerClient({ url: process.env.BITHIVE_RELAYER_URL });
 
   // Check if a previous batch is still running
@@ -24,7 +28,17 @@ async function processUnstakingAndWithdrawal(
   try {
     console.log(`${batchName}. Start run...`);
     flagsBatch.ProcessUnstakingAndWithdrawalRunning = true;
+
+    let lastWithdrawalData = await WithdrawalFromYieldProviderHelper.getLastWithdrawalData();
+    
+    // Check if lastWithdrawalTxHash is blank before proceeding
+    if (lastWithdrawalData.lastWithdrawalTxHash) {
+      console.log('Previous withdrawal still processing. Last withdrawal tx hash:', lastWithdrawalData.lastWithdrawalTxHash);
+      return;
+    }
+
     await updateGlobalParams(near);
+
     // Step 1: Check Unstaking Eligibility
     const lastUnstakingTime = globalParams.lastUnstakingTime;
     const unstakingPeriod = await unstakingConfig.getUnstakingPeriod(near);
@@ -46,58 +60,17 @@ async function processUnstakingAndWithdrawal(
       );
       return;
     }
+
     const { REDEMPTION_STATUS, BRIDGING_STATUS } = getConstants();
-    // Step 2: Process Pending Withdrawals
 
-    // Get all pending redemptions and bridging records
-    const pendingRedemptions =
-      await near.getRedemptionsForYieldProviderByStatusAndTimestamp(
-        REDEMPTION_STATUS.BTC_YIELD_PROVIDER_UNSTAKE_PROCESSING,
-        lastUnstakingTime,
-      );
-    const pendingBridgings =
-      await near.getBridgingsForYieldProviderByStatusAndTimestamp(
-        BRIDGING_STATUS.ABTC_YIELD_PROVIDER_UNSTAKE_PROCESSING,
-        lastUnstakingTime,
-      );
-
+    // Step 2: Withdraw from yield provider
     console.log("\x1b[33mWithdrawal: \x1b[0m");
     console.log(
-      "\x1b[33mPending redemptions: " + pendingRedemptions.length + "\x1b[0m",
-    );
-    console.log(
-      "\x1b[33mPending bridgings: " + pendingBridgings.length + "\x1b[0m",
+      "\x1b[33mTotal amount to withdraw: " + lastWithdrawalData.totalNewAmount + "\x1b[0m",
     );
 
-    // If there are pending withdrawals, process them first
-    if (pendingRedemptions.length > 0 || pendingBridgings.length > 0) {
+    if (lastWithdrawalData.totalNewAmount > 0) {
       try {
-        for (const redemption of pendingRedemptions) {
-          await near.updateRedemptionPendingYieldProviderWithdraw(
-            redemption.txn_hash,
-          );
-        }
-
-        for (const bridging of pendingBridgings) {
-          await near.updateBridgingFeesPendingYieldProviderWithdraw(
-            bridging.txn_hash,
-          );
-        }
-
-        //Process withdrawals logic...
-        const totalAbtcAmount = pendingRedemptions.reduce(
-          (sum, record) => sum + record.abtc_amount,
-          0,
-        );
-        const totalFeesAmount = pendingBridgings.reduce(
-          (sum, record) =>
-            sum +
-            record.minting_fee_sat +
-            record.protocol_fee +
-            record.bridging_gas_fee_sat,
-          0,
-        );
-
         let partiallySignedPsbtHex = undefined;
         let withdrawnDeposits;
         let _deposits;
@@ -106,9 +79,7 @@ async function processUnstakingAndWithdrawal(
           await bitcoinInstance.deriveBTCAddress(near);
         const publicKeyString = publicKey.toString("hex");
 
-        const totalAmount = totalAbtcAmount + totalFeesAmount;
-        console.log("totalAbtcAmount:", totalAbtcAmount);
-        console.log("totalFeesAmount:", totalFeesAmount);
+        const totalAmount = lastWithdrawalData.totalNewAmount;
         console.log("totalAmount:", totalAmount);
 
         const { account } = await relayer.user.getAccount({
@@ -168,33 +139,6 @@ async function processUnstakingAndWithdrawal(
         let yieldProviderWithdrawalFee = finalisedPsbt.getFee();
         console.log("finalisedPsbt.getFee() ", yieldProviderWithdrawalFee);
 
-        const totalRecords = pendingRedemptions.length + pendingBridgings.length;
-        const baseGasPerRecord = Math.floor(yieldProviderWithdrawalFee / totalRecords);
-        const remainder = yieldProviderWithdrawalFee % totalRecords;
-        
-        console.log("Total records:", totalRecords);
-        console.log("Base gas per record:", baseGasPerRecord);
-        console.log("Remainder to distribute:", remainder);
-
-        // Create arrays to hold the actual gas distribution
-        const redemptionGasFees = new Array(pendingRedemptions.length).fill(baseGasPerRecord);
-        const bridgingGasFees = new Array(pendingBridgings.length).fill(baseGasPerRecord);
-
-        // Distribute the remainder one by one across records
-        for (let i = 0; i < remainder; i++) {
-            if (i < pendingRedemptions.length) {
-                redemptionGasFees[i]++;
-            } else {
-                bridgingGasFees[i - pendingRedemptions.length]++;
-            }
-        }
-
-        // Verify total distribution equals original fee
-        const totalDistributed = redemptionGasFees.reduce((a, b) => a + b, 0) + 
-                               bridgingGasFees.reduce((a, b) => a + b, 0);
-        console.log("Total gas distributed:", totalDistributed);
-        console.log("Original withdrawal fee:", yieldProviderWithdrawalFee);
-
         // Submit the finalized PSBT for broadcasting and relaying
         const { txHash: yieldProviderWithdrawalTxHash } =
           await relayer.withdraw.submitFinalizedPsbt({
@@ -202,52 +146,73 @@ async function processUnstakingAndWithdrawal(
           });
 
         console.log("Withdrawal txHash:", yieldProviderWithdrawalTxHash);
+        
+        // Update withdrawal data
+        await WithdrawalFromYieldProviderHelper.updateLastWithdrawalData({
+          lastWithdrawalTxHash: yieldProviderWithdrawalTxHash,
+          withdrawalFee: yieldProviderWithdrawalFee
+        });
 
-        // Update records with individual gas fees
-        for (let i = 0; i < pendingRedemptions.length; i++) {
-          await near.updateRedemptionYieldProviderWithdrawing(
-            pendingRedemptions[i].txn_hash,
-            depositTxHash,
-            redemptionGasFees[i],
-          );
-        }
-
-        for (let i = 0; i < pendingBridgings.length; i++) {
-          await near.updateBridgingFeesYieldProviderWithdrawing(
-            pendingBridgings[i].txn_hash,
-            depositTxHash,
-            bridgingGasFees[i]
-          );
-        }
       } catch (error) {
         console.error("Error in withdrawal process:", error);
         const remarks = `Error in withdrawal process: ${error.message || error}`;
 
-        for (const redemption of pendingRedemptions) {
-          await near.updateRedemptionRemarks(redemption.txn_hash, remarks);
-        }
-
-        for (const bridging of pendingBridgings) {
-          await near.updateBridgingFeesYieldProviderRemarks(
-            bridging.txn_hash,
-            remarks,
-          );
-        }
+        await WithdrawalFromYieldProviderHelper.updateLastWithdrawalData({
+          errorMessage: remarks
+        });
       }
+
+    }
+
+    let newRedemptions = [];
+    let newBridgings = [];
+
+    if (lastWithdrawalData.errorMessage) {
+      console.log('Previous withdrawal failed. Error message:', lastWithdrawalData.errorMessage);
+      return;
+    }
+
+    if (lastWithdrawalData.totalNewAmount !== 0) {
+      console.log('Previous unstaking request still processing. Total new amount:', lastWithdrawalData.totalNewAmount);
+      return;
+    }
+
+    // Check if lastWithdrawalTxHash is blank before proceeding
+    if (lastWithdrawalData.lastWithdrawalTxHash) {
+      console.log('Previous withdrawal still processing. Last withdrawal tx hash:', lastWithdrawalData.lastWithdrawalTxHash);
+      return;
     }
 
     try {
       // Step 4: Process New Unstaking Requests
-      const newRedemptions =
-        await near.getRedemptionsForYieldProviderByStatusAndTimestamp(
-          REDEMPTION_STATUS.ABTC_BURNT,
-          nextEligibleTime,
-        );
-      const newBridgings =
-        await near.getBridgingsForYieldProviderByStatusAndTimestamp(
-          BRIDGING_STATUS.ABTC_BURNT,
-          nextEligibleTime,
-        );
+      newRedemptions = redemptions.filter(
+        redemption => {
+          try {
+            const chainConfig = getChainConfig(redemption.abtc_redemption_chain_id);
+            return (redemption.status === REDEMPTION_STATUS.ABTC_BURNT || redemption.status === REDEMPTION_STATUS.BTC_YIELD_PROVIDER_UNSTAKE_PROCESSING) &&
+              redemption.remarks === "" &&
+              redemption.verified_count >= chainConfig.validators_threshold;
+          } catch (error) {
+            const remarks = `Chain config not found for chain ID: ${redemption.abtc_redemption_chain_id}`;
+            near.updateRedemptionRemarks(redemption.txn_hash, remarks);
+            return false;
+          }
+        }
+      );
+      newBridgings = bridgings.filter(
+        bridging => {
+          try {
+            const chainConfig = getChainConfig(bridging.dest_chain_id);
+            return bridging.status === BRIDGING_STATUS.ABTC_BURNT &&
+              bridging.remarks === "" &&
+              bridging.verified_count >= chainConfig.validators_threshold;
+          } catch (error) {
+            const remarks = `Chain config not found for chain ID: ${bridging.dest_chain_id}`;
+            near.updateBridgingFeesYieldProviderRemarks(bridging.txn_hash, remarks);
+            return false;
+          }
+        }
+      );
 
       console.log("\x1b[34mUnstaking: \x1b[0m");
       console.log(
@@ -264,11 +229,32 @@ async function processUnstakingAndWithdrawal(
 
         // Process redemptions if conditions met
         if (shouldProcessRedemptions) {
+          const failedUnstakes = [];
+
           for (const redemption of newRedemptions) {
-            await near.updateRedemptionPendingYieldProviderUnstake(
-              redemption.txn_hash,
-            );
+            try {
+              await near.updateRedemptionYieldProviderUnstakeProcessing(redemption.txn_hash);
+              // Update status in redemptions array
+              const redemptionToUpdate = redemptions.find(r => r.txn_hash === redemption.txn_hash);
+              if (redemptionToUpdate) {
+                redemptionToUpdate.status = REDEMPTION_STATUS.BTC_YIELD_PROVIDER_UNSTAKE_PROCESSING;
+              }
+            } catch (error) {
+              const remarks = `Error updating redemption pending yield provider unstake: ${error.message || error}`;
+              await near.updateRedemptionRemarks(redemption.txn_hash, remarks);
+              failedUnstakes.push(redemption.txn_hash);
+            }
           }
+          console.log("newRedemptions:", newRedemptions);
+          console.log("failedUnstakes:", failedUnstakes);
+          
+          // remove failed unstakes from `newRedemptions`
+          newRedemptions = newRedemptions.filter(
+            (redemption) => !failedUnstakes.includes(redemption.txn_hash)
+          );
+
+          console.log("newRedemptions:", newRedemptions);
+
           const totalNewAbtcAmount = newRedemptions.reduce(
             (sum, record) => sum + record.abtc_amount,
             0,
@@ -279,11 +265,28 @@ async function processUnstakingAndWithdrawal(
 
         // Process bridgings if conditions met  
         if (shouldProcessBridgings) {
+          const failedUnstakes = [];
+
           for (const bridging of newBridgings) {
-            await near.updateBridgingFeesPendingYieldProviderUnstake(
-              bridging.txn_hash,
-            );
+            try {
+              await near.updateBridgingFeesYieldProviderUnstakeProcessing(bridging.txn_hash);
+               // Update status in bridgings array
+               const bridgingToUpdate = bridgings.find(b => b.txn_hash === bridging.txn_hash);
+               if (bridgingToUpdate) {
+                 bridgingToUpdate.status = BRIDGING_STATUS.ABTC_YIELD_PROVIDER_UNSTAKE_PROCESSING;
+               }
+            } catch (error) {
+              const remarks = `Error updating bridging fees pending yield provider unstake: ${error.message || error}`;
+              await near.updateBridgingFeesYieldProviderRemarks(bridging.txn_hash, remarks);
+              failedUnstakes.push(bridging.txn_hash);
+            }
           }
+
+          // remove failed ones from the list
+          newBridgings = newBridgings.filter(
+            (bridging) => !failedUnstakes.includes(bridging.txn_hash)
+          );
+
           const totalNewFeesAmount = newBridgings.reduce(
             (sum, record) =>
               sum +
@@ -320,47 +323,24 @@ async function processUnstakingAndWithdrawal(
           signature: unstakeSignature.toString("hex"),
         });
 
-        // Update record statuses
-        if (shouldProcessRedemptions) {
-          for (const redemption of newRedemptions) {
-            await near.updateRedemptionYieldProviderUnstakeProcessing(
-              redemption.txn_hash,
-            );
-          }
-        }
+        // Update totalNewAmount in withdrawal data
+        await WithdrawalFromYieldProviderHelper.updateLastWithdrawalData({
+          totalNewAmount: totalNewAmount,
+          totalRecords: newRedemptions.length + newBridgings.length
+        });
 
-        if (shouldProcessBridgings) {
-          for (const bridging of newBridgings) {
-            await near.updateBridgingFeesYieldProviderUnstakeProcessing(
-              bridging.txn_hash,
-            );
-          }
-        }
+        const newLastUnstakingTime = Date.now();
+        // Step 3: Update last unstaking time before processing new unstaking requests
+        console.log("New Last Unstaking Time:", newLastUnstakingTime);
+        await near.updateLastUnstakingTime(newLastUnstakingTime);
+        globalParams.last_unstaking_time = newLastUnstakingTime;
       }
+      
     } catch (error) {
       console.error("Error processing new unstaking requests:", error);
 
-      // Add error remarks to redemptions
-      for (const redemption of newRedemptions) {
-        await near.updateRedemptionRemarks(
-          redemption.txn_hash,
-          error.message || error.toString(),
-        );
-      }
-
-      // Add error remarks to bridgings
-      for (const bridging of newBridgings) {
-        await near.updateBridgingFeesYieldProviderRemarks(
-          bridging.txn_hash,
-          error.message || error.toString(),
-        );
-      }
     }
 
-    const newLastUnstakingTime = Date.now();
-    // Step 3: Update last unstaking time before processing new unstaking requests
-    await near.updateLastUnstakingTime(newLastUnstakingTime);
-    globalParams.last_unstaking_time = newLastUnstakingTime;
   } catch (error) {
     console.error(`Error ${batchName}:`, error);
   } finally {

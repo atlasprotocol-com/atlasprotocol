@@ -6,7 +6,7 @@ const { getChainConfig } = require("./network.chain.config");
 const { flagsBatch } = require("./batchFlags");
 
 async function StakeToYieldProvider(allDeposits, near, bitcoinInstance) {
-  const batchName = `Batch B StakeToYieldProvider`;
+  const batchName = `Batch C StakeToYieldProvider`;
 
   const relayer = createRelayerClient({ url: process.env.BITHIVE_RELAYER_URL });
 

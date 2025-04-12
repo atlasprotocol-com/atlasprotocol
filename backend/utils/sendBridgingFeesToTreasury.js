@@ -5,7 +5,7 @@ const { getConstants } = require("../constants");
 const { flagsBatch } = require("./batchFlags");
 
 async function SendBridgingFeesToTreasury(near, bitcoinInstance, batchSize = 10) {
-  const batchName = `Batch SendBridgingFeesToTreasury`;
+  const batchName = `Batch L SendBridgingFeesToTreasury`;
 
   // Check if a previous batch is still running
   if (flagsBatch.SendBridgingFeesToTreasuryRunning) {

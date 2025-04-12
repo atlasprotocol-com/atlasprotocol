@@ -190,7 +190,20 @@ export class Wallet {
       ],
     });
 
-    return providers.getTransactionLastResult(outcome as any);
+    console.log("[near] outcome:", outcome);
+
+    // Get the transaction hash from the outcome
+    let txHash = "";
+    if (outcome && typeof outcome === 'object' && 'transaction' in outcome) {
+      txHash = outcome.transaction.hash;
+      console.log("[near] transaction hash:", txHash);
+    }
+
+    // Return both the transaction result and the transaction hash
+    return {
+      result: providers.getTransactionLastResult(outcome as any),
+      transaction_hash: txHash
+    };
   };
 
   /**
@@ -386,6 +399,7 @@ export function useNearAbtcBurnRedeem({
     }) => {
       if (!contract || !wallet) return undefined;
 
+      // Call the contract method
       const result = await wallet.callMethod({
         contractId: contract,
         method: "burn_redeem",
@@ -396,7 +410,14 @@ export function useNearAbtcBurnRedeem({
         deposit: "1", // 1 octa deposit
       });
 
-      return result;
+      console.log("[useNearAbtcBurnRedeem] Result:", result);
+      
+      // Get the transaction hash from the result
+      const txHash = result.transaction_hash || `${Date.now()}`;
+      console.log("[useNearAbtcBurnRedeem] Transaction hash:", txHash);
+      
+      // Return an object with the transaction hash
+      return { transaction_hash: txHash };
     },
   });
 }
