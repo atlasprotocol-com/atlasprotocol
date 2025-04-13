@@ -5,7 +5,7 @@ FT_CONTRACT_ID ?= atbtc_signet_20250405
 migrate: 
 	./build.sh
 	near deploy $(CONTRACT_ID).velar.testnet res/atlas_protocol.wasm;
-	near call $(CONTRACT_ID).velar.testnet migrate {} --accountId velar.testnet
+	near call $(CONTRACT_ID).velar.testnet migrate_batch {} --accountId velar.testnet
 
 redeploy-all: redeploy redeploy-near-ft
 
