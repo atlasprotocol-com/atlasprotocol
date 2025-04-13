@@ -55,7 +55,12 @@ impl Atlas {
             .collect();
 
         if migrating_deposits.is_empty() {
-            return (old_deposits.len() as u32, new_deposits.len() as u32, 0);
+            let total_deposits = old_deposits.len() as u32;
+            let new_deposits_len = new_deposits.len() as u32;
+            env::log_str(&format!("Total deposits: {}", total_deposits));
+            env::log_str(&format!("New deposits: {}", new_deposits_len));
+            env::log_str("Remaining deposits: 0");
+            return (total_deposits, new_deposits_len, 0);
         }
 
         // Loop through the deposits and insert them into new_deposits
@@ -93,8 +98,13 @@ impl Atlas {
         // Update the batch_offset in storage
         env::storage_write(DEPOSIT_OFFSET, &migrated_count.to_le_bytes());
 
+        // Log the values
+        env::log_str(&format!("Total deposits: {}", total_deposits));
+        env::log_str(&format!("New deposits: {}", new_deposits.len() as u32));
+        env::log_str(&format!("Remaining deposits: {}", remaining));
+
         // Return the number of items in old_deposits, new_deposits, and remaining deposits
-        return (total_deposits, new_deposits.len() as u32, remaining);
+        (total_deposits, new_deposits.len() as u32, remaining)
     }
 
     #[private]
