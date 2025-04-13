@@ -121,7 +121,7 @@ impl Atlas {
             verifications: old_state.verifications,
             paused: old_state.paused,
             production_mode: old_state.production_mode,
-            btc_pubkey: IterableMap::new(b"p"),
+            btc_pubkey: old_state.btc_pubkey,
         }
     }
 }
