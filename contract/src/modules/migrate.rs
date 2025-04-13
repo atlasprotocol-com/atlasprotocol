@@ -25,58 +25,20 @@ pub struct OldState {
 }
 
 const DEPOSIT_VERSION: &[u8] = "v25.04.13".as_bytes();
-const DEPOSIT_OFFSET: &[u8] = "v25.04.13-deposit_offset".as_bytes();
-
-const STATE_KEY: &[u8] = b"STATE";
 
 #[near_bindgen]
 impl Atlas {
     #[private]
     #[init(ignore_state)]
-    pub fn migrate_batch(batch_size: Option<u32>) -> (u32, u32, u32) {
-        // Parse batch_offset, default to 0 if not present
-        let batch_offset: u32 = env::storage_read(DEPOSIT_OFFSET)
-            .map(|data| u32::from_le_bytes(data.try_into().unwrap()))
-            .unwrap_or(0);
+    pub fn migrate() -> Self {
+        // Try to read the old state
+        let old_state: OldState = env::state_read().expect("Failed to read old state");
 
-        // Set batch_size to 30 if not provided
-        let batch_size = batch_size.unwrap_or(30);
-
-        // Parse old_deposits from storage
-        let old_deposits: IterableMap<String, DepositRecord> = env::storage_read(b"d")
-            .map(|data| {
-                BorshDeserialize::try_from_slice(&data)
-                    .unwrap_or_else(|_| env::panic_str("Failed to deserialize old deposits."))
-            })
-            .unwrap_or_else(|| IterableMap::new(b"d"));
-
-        // Load the existing IterableMap for deposits or create a new one if it doesn't exist
         let mut new_deposits: IterableMap<String, DepositRecord> =
-            env::storage_read(DEPOSIT_VERSION)
-                .map(|data| {
-                    BorshDeserialize::try_from_slice(&data)
-                        .unwrap_or_else(|_| env::panic_str("Failed to deserialize new deposits."))
-                })
-                .unwrap_or_else(|| IterableMap::new(DEPOSIT_VERSION));
-
-        // Obtain deposits to migrate using .skip and .take
-        let migrating_deposits: Vec<_> = old_deposits
-            .iter()
-            .skip(batch_offset as usize)
-            .take(batch_size as usize)
-            .collect();
-
-        if migrating_deposits.is_empty() {
-            let total_deposits = old_deposits.len() as u32;
-            let new_deposits_len = new_deposits.len() as u32;
-            env::log_str(&format!("Total deposits: {}", total_deposits));
-            env::log_str(&format!("New deposits: {}", new_deposits_len));
-            env::log_str("Remaining deposits: 0");
-            return (total_deposits, new_deposits_len, 0);
-        }
+            IterableMap::new(DEPOSIT_VERSION);
 
         // Loop through the deposits and insert them into new_deposits
-        for (tx, deposit) in migrating_deposits {
+        for (tx, deposit) in old_state.deposits.iter() {
             new_deposits.insert(
                 tx.to_string(),
                 DepositRecord {
@@ -101,41 +63,6 @@ impl Atlas {
                 },
             );
         }
-
-        // Calculate remaining deposits to migrate
-        let total_deposits = old_deposits.len() as u32;
-        let migrated_count = batch_offset + batch_size;
-        let remaining = total_deposits.saturating_sub(migrated_count);
-
-        // Update the batch_offset in storage
-        env::storage_write(DEPOSIT_OFFSET, &migrated_count.to_le_bytes());
-
-        // Log the values
-        env::log_str(&format!("Total deposits: {}", total_deposits));
-        env::log_str(&format!("New deposits: {}", new_deposits.len() as u32));
-        env::log_str(&format!("Remaining deposits: {}", remaining));
-
-        // Return the number of items in old_deposits, new_deposits, and remaining deposits
-        (total_deposits, new_deposits.len() as u32, remaining)
-    }
-
-    #[private]
-    #[init(ignore_state)]
-    pub fn migrate() -> Self {
-        // Try to read the old state
-        let old_state: OldState = env::storage_read(STATE_KEY)
-            .map(|data| {
-                BorshDeserialize::try_from_slice(&data).unwrap_or_else(|err| {
-                    env::log_str(&format!(
-                        "Deserialization error: {:?}. Raw data: {:?}",
-                        err, data
-                    ));
-                    env::panic_str("Cannot deserialize the contract state.")
-                })
-            })
-            .unwrap_or_else(|| env::panic_str("Failed to read STATE_KEY from storage."));
-
-        let new_deposits: IterableMap<String, DepositRecord> = IterableMap::new(DEPOSIT_VERSION);
 
         Self {
             deposits: new_deposits,
