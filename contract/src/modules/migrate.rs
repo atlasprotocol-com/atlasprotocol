@@ -42,12 +42,22 @@ impl Atlas {
         // Set batch_size to 30 if not provided
         let batch_size = batch_size.unwrap_or(30);
 
-        // Create a new IterableMap for deposits
-        let old_deposits: IterableMap<String, DepositRecord> = IterableMap::new(b"d");
+        // Parse old_deposits from storage
+        let old_deposits: IterableMap<String, DepositRecord> = env::storage_read(b"d")
+            .map(|data| {
+                BorshDeserialize::try_from_slice(&data)
+                    .unwrap_or_else(|_| env::panic_str("Failed to deserialize old deposits."))
+            })
+            .unwrap_or_else(|| IterableMap::new(b"d"));
 
-        // Create a new IterableMap for deposits
+        // Load the existing IterableMap for deposits or create a new one if it doesn't exist
         let mut new_deposits: IterableMap<String, DepositRecord> =
-            IterableMap::new(DEPOSIT_VERSION);
+            env::storage_read(DEPOSIT_VERSION)
+                .map(|data| {
+                    BorshDeserialize::try_from_slice(&data)
+                        .unwrap_or_else(|_| env::panic_str("Failed to deserialize new deposits."))
+                })
+                .unwrap_or_else(|| IterableMap::new(DEPOSIT_VERSION));
 
         // Obtain deposits to migrate using .skip and .take
         let migrating_deposits: Vec<_> = old_deposits
@@ -115,10 +125,12 @@ impl Atlas {
         // Try to read the old state
         let old_state: OldState = env::storage_read(STATE_KEY)
             .map(|data| {
-                BorshDeserialize::try_from_slice(&data)
-                    .unwrap_or_else(|_| env::panic_str("Cannot deserialize the contract state."))
+                BorshDeserialize::try_from_slice(&data).unwrap_or_else(|err| {
+                    env::log_str(&format!("Deserialization error: {:?}", err));
+                    env::panic_str("Cannot deserialize the contract state.")
+                })
             })
-            .expect("failed");
+            .unwrap_or_else(|| env::panic_str("Failed to read STATE_KEY from storage."));
 
         let new_deposits: IterableMap<String, DepositRecord> = IterableMap::new(DEPOSIT_VERSION);
 
