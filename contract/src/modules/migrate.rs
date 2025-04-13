@@ -126,7 +126,10 @@ impl Atlas {
         let old_state: OldState = env::storage_read(STATE_KEY)
             .map(|data| {
                 BorshDeserialize::try_from_slice(&data).unwrap_or_else(|err| {
-                    env::log_str(&format!("Deserialization error: {:?}", err));
+                    env::log_str(&format!(
+                        "Deserialization error: {:?}. Raw data: {:?}",
+                        err, data
+                    ));
                     env::panic_str("Cannot deserialize the contract state.")
                 })
             })
