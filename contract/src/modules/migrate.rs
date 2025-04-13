@@ -27,6 +27,8 @@ pub struct OldState {
 const DEPOSIT_VERSION: &[u8] = "v25.04.13".as_bytes();
 const DEPOSIT_OFFSET: &[u8] = "v25.04.13-deposit_offset".as_bytes();
 
+const STATE_KEY: &[u8] = b"STATE";
+
 #[near_bindgen]
 impl Atlas {
     #[private]
@@ -111,7 +113,12 @@ impl Atlas {
     #[init(ignore_state)]
     pub fn migrate() -> Self {
         // Try to read the old state
-        let old_state: OldState = env::state_read().expect("failed");
+        let old_state: OldState = env::storage_read(STATE_KEY)
+            .map(|data| {
+                BorshDeserialize::try_from_slice(&data)
+                    .unwrap_or_else(|_| env::panic_str("Cannot deserialize the contract state."))
+            })
+            .expect("failed");
 
         let new_deposits: IterableMap<String, DepositRecord> = IterableMap::new(DEPOSIT_VERSION);
 
