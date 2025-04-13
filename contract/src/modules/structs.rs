@@ -6,6 +6,7 @@ use near_sdk::store::IterableMap;
 use near_sdk::AccountId;
 use near_sdk::PanicOnDefault;
 use serde::{Deserialize, Serialize};
+use std::io::{Result as IoResult, Write};
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
