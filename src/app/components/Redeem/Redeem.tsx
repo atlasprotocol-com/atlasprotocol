@@ -17,14 +17,14 @@ import {
 } from "@/app/hooks/useConnectMultiChain";
 import { useAddFeedback } from "@/app/stores/feedback";
 import { ChainConfig } from "@/app/types/chainConfig";
+import { Redemptions, RedemptionStatus } from "@/app/types/redemptions";
 import { useGetChainConfig } from "@/hooks";
 import { useGetGlobalParams } from "@/hooks/stats";
 import { useBool } from "@/hooks/useBool";
 import { btcToSatoshi } from "@/utils/btcConversions";
+import { getRedemptionHistoriesLocalStorageKey } from "@/utils/local_storage/getRedemptionHistoriesLocalStorageKey";
 import { useNearAbtcBurnRedeem } from "@/utils/near";
 import { validateBTCAddress } from "@/utils/validateAddress";
-import { getRedemptionHistoriesLocalStorageKey } from "@/utils/local_storage/getRedemptionHistoriesLocalStorageKey";
-import { Redemptions, RedemptionStatus } from "@/app/types/redemptions";
 
 import { Button } from "../Button";
 import { InputField } from "../InputField";
@@ -79,9 +79,8 @@ export function Redeem({ btcAddress }: RedeemProps) {
     | undefined
   >(undefined);
 
-  const redemptionHistoriesLocalStorageKey = getRedemptionHistoriesLocalStorageKey(
-    btcPublicKeyNoCoord || "",
-  );
+  const redemptionHistoriesLocalStorageKey =
+    getRedemptionHistoriesLocalStorageKey(btcPublicKeyNoCoord || "");
 
   const [redemptionHistoriesLocalStorage, setRedemptionHistoriesLocalStorage] =
     useLocalStorage<Redemptions[]>(redemptionHistoriesLocalStorageKey, []);
@@ -91,7 +90,9 @@ export function Redeem({ btcAddress }: RedeemProps) {
 
   const filteredChainConfigs = useMemo(() => {
     return Object.values(chainConfigs || {}).filter(
-      (chainConfig) => chainConfig.chainID !== "SIGNET" && !chainConfig.chainID.endsWith("TESTNET4"),
+      (chainConfig) =>
+        chainConfig.chainID !== "SIGNET" &&
+        !chainConfig.chainID.endsWith("TESTNET4"),
     );
   }, [chainConfigs]);
 
@@ -180,7 +181,10 @@ export function Redeem({ btcAddress }: RedeemProps) {
       btcRedemptionFee: 0,
     };
 
-    setRedemptionHistoriesLocalStorage([newRecord, ...redemptionHistoriesLocalStorage]);
+    setRedemptionHistoriesLocalStorage([
+      newRecord,
+      ...redemptionHistoriesLocalStorage,
+    ]);
   };
 
   const onSubmit = async (data: SchemaType) => {
@@ -277,7 +281,7 @@ export function Redeem({ btcAddress }: RedeemProps) {
         title: "Success",
       });
 
-      reset();
+      setValue("amount", 0);
       previewToggle.toggle();
       setReviewData(undefined);
     } catch (error: Error | any) {

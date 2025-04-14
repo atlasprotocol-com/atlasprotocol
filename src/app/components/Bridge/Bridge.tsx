@@ -2,8 +2,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { SelectValue } from "@radix-ui/react-select";
 import { useEffect, useMemo, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
-import { z } from "zod";
 import { useLocalStorage } from "usehooks-ts";
+import { z } from "zod";
 
 import { useAppContext } from "@/app/context/app";
 import { useABtcBridge } from "@/app/hooks";
@@ -14,16 +14,16 @@ import {
 } from "@/app/hooks/useConnectMultiChain";
 import { useBridgeStore } from "@/app/stores/bridge";
 import { useAddFeedback } from "@/app/stores/feedback";
-import { ChainConfig } from "@/app/types/chainConfig";
 import { BridgeHistory, BridgeStatus } from "@/app/types/bridge";
+import { ChainConfig } from "@/app/types/chainConfig";
 import { useGetChainConfig } from "@/hooks";
 import { useGetGlobalParams } from "@/hooks/stats";
 import { useBool } from "@/hooks/useBool";
 import { btcToSatoshi } from "@/utils/btcConversions";
+import { useEstimateAbtcMintGas } from "@/utils/getEstimateAbtcMintGas";
+import { getTxBridgingFees } from "@/utils/getTxBridgingFees";
 import { useNearAbtcBridge } from "@/utils/near";
 import { validateBlockchainAddress } from "@/utils/validateAddress";
-import { getTxBridgingFees } from "@/utils/getTxBridgingFees";
-import { useEstimateAbtcMintGas } from "@/utils/getEstimateAbtcMintGas";
 
 import { Button } from "../Button";
 import { InputField } from "../InputField";
@@ -82,7 +82,7 @@ export function Bridge() {
   >(undefined);
 
   const bridgeHistoriesLocalStorageKey = `atlas-protocol-bridge-${selectedAddress || ""}`;
-  const [bridgeHistoriesLocalStorage, setBridgeHistoriesLocalStorage] = 
+  const [bridgeHistoriesLocalStorage, setBridgeHistoriesLocalStorage] =
     useLocalStorage<BridgeHistory[]>(bridgeHistoriesLocalStorageKey, []);
 
   const params = useGetGlobalParams();
@@ -149,7 +149,9 @@ export function Bridge() {
 
   const filteredChainConfigs = useMemo(() => {
     return Object.values(chainConfigs || {}).filter(
-      (chainConfig) => chainConfig.chainID !== "SIGNET" && !chainConfig.chainID.endsWith("TESTNET4"),
+      (chainConfig) =>
+        chainConfig.chainID !== "SIGNET" &&
+        !chainConfig.chainID.endsWith("TESTNET4"),
     );
   }, [chainConfigs]);
 
@@ -233,16 +235,16 @@ export function Bridge() {
 
     // Load bridging fees first
     try {
-      const toChainConfig = chainConfigs[data?.toChainID || ''];
+      const toChainConfig = chainConfigs[data?.toChainID || ""];
       const amountSat = btcToSatoshi(data.amount);
       const fees = await getTxBridgingFees(amountSat);
 
       if (!fees) throw new Error("Failed to get bridging fees");
 
       const { estimatedBridgingFee, atlasProtocolFee } = fees;
-      
+
       // Update bridging fees
-      setReviewData(prev => ({
+      setReviewData((prev) => ({
         ...prev!,
         bridgingFeeSat: estimatedBridgingFee,
         atlasProtocolFee,
@@ -250,18 +252,18 @@ export function Bridge() {
 
       // Load minting fee using the hook
       const mintingFee = await estimateGas(
-        toChainConfig?.chainRpcUrl || '',
-        toChainConfig?.aBTCAddress || '',
+        toChainConfig?.chainRpcUrl || "",
+        toChainConfig?.aBTCAddress || "",
         watch("address"),
         amountSat,
         "cd36e5e6072e3ea0ac92ad20f99ef8c736f78b3c287b43f0a8c3e8607fe6a337",
         params?.data?.evmAtlasAddress || "",
         toChainConfig?.networkType || "",
-        toChainConfig?.nativeCurrency?.symbol || ""
+        toChainConfig?.nativeCurrency?.symbol || "",
       );
 
       // Update minting fee
-      setReviewData(prev => ({
+      setReviewData((prev) => ({
         ...prev!,
         mintingFeeSat: mintingFee.mintingFeeSat,
       }));
@@ -278,7 +280,7 @@ export function Bridge() {
   // Update transaction fee when gas data changes
   useEffect(() => {
     if (gas?.gasLimit && previewToggle.value) {
-      setReviewData(prev => ({
+      setReviewData((prev) => ({
         ...prev!,
         transactionFee: gas.gasLimit,
       }));
@@ -336,7 +338,10 @@ export function Bridge() {
         bridging_gas_fee_sat: previewData.bridgingFeeSat || 0,
       };
 
-      setBridgeHistoriesLocalStorage([newBridgeHistory, ...bridgeHistoriesLocalStorage]);
+      setBridgeHistoriesLocalStorage([
+        newBridgeHistory,
+        ...bridgeHistoriesLocalStorage,
+      ]);
 
       addFeedback({
         type: "success",
@@ -361,7 +366,7 @@ export function Bridge() {
         title: "Success",
       });
 
-      reset();
+      setValue("amount", 0);
       previewToggle.toggle();
       setReviewData(undefined);
       refetchABTCBalance();

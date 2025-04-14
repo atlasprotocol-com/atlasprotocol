@@ -21,6 +21,10 @@ export interface RedeemPreviewProps {
   networkType?: string;
 }
 
+function checkNumberValid(value: number | undefined) {
+  return value !== undefined && value !== null;
+}
+
 export function RedeemPreview({
   open,
   onClose,
@@ -41,9 +45,13 @@ export function RedeemPreview({
   const ethPriceUsd = stats?.ethPriceUsd || 0;
   const nearPriceUsd = stats?.nearPriceUsd || 0;
 
-  const transactionFeeUsd = transactionFee && (networkType === "EVM" ? ethPriceUsd : nearPriceUsd)
-    ? (Number(transactionFee) * (networkType === "EVM" ? ethPriceUsd : nearPriceUsd)).toFixed(4)
-    : "--";
+  const transactionFeeUsd =
+    transactionFee && (networkType === "EVM" ? ethPriceUsd : nearPriceUsd)
+      ? (
+          Number(transactionFee) *
+          (networkType === "EVM" ? ethPriceUsd : nearPriceUsd)
+        ).toFixed(4)
+      : "--";
 
   const btcRedemptionFeeUsd =
     btcRedemptionFee && btcPriceUsd
@@ -58,13 +66,25 @@ export function RedeemPreview({
   const amountUsd =
     amount && btcPriceUsd ? (amount * btcPriceUsd).toFixed(2) : "--";
 
-  const totalFees = Number(btcRedemptionFee || 0) + Number(atlasProtocolFee || 0);
-  const actualReceived = amount && (totalFees || totalFees === 0)
-    ? Math.max(0, Number((amount - (totalFees / 100000000)).toFixed(8)))
-    : '--';
-  const actualReceivedUsd = actualReceived !== '--' && btcPriceUsd
-    ? (actualReceived * btcPriceUsd).toFixed(2)
-    : '--';
+  const totalFees =
+    Number(btcRedemptionFee || 0) + Number(atlasProtocolFee || 0);
+  const actualReceived =
+    amount && (totalFees || totalFees === 0)
+      ? Math.max(0, Number((amount - totalFees / 100000000).toFixed(8)))
+      : "--";
+  const actualReceivedUsd =
+    actualReceived !== "--" && btcPriceUsd
+      ? (actualReceived * btcPriceUsd).toFixed(2)
+      : "--";
+
+  const disabled =
+    !checkNumberValid(atlasProtocolFee) ||
+    !checkNumberValid(btcRedemptionFee) ||
+    !checkNumberValid(transactionFee) ||
+    actualReceived === "--" ||
+    actualReceived <= 0;
+
+  console.log(atlasProtocolFee);
 
   return (
     <Dialog
@@ -81,8 +101,10 @@ export function RedeemPreview({
             <p className="text-base font-semibold">
               {amount ? (
                 <>
-                  {amount} {ATLAS_BTC_TOKEN}{" "}<br />
-                  <span className="text-sm text-neutral-7">(≈{amountUsd} USD)</span>
+                  {amount} {ATLAS_BTC_TOKEN} <br />
+                  <span className="text-sm text-neutral-7">
+                    (≈{amountUsd} USD)
+                  </span>
                 </>
               ) : (
                 <span className="text-neutral-7">Loading...</span>
@@ -105,11 +127,16 @@ export function RedeemPreview({
           </p>
         </div>
         <div className="mt-4">
-          <p className="text-caption text-sm font-semibold">Amount to Receive (Estimated)</p>
+          <p className="text-caption text-sm font-semibold">
+            Amount to Receive (Estimated)
+          </p>
           <p className="text-base font-semibold break-all">
-            {actualReceived !== '--' ? (
+            {actualReceived !== "--" ? (
               <>
-                {actualReceived} {BTC_TOKEN} <span className="text-sm text-neutral-7">(≈{actualReceivedUsd} USD)</span>
+                {actualReceived} {BTC_TOKEN}{" "}
+                <span className="text-sm text-neutral-7">
+                  (≈{actualReceivedUsd} USD)
+                </span>
               </>
             ) : (
               <span className="text-neutral-7">Loading...</span>
@@ -117,14 +144,14 @@ export function RedeemPreview({
           </p>
         </div>
       </div>
-      
+
       <div className="mt-4 flex gap-4">
         <div className="rounded-lg border border-neutral-5 dark:border-neutral-8 dark:bg-neutral-10 p-3 flex-1">
           <p className="text-caption text-sm font-semibold">
             {networkType} Transaction Fee
           </p>
           <p className="text-base font-semibold break-all">
-            {transactionFee ? (
+            {checkNumberValid(transactionFee) ? (
               <>
                 {transactionFee.toFixed(8)} <br />
                 {networkType === "EVM" ? "ETH" : "NEAR"}
@@ -143,7 +170,7 @@ export function RedeemPreview({
             {BTC_TOKEN} Unstaking Fee (Estimated)
           </p>
           <p className="text-base font-semibold break-all">
-            {btcRedemptionFee ? (
+            {checkNumberValid(btcRedemptionFee) ? (
               <>
                 {maxDecimals(satoshiToBtc(btcRedemptionFee), 8)} <br />
                 {BTC_TOKEN} <br />
@@ -159,7 +186,7 @@ export function RedeemPreview({
         <div className="rounded-lg border border-neutral-5 dark:border-neutral-8 dark:bg-neutral-10 p-3 flex-1">
           <p className="text-caption text-sm font-semibold">Protocol Fee</p>
           <p className="text-base font-semibold break-all">
-            {atlasProtocolFee ? (
+            {checkNumberValid(atlasProtocolFee) ? (
               <>
                 {maxDecimals(satoshiToBtc(atlasProtocolFee), 8)} <br />
                 {BTC_TOKEN} <br />
@@ -173,11 +200,11 @@ export function RedeemPreview({
           </p>
         </div>
       </div>
-    
+
       <Button
         className="mt-4 w-full"
         onClick={onConfirm}
-        disabled={isPending || !btcRedemptionFee || !transactionFee}
+        disabled={isPending || disabled}
       >
         Redeem
       </Button>
