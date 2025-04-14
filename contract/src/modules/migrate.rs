@@ -59,7 +59,7 @@ impl Atlas {
         match current_version {
             StateVersion::V1 => {
                 // Perform migration logic from V1 to V2
-                let old_state: V2 = env::state_read().expect("Failed to read old state");
+                let mut old_state: V2 = env::state_read().expect("Failed to read old state");
 
                 let mut new_deposits: IterableMap<String, DepositRecord> =
                     IterableMap::new(DEPOSIT_VERSION);
@@ -89,6 +89,8 @@ impl Atlas {
                         },
                     );
                 }
+
+                old_state.deposits.clear();
 
                 let new_state = Self {
                     deposits: new_deposits,
