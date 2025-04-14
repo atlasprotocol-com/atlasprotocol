@@ -11,6 +11,7 @@ const MIGRATION_BATCH_SIZE: usize = 30;
 const VERSION_KEY: &[u8] = b"VERSION";
 const ATLAS_VERSION: &[u8] = b"v25.04.14";
 const ATLAS_VERSION_DEPOSITS: &[u8] = b"v25.04.14_deposits";
+const ATLAS_VERSION_BTC_PUBKEY: &[u8] = b"v25.04.14_btc_publkey";
 
 #[near]
 #[derive(Debug)]
@@ -71,19 +72,24 @@ impl Atlas {
                     })
                     .unwrap_or(Atlas {
                         deposits: IterableMap::new(ATLAS_VERSION_DEPOSITS.to_vec()),
-                        redemptions: old_state.redemptions,
-                        bridgings: old_state.bridgings,
-                        validators: old_state.validators,
-                        verifications: old_state.verifications,
-                        owner_id: old_state.owner_id,
-                        proposed_owner_id: old_state.proposed_owner_id,
-                        admin_id: old_state.admin_id,
-                        proposed_admin_id: old_state.proposed_admin_id,
-                        global_params: old_state.global_params,
-                        chain_configs: old_state.chain_configs,
-                        paused: old_state.paused,
+                        redemptions: IterableMap::new(b"r"),
+                        bridgings: IterableMap::new(b"b"),
+                        owner_id: old_state.owner_id.clone(),
+                        proposed_owner_id: None,
+                        admin_id: old_state.admin_id.clone(),
+                        proposed_admin_id: None,
+                        global_params: GlobalParams::init_global_params(
+                            old_state.global_params.owner_id().clone(),
+                            old_state.global_params.get_treasury_address(),
+                        ),
+                        chain_configs: ChainConfigs::init_chain_configs(
+                            old_state.chain_configs.get_chain_configs_owner_id(),
+                        ),
+                        validators: IterableMap::new(b"v"),
+                        verifications: IterableMap::new(b"f"),
+                        paused: false,
                         production_mode: old_state.production_mode,
-                        btc_pubkey: old_state.btc_pubkey,
+                        btc_pubkey: IterableMap::new(b"p"),
                     });
 
                 let keys = old_state.deposits.keys().take(MIGRATION_BATCH_SIZE);
@@ -124,16 +130,16 @@ impl Atlas {
                         new_state.deposits.remove(key);
                     }
                 }
-
-                let new_state_data = match borsh::to_vec(&new_state) {
-                    Ok(serialized) => serialized,
-                    Err(_) => env::panic_str("Cannot serialize the contract state."),
-                };
-
                 if size < MIGRATION_BATCH_SIZE {
-                    env::state_write(&new_state_data);
+                    env::state_write(&new_state);
                     state_version_write(&StateVersion::V2);
                 } else {
+                    let new_state_data = match borsh::to_vec(&new_state) {
+                        Ok(serialized) => serialized,
+                        Err(_) => env::panic_str("Cannot serialize the contract state."),
+                    };
+
+                    env::state_write(&old_state);
                     env::storage_write(ATLAS_VERSION, &new_state_data);
                 }
             }
