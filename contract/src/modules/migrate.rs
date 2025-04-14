@@ -67,6 +67,7 @@ impl Atlas {
                 let old_state: V1 = env::state_read().expect("Failed to read old state");
                 let mut new_state: Atlas = env::storage_read(ATLAS_VERSION)
                     .map(|data| {
+                        log!("Reading temporary state from storage {}", data.len());
                         Atlas::try_from_slice(&data).unwrap_or_else(|_| {
                             env::panic_str("Cannot deserialize the contract state.")
                         })
