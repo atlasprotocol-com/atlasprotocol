@@ -51,8 +51,8 @@ pub struct V2 {
 
 #[near_bindgen]
 impl Atlas {
+    #[private]
     pub fn unsafe_migrate() {
-        near_sdk::assert_self();
         let current_version = state_version_read();
         near_sdk::log!("Migrating from version: {:?}", current_version);
 
