@@ -64,7 +64,7 @@ impl Atlas {
         match current_version {
             StateVersion::V1 => {
                 // Perform migration logic from V1 to V2
-                let old_state: V1 = env::state_read().expect("Failed to read old state");
+                let mut old_state: V1 = env::state_read().expect("Failed to read old state");
                 let mut new_state: Atlas = env::storage_read(ATLAS_VERSION)
                     .map(|data| {
                         log!("Reading temporary state from storage {}", data.len());
@@ -95,16 +95,21 @@ impl Atlas {
                     });
                 near_sdk::log!("Existing {} deposits", new_state.deposits.len());
 
-                let keys = old_state.deposits.keys().take(MIGRATION_BATCH_SIZE);
-                let size: usize = keys.len();
+                // Collect items to migrate first
+                let to_migrate: Vec<(String, DepositRecordOld)> = old_state
+                    .deposits
+                    .iter()
+                    .take(MIGRATION_BATCH_SIZE)
+                    .map(|(k, v)| (k.to_string(), v.clone()))
+                    .collect();
+
+                let size = to_migrate.len();
                 near_sdk::log!("Migrating {} deposits", size);
 
                 if size > 0 {
-                    for key in keys {
-                        let deposit = old_state.deposits.get(key).expect("Failed to get deposit");
-
+                    for (tx, deposit) in to_migrate {
                         new_state.deposits.insert(
-                            key.to_string(),
+                            tx.clone(),
                             DepositRecord {
                                 btc_txn_hash: deposit.btc_txn_hash.to_string(),
                                 btc_sender_address: deposit.btc_sender_address.to_string(),
@@ -130,7 +135,7 @@ impl Atlas {
                             },
                         );
 
-                        new_state.deposits.remove(key);
+                        old_state.deposits.remove(&tx);
                     }
                 }
                 if size < MIGRATION_BATCH_SIZE {
