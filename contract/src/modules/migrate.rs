@@ -4,6 +4,7 @@ use crate::modules::structs::{BridgingRecord, DepositRecord, RedemptionRecord};
 use crate::{Atlas, DepositRecordOld};
 use crate::{AtlasExt, BtcAddressPubKeyRecord};
 use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
+use near_sdk::log;
 use near_sdk::{borsh::to_vec, env};
 use near_sdk::{near, near_bindgen, store::IterableMap, AccountId};
 
@@ -91,6 +92,7 @@ impl Atlas {
                         production_mode: old_state.production_mode,
                         btc_pubkey: IterableMap::new(b"p"),
                     });
+                near_sdk::log!("Existing {} deposits", new_state.deposits.len());
 
                 let keys = old_state.deposits.keys().take(MIGRATION_BATCH_SIZE);
                 let size: usize = keys.len();
@@ -131,15 +133,18 @@ impl Atlas {
                     }
                 }
                 if size < MIGRATION_BATCH_SIZE {
+                    log!("All deposits migrated");
                     env::state_write(&new_state);
                     state_version_write(&StateVersion::V2);
                 } else {
+                    env::state_write(&old_state);
+
                     let new_state_data = match borsh::to_vec(&new_state) {
                         Ok(serialized) => serialized,
                         Err(_) => env::panic_str("Cannot serialize the contract state."),
                     };
 
-                    env::state_write(&old_state);
+                    log!("write temporary state");
                     env::storage_write(ATLAS_VERSION, &new_state_data);
                 }
             }
