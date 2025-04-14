@@ -6,7 +6,6 @@ use near_sdk::store::IterableMap;
 use near_sdk::AccountId;
 use near_sdk::PanicOnDefault;
 use serde::{Deserialize, Serialize};
-use std::io::{Result as IoResult, Write};
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
@@ -161,4 +160,20 @@ pub struct CreatePayloadResult {
 pub struct BtcAddressPubKeyRecord {
     pub btc_address: String,
     pub public_key: String,
+}
+
+#[derive(BorshDeserialize, BorshSerialize, Debug)]
+pub(crate) enum StateVersion {
+    V1,
+    V2,
+}
+
+impl StateVersion {
+    pub fn try_from_slice(data: &[u8]) -> Result<Self, String> {
+        match data {
+            b"V1" => Ok(StateVersion::V1),
+            b"V2" => Ok(StateVersion::V2),
+            _ => Err("Unknown state version".to_string()),
+        }
+    }
 }
