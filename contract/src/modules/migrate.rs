@@ -88,6 +88,7 @@ impl Atlas {
 
                 let keys = old_state.deposits.keys().take(MIGRATION_BATCH_SIZE);
                 let size: usize = keys.len();
+                near_sdk::log!("Migrating {} deposits", size);
 
                 if size > 0 {
                     for key in keys {
