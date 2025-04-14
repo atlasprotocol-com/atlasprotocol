@@ -145,7 +145,7 @@ impl Atlas {
                         Err(_) => env::panic_str("Cannot serialize the contract state."),
                     };
 
-                    log!("write temporary state");
+                    log!("write temporary state {}", new_state_data.len());
                     env::storage_write(ATLAS_VERSION, &new_state_data);
                 }
             }
