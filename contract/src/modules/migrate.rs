@@ -9,10 +9,8 @@ use near_sdk::{borsh::to_vec, env};
 use near_sdk::{near, near_bindgen, store::IterableMap, AccountId};
 
 const MIGRATION_BATCH_SIZE: usize = 30;
+const MIGRATION_BATCH_CUSOR: &[u8] = b"BATCH_CUSOR";
 const VERSION_KEY: &[u8] = b"VERSION";
-const ATLAS_VERSION: &[u8] = b"v25.04.14";
-const ATLAS_VERSION_DEPOSITS: &[u8] = b"v25.04.14_deposits";
-const ATLAS_VERSION_BTC_PUBKEY: &[u8] = b"v25.04.14_btc_publkey";
 
 #[near]
 #[derive(Debug)]
@@ -33,6 +31,17 @@ pub(crate) fn state_version_write(version: &StateVersion) {
     let data = to_vec(&version).expect("Cannot serialize the contract state.");
     env::storage_write(VERSION_KEY, &data);
     near_sdk::log!("Migrated to version: {:?}", version);
+}
+
+fn state_cursor_read() -> usize {
+    env::storage_read(MIGRATION_BATCH_CUSOR)
+        .map(|data| usize::try_from_slice(&data).expect("Cannot deserialize the contract state."))
+        .unwrap_or(0)
+}
+
+pub(crate) fn state_cursor_write(cursor: usize) {
+    let data = to_vec(&cursor).expect("Cannot serialize the contract state.");
+    env::storage_write(MIGRATION_BATCH_CUSOR, &data);
 }
 
 #[derive(BorshDeserialize, BorshSerialize)]
@@ -64,94 +73,54 @@ impl Atlas {
         match current_version {
             StateVersion::V1 => {
                 // Perform migration logic from V1 to V2
-                let mut old_state: V1 = env::state_read().expect("Failed to read old state");
-                let mut new_state: Atlas = env::storage_read(ATLAS_VERSION)
-                    .map(|data| {
-                        log!("Reading temporary state from storage {}", data.len());
-                        Atlas::try_from_slice(&data).unwrap_or_else(|_| {
-                            env::panic_str("Cannot deserialize the contract state.")
-                        })
-                    })
-                    .unwrap_or(Atlas {
-                        deposits: IterableMap::new(ATLAS_VERSION_DEPOSITS.to_vec()),
-                        redemptions: IterableMap::new(b"r"),
-                        bridgings: IterableMap::new(b"b"),
-                        owner_id: old_state.owner_id.clone(),
-                        proposed_owner_id: None,
-                        admin_id: old_state.admin_id.clone(),
-                        proposed_admin_id: None,
-                        global_params: GlobalParams::init_global_params(
-                            old_state.global_params.owner_id().clone(),
-                            old_state.global_params.get_treasury_address(),
-                        ),
-                        chain_configs: ChainConfigs::init_chain_configs(
-                            old_state.chain_configs.get_chain_configs_owner_id(),
-                        ),
-                        validators: IterableMap::new(b"v"),
-                        verifications: IterableMap::new(b"f"),
-                        paused: false,
-                        production_mode: old_state.production_mode,
-                        btc_pubkey: IterableMap::new(b"p"),
-                    });
-                near_sdk::log!("Existing {} deposits", new_state.deposits.len());
+                let old_state: V1 = env::state_read().expect("Failed to read old state");
+                let cursor = state_cursor_read();
+                log!("DEPOSITS_COUNT --> {}", self.deposits.len());
+                log!("CUROSR --> {}", cursor);
 
-                // Collect items to migrate first
                 let to_migrate: Vec<(String, DepositRecordOld)> = old_state
                     .deposits
                     .iter()
+                    .skip(cursor)
                     .take(MIGRATION_BATCH_SIZE)
                     .map(|(k, v)| (k.to_string(), v.clone()))
                     .collect();
+                for (tx, old_deposits) in to_migrate.iter() {
+                    log!("OLD_DEPOSIT_TX --> {}", tx.clone());
 
-                let size = to_migrate.len();
-                near_sdk::log!("Migrating {} deposits", size);
-
-                if size > 0 {
-                    for (tx, deposit) in to_migrate {
-                        new_state.deposits.insert(
-                            tx.clone(),
-                            DepositRecord {
-                                btc_txn_hash: deposit.btc_txn_hash.to_string(),
-                                btc_sender_address: deposit.btc_sender_address.to_string(),
-                                receiving_chain_id: deposit.receiving_chain_id.to_string(),
-                                receiving_address: deposit.receiving_address.to_string(),
-                                btc_amount: deposit.btc_amount,
-                                protocol_fee: deposit.protocol_fee,
-                                minted_txn_hash: deposit.minted_txn_hash.to_string(),
-                                minting_fee: deposit.minting_fee,
-                                timestamp: deposit.timestamp,
-                                status: deposit.status,
-                                remarks: deposit.remarks.to_string(),
-                                date_created: deposit.date_created,
-                                verified_count: deposit.verified_count,
-                                yield_provider_gas_fee: deposit.yield_provider_gas_fee,
-                                yield_provider_txn_hash: deposit
-                                    .yield_provider_txn_hash
-                                    .to_string(),
-                                retry_count: deposit.retry_count,
-                                minted_txn_hash_verified_count: deposit
-                                    .minted_txn_hash_verified_count,
-                                refund_txn_id: "".to_string(),
-                            },
-                        );
-
-                        old_state.deposits.remove(&tx);
-                    }
+                    self.deposits.insert(
+                        tx.clone(),
+                        DepositRecord {
+                            btc_txn_hash: old_deposits.btc_txn_hash.to_string(),
+                            btc_sender_address: old_deposits.btc_sender_address.to_string(),
+                            receiving_chain_id: old_deposits.receiving_chain_id.to_string(),
+                            receiving_address: old_deposits.receiving_address.to_string(),
+                            btc_amount: old_deposits.btc_amount,
+                            protocol_fee: old_deposits.protocol_fee,
+                            minted_txn_hash: old_deposits.minted_txn_hash.to_string(),
+                            minting_fee: old_deposits.minting_fee,
+                            timestamp: old_deposits.timestamp,
+                            status: old_deposits.status,
+                            remarks: old_deposits.remarks.to_string(),
+                            date_created: old_deposits.date_created,
+                            verified_count: old_deposits.verified_count,
+                            yield_provider_gas_fee: old_deposits.yield_provider_gas_fee,
+                            yield_provider_txn_hash: old_deposits
+                                .yield_provider_txn_hash
+                                .to_string(),
+                            retry_count: 0,
+                            minted_txn_hash_verified_count: 0,
+                            refund_txn_id: "".to_string(),
+                        },
+                    );
                 }
-                if size < MIGRATION_BATCH_SIZE {
-                    log!("All deposits migrated");
-                    env::state_write(&new_state);
+
+                let new_cursor = cursor + to_migrate.len();
+                if new_cursor < MIGRATION_BATCH_SIZE {
                     state_version_write(&StateVersion::V2);
+                    state_cursor_write(0);
                 } else {
-                    env::state_write(&old_state);
-
-                    let new_state_data = match borsh::to_vec(&new_state) {
-                        Ok(serialized) => serialized,
-                        Err(_) => env::panic_str("Cannot serialize the contract state."),
-                    };
-
-                    log!("write temporary state {}", new_state_data.len());
-                    env::storage_write(ATLAS_VERSION, &new_state_data);
+                    state_cursor_write(new_cursor);
                 }
             }
             StateVersion::V2 => {
