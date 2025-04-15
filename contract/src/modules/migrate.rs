@@ -51,6 +51,15 @@ impl Atlas {
         }
 
         let old_state: V1 = env::state_read().expect("Failed to read old state");
+        log!("MIGRATION::DEPOSITS --> {}", old_state.deposits.len());
+        log!("MIGRATION::REDEMPTIONS --> {}", old_state.redemptions.len());
+        log!("MIGRATION::BRIDGINGS --> {}", old_state.bridgings.len());
+        log!("MIGRATION::VALIDATORS --> {}", old_state.validators.len());
+        log!(
+            "MIGRATION::VERIFICATIONS --> {}",
+            old_state.verifications.len()
+        );
+
         let data = match borsh::to_vec(&old_state) {
             Ok(serialized) => serialized,
             Err(_) => env::panic_str("Cannot serialize the contract state."),
