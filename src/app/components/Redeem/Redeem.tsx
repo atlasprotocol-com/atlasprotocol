@@ -5,7 +5,7 @@ import { Controller, useForm } from "react-hook-form";
 import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
 
-import { useAppContext } from "@/app/context/app";
+import { ATLAS_BTC_TOKEN, useAppContext } from "@/app/context/app";
 import {
   useEstGasAtlasBurn,
   useEVMAbtcBurnRedeem,
@@ -33,8 +33,16 @@ import { SelectField } from "../SelectField";
 
 import { RedeemPreview } from "./RedeemPreview";
 
+const MIN_REDEEM_AMOUNT = 0.0001;
+
 const redeemFormSchema = z.object({
-  amount: z.coerce.number().positive().nonnegative(),
+  amount: z.coerce
+    .number()
+    .positive()
+    .nonnegative()
+    .min(MIN_REDEEM_AMOUNT, {
+      message: `Please enter a minimum amount of ${MIN_REDEEM_AMOUNT} ${ATLAS_BTC_TOKEN}`,
+    }),
   chainID: z
     .string({
       required_error: "Please select a chain",
@@ -68,7 +76,7 @@ export interface RedeemProps {
 }
 
 export function Redeem({ btcAddress }: RedeemProps) {
-  const { ATLAS_BTC_TOKEN, btcPublicKeyNoCoord } = useAppContext();
+  const { ATLAS_BTC_TOKEN, btcPublicKeyNoCoord, BTC_TOKEN } = useAppContext();
   const { addFeedback } = useAddFeedback();
   const evmWalletModal = useBool();
   const previewToggle = useBool(false);
@@ -380,6 +388,9 @@ export function Redeem({ btcAddress }: RedeemProps) {
             disabled,
           }}
           error={errors.amount?.message}
+          captionEnd={
+            params.data ? `min: ${MIN_REDEEM_AMOUNT} ${ATLAS_BTC_TOKEN}` : ""
+          }
         />
         <InputField
           label="BTC Receiving Address"
