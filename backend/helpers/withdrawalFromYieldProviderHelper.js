@@ -89,7 +89,15 @@ class WithdrawalFromYieldProviderHelper {
         try {
             if (fs.existsSync(RECORDS_FILE_PATH)) {
                 const data = fs.readFileSync(RECORDS_FILE_PATH, 'utf8');
-                return JSON.parse(data);
+                if (!data || data.trim() === '') {
+                    return [];
+                }
+                try {
+                    return JSON.parse(data);
+                } catch (parseError) {
+                    console.error('Error parsing JSON from records file:', parseError);
+                    return [];
+                }
             }
             return [];
         } catch (error) {
@@ -100,29 +108,59 @@ class WithdrawalFromYieldProviderHelper {
 
     static async removeRecordFromFile(txnHash) {
         try {
+            console.log(`[WithdrawalFromYieldProviderHelper] Attempting to remove record with txn_hash: ${txnHash}`);
             const records = await this.readRecordsFromFile();
+            console.log(`[WithdrawalFromYieldProviderHelper] Current records before removal:`, JSON.stringify(records, null, 2));
             
             // Filter out the record with matching txn_hash
             const updatedRecords = records.filter(record => {
                 // Handle both old string format and new object format
                 if (typeof record === 'string') {
-                    return record !== txnHash;
+                    const shouldRemove = record !== txnHash;
+                    console.log(`[WithdrawalFromYieldProviderHelper] Checking string record: ${record}, should remove: ${!shouldRemove}`);
+                    return shouldRemove;
                 } else if (typeof record === 'object' && record.txn_hash) {
-                    return record.txn_hash !== txnHash;
+                    const shouldRemove = record.txn_hash !== txnHash;
+                    console.log(`[WithdrawalFromYieldProviderHelper] Checking object record: ${JSON.stringify(record, null, 2)}, should remove: ${!shouldRemove}`);
+                    return shouldRemove;
                 }
                 return true; // Keep records that don't match either format
             });
 
+            console.log(`[WithdrawalFromYieldProviderHelper] Records after filtering:`, JSON.stringify(updatedRecords, null, 2));
+
             // Write updated records back to file
             await this.writeRecordsToFile(updatedRecords);
             
-            console.log(`[WithdrawalFromYieldProviderHelper] Removed record with txn_hash: ${txnHash}`);
+            console.log(`[WithdrawalFromYieldProviderHelper] Successfully removed record with txn_hash: ${txnHash}`);
             console.log(`[WithdrawalFromYieldProviderHelper] Remaining records: ${updatedRecords.length}`);
             
             return updatedRecords;
         } catch (error) {
-            console.error('Error removing record from file:', error);
+            console.error('[WithdrawalFromYieldProviderHelper] Error removing record from file:', error);
             throw error;
+        }
+    }
+
+    static async clearAllRecords() {
+        try {
+            console.log('[WithdrawalFromYieldProviderHelper] Clearing all records from file');
+            await this.writeRecordsToFile([]);
+            console.log('[WithdrawalFromYieldProviderHelper] Successfully cleared all records');
+            return [];
+        } catch (error) {
+            console.error('[WithdrawalFromYieldProviderHelper] Error clearing all records:', error);
+            throw error;
+        }
+    }
+
+    static async getRecordCount() {
+        try {
+            const records = await this.readRecordsFromFile();
+            return records.length;
+        } catch (error) {
+            console.error('Error getting record count:', error);
+            return 0;
         }
     }
 }

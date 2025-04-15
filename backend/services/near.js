@@ -593,7 +593,7 @@ class Near {
       try {
         midBlock = await this.getBlockByHeight(mid);
         test = midBlock.header.timestamp; // Convert from nanoseconds to seconds
-        midTimestamp = Math.floor(midBlock.header.timestamp / 1_000_000_000); // Convert from nanoseconds to seconds
+        midTimestamp = Math.floor(midBlock.header.timestamp / 1000000000); // Convert from nanoseconds to seconds
 
         console.log(
           `Checking block ${mid} with timestamp ${midTimestamp} - ${test}`,
@@ -1417,7 +1417,7 @@ class Near {
                                   returnValues: {
                                     amount: event.data[0].amount,
                                     wallet: memo.address,
-                                    btcAddress: memo.btcAddress,
+                                    btcAddress: memo.btcAddress
                                   },
                                   transactionHash,
                                   receiptId: receipt.id,
@@ -1450,7 +1450,7 @@ class Near {
                                     destChainId: memo.destChainId,
                                     destChainAddress: memo.destChainAddress,
                                     mintingFeeSat: memo.mintingFeeSat,
-                                    bridgingFeeSat: memo.bridgingFeeSat,
+                                    bridgingFeeSat: memo.bridgingFeeSat
                                   },
                                   transactionHash,
                                   receiptId: receipt.id,
@@ -1636,6 +1636,119 @@ class Near {
     }
   }
 
+  async fetchEventByTxnHashAndEventName(txnHash, eventName) {
+    console.log("Testing: Starting fetchEventByTxnHash");
+    console.log("txnHash:", txnHash);
+    console.log("this.contract_id:", this.contract_id);
+    
+    try {
+      // Get transaction result
+      const txResult = await this.provider.txStatus(txnHash, this.contract_id);
+      
+      // Get block info with finality parameter
+      const block = await this.provider.block({
+        blockId: txResult.transaction.block_hash,
+        finality: 'final'
+      });
+      
+      const timestamp = Math.floor(block.header.timestamp / 1000000000);
+
+      // Get first receipt from transaction result
+      const receipt = txResult.receipts_outcome[0];
+      
+      // Find first event log
+      const eventLog = receipt.outcome.logs[0];
+      if (!eventLog) {
+        console.log("No event logs found");
+        return null;
+      }
+
+      // Parse event JSON
+      const eventJson = JSON.parse(eventLog.replace("EVENT_JSON:", ""));
+      console.log("Testing: Parsed eventJson:", JSON.stringify(eventJson, null, 2));
+
+      // Process event based on type
+      let processedEvent = null;
+
+      if (eventJson.event !== eventName) {
+        console.log("Event name mismatch");
+        return null;
+      }
+
+      switch (eventJson.event) {
+        case "ft_mint":
+          const mintMemo = JSON.parse(eventJson.data[0].memo);
+          processedEvent = {
+            type: "mint_deposit",
+            btcTxnHash: mintMemo.btc_txn_hash,
+            receiptId: receipt.id,
+            transactionHash: txnHash
+          };
+          break;
+
+        case "ft_mint_bridge":
+          const bridgeMemo = JSON.parse(eventJson.data[0].memo);
+          processedEvent = {
+            type: "mint_bridge",
+            address: bridgeMemo.address,
+            originChainId: bridgeMemo.originChainId,
+            originChainAddress: bridgeMemo.originChainAddress,
+            originTxnHash: bridgeMemo.originTxnHash,
+            transactionHash: txnHash,
+            receiptId: receipt.id,
+            timestamp
+          };
+          break;
+
+        case "ft_burn_redeem":
+          const redeemMemo = JSON.parse(eventJson.data[0].memo);
+          console.log("Testing: Processing ft_burn_redeem event");
+          console.log("Testing: redeemMemo:", JSON.stringify(redeemMemo, null, 2));
+          processedEvent = {
+            type: "burn_redemption",
+            returnValues: {
+              amount: eventJson.data[0].amount,
+              wallet: redeemMemo.address,
+              btcAddress: redeemMemo.btcAddress
+            },
+            transactionHash: txnHash,
+            receiptId: receipt.id,
+            blockNumber: txResult.transaction.block_height,
+            timestamp,
+            status: true
+          };
+         
+          break;
+
+        case "ft_burn_bridge":
+          const burnBridgeMemo = JSON.parse(eventJson.data[0].memo);
+          processedEvent = {
+            type: "burn_bridging",
+            returnValues: {
+              amount: eventJson.data[0].amount,
+              wallet: burnBridgeMemo.address,
+              destChainId: burnBridgeMemo.destChainId,
+              destChainAddress: burnBridgeMemo.destChainAddress,
+              mintingFeeSat: burnBridgeMemo.mintingFeeSat,
+              bridgingFeeSat: burnBridgeMemo.bridgingFeeSat
+            },
+            transactionHash: txnHash,
+            receiptId: receipt.id,
+            blockNumber: txResult.transaction.block_height,
+            timestamp,
+            status: true
+          };
+          break;
+      }
+
+      return processedEvent;
+
+    } catch (error) {
+      console.error("Error fetching event by transaction hash:", error);
+      throw error;
+    }
+  }
+
   async getTotalDepositsCount() {
     return this.makeNearRpcViewCall("get_deposits_count", {});
   }
@@ -1643,6 +1756,7 @@ class Near {
   async getTotalRedemptionsCount() {
     return this.makeNearRpcViewCall("get_redemptions_count", {});
   }
+  
 }
 
 module.exports = { Near };
