@@ -14,16 +14,16 @@ logTime("Script started");
 // Configuration flags for file generation
 const CONFIG = {
   GENERATE_DEPOSITS_XLSX: false,        // Set to true to enable deposits.xlsx generation
-  GENERATE_DEPOSITS_QUEST2_XLSX: true,  // Set to true to enable deposits-quest2.xlsx generation
+  GENERATE_DEPOSITS_QUEST2_XLSX: false,  // Set to true to enable deposits-quest2.xlsx generation
   GENERATE_UTXOS_XLSX: false,           // Set to true to enable UTXOs.xlsx generation
   GENERATE_PUBKEY_XLSX: false,          // Set to true to enable pubkeys.xlsx generation
-  GENERATE_NEAR_BLOCKS_XLSX: false,      // Set to true to enable nearblocks.xlsx generation
+  GENERATE_NEAR_BLOCKS_XLSX: true,      // Set to true to enable nearblocks.xlsx generation
   GENERATE_DEPOSITS_STATUS_21_XLSX: false,     // Set to true to process deposits with status 21
   
   DEPOSITS: {
     OUTPUT_FILE: "deposits.xlsx",       // Output filename for deposits batch
     MAX_RECORDS: null,                  // Set to null for all records, or a number for limit
-    BATCH_SIZE: 500,                    // How many records to fetch per API call
+    BATCH_SIZE: 1000,                    // How many records to fetch per API call
     START_INDEX: 0,                     // Starting index for fetching deposits
     END_INDEX: null,                    // Set to null for no end index, or a number to stop at
     PRINT_CLI_OUTPUT: false,            // Set to true to print raw CLI output
@@ -37,10 +37,10 @@ const CONFIG = {
   
   DEPOSITS_QUEST2: {
     INPUT_FILE: "deposits-quest2.xlsx", // Fixed input file to read from and write to
-    BATCH_SIZE: 50,                     // Number of rows to process in parallel
+    BATCH_SIZE: 100,                     // Number of rows to process in parallel
     SAVE_INTERVAL: 100,                 // Save file every N rows processed
-    START_INDEX: 2699,                     // Starting row index (0-based, excluding header)
-    END_INDEX: 3152,                     // Ending row index (null for all rows)
+    START_INDEX: 0,                     // Starting row index (0-based, excluding header)
+    END_INDEX: null,                     // Ending row index (null for all rows)
   },
   
   PUBKEY: {
@@ -66,7 +66,10 @@ const CONFIG = {
   
   NEAR: {
     //START_BLOCK: 189828204,            // Starting block number to scan from for first testnet deposit
-    START_BLOCK: 192275800,            // Starting block number to scan from
+    START_BLOCK: 192897549,            // Starting block number to scan from
+    //START_BLOCK: 192888235,            // Starting Redemption record in testnet
+    END_BLOCK: null,                   // Ending block number to scan until (null for no end)
+    
     //CONTRACT: "atlas_testnet4_v2.velar.testnet",  // Atlas contract ID    
     CONTRACT: "v2.atlas_public_testnet.testnet",  // Atlas contract ID
     //ATBTC_CONTRACT: "atbtc_testnet4_v2.velar.testnet",  // ATBTC contract ID
@@ -1163,6 +1166,7 @@ async function processBlockRange(startBlock, endBlock, threadId) {
 
   for (let blockNumber = startBlock; blockNumber <= endBlock; blockNumber++) {
     try {
+      // Use block_id parameter
       const block = await provider.block({ blockId: blockNumber });
       const chunks = block.chunks;
 
@@ -1269,8 +1273,8 @@ async function processBlockRange(startBlock, endBlock, threadId) {
       threadErrors.push(`Thread ${threadId}: Block ${blockNumber} - ${error.message}`);
     }
 
-    // Add a small delay to avoid rate limiting
-    await delay(200);
+    // Add a small delay before processing the next block to avoid rate limiting
+    await delay(500);
   }
 
   return { depositResults, redeemResults, threadErrors };
@@ -1335,25 +1339,51 @@ async function saveBlockResultsToExcel(blockResults, filePath, eventType) {
 }
 
 // Add this new function before processAndExportBlocks
-async function processBatch(startBlock, currentBlock, threadCount, blocksPerThread) {
-  const totalBlocks = currentBlock - startBlock + 1;
-  const totalBatches = Math.ceil(totalBlocks / (threadCount * blocksPerThread));
+async function processBatch(startBlock, endBlock, threadCount, blocksPerThread) {
   const errorFilePath = path.join(__dirname, CONFIG.NEAR.ERROR_OUTPUT_FILE);
+  let batchIndex = 0;
   
-  for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
+  while (true) {
     const batchStartTime = new Date();
-    console.log(`\n🔄 Processing batch ${batchIndex + 1}/${totalBatches}`);
+    console.log(`\n🔄 Processing batch ${batchIndex + 1}`);
     console.log(`⏰ Batch start time: ${formatDate(batchStartTime)}`);
     
     const batchPromises = [];
     const batchStartBlock = startBlock + (batchIndex * threadCount * blocksPerThread);
+    let batchEndBlock = batchStartBlock + (threadCount * blocksPerThread) - 1;
+    
+    // If END_BLOCK is null, continuously check for new finalized blocks
+    if (CONFIG.NEAR.END_BLOCK === null) {
+      let latestFinalizedBlock;
+      do {
+        latestFinalizedBlock = await getCurrentBlock();
+        if (latestFinalizedBlock < batchEndBlock) {
+          console.log(`⏳ Waiting for blocks to finalize... Latest finalized: ${latestFinalizedBlock}, Needed: ${batchEndBlock}`);
+          await delay(10000); // Wait 10 seconds before checking again
+        }
+      } while (latestFinalizedBlock < batchEndBlock);
+    } else {
+      // If END_BLOCK is specified, ensure we don't exceed the latest finalized block
+      const latestFinalizedBlock = await getCurrentBlock();
+      const effectiveEndBlock = Math.min(batchEndBlock, latestFinalizedBlock);
+      if (effectiveEndBlock < batchEndBlock) {
+        console.log(`⚠️ Adjusting batch end block from ${batchEndBlock} to ${effectiveEndBlock} to stay within finalized blocks`);
+        batchEndBlock = effectiveEndBlock;
+      }
+      
+      // If we've reached the specified end block, break the loop
+      if (batchStartBlock > endBlock) {
+        console.log("✅ Reached the specified end block, stopping processing");
+        break;
+      }
+    }
     
     // Create thread tasks
     for (let threadIndex = 0; threadIndex < threadCount; threadIndex++) {
       const threadStartBlock = batchStartBlock + (threadIndex * blocksPerThread);
-      const threadEndBlock = Math.min(threadStartBlock + blocksPerThread - 1, currentBlock);
+      const threadEndBlock = Math.min(threadStartBlock + blocksPerThread - 1, batchEndBlock);
       
-      if (threadStartBlock <= currentBlock) {
+      if (threadStartBlock <= batchEndBlock) {
         batchPromises.push(processBlockRange(threadStartBlock, threadEndBlock, threadIndex + 1));
       }
     }
@@ -1369,8 +1399,21 @@ async function processBatch(startBlock, currentBlock, threadCount, blocksPerThre
     // Log errors to file if any occurred
     if (allErrors.length > 0) {
       try {
-        await fs.appendFile(errorFilePath, allErrors.join('\n') + '\n');
-        console.log(`⚠️ Logged ${allErrors.length} errors to ${errorFilePath}`);
+        // Filter out DB Not Found and Chunk Missing errors and extract just block numbers
+        const filteredErrors = allErrors
+          .filter(error => !error.includes("DB Not Found Error") && !error.includes("Chunk Missing"))
+          .map(error => {
+            // Extract block number from error message
+            const blockMatch = error.match(/Block (\d+)/);
+            return blockMatch ? blockMatch[1] : null;
+          })
+          .filter(blockNumber => blockNumber !== null)
+          .join(',');
+        
+        if (filteredErrors) {
+          await fs.appendFile(errorFilePath, filteredErrors + ',');
+          console.log(`⚠️ Logged ${filteredErrors.split(',').length} error block numbers to ${errorFilePath}`);
+        }
       } catch (error) {
         console.error("Error writing to error file:", error);
       }
@@ -1380,21 +1423,25 @@ async function processBatch(startBlock, currentBlock, threadCount, blocksPerThre
     if (allDepositResults.length > 0) {
       const depositFilePath = path.join(__dirname, CONFIG.NEAR.OUTPUT_FILE_DEPOSIT);
       await saveBlockResultsToExcel(allDepositResults, depositFilePath, "mint_deposit");
-      console.log(`💾 Saved batch ${batchIndex + 1} deposit results: ${allDepositResults.length} events processed`);
+      console.log(`💾 Saved batch ${batchIndex + 1} deposit results: ${allDepositResults.length} events processed (blocks ${batchStartBlock} to ${batchEndBlock})`);
     }
     
     if (allRedeemResults.length > 0) {
       const redeemFilePath = path.join(__dirname, CONFIG.NEAR.OUTPUT_FILE_REDEEM);
       await saveBlockResultsToExcel(allRedeemResults, redeemFilePath, "burn_redeem");
-      console.log(`💾 Saved batch ${batchIndex + 1} redeem results: ${allRedeemResults.length} events processed`);
+      console.log(`💾 Saved batch ${batchIndex + 1} redeem results: ${allRedeemResults.length} events processed (blocks ${batchStartBlock} to ${batchEndBlock})`);
     }
     
     const batchEndTime = new Date();
     console.log(`⏰ Batch end time: ${formatDate(batchEndTime)}`);
     console.log(`⏱️ Batch duration: ${formatDuration(batchStartTime, batchEndTime)}`);
+    console.log(`📊 Batch ${batchIndex + 1} processed blocks: ${batchStartBlock} to ${batchEndBlock}`);
 
     // Add a small delay between batches to avoid rate limiting
-    await delay(300);
+    await delay(1000);
+    
+    // Increment batch index for next iteration
+    batchIndex++;
   }
 }
 
@@ -1412,10 +1459,17 @@ async function processAndExportBlocks() {
   const startBlock = CONFIG.NEAR.START_BLOCK;
   console.log(`Starting from block ${startBlock} based on config`);
 
+  // Calculate the effective end block
+  const endBlock = CONFIG.NEAR.END_BLOCK !== null ? 
+    Math.min(CONFIG.NEAR.END_BLOCK, currentBlock) : 
+    currentBlock;
+  
+  console.log(`Ending at block ${endBlock} ${CONFIG.NEAR.END_BLOCK !== null ? '(configured)' : '(current)'}`);
+
   // Process blocks in batches using the processBatch function
   await processBatch(
     startBlock,
-    currentBlock,
+    endBlock,
     CONFIG.NEAR.THREAD_COUNT,
     CONFIG.NEAR.BLOCKS_PER_THREAD
   );
