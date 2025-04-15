@@ -379,7 +379,7 @@ export function Redeem({ btcAddress }: RedeemProps) {
             </div>
           }
           inputProps={{
-            placeholder: "0.0002",
+            placeholder: "0.0001",
             type: "string",
             ...register("amount"),
             onChange: () => {
