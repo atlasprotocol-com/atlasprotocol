@@ -154,8 +154,20 @@ impl Atlas {
             .collect()
     }
 
-    pub fn get_all_redemptions(&self) -> Vec<RedemptionRecord> {
-        self.redemptions.values().cloned().collect()
+    pub fn get_all_redemptions(
+        &self,
+        from_index: Option<u64>,
+        limit: Option<u64>,
+    ) -> Vec<RedemptionRecord> {
+        let start = from_index.unwrap_or(0) as usize;
+        let page_size = limit.unwrap_or(1000) as usize; // Default to 1000 records per page
+
+        self.redemptions
+            .values()
+            .skip(start)
+            .take(page_size)
+            .cloned()
+            .collect()
     }
 
     pub fn get_redemptions_count(&self) -> u64 {
@@ -184,72 +196,69 @@ impl Atlas {
 
     pub fn update_redemption_pending_btc_mempool(
         &mut self,
-        txn_hashes: Vec<String>,
+        txn_hash: String,
         btc_txn_hash: String,
     ) {
         self.assert_not_paused();
         self.assert_admin();
 
         // Validate input parameters
-        assert!(!txn_hashes.is_empty(), "Transaction hashes cannot be empty");
+        assert!(!txn_hash.is_empty(), "Transaction hash cannot be empty");
         assert!(
             !btc_txn_hash.is_empty(),
             "BTC transaction hash cannot be empty"
         );
 
-        // Process each transaction hash
-        for txn_hash in txn_hashes {
-            // Retrieve the redemption record based on txn_hash
-            if let Some(mut redemption) = self.redemptions.get(&txn_hash).cloned() {
-                // Fetch chain configuration for the redemption's chain_id
-                if let Some(chain_config) = self
-                    .chain_configs
-                    .get_chain_config(redemption.abtc_redemption_chain_id.clone())
+        // Retrieve the redemption record based on txn_hash
+        if let Some(mut redemption) = self.redemptions.get(&txn_hash).cloned() {
+            // Fetch chain configuration for the redemption's chain_id
+            if let Some(chain_config) = self
+                .chain_configs
+                .get_chain_config(redemption.abtc_redemption_chain_id.clone())
+            {
+                // Fetch chain configuration for the bitcoin redemption
+                let btc_chain_id = if self.is_production_mode() {
+                    BITCOIN.to_string()
+                } else {
+                    TESTNET4.to_string()
+                };
+
+                if let Some(btc_chain_config) =
+                    self.chain_configs.get_chain_config(btc_chain_id.clone())
                 {
-                    // Fetch chain configuration for the bitcoin redemption
-                    let btc_chain_id = if self.is_production_mode() {
-                        BITCOIN.to_string()
-                    } else {
-                        TESTNET4.to_string()
-                    };
-
-                    if let Some(btc_chain_config) =
-                        self.chain_configs.get_chain_config(btc_chain_id.clone())
+                    // Check all specified conditions
+                    if redemption.status == RED_BTC_YIELD_PROVIDER_WITHDRAWN
+                        && redemption.verified_count >= chain_config.validators_threshold
+                        && redemption.remarks.is_empty()
+                        && redemption.btc_txn_hash.is_empty()
                     {
-                        // Check all specified conditions
-                        if redemption.status == RED_BTC_PENDING_REDEMPTION_FROM_ATLAS_TO_USER
-                            && redemption.verified_count >= chain_config.validators_threshold
-                            && redemption.remarks.is_empty()
-                            && redemption.btc_txn_hash.is_empty()
-                        {
-                            // All conditions are met, proceed to update the redemption status and btc_txn_hash
-                            redemption.status = RED_BTC_PENDING_MEMPOOL_CONFIRMATION;
-                            redemption.btc_txn_hash = btc_txn_hash.clone();
+                        // All conditions are met, proceed to update the redemption status and btc_txn_hash
+                        redemption.status = RED_BTC_PENDING_MEMPOOL_CONFIRMATION;
+                        redemption.btc_txn_hash = btc_txn_hash;
 
-                            self.redemptions.insert(txn_hash.clone(), redemption);
-                            log!("Redemption status updated to RED_BTC_PENDING_MEMPOOL_CONFIRMATION for txn_hash: {}", txn_hash);
-                        } else {
-                            // Log a message if conditions are not met
-                            log!(
-                                "Conditions not met for updating redemption pending btc mempool for txn_hash: {}. 
-                                 Status: {}, Verified count: {}, BTC txn hash verified count: {}, Remarks: {}, BTC txn hash: {}",
-                                txn_hash,
-                                redemption.status,
-                                redemption.verified_count,
-                                redemption.btc_txn_hash_verified_count,
-                                redemption.remarks,
-                                redemption.btc_txn_hash
-                            );
-                        }
+                        self.redemptions.insert(txn_hash.clone(), redemption);
+                        log!("Redemption status updated to RED_BTC_PENDING_MEMPOOL_CONFIRMATION for txn_hash: {}", txn_hash);
                     } else {
-                        env::panic_str("Bitcoin chain configuration not found");
+                        // Log a message if conditions are not met
+                        log!(
+                            "Conditions not met for updating redemption pending btc mempool for txn_hash: {}. 
+                             Status: {}, Verified count: {}, BTC txn hash verified count: {}, Remarks: {}, BTC txn hash: {}",
+                            txn_hash,
+                            redemption.status,
+                            redemption.verified_count,
+                            redemption.btc_txn_hash_verified_count,
+                            redemption.remarks,
+                            redemption.btc_txn_hash
+                        );
                     }
                 } else {
-                    env::panic_str("Chain configuration not found for redemption chain ID");
+                    env::panic_str("Bitcoin chain configuration not found");
                 }
             } else {
-                env::panic_str("Redemption record not found");
+                env::panic_str("Chain configuration not found for redemption chain ID");
             }
+        } else {
+            env::panic_str("Redemption record not found");
         }
     }
 
@@ -340,7 +349,15 @@ impl Atlas {
                     log!("Redemption status updated to RED_BTC_PENDING_YIELD_PROVIDER_WITHDRAW for txn_hash: {}", txn_hash);
                 } else {
                     // Panic with the expected message if conditions are not met
-                    env::panic_str("Conditions not met for updating redemption status");
+                    // Log a message if conditions are not met
+                    log!(
+                        "Conditions not met for updating redemption status for txn_hash: {}. 
+                        Status: {}, Verified count: {}, Remarks: {}",
+                        txn_hash,
+                        redemption.status,
+                        redemption.verified_count,
+                        redemption.remarks
+                    );
                 }
             } else {
                 env::panic_str("Chain configuration not found for redemption chain ID");
@@ -378,7 +395,7 @@ impl Atlas {
                 .get_chain_config(redemption.abtc_redemption_chain_id.clone())
             {
                 // Check all specified conditions
-                if redemption.status == RED_BTC_PENDING_YIELD_PROVIDER_WITHDRAW
+                if redemption.status == RED_BTC_YIELD_PROVIDER_UNSTAKE_PROCESSING
                     && redemption.verified_count >= chain_config.validators_threshold
                     && redemption.remarks.is_empty()
                     && redemption.btc_txn_hash.is_empty()
@@ -395,7 +412,16 @@ impl Atlas {
                     log!("Redemption status updated to RED_BTC_YIELD_PROVIDER_WITHDRAWING for txn_hash: {}", txn_hash);
                 } else {
                     // Panic with the expected message if conditions are not met
-                    env::panic_str("Conditions not met for updating redemption status");
+                    log!(
+                        "Conditions not met for updating redemption status for txn_hash: {}. Status: {}, Verified count: {}, Remarks: {}, BTC txn hash: {}, Yield provider txn hash: {}, Yield provider gas fee: {}",
+                        txn_hash,
+                        redemption.status,
+                        redemption.verified_count,
+                        redemption.remarks,
+                        redemption.btc_txn_hash,
+                        redemption.yield_provider_txn_hash,
+                        redemption.yield_provider_gas_fee
+                    );
                 }
             } else {
                 env::panic_str("Chain configuration not found for redemption chain ID");
@@ -434,7 +460,17 @@ impl Atlas {
                     log!("Redemption status updated to RED_BTC_YIELD_PROVIDER_WITHDRAWN for txn_hash: {}", txn_hash);
                 } else {
                     // Panic with the expected message if conditions are not met
-                    env::panic_str("Conditions not met for updating redemption status");
+                    log!(
+                        "Conditions not met for updating redemption status for txn_hash: {}. 
+                         Status: {}, Verified count: {}, Remarks: {}, BTC txn hash: {}, Yield provider txn hash: {}, Yield provider gas fee: {}",
+                        txn_hash,
+                        redemption.status,
+                        redemption.verified_count,
+                        redemption.remarks,
+                        redemption.btc_txn_hash,
+                        redemption.yield_provider_txn_hash,
+                        redemption.yield_provider_gas_fee
+                    );
                 }
             } else {
                 env::panic_str("Chain configuration not found for redemption chain ID");
@@ -709,13 +745,6 @@ impl Atlas {
                             log!("protocol_fee: {}", protocol_fee);
                             total_protocol_fees += protocol_fee;
 
-                            // Update status to pending redemption
-                            let mut updated_redemption = redemption.clone();
-                            updated_redemption.status =
-                                RED_BTC_PENDING_REDEMPTION_FROM_ATLAS_TO_USER;
-                            self.redemptions
-                                .insert(txn_hash.clone(), updated_redemption);
-
                             txn_hashes_to_process.push(txn_hash.clone());
                         }
                     }
@@ -792,8 +821,10 @@ impl Atlas {
 
         // Base transaction overhead (version, locktime, etc) = 10 bytes
         let tx_size = 10 + input_size + output_size + change_size + protocol_fee_size;
-        let estimated_fee = tx_size * fee_rate;
+        let mut estimated_fee = tx_size * fee_rate;
         let average_estimated_fee = estimated_fee / txn_hashes_to_process.len() as u64;
+
+        estimated_fee = average_estimated_fee * txn_hashes_to_process.len() as u64;
 
         // Add actual outputs with adjusted amounts
         for txn_hash in &txn_hashes_to_process {
@@ -872,35 +903,6 @@ impl Atlas {
         }
     }
 
-    pub fn update_redemption_pending_yield_provider_unstake(&mut self, txn_hash: String) {
-        self.assert_admin();
-
-        // Validate input parameters
-        assert!(!txn_hash.is_empty(), "BTC transaction hash cannot be empty");
-
-        // Check if the deposit exists for the given btc_txn_hash
-        if let Some(mut redemption) = self.redemptions.get(&txn_hash).cloned() {
-            log!("Redemption found");
-            // Check all specified conditions
-            if redemption.status == RED_ABTC_BURNT
-                && redemption.remarks.is_empty()
-                && redemption.btc_txn_hash.is_empty()
-            {
-                // All conditions are met, proceed to update the deposit status
-                redemption.status = RED_BTC_PENDING_YIELD_PROVIDER_UNSTAKE;
-                redemption.timestamp = env::block_timestamp() / 1_000_000_000;
-
-                self.redemptions.insert(txn_hash.clone(), redemption);
-                log!(
-                    "Redemption status updated to RED_BTC_PENDING_YIELD_PROVIDER_UNSTAKE for btc_txn_hash: {}",
-                    txn_hash
-                );
-            }
-        } else {
-            env::panic_str("Redemption record not found");
-        }
-    }
-
     pub fn update_redemption_yield_provider_unstake_processing(&mut self, txn_hash: String) {
         self.assert_admin();
         assert!(!txn_hash.is_empty(), "transaction hash cannot be empty");
@@ -908,12 +910,13 @@ impl Atlas {
         // Check if the deposit exists for the given btc_txn_hash
         if let Some(mut redemption) = self.redemptions.get(&txn_hash).cloned() {
             // Check all specified conditions
-            if redemption.status == RED_BTC_PENDING_YIELD_PROVIDER_UNSTAKE
+            if redemption.status == RED_ABTC_BURNT
                 && redemption.remarks.is_empty()
                 && redemption.btc_txn_hash.is_empty()
             {
                 // All conditions are met, proceed to update the deposit status
                 redemption.status = RED_BTC_YIELD_PROVIDER_UNSTAKE_PROCESSING;
+                redemption.timestamp = env::block_timestamp() / 1_000_000_000;
                 self.redemptions.insert(txn_hash.clone(), redemption);
                 log!(
                     "Redemption status updated to RED_BTC_YIELD_PROVIDER_UNSTAKE_PROCESSING for btc_txn_hash: {}",

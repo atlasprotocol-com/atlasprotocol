@@ -98,6 +98,10 @@ const {
 
 const UpdateSendToUserBtcTxnHash = require('./helpers/updateSendToUserBtcTxnHash');
 
+const {
+  processBurnRedeemEvent,
+} = require("./helpers/eventProcessor");
+
 // Configuration for BTC connection
 const btcConfig = {
   btcAtlasDepositAddress: process.env.BTC_ATLAS_DEPOSIT_ADDRESS,
@@ -636,6 +640,85 @@ app.get("/api/v1/process-new-deposit", async (req, res) => {
   }
 });
 
+app.get("/api/v1/process-new-redemption", async (req, res) => {
+  try {
+    const { txnHash } = req.query;
+
+    if (!txnHash) {
+      return res
+        .status(400)
+        .json({ error: "Transaction hash is required" });
+    }
+
+    // Extract chainId from txnHash
+    const [chainId, chainTxHash] = txnHash.split(',');
+
+    if (!chainId) {
+      return res
+        .status(400)
+        .json({ error: "Chain ID not found in transaction hash" });
+    }
+
+    // Get chain config for the specified chainId
+    const chain = getChainConfig(chainId);
+
+    if (!chain) {
+      return res
+        .status(400)
+        .json({ error: "Invalid chain ID" });
+    }
+
+    // Check if redemption record already exists
+    const redemptionRecord = await near.getRedemptionByTxnHash(txnHash);
+    if (redemptionRecord) {
+      return res
+        .status(409)
+        .json({ error: "Redemption record already exists" });
+    }
+
+    const { DELIMITER } = getConstants();
+
+    if (chain.networkType === "NEAR") {
+      // Fetch transaction from mempool
+      const event = await near.fetchEventByTxnHashAndEventName(chainTxHash, "ft_burn_redeem");
+
+      if (!event || event.length === 0) {
+        return res
+          .status(404)
+          .json({ error: "Transaction not found in blockchain" });
+      }
+
+      console.log("event:", JSON.stringify(event, null, 2));
+
+      await processBurnRedeemEvent(
+        {
+          returnValues: {
+            wallet: event.returnValues.wallet,
+            btcAddress: event.returnValues.btcAddress,
+            amount: event.returnValues.amount,
+          },
+          transactionHash: event.transactionHash,
+        },
+        near,
+        chain.chainID,
+        DELIMITER,
+        event.timestamp,
+      );
+    }
+
+    res.json({
+      success: true,
+      message: `Successfully processed redemption for transaction ${txnHash}`,
+    });
+  } catch (error) {
+    console.error("Error processing new redemption:", error);
+    res.status(500).json({
+      error: "Failed to process new redemption",
+      details: error.message,
+    });
+  }
+});
+
 // Queue for processing BTC pubkey insertions
 const insertPubkeyQueue = [];
 let isProcessing = false;
@@ -787,9 +870,7 @@ async function runBatch() {
   // await UpdateWithdrawFailDeposits(deposits, near, bitcoin);
 
   // await MintBridgeABtcToDestChain(near);
-
   // await SendBridgingFeesToTreasury(near, bitcoin);
-
   // await UpdateAtlasBtcBridgingYieldProviderWithdrawn(bridgings, near, bitcoin);
 
   // Delay for 5 seconds before running the batch again
@@ -875,23 +956,6 @@ app.listen(PORT, async () => {
   setInterval(async () => {
     await UpdateAtlasBtcBackToUser(redemptions, near, bitcoin);
   }, 10000);
-});
-
-app.post('/api/v1/update-send-to-user-btc-txn-hash', async (req, res) => {
-    try {
-        const result = await UpdateSendToUserBtcTxnHash.updateBtcTxnHash(bitcoin);
-        if (result.success) {
-            res.json(result);
-        } else {
-            res.status(400).json(result);
-        }
-    } catch (error) {
-        console.error('Error in update-send-to-user-btc-txn-hash endpoint:', error);
-        res.status(500).json({
-            success: false,
-            message: error.message
-        });
-    }
 });
 
 

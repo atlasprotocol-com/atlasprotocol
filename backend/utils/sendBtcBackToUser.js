@@ -22,14 +22,29 @@ async function SendBtcBackToUser(near, redemptions, bitcoinInstance) {
     const { REDEMPTION_STATUS } = getConstants();
     
     // Check if ready to send BTC back to users
-    const { readySendToUser, sendToUserBtcTxnHash, lastWithdrawalTxHash } = await WithdrawalFromYieldProviderHelper.getLastWithdrawalData();
+    const { readySendToUser, sendToUserBtcTxnHash, lastWithdrawalTxHash, totalRecords } = await WithdrawalFromYieldProviderHelper.getLastWithdrawalData();
+    const recordCount = await WithdrawalFromYieldProviderHelper.getRecordCount();
     
+
     if (!readySendToUser) {
       console.log("[SendBtcBackToUser] Not ready to send BTC back to users yet");
       return;
     }
 
-    if (sendToUserBtcTxnHash !== '') {
+    // Count records with BTC_PENDING_MEMPOOL_CONFIRMATION status and matching withdrawal hash
+    const pendingMempoolCount = redemptions.filter(redemption => 
+      redemption.status === REDEMPTION_STATUS.BTC_PENDING_MEMPOOL_CONFIRMATION &&
+      redemption.yield_provider_txn_hash === lastWithdrawalTxHash
+    ).length;
+
+    if (totalRecords === pendingMempoolCount) {
+      console.log("[SendBtcBackToUser] No records found to process");
+      await WithdrawalFromYieldProviderHelper.clearLastWithdrawalData();
+      await WithdrawalFromYieldProviderHelper.clearAllRecords();
+      return;
+    }
+
+    if (sendToUserBtcTxnHash !== '' || recordCount > 0) {
       console.log("[SendBtcBackToUser] BTC already sent back to users");
       return;
     }
@@ -58,7 +73,7 @@ async function SendBtcBackToUser(near, redemptions, bitcoinInstance) {
     // console.log("[SendBtcBackToUser] Total records:", totalRecords);
     // console.log("[SendBtcBackToUser] Page size:", pageSize);
     // console.log("[SendBtcBackToUser] Withdrawal provider txn hash:", lastWithdrawalTxHash);
-    
+
     // Filter records matching first yield provider txn hash and take pageSize amount
     const recordsForYieldTxn = lastWithdrawalTxHash ? 
       withdrawnRecords
@@ -68,12 +83,7 @@ async function SendBtcBackToUser(near, redemptions, bitcoinInstance) {
 
     console.log("[SendBtcBackToUser] Records for yield txn:", recordsForYieldTxn);
     console.log("[SendBtcBackToUser] Records for yield txn length:", recordsForYieldTxn.length);
-    if (recordsForYieldTxn.length === 0) {
-      console.log("[SendBtcBackToUser] No records found to process");
-      await WithdrawalFromYieldProviderHelper.clearLastWithdrawalData();
-      return;
-    }
-
+    
     // Write txn_hash records using helper
     try {
       const records = recordsForYieldTxn.map(record => ({
@@ -99,9 +109,9 @@ async function SendBtcBackToUser(near, redemptions, bitcoinInstance) {
 // Helper function to process a batch of redemption transactions
 async function processSendBtcBackToUser(near, redemptionsToProcess, bitcoinInstance, lastWithdrawalTxHash) {
   try {
-    const txnHashes = redemptionsToProcess.map(
-      (redemption) => redemption.txn_hash,
-    );
+    const txnHashes = redemptionsToProcess
+      .map((redemption) => redemption.txn_hash)
+      .sort();
 
     const { address, publicKey } = await bitcoinInstance.deriveBTCAddress(near);
     console.log(`BTC sender address: ${address}`);
