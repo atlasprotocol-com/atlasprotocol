@@ -66,9 +66,10 @@ impl Atlas {
         }
     }
 
-    pub fn migrate_check() {
+    pub fn migrate_check(&mut self) {
         let old_state: V1 = env::state_read().expect("Failed to read old state");
         log!("old_state.deposits: {}", old_state.deposits.len());
+        log!("self.deposits: {}", self.deposits.len());
     }
 
     // pub fn migrate(&mut self) {
