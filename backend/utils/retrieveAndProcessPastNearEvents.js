@@ -115,6 +115,13 @@ async function RetrieveAndProcessPastNearEvents(
               timestamp,
             );
           } else if (event.type === "burn_redemption") {
+
+             // Check if amount is greater than 10000
+             if (Number(event.returnValues.amount) < 10000) {
+              console.log("Amount is less than 10000, skipping...");
+              continue;
+            }
+            
             await processBurnRedeemEvent(
               {
                 returnValues: {

@@ -690,6 +690,13 @@ app.get("/api/v1/process-new-redemption", async (req, res) => {
 
       console.log("event:", JSON.stringify(event, null, 2));
 
+      // Check if amount is greater than 10000
+      if (Number(event.returnValues.amount) < 10000) {
+        return res
+          .status(400)
+          .json({ error: "Amount must be greater than 10000" });
+      }
+
       await processBurnRedeemEvent(
         {
           returnValues: {
@@ -891,19 +898,19 @@ app.listen(PORT, async () => {
   runBatch().catch(console.error);
 
   // Add the unstaking and withdrawal process to the job scheduler
-  setInterval(async () => {
-    try {
-      await processUnstakingAndWithdrawal(
-        near,
-        bitcoin,
-        redemptions,
-        bridgings,
-        globalParams.atlasTreasuryAddress,
-      );
-    } catch (error) {
-      console.error("Error in unstaking and withdrawal process:", error);
-    }
-  }, 60000); // Run every 1 minute
+  // setInterval(async () => {
+  //   try {
+  //     await processUnstakingAndWithdrawal(
+  //       near,
+  //       bitcoin,
+  //       redemptions,
+  //       bridgings,
+  //       globalParams.atlasTreasuryAddress,
+  //     );
+  //   } catch (error) {
+  //     console.error("Error in unstaking and withdrawal process:", error);
+  //   }
+  // }, 60000); // Run every 1 minute
 
   setInterval(async () => {
     await getAllDepositHistory();

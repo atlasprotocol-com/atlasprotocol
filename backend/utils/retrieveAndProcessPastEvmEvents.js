@@ -3,13 +3,6 @@ const _ = require("lodash");
 
 const { getConstants } = require("../constants");
 const { Ethereum } = require("../services/ethereum");
-
-const { getAllChainConfig } = require("./network.chain.config");
-const { flagsBatch, blockRange } = require("./batchFlags");
-const {
-  setBlockCursor,
-  getBlockCursor,
-} = require("./batchTime/lastScannedBlockHelper");
 const {
   processMintDepositEvent,
   processBurnRedeemEvent,
@@ -22,6 +15,14 @@ const {
   isEnableSubquery,
   getBurnRedeemEntities,
 } = require("../services/subquery");
+
+const { getAllChainConfig } = require("./network.chain.config");
+const { flagsBatch, blockRange } = require("./batchFlags");
+const {
+  setBlockCursor,
+  getBlockCursor,
+} = require("./batchTime/lastScannedBlockHelper");
+
 
 const batchName = `Batch O RetrieveAndProcessPastEvmEvents`;
 
@@ -74,6 +75,7 @@ async function RetrieveAndProcessPastEvmEvents(
       console.log(`[SUBQUERY ${chain.chainID}] --------- DISABLED ---------`);
 
       const web3 = new Web3(chain.chainRpcUrl);
+      
       const ethereum = new Ethereum(
         chain.chainID,
         chain.chainRpcUrl,
@@ -82,18 +84,18 @@ async function RetrieveAndProcessPastEvmEvents(
         chain.abiPath,
       );
 
-      const endBlock = await ethereum.getCurrentBlockNumber();
-      const startBlock = await getBlockCursor(
-        "RetrieveAndProcessPastEvmEvents",
-        chain.chainID,
-        endBlock,
-      );
-
-      console.log(
-        `${batchName} EVM: ${chain.chainID} startBlock: ${startBlock} endBlock: ${endBlock}`,
-      );
-
       try {
+        const endBlock = await ethereum.getCurrentBlockNumber();
+        const startBlock = await getBlockCursor(
+          "RetrieveAndProcessPastEvmEvents",
+          chain.chainID,
+          endBlock,
+        );
+  
+        console.log(
+          `${batchName} EVM: ${chain.chainID} startBlock: ${startBlock} endBlock: ${endBlock}`,
+        );
+
         const events = await ethereum.getPastEventsInBatches(
           startBlock - 10,
           endBlock,
