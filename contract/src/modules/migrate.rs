@@ -22,6 +22,7 @@ pub(crate) fn state_cursor_write(cursor: usize) {
     env::storage_write(MIGRATION_BATCH_CUSOR, &data);
 }
 
+const V1: &[u8] = b"V1";
 const V2_DEPOSIT: &[u8] = b"V2_DEPOSIT";
 
 #[derive(BorshDeserialize, BorshSerialize)]
@@ -70,6 +71,19 @@ impl Atlas {
         let old_state: V1 = env::state_read().expect("Failed to read old state");
         log!("old_state.deposits: {}", old_state.deposits.len());
         log!("self.deposits: {}", self.deposits.len());
+    }
+
+    pub fn migrate_prepare(&mut self) {
+        if env::storage_has_key(V1) {
+            panic!("Migration already prepared");
+        }
+
+        let old_state: V1 = env::state_read().expect("Failed to read old state");
+        let data = match borsh::to_vec(&old_state) {
+            Ok(serialized) => serialized,
+            Err(_) => env::panic_str("Cannot serialize the contract state."),
+        };
+        env::storage_write(V1, &data);
     }
 
     // pub fn migrate(&mut self) {
