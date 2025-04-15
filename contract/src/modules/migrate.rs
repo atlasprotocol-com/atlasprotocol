@@ -6,7 +6,7 @@ use crate::{AtlasExt, BtcAddressPubKeyRecord};
 use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::log;
 use near_sdk::{borsh::to_vec, env};
-use near_sdk::{near, near_bindgen, store::IterableMap, AccountId};
+use near_sdk::{near_bindgen, store::IterableMap, AccountId};
 
 const MIGRATION_BATCH_SIZE: usize = 30;
 const MIGRATION_BATCH_CUSOR: &[u8] = b"BATCH_CUSOR";
@@ -22,7 +22,7 @@ pub(crate) fn state_cursor_write(cursor: usize) {
     env::storage_write(MIGRATION_BATCH_CUSOR, &data);
 }
 
-const V1: &[u8] = b"V1";
+const VERSION_V1: &[u8] = b"VERSION_V1";
 const V2_DEPOSIT: &[u8] = b"V2_DEPOSIT";
 
 #[derive(BorshDeserialize, BorshSerialize)]
@@ -45,9 +45,26 @@ pub struct V1 {
 
 #[near_bindgen]
 impl Atlas {
+    pub fn migrate_prepare(&mut self) {
+        if env::storage_has_key(VERSION_V1) {
+            panic!("Migration already prepared");
+        }
+
+        let old_state: V1 = env::state_read().expect("Failed to read old state");
+        let data = match borsh::to_vec(&old_state) {
+            Ok(serialized) => serialized,
+            Err(_) => env::panic_str("Cannot serialize the contract state."),
+        };
+        env::storage_write(VERSION_V1, &data);
+    }
+
     #[private]
     #[init(ignore_state)]
     pub fn migrate_init() -> Self {
+        if !env::storage_has_key(VERSION_V1) {
+            panic!("call migrate_prepare first");
+        }
+
         let old_state: V1 = env::state_read().expect("Failed to read old state");
         Atlas {
             deposits: IterableMap::new(V2_DEPOSIT),
@@ -67,75 +84,64 @@ impl Atlas {
         }
     }
 
-    pub fn migrate_check(&mut self) {
-        let old_state: V1 = env::state_read().expect("Failed to read old state");
-        log!("old_state.deposits: {}", old_state.deposits.len());
-        log!("self.deposits: {}", self.deposits.len());
-    }
-
-    pub fn migrate_prepare(&mut self) {
-        if env::storage_has_key(V1) {
-            panic!("Migration already prepared");
+    pub fn migrate(&mut self) {
+        if !env::storage_has_key(VERSION_V1) {
+            panic!("call migrate_prepare first");
         }
 
-        let old_state: V1 = env::state_read().expect("Failed to read old state");
-        let data = match borsh::to_vec(&old_state) {
-            Ok(serialized) => serialized,
-            Err(_) => env::panic_str("Cannot serialize the contract state."),
-        };
-        env::storage_write(V1, &data);
+        let old_state = env::storage_read(VERSION_V1)
+            .map(|data| {
+                V1::try_from_slice(&data)
+                    .unwrap_or_else(|_| env::panic_str("Cannot deserialize the contract state."))
+            })
+            .expect("Failed to read v1 state");
+        let cursor = state_cursor_read();
+        log!("CURSOR --> {}", cursor);
+        log!("DEPOSITS_COUNT --> {}", self.deposits.len());
+        log!("MIGRATING_DEPOSITS_COUNT --> {}", old_state.deposits.len());
+
+        let to_migrate: Vec<(String, DepositRecordOld)> = old_state
+            .deposits
+            .iter()
+            .skip(cursor)
+            .take(MIGRATION_BATCH_SIZE)
+            .map(|(k, v)| (k.to_string(), v.clone()))
+            .collect();
+        log!("TO_MIGRATE_COUNT --> {}", to_migrate.len());
+        for (tx, old_deposits) in to_migrate.iter() {
+            log!("OLD_DEPOSIT_TX --> {}", tx.clone());
+
+            self.deposits.insert(
+                tx.clone(),
+                DepositRecord {
+                    btc_txn_hash: old_deposits.btc_txn_hash.to_string(),
+                    btc_sender_address: old_deposits.btc_sender_address.to_string(),
+                    receiving_chain_id: old_deposits.receiving_chain_id.to_string(),
+                    receiving_address: old_deposits.receiving_address.to_string(),
+                    btc_amount: old_deposits.btc_amount,
+                    protocol_fee: old_deposits.protocol_fee,
+                    minted_txn_hash: old_deposits.minted_txn_hash.to_string(),
+                    minting_fee: old_deposits.minting_fee,
+                    timestamp: old_deposits.timestamp,
+                    status: old_deposits.status,
+                    remarks: old_deposits.remarks.to_string(),
+                    date_created: old_deposits.date_created,
+                    verified_count: old_deposits.verified_count,
+                    yield_provider_gas_fee: old_deposits.yield_provider_gas_fee,
+                    yield_provider_txn_hash: old_deposits.yield_provider_txn_hash.to_string(),
+                    retry_count: 0,
+                    minted_txn_hash_verified_count: 0,
+                    refund_txn_id: "".to_string(),
+                },
+            );
+        }
+
+        let new_cursor = cursor + to_migrate.len();
+        if new_cursor < MIGRATION_BATCH_SIZE {
+            log!("DONE");
+            state_cursor_write(0);
+        } else {
+            state_cursor_write(new_cursor);
+        }
     }
-
-    // pub fn migrate(&mut self) {
-    //     self.assert_owner();
-
-    //     // Perform migration logic from V1 to V2
-    //     let old_state: V1 = env::state_read().expect("Failed to read old state");
-    //     let cursor = state_cursor_read();
-    //     log!("DEPOSITS_COUNT --> {}", self.deposits.len());
-    //     log!("CUROSR --> {}", cursor);
-
-    //     let to_migrate: Vec<(String, DepositRecordOld)> = old_state
-    //         .deposits
-    //         .iter()
-    //         .skip(cursor)
-    //         .take(MIGRATION_BATCH_SIZE)
-    //         .map(|(k, v)| (k.to_string(), v.clone()))
-    //         .collect();
-
-    //     for (tx, old_deposits) in to_migrate.iter() {
-    //         log!("OLD_DEPOSIT_TX --> {}", tx.clone());
-
-    //         self.deposits.insert(
-    //             tx.clone(),
-    //             DepositRecord {
-    //                 btc_txn_hash: old_deposits.btc_txn_hash.to_string(),
-    //                 btc_sender_address: old_deposits.btc_sender_address.to_string(),
-    //                 receiving_chain_id: old_deposits.receiving_chain_id.to_string(),
-    //                 receiving_address: old_deposits.receiving_address.to_string(),
-    //                 btc_amount: old_deposits.btc_amount,
-    //                 protocol_fee: old_deposits.protocol_fee,
-    //                 minted_txn_hash: old_deposits.minted_txn_hash.to_string(),
-    //                 minting_fee: old_deposits.minting_fee,
-    //                 timestamp: old_deposits.timestamp,
-    //                 status: old_deposits.status,
-    //                 remarks: old_deposits.remarks.to_string(),
-    //                 date_created: old_deposits.date_created,
-    //                 verified_count: old_deposits.verified_count,
-    //                 yield_provider_gas_fee: old_deposits.yield_provider_gas_fee,
-    //                 yield_provider_txn_hash: old_deposits.yield_provider_txn_hash.to_string(),
-    //                 retry_count: 0,
-    //                 minted_txn_hash_verified_count: 0,
-    //                 refund_txn_id: "".to_string(),
-    //             },
-    //         );
-    //     }
-
-    //     let new_cursor = cursor + to_migrate.len();
-    //     if new_cursor < MIGRATION_BATCH_SIZE {
-    //         state_cursor_write(0);
-    //     } else {
-    //         state_cursor_write(new_cursor);
-    //     }
-    // }
 }
