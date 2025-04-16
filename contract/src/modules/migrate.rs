@@ -94,6 +94,8 @@ impl Atlas {
     }
 
     pub fn migrate_process(&mut self) {
+        self.assert_owner();
+
         if !env::storage_has_key(VERSION_V1) {
             panic!("call migrate_prepare first");
         }
@@ -155,6 +157,8 @@ impl Atlas {
     }
 
     pub fn migrate_cleanup(&mut self) {
+        self.assert_owner();
+
         if env::storage_has_key(VERSION_V1) {
             env::storage_remove(VERSION_V1);
         }
