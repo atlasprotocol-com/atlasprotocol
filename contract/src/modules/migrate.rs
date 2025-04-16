@@ -113,7 +113,7 @@ impl Atlas {
         log!("DEPOSITS_COUNT --> {}", self.deposits.len());
         log!("MIGRATING_DEPOSITS_COUNT --> {}", old_state.deposits.len());
 
-        if cursor >= old_state.deposits.len() {
+        if cursor >= old_state.deposits.len().try_into().unwrap() {
             log!("DONE");
             return;
         }
@@ -155,11 +155,7 @@ impl Atlas {
         }
 
         let new_cursor = cursor + to_migrate.len();
-        if new_cursor < MIGRATION_BATCH_SIZE {
-            log!("DONE");
-        } else {
-            state_cursor_write(new_cursor);
-        }
+        state_cursor_write(new_cursor);
     }
 
     pub fn migrate_cleanup(&mut self) {
