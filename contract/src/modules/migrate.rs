@@ -8,7 +8,7 @@ use near_sdk::log;
 use near_sdk::{borsh::to_vec, env};
 use near_sdk::{near_bindgen, store::IterableMap, AccountId};
 
-const MIGRATION_BATCH_SIZE: usize = 30;
+const MIGRATION_BATCH_SIZE: usize = 50;
 const MIGRATION_BATCH_CUSOR: &[u8] = b"BATCH_CUSOR";
 
 fn state_cursor_read() -> usize {
@@ -22,8 +22,8 @@ pub(crate) fn state_cursor_write(cursor: usize) {
     env::storage_write(MIGRATION_BATCH_CUSOR, &data);
 }
 
-const VERSION_V1: &[u8] = b"VERSION_V1";
-const V2_DEPOSIT: &[u8] = b"V2_DEPOSIT";
+const STATE_V1: &[u8] = b"state.v1";
+const DEPOSIT_V2: &[u8] = b"deposit.v2";
 
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct V1 {
@@ -46,7 +46,7 @@ pub struct V1 {
 #[near_bindgen]
 impl Atlas {
     pub fn migrate_prepare(&mut self) {
-        if env::storage_has_key(VERSION_V1) {
+        if env::storage_has_key(STATE_V1) {
             panic!("Migration already prepared");
         }
 
@@ -64,19 +64,20 @@ impl Atlas {
             Ok(serialized) => serialized,
             Err(_) => env::panic_str("Cannot serialize the contract state."),
         };
-        env::storage_write(VERSION_V1, &data);
+        env::storage_write(STATE_V1, &data);
     }
 
     #[private]
     #[init(ignore_state)]
     pub fn migrate_init() -> Self {
-        if !env::storage_has_key(VERSION_V1) {
+        if !env::storage_has_key(STATE_V1) {
             panic!("call migrate_prepare first");
         }
+        state_cursor_write(0);
 
         let old_state: V1 = env::state_read().expect("Failed to read old state");
         Atlas {
-            deposits: IterableMap::new(V2_DEPOSIT),
+            deposits: IterableMap::new(DEPOSIT_V2),
             redemptions: old_state.redemptions,
             bridgings: old_state.bridgings,
             validators: old_state.validators,
@@ -96,20 +97,26 @@ impl Atlas {
     pub fn migrate_process(&mut self) {
         self.assert_owner();
 
-        if !env::storage_has_key(VERSION_V1) {
+        if !env::storage_has_key(STATE_V1) {
             panic!("call migrate_prepare first");
         }
 
-        let old_state = env::storage_read(VERSION_V1)
+        let old_state = env::storage_read(STATE_V1)
             .map(|data| {
                 V1::try_from_slice(&data)
                     .unwrap_or_else(|_| env::panic_str("Cannot deserialize the contract state."))
             })
             .expect("Failed to read v1 state");
         let cursor = state_cursor_read();
+
         log!("CURSOR --> {}", cursor);
         log!("DEPOSITS_COUNT --> {}", self.deposits.len());
         log!("MIGRATING_DEPOSITS_COUNT --> {}", old_state.deposits.len());
+
+        if cursor >= old_state.deposits.len() {
+            log!("DONE");
+            return;
+        }
 
         let to_migrate: Vec<(String, DepositRecordOld)> = old_state
             .deposits
@@ -150,7 +157,6 @@ impl Atlas {
         let new_cursor = cursor + to_migrate.len();
         if new_cursor < MIGRATION_BATCH_SIZE {
             log!("DONE");
-            state_cursor_write(0);
         } else {
             state_cursor_write(new_cursor);
         }
@@ -159,8 +165,8 @@ impl Atlas {
     pub fn migrate_cleanup(&mut self) {
         self.assert_owner();
 
-        if env::storage_has_key(VERSION_V1) {
-            env::storage_remove(VERSION_V1);
+        if env::storage_has_key(STATE_V1) {
+            env::storage_remove(STATE_V1);
         }
     }
 }
