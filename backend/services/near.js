@@ -183,20 +183,20 @@ class Near {
     }
 
     // Log start time for update_redemption_yield_provider_unstake_processing
-    if (methodName === "update_redemption_yield_provider_unstake_processing") {
-      console.log(`[${methodName}] Start time:`, new Date().toISOString());
-    }
+    // if (methodName === "update_redemption_yield_provider_unstake_processing") {
+    //   console.log(`[${methodName}] Start time:`, new Date().toISOString());
+    // }
     //console.log("this.gas:", this.gas);
     // MUST return original error to retrieve error context
-    const result = this.nearContract[methodName]({
+    const result = await this.nearContract[methodName]({
       args,
       gas: this.gas
     });
 
     // Log end time for update_redemption_yield_provider_unstake_processing
-    if (methodName === "update_redemption_yield_provider_unstake_processing") {
-      console.log(`[${methodName}] End time:`, new Date().toISOString());
-    }
+    // if (methodName === "update_redemption_yield_provider_unstake_processing") {
+    //   console.log(`[${methodName}] End time:`, new Date().toISOString());
+    // }
 
     return result;
   }
