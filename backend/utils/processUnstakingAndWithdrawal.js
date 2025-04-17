@@ -237,8 +237,10 @@ async function processUnstakingAndWithdrawal(
             try {
               index++;
               console.log("[processRedemptions] Processing redemption:", index, "of", newRedemptions.length);
-              await near.updateRedemptionYieldProviderUnstakeProcessing(redemption.txn_hash);
-              console.log("[processRedemptions] Updated redemption onchain status:", redemption.txn_hash);
+              if (redemption.status === REDEMPTION_STATUS.ABTC_BURNT) {
+                await near.updateRedemptionYieldProviderUnstakeProcessing(redemption.txn_hash);
+                console.log("[processRedemptions] Updated redemption onchain status:", redemption.txn_hash);
+              }
               // Update status in redemptions array
               const redemptionToUpdate = redemptions.find(r => r.txn_hash === redemption.txn_hash);
               if (redemptionToUpdate) {
