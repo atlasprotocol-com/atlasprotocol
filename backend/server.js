@@ -943,13 +943,13 @@ app.listen(PORT, async () => {
   //Add the unstaking and withdrawal process to the job scheduler
   setInterval(async () => {
     try {
-      await processUnstakingAndWithdrawal(
-        near,
-        bitcoin,
-        redemptions,
-        bridgings,
-        globalParams.atlasTreasuryAddress,
-      );
+      // await processUnstakingAndWithdrawal(
+      //   near,
+      //   bitcoin,
+      //   redemptions,
+      //   bridgings,
+      //   globalParams.atlasTreasuryAddress,
+      // );
     } catch (error) {
       console.error("Error in unstaking and withdrawal process:", error);
     }

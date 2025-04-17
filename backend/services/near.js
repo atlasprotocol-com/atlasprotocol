@@ -186,7 +186,7 @@ class Near {
     if (methodName === "update_redemption_yield_provider_unstake_processing") {
       console.log(`[${methodName}] Start time:`, new Date().toISOString());
     }
-    console.log("this.gas:", this.gas);
+    //console.log("this.gas:", this.gas);
     // MUST return original error to retrieve error context
     const result = this.nearContract[methodName]({
       args,
