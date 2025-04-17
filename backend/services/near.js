@@ -188,7 +188,7 @@ class Near {
     }
     console.log("this.gas:", this.gas);
     // MUST return original error to retrieve error context
-    const result = await this.nearContract[methodName]({
+    const result = this.nearContract[methodName]({
       args,
       gas: this.gas
     });
