@@ -13,12 +13,14 @@ logTime("Script started");
 
 // Configuration flags for file generation
 const CONFIG = {
-  GENERATE_DEPOSITS_XLSX: false,        // Set to true to enable deposits.xlsx generation
+  GENERATE_DEPOSITS_XLSX: true,        // Set to true to enable deposits.xlsx generation
   GENERATE_DEPOSITS_QUEST2_XLSX: false,  // Set to true to enable deposits-quest2.xlsx generation
   GENERATE_UTXOS_XLSX: false,           // Set to true to enable UTXOs.xlsx generation
   GENERATE_PUBKEY_XLSX: false,          // Set to true to enable pubkeys.xlsx generation
-  GENERATE_NEAR_BLOCKS_XLSX: true,      // Set to true to enable nearblocks.xlsx generation
+  GENERATE_NEAR_BLOCKS_XLSX: false,      // Set to true to enable nearblocks.xlsx generation
+  ADD_MISSING_NEAR_BLOCKS_XLSX: false,    // Set to true to process missing blocks from error file
   GENERATE_DEPOSITS_STATUS_21_XLSX: false,     // Set to true to process deposits with status 21
+  GENERATE_REDEMPTIONS_XLSX: false,      // Set to true to enable redemptions.xlsx generation  
   
   DEPOSITS: {
     OUTPUT_FILE: "deposits.xlsx",       // Output filename for deposits batch
@@ -66,7 +68,8 @@ const CONFIG = {
   
   NEAR: {
     //START_BLOCK: 189828204,            // Starting block number to scan from for first testnet deposit
-    START_BLOCK: 192897549,            // Starting block number to scan from
+    START_BLOCK: null,            // Starting block number to scan from
+    //last processed 192956448, 192957948
     //START_BLOCK: 192888235,            // Starting Redemption record in testnet
     END_BLOCK: null,                   // Ending block number to scan until (null for no end)
     
@@ -80,8 +83,8 @@ const CONFIG = {
     WORKSHEET_NAME: "NEAR Blocks",     // Name of the worksheet in Excel file
     RPC_ENDPOINT: "https://neart.lava.build",  // NEAR RPC endpoint
     //RPC_ENDPOINT: "https://rpc.testnet.fastnear.com",  // NEAR RPC endpoint    
-    THREAD_COUNT: 10,                  // Number of parallel threads to process blocks
-    BLOCKS_PER_THREAD: 5,              // Number of blocks each thread processes
+    THREAD_COUNT: 25,                  // Number of parallel threads to process blocks
+    BLOCKS_PER_THREAD: 10,              // Number of blocks each thread processes
     COLUMNS: {
       // Only include columns used in processDepositsStatus21
       NEAR_TXN_HASH: 4,                 // Column index for Near Txn Hash
@@ -91,6 +94,21 @@ const CONFIG = {
   
   DEPOSITS_STATUS_21: {
     OUTPUT_FILE: "deposits-status-21.xlsx"  // Output filename for status 21 deposits
+  },
+  
+  REDEMPTIONS: {
+    OUTPUT_FILE: "redemptions.xlsx",    // Output filename for redemptions batch
+    MAX_RECORDS: null,                  // Set to null for all records, or a number for limit
+    BATCH_SIZE: 1000,                   // How many records to fetch per API call
+    START_INDEX: 0,                     // Starting index for fetching redemptions
+    END_INDEX: null,                    // Set to null for no end index, or a number to stop at
+    PRINT_CLI_OUTPUT: false,            // Set to true to print raw CLI output
+    COLUMNS: {
+      TXN_HASH: 1,                      // Column index for Txn Hash
+      BTC_TXN_HASH: 7,                  // Column index for BTC Txn Hash
+      STATUS: 10,                       // Column index for Status      
+      REMARKS: 11                       // Column index for Remarks
+    }
   },
 };
 
@@ -103,7 +121,9 @@ const FEATURE_DEPENDENCIES = {
   GENERATE_UTXOS_XLSX: ['excelJs', 'axios'],
   GENERATE_PUBKEY_XLSX: ['excelJs'],
   GENERATE_NEAR_BLOCKS_XLSX: ['excelJs', 'nearApi'],
-  GENERATE_DEPOSITS_STATUS_21_XLSX: ['excelJs', 'axios']
+  ADD_MISSING_NEAR_BLOCKS_XLSX: ['excelJs', 'nearApi'],
+  GENERATE_DEPOSITS_STATUS_21_XLSX: ['excelJs', 'axios'],
+  GENERATE_REDEMPTIONS_XLSX: ['excelJs'],  
 };
 
 // Global variables for modules
@@ -979,8 +999,12 @@ async function exportPubkeysToExcel(pubkeys) {
   const deposits = await fetchDeposits();
   console.log(`✅ Retrieved ${deposits.length} deposit records`);
   
-  // Create a Set of BTC addresses that have deposits
-  const stakedAddresses = new Set(deposits.map(deposit => deposit.btc_sender_address));
+  // Create a Set of BTC addresses that have deposits with status 20, 21, or 30
+  const stakedAddresses = new Set(
+    deposits
+      .filter(deposit => [20, 21, 30].includes(deposit.status))
+      .map(deposit => deposit.btc_sender_address)
+  );
   
   // Process pubkeys in batches
   for (let i = 0; i < pubkeys.length; i++) {
@@ -1158,7 +1182,7 @@ function createNearBlocksWorksheet(workbook, eventType) {
 
 // Add this new function before processAndExportBlocks
 async function processBlockRange(startBlock, endBlock, threadId) {
-  console.log(`\n🧵 Thread ${threadId}: Processing blocks ${startBlock} to ${endBlock}`);
+  console.log(`🧵 Thread ${threadId}: Processing blocks ${startBlock} to ${endBlock}`);
   
   const depositResults = [];
   const redeemResults = [];
@@ -1269,12 +1293,15 @@ async function processBlockRange(startBlock, endBlock, threadId) {
         }
       }
     } catch (error) {
-      console.error(`❌ Thread ${threadId}: Error processing block ${blockNumber}:`, error);
-      threadErrors.push(`Thread ${threadId}: Block ${blockNumber} - ${error.message}`);
+      const errorMessage = error.message || String(error);
+      if (!errorMessage.includes("DB Not Found Error") && !errorMessage.includes("Chunk Missing")) {
+        console.error(`❌ Thread ${threadId}: Error processing block ${blockNumber}:`, error);
+        threadErrors.push(`Thread ${threadId}: Block ${blockNumber} - ${error.message}`);
+      }
     }
 
     // Add a small delay before processing the next block to avoid rate limiting
-    await delay(500);
+    await delay(300);
   }
 
   return { depositResults, redeemResults, threadErrors };
@@ -1282,7 +1309,7 @@ async function processBlockRange(startBlock, endBlock, threadId) {
 
 // Add this new function before processAndExportBlocks
 async function saveBlockResultsToExcel(blockResults, filePath, eventType) {
-  console.log(`\n💾 Attempting to save ${blockResults.length} ${eventType} events to ${filePath}`);
+  //console.log(`\n💾 Attempting to save ${blockResults.length} ${eventType} events to ${filePath}`);
   
   // Create or load workbook
   const workbook = new excelJs.Workbook();
@@ -1331,7 +1358,7 @@ async function saveBlockResultsToExcel(blockResults, filePath, eventType) {
   // Save the file
   try {
     await workbook.xlsx.writeFile(filePath);
-    console.log(`✅ Successfully saved ${blockResults.length} ${eventType} events to ${filePath}`);
+    console.log(`💾 Successfully saved ${blockResults.length} ${eventType} events to ${filePath}`);
   } catch (error) {
     console.error(`❌ Error saving file ${filePath}:`, error);
     throw error;
@@ -1399,37 +1426,48 @@ async function processBatch(startBlock, endBlock, threadCount, blocksPerThread) 
     // Log errors to file if any occurred
     if (allErrors.length > 0) {
       try {
-        // Filter out DB Not Found and Chunk Missing errors and extract just block numbers
-        const filteredErrors = allErrors
-          .filter(error => !error.includes("DB Not Found Error") && !error.includes("Chunk Missing"))
-          .map(error => {
-            // Extract block number from error message
-            const blockMatch = error.match(/Block (\d+)/);
-            return blockMatch ? blockMatch[1] : null;
-          })
-          .filter(blockNumber => blockNumber !== null)
-          .join(',');
+        // Extract just block numbers and ensure uniqueness
+        const filteredErrors = Array.from(new Set(
+          allErrors          
+            .map(error => {
+              // Extract block number from error message
+              const blockMatch = error.match(/Block (\d+)/);
+              return blockMatch ? blockMatch[1] : null;
+            })
+            .filter(blockNumber => blockNumber !== null)
+        )).join(',');
         
         if (filteredErrors) {
           await fs.appendFile(errorFilePath, filteredErrors + ',');
-          console.log(`⚠️ Logged ${filteredErrors.split(',').length} error block numbers to ${errorFilePath}`);
+          console.log(`⚠️ Logged ${filteredErrors.split(',').length} unique error block numbers to ${errorFilePath}`);
         }
       } catch (error) {
-        console.error("Error writing to error file:", error);
+        console.error("❌ Error writing to error file:", error);
+        process.exit(1);
       }
     }
     
     // Save results to Excel
     if (allDepositResults.length > 0) {
-      const depositFilePath = path.join(__dirname, CONFIG.NEAR.OUTPUT_FILE_DEPOSIT);
-      await saveBlockResultsToExcel(allDepositResults, depositFilePath, "mint_deposit");
-      console.log(`💾 Saved batch ${batchIndex + 1} deposit results: ${allDepositResults.length} events processed (blocks ${batchStartBlock} to ${batchEndBlock})`);
+      try {
+        const depositFilePath = path.join(__dirname, CONFIG.NEAR.OUTPUT_FILE_DEPOSIT);
+        await saveBlockResultsToExcel(allDepositResults, depositFilePath, "mint_deposit");
+        console.log(`💾 Saved batch ${batchIndex + 1} deposit results: ${allDepositResults.length} events processed (blocks ${batchStartBlock} to ${batchEndBlock})`);
+      } catch (error) {
+        console.error("❌ Error saving deposit results to Excel:", error);
+        process.exit(1);
+      }
     }
     
     if (allRedeemResults.length > 0) {
-      const redeemFilePath = path.join(__dirname, CONFIG.NEAR.OUTPUT_FILE_REDEEM);
-      await saveBlockResultsToExcel(allRedeemResults, redeemFilePath, "burn_redeem");
-      console.log(`💾 Saved batch ${batchIndex + 1} redeem results: ${allRedeemResults.length} events processed (blocks ${batchStartBlock} to ${batchEndBlock})`);
+      try {
+        const redeemFilePath = path.join(__dirname, CONFIG.NEAR.OUTPUT_FILE_REDEEM);
+        await saveBlockResultsToExcel(allRedeemResults, redeemFilePath, "burn_redeem");
+        console.log(`💾 Saved batch ${batchIndex + 1} redeem results: ${allRedeemResults.length} events processed (blocks ${batchStartBlock} to ${batchEndBlock})`);
+      } catch (error) {
+        console.error("❌ Error saving redeem results to Excel:", error);
+        process.exit(1);
+      }
     }
     
     const batchEndTime = new Date();
@@ -1445,19 +1483,76 @@ async function processBatch(startBlock, endBlock, threadCount, blocksPerThread) 
   }
 }
 
+// Add this new function before processAndExportBlocks
+async function findMaxBlockNumberFromFiles() {
+  const depositFilePath = path.join(__dirname, CONFIG.NEAR.OUTPUT_FILE_DEPOSIT);
+  const redeemFilePath = path.join(__dirname, CONFIG.NEAR.OUTPUT_FILE_REDEEM);
+  let maxBlockNumber = 0;
+
+  try {
+    // Check deposit file
+    const depositWorkbook = new excelJs.Workbook();
+    try {
+      await depositWorkbook.xlsx.readFile(depositFilePath);
+      const worksheet = depositWorkbook.getWorksheet(1);
+      if (worksheet && worksheet.rowCount > 1) { // Check if there are any rows (excluding header)
+        const lastRow = worksheet.lastRow;
+        if (lastRow) {
+          const blockNumber = lastRow.getCell(1).value;
+          if (blockNumber > maxBlockNumber) {
+            maxBlockNumber = blockNumber;
+          }
+        }
+      }
+    } catch (error) {
+      // File doesn't exist or is empty, continue to check redeem file
+    }
+
+    // Check redeem file
+    const redeemWorkbook = new excelJs.Workbook();
+    try {
+      await redeemWorkbook.xlsx.readFile(redeemFilePath);
+      const worksheet = redeemWorkbook.getWorksheet(1);
+      if (worksheet && worksheet.rowCount > 1) { // Check if there are any rows (excluding header)
+        const lastRow = worksheet.lastRow;
+        if (lastRow) {
+          const blockNumber = lastRow.getCell(1).value;
+          if (blockNumber > maxBlockNumber) {
+            maxBlockNumber = blockNumber;
+          }
+        }
+      }
+    } catch (error) {
+      // File doesn't exist or is empty
+    }
+
+    return maxBlockNumber;
+  } catch (error) {
+    console.error("Error finding max block number from files:", error);
+    return 0;
+  }
+}
+
 // Modify the processAndExportBlocks function
 async function processAndExportBlocks() {
   const startTime = new Date();
   console.log("\n🔍 Starting NEAR blocks processing...");
-  console.log(`⏰ Batch start time: ${formatDate(startTime)}`);
-  
+  console.log(`⏰ Batch start time: ${formatDate(startTime)}`);    
+
+  // Determine start block
+  let startBlock;
+  if (CONFIG.NEAR.START_BLOCK === null) {
+    const maxBlockFromFiles = await findMaxBlockNumberFromFiles();
+    startBlock = maxBlockFromFiles + 1;
+    console.log(`Starting from block ${startBlock} (max block from files + 1)`);
+  } else {
+    startBlock = CONFIG.NEAR.START_BLOCK;
+    console.log(`Starting from block ${startBlock} based on config`);
+  }
+
   // Get the current block number
   const currentBlock = await getCurrentBlock();
   console.log(`Current block number: ${currentBlock}`);
-
-  // Use START_BLOCK from config
-  const startBlock = CONFIG.NEAR.START_BLOCK;
-  console.log(`Starting from block ${startBlock} based on config`);
 
   // Calculate the effective end block
   const endBlock = CONFIG.NEAR.END_BLOCK !== null ? 
@@ -1491,7 +1586,7 @@ async function processDepositsStatus21() {
       deposit.status === 21 && 
       (!deposit.remarks || deposit.remarks.trim() === '') && 
       (!deposit.minted_txn_hash || deposit.minted_txn_hash.trim() === '')
-    );
+    ).sort((a, b) => a.timestamp - b.timestamp); // Sort by timestamp in ascending order
     
     console.log(`📊 Found ${filteredDeposits.length} records matching criteria`);
     
@@ -1599,6 +1694,250 @@ async function processDepositsStatus21() {
   }
 }
 
+// Add this function after exportToExcel
+async function exportRedemptionsToExcel(redemptions, filePath = null) {  
+  const workbook = new excelJs.Workbook();
+  const worksheet = workbook.addWorksheet("Redemptions");
+  
+  worksheet.columns = [
+    { header: "Txn Hash", key: "txn_hash", width: 50 },
+    { header: "atBTC Redemption Address", key: "abtc_redemption_address", width: 30 },
+    { header: "atBTC Redemption Chain ID", key: "abtc_redemption_chain_id", width: 20 },
+    { header: "BTC Receiving Address", key: "btc_receiving_address", width: 30 },
+    { header: "atBTC Amount", key: "abtc_amount", width: 15 },
+    { header: "Protocol Fee", key: "protocol_fee", width: 15 },
+    { header: "BTC Txn Hash", key: "btc_txn_hash", width: 50 },
+    { header: "BTC Redemption Fee", key: "btc_redemption_fee", width: 15 },
+    { header: "Timestamp UNIX", key: "timestamp", width: 15 },
+    { header: "Timestamp", key: "formatted_timestamp", width: 20 },
+    { header: "Status", key: "status", width: 10 },
+    { header: "Remarks", key: "remarks", width: 100 },
+    { header: "Date Created UNIX", key: "date_created", width: 20 },
+    { header: "Date Created", key: "formatted_date_created", width: 20 },
+    { header: "Verified Count", key: "verified_count", width: 15 },
+    { header: "Yield Provider Gas Fee", key: "yield_provider_gas_fee", width: 20 },
+    { header: "Yield Provider Txn Hash", key: "yield_provider_txn_hash", width: 50 },
+    { header: "BTC Txn Hash Verified Count", key: "btc_txn_hash_verified_count", width: 15 }
+  ];
+  
+  // Add data rows
+  redemptions.forEach(redemption => {
+    worksheet.addRow({
+      txn_hash: redemption.txn_hash,
+      abtc_redemption_address: redemption.abtc_redemption_address,
+      abtc_redemption_chain_id: redemption.abtc_redemption_chain_id,
+      btc_receiving_address: redemption.btc_receiving_address,
+      abtc_amount: redemption.abtc_amount,
+      protocol_fee: redemption.protocol_fee,
+      btc_txn_hash: redemption.btc_txn_hash,
+      btc_redemption_fee: redemption.btc_redemption_fee,
+      timestamp: redemption.timestamp,
+      formatted_timestamp: formatDate(new Date(redemption.timestamp * 1000)),
+      status: redemption.status,
+      remarks: redemption.remarks,
+      date_created: redemption.date_created,
+      formatted_date_created: formatDate(new Date(redemption.date_created * 1000)),
+      verified_count: redemption.verified_count,
+      yield_provider_gas_fee: redemption.yield_provider_gas_fee,
+      yield_provider_txn_hash: redemption.yield_provider_txn_hash,
+      btc_txn_hash_verified_count: redemption.btc_txn_hash_verified_count
+    });
+  });
+  
+  // Style the header row
+  worksheet.getRow(1).font = { bold: true };
+  
+  // Use provided filePath or default to CONFIG.REDEMPTIONS.OUTPUT_FILE
+  const outputPath = filePath || path.join(__dirname, CONFIG.REDEMPTIONS.OUTPUT_FILE);
+  await workbook.xlsx.writeFile(outputPath);
+  console.log(`✅ Successfully exported ${redemptions.length} redemption records to ${outputPath}`);
+}
+
+// Add this function after fetchDeposits
+async function fetchRedemptions() {
+  return new Promise((resolve, reject) => {
+    let allRedemptions = [];
+    let startIndex = CONFIG.REDEMPTIONS.START_INDEX;
+    const limit = CONFIG.REDEMPTIONS.BATCH_SIZE;
+    
+    const fetchPage = () => {
+      // Check if we've reached the end index
+      if (CONFIG.REDEMPTIONS.END_INDEX !== null && startIndex >= CONFIG.REDEMPTIONS.END_INDEX) {
+        console.log(`Reached configured end index of ${CONFIG.REDEMPTIONS.END_INDEX}`);
+        return resolve(allRedemptions);
+      }
+      
+      // Adjust limit if we're close to the end index
+      const adjustedLimit = CONFIG.REDEMPTIONS.END_INDEX !== null 
+        ? Math.min(limit, CONFIG.REDEMPTIONS.END_INDEX - startIndex)
+        : limit;
+      
+      const command = `near view ${CONFIG.NEAR.CONTRACT} get_all_redemptions '{"from_index": ${startIndex}, "limit": ${adjustedLimit}}'`;
+      
+      if (CONFIG.REDEMPTIONS.PRINT_CLI_OUTPUT) {
+        console.log(`\n🔍 Executing command: ${command}`);
+      }
+      
+      exec(
+        command,
+        { maxBuffer: 1024 * 1024 * 100 }, // 100 MB buffer
+        (error, stdout, stderr) => {
+          if (error) {
+            console.error(`Error executing CLI command: ${error.message}`);
+            return reject(error);
+          }
+          if (stderr) {
+            console.error(`NEAR CLI stderr: ${stderr}`);
+          }
+          try {
+            if (CONFIG.REDEMPTIONS.PRINT_CLI_OUTPUT) {
+              console.log(`📄 Raw CLI output:\n${stdout}`);
+            }
+            
+            const records = parseRecordsSeparately(stdout);
+            console.log(`Parsed ${records.length} records from index ${startIndex}`);
+            
+            // Add warning if records count is less than batch size
+            if (records.length < adjustedLimit) {
+              console.log(`⚠️ Warning: Received ${records.length} records, expected ${adjustedLimit} records`);
+            }
+            
+            // Add records up to MAX_RECORDS limit if specified
+            if (CONFIG.REDEMPTIONS.MAX_RECORDS !== null) {
+              const remainingSlots = CONFIG.REDEMPTIONS.MAX_RECORDS - allRedemptions.length;
+              const recordsToAdd = records.slice(0, remainingSlots);
+              allRedemptions = allRedemptions.concat(recordsToAdd);
+              
+              // If we've reached MAX_RECORDS, resolve
+              if (allRedemptions.length >= CONFIG.REDEMPTIONS.MAX_RECORDS) {
+                console.log(`Reached configured limit of ${CONFIG.REDEMPTIONS.MAX_RECORDS} records`);
+                return resolve(allRedemptions);
+              }
+            } else {
+              allRedemptions = allRedemptions.concat(records);
+            }
+            
+            // If no more records or we've hit the limit, resolve
+            if (records.length === 0) {
+              return resolve(allRedemptions);
+            }
+            
+            startIndex += adjustedLimit;
+            fetchPage(); // Fetch the next page
+          } catch (e) {
+            console.error("Failed to parse redemption records:", e);
+            reject(e);
+          }
+        }
+      );
+    };
+    
+    // Start fetching
+    fetchPage();
+  });
+}
+
+async function processMissingBlocks() {
+  console.log("\n🔍 Processing missing blocks from error file...");
+  
+  try {
+    // Read error file
+    const errorFilePath = path.join(__dirname, CONFIG.NEAR.ERROR_OUTPUT_FILE);
+    let blockNumbers = [];
+    
+    try {
+      const fileContent = await fs.readFile(errorFilePath, 'utf8');
+      blockNumbers = fileContent.split(',').map(num => parseInt(num.trim())).filter(num => !isNaN(num));
+    } catch (error) {
+      console.log("No error file found or file is empty. Nothing to process.");
+      return;
+    }
+    
+    if (blockNumbers.length === 0) {
+      console.log("No block numbers found in error file.");
+      return;
+    }
+    
+    console.log(`Found ${blockNumbers.length} blocks to process`);
+    
+    // Process each block one by one
+    let processedCount = 0;
+    for (const blockNumber of blockNumbers) {
+      processedCount++;
+      console.log(`\nProcessing block ${blockNumber}... (${processedCount} of ${blockNumbers.length})`);
+      let success = false;
+      
+      while (!success) {
+        try {
+          // Process the block using a single thread
+          const { depositResults, redeemResults, threadErrors } = await processBlockRange(blockNumber, blockNumber, 1);
+          
+          // If no errors occurred, save events and remove the block from the error file
+          if (threadErrors.length === 0) {
+            // Save deposit events if any were found
+            if (depositResults.length > 0) {
+              try {
+                const depositFilePath = path.join(__dirname, CONFIG.NEAR.OUTPUT_FILE_DEPOSIT);
+                await saveBlockResultsToExcel(depositResults, depositFilePath, "mint_deposit");
+                //console.log(`💾 Saved ${depositResults.length} deposit events to ${CONFIG.NEAR.OUTPUT_FILE_DEPOSIT}`);
+              } catch (error) {
+                console.error(`❌ Error saving deposit events to file:`, error);
+                process.exit(1);
+              }
+            }
+
+            // Save redeem events if any were found
+            if (redeemResults.length > 0) {
+              try {
+                const redeemFilePath = path.join(__dirname, CONFIG.NEAR.OUTPUT_FILE_REDEEM);
+                await saveBlockResultsToExcel(redeemResults, redeemFilePath, "burn_redeem");
+                //console.log(`💾 Saved ${redeemResults.length} redeem events to ${CONFIG.NEAR.OUTPUT_FILE_REDEEM}`);
+              } catch (error) {
+                console.error(`❌ Error saving redeem events to file:`, error);
+                process.exit(1);
+              }
+            }
+            
+            // Read the current content of the error file
+            const fileContent = await fs.readFile(errorFilePath, 'utf8');
+            const updatedContent = fileContent
+              .split(',')
+              .map(num => num.trim())
+              .filter(num => parseInt(num) !== blockNumber)
+              .join(',');
+            
+            // Write the updated content back to the file
+            try {
+                await fs.writeFile(errorFilePath, updatedContent);
+                console.log(`💾 Successfully processed block ${blockNumber} and removed it from error file`);
+                success = true;
+            } catch (error) {
+                console.error(`❌ Error updating error file:`, error);
+                process.exit(1);
+            }
+          } else {
+            console.log(`⚠️ Block ${blockNumber} still has errors:`);
+            threadErrors.forEach(error => console.error(`  - ${error}`));
+            console.log('Retrying...');
+            await delay(500); // Wait before retrying
+          }
+        } catch (error) {
+          console.error(`❌ Error processing block ${blockNumber}:`, error);
+          console.log('Retrying...');
+          await delay(500); // Wait before retrying
+        }
+      }
+      
+      // Add a small delay between blocks to avoid rate limiting
+      await delay(500);
+    }
+    
+    console.log("\n✅ Finished processing all blocks from error file");
+  } catch (error) {
+    console.error("Error in processMissingBlocks:", error);
+  }
+}
+
 /**
  * Main function to execute the process.
  */
@@ -1619,7 +1958,7 @@ async function main() {
       }
     });
     
-    console.log("\n📦 Preloading required dependencies...");
+    console.log("📦 Preloading required dependencies...");
     const preloadPromises = [];
     
     if (requiredDependencies.has('excelJs')) {
@@ -1638,7 +1977,7 @@ async function main() {
     // Continue with initial processing
     if (CONFIG.GENERATE_DEPOSITS_XLSX) {
       const startTime = new Date();
-      console.log("\n🔍 Starting deposits processing...");
+      console.log("🔍 Starting deposits processing...");
       console.log(`⏰ Batch start time: ${formatDate(startTime)}`);
       
       // First, fetch all deposits
@@ -1660,12 +1999,39 @@ async function main() {
       console.log(`✅ Completed deposits.xlsx generation at ${formatDate(endTime)}`);
       console.log(`⏱️ Duration: ${formatDuration(startTime, endTime)}`);
     } else {
-      console.log("\nℹ️  Skipping deposits.xlsx generation (disabled in CONFIG)");
+      console.log("ℹ️  Skipping deposits.xlsx generation (disabled in CONFIG)");
+    }
+    
+    if (CONFIG.GENERATE_REDEMPTIONS_XLSX) {
+      const startTime = new Date();
+      console.log("🔍 Starting redemptions processing...");
+      console.log(`⏰ Batch start time: ${formatDate(startTime)}`);
+      
+      // First, fetch all redemptions
+      console.log("⏳ Fetching redemption records from NEAR...");
+      let redemptions;
+      try {
+        redemptions = await fetchRedemptions();
+        console.log(`✅ Retrieved ${redemptions.length} redemption records.`);
+      } catch (error) {
+        console.error("❌ Failed to fetch redemptions:", error);
+        throw error;
+      }
+      
+      // Export to Excel
+      console.log("⏳ Exporting to Excel...");
+      await exportRedemptionsToExcel(redemptions);
+      
+      const endTime = new Date();
+      console.log(`✅ Completed redemptions.xlsx generation at ${formatDate(endTime)}`);
+      console.log(`⏱️ Duration: ${formatDuration(startTime, endTime)}`);
+    } else {
+      console.log("ℹ️  Skipping redemptions.xlsx generation (disabled in CONFIG)");
     }
     
     if (CONFIG.GENERATE_DEPOSITS_QUEST2_XLSX) {
       const startTime = new Date();
-      console.log(`\n⏳ Starting deposits-quest2.xlsx processing at ${formatDate(startTime)}`);
+      console.log(`⏳ Starting deposits-quest2.xlsx processing at ${formatDate(startTime)}`);
       
       await processDepositsQuest2();
       
@@ -1673,12 +2039,12 @@ async function main() {
       console.log(`✅ Completed deposits-quest2.xlsx processing at ${formatDate(endTime)}`);
       console.log(`⏱️ Duration: ${formatDuration(startTime, endTime)}`);
     } else {
-      console.log("\nℹ️  Skipping deposits-quest2.xlsx processing (disabled in CONFIG)");
+      console.log("ℹ️  Skipping deposits-quest2.xlsx processing (disabled in CONFIG)");
     }
     
     if (CONFIG.GENERATE_PUBKEY_XLSX) {
       const startTime = new Date();
-      console.log(`\n⏳ Starting pubkeys.xlsx generation at ${formatDate(startTime)}`);      
+      console.log(`⏳ Starting pubkeys.xlsx generation at ${formatDate(startTime)}`);      
       
       console.log("⏳ Fetching pubkey records from NEAR...");
       const pubkeys = await fetchPubkeys();
@@ -1691,12 +2057,12 @@ async function main() {
       console.log(`✅ Completed pubkeys.xlsx generation at ${formatDate(endTime)}`);
       console.log(`⏱️ Duration: ${formatDuration(startTime, endTime)}`);
     } else {
-      console.log("\nℹ️  Skipping pubkeys.xlsx generation (disabled in CONFIG)");
+      console.log("ℹ️  Skipping pubkeys.xlsx generation (disabled in CONFIG)");
     }
     
     if (CONFIG.GENERATE_UTXOS_XLSX) {
       const startTime = new Date();
-      console.log(`\n⏳ Starting UTXOs.xlsx generation at ${formatDate(startTime)}`);
+      console.log(`⏳ Starting UTXOs.xlsx generation at ${formatDate(startTime)}`);
       
       await fetchAndExportUTXOs();
       
@@ -1704,12 +2070,12 @@ async function main() {
       console.log(`✅ Completed UTXOs.xlsx generation at ${formatDate(endTime)}`);
       console.log(`⏱️ Duration: ${formatDuration(startTime, endTime)}`);
     } else {
-      console.log("\nℹ️  Skipping UTXOs.xlsx generation (disabled in CONFIG)");
+      console.log("ℹ️  Skipping UTXOs.xlsx generation (disabled in CONFIG)");
     }
     
     if (CONFIG.GENERATE_NEAR_BLOCKS_XLSX) {
       const startTime = new Date();
-      console.log(`\n⏳ Starting nearblocks.xlsx generation at ${formatDate(startTime)}`);
+      console.log(`⏳ Starting nearblocks.xlsx generation at ${formatDate(startTime)}`);
       
       await processAndExportBlocks();
       
@@ -1717,12 +2083,12 @@ async function main() {
       console.log(`✅ Completed nearblocks.xlsx generation at ${formatDate(endTime)}`);
       console.log(`⏱️ Duration: ${formatDuration(startTime, endTime)}`);
     } else {
-      console.log("\nℹ️  Skipping nearblocks.xlsx generation (disabled in CONFIG)");
+      console.log("ℹ️  Skipping nearblocks.xlsx generation (disabled in CONFIG)");
     }
     
     if (CONFIG.GENERATE_DEPOSITS_STATUS_21_XLSX) {
       const startTime = new Date();
-      console.log(`\n⏳ Starting deposits status 21 processing at ${formatDate(startTime)}`);
+      console.log(`⏳ Starting deposits status 21 processing at ${formatDate(startTime)}`);
       
       await processDepositsStatus21();
       
@@ -1730,11 +2096,24 @@ async function main() {
       console.log(`✅ Completed deposits status 21 processing at ${formatDate(endTime)}`);
       console.log(`⏱️ Duration: ${formatDuration(startTime, endTime)}`);
     } else {
-      console.log("\nℹ️  Skipping deposits status 21 processing (disabled in CONFIG)");
+      console.log("ℹ️  Skipping deposits status 21 processing (disabled in CONFIG)");
+    }
+    
+    if (CONFIG.ADD_MISSING_NEAR_BLOCKS_XLSX) {
+      const startTime = new Date();
+      console.log(`\n⏳ Starting missing blocks processing at ${formatDate(startTime)}`);
+      
+      await processMissingBlocks();
+      
+      const endTime = new Date();
+      console.log(`✅ Completed missing blocks processing at ${formatDate(endTime)}`);
+      console.log(`⏱️ Duration: ${formatDuration(startTime, endTime)}`);
+    } else {
+      console.log("ℹ️ Skipping missing blocks processing (disabled in CONFIG)");
     }
     
     const mainEndTime = new Date();
-    console.log(`\n🏁 Main process completed at ${formatDate(mainEndTime)}`);
+    console.log(`🏁 Main process completed at ${formatDate(mainEndTime)}`);
     console.log(`⏱️ Total Duration: ${formatDuration(mainStartTime, mainEndTime)}`);
     
   } catch (error) {
