@@ -72,7 +72,6 @@ async function MintaBtcToReceivingChain(allDeposits, near) {
               chainConfig.abiPath,
             );
 
-            console.log("ethereum:", ethereum);
             let derivationPath = chainConfig.networkType;
 
             console.log(`Processing EVM Chain signatures`);
@@ -153,7 +152,9 @@ async function MintaBtcToReceivingChain(allDeposits, near) {
         } catch (error) {
           let remarks = `Error ${batchName} processing Txn with BTC txn hash ${btcTxnHash}: ${error}`;
           console.error(remarks);
-          await near.updateDepositRemarks(btcTxnHash, remarks);
+          if (!error.message.includes("Gas price is less than base fee per gas")) {
+            await near.updateDepositRemarks(btcTxnHash, remarks);
+          }
         }
       }
 

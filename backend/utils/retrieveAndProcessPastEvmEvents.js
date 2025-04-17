@@ -97,7 +97,7 @@ async function RetrieveAndProcessPastEvmEvents(
         );
 
         const events = await ethereum.getPastEventsInBatches(
-          startBlock - 10,
+          startBlock,
           endBlock,
           blockRange(Number(chainConfig.batchSize)),
           chain.aBTCAddress,

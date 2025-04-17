@@ -99,12 +99,7 @@ export const useEstimateAbtcMintGas = () => {
       };
     } catch (error) {
       console.error("Failed to estimate gas:", error);
-      return {
-        gasEstimate: 0,
-        gasPrice: 0,
-        mintingFeeSat: 0,
-        success: false,
-      };
+      throw error;
     }
   };
 

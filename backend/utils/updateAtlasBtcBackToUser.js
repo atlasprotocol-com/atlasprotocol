@@ -45,7 +45,7 @@ async function UpdateAtlasBtcBackToUser(allRedemptions, near, bitcoinInstance) {
         
         const confirmations = await bitcoinInstance.getConfirmations(btcTxn.status.block_height);
         
-        const ok = confirmations > BTC_MIN_CONFIRMATIONS;
+        const ok = confirmations >= BTC_MIN_CONFIRMATIONS;
 
         if (ok) {
             await near.updateRedemptionRedeemed(txn.txn_hash);

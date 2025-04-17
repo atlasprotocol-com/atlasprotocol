@@ -660,9 +660,10 @@ app.get("/api/v1/process-new-redemption", async (req, res) => {
     }
 
     // Get chain config for the specified chainId
-    const chain = getChainConfig(chainId);
+    const chainConfig = getChainConfig(chainId);
+    const { EVENT_NAME } = getConstants();
 
-    if (!chain) {
+    if (!chainConfig) {
       return res
         .status(400)
         .json({ error: "Invalid chain ID" });
@@ -678,7 +679,7 @@ app.get("/api/v1/process-new-redemption", async (req, res) => {
 
     const { DELIMITER } = getConstants();
 
-    if (chain.networkType === "NEAR") {
+    if (chainConfig.networkType === "NEAR") {
       // Fetch transaction from mempool
       const event = await near.fetchEventByTxnHashAndEventName(chainTxHash, "ft_burn_redeem");
 
@@ -710,6 +711,48 @@ app.get("/api/v1/process-new-redemption", async (req, res) => {
         chain.chainID,
         DELIMITER,
         event.timestamp,
+      );
+    } else if (chainConfig.networkType === "EVM") {
+      const ethereum = new Ethereum(
+        chainConfig.chainID,
+        chainConfig.chainRpcUrl,
+        chainConfig.gasLimit,
+        chainConfig.aBTCAddress,
+        chainConfig.abiPath,
+      );
+
+      // Fetch transaction from mempool
+      const event = await ethereum.fetchEventByTxnHashAndEventName(chainTxHash, EVENT_NAME.BURN_REDEEM);
+
+      const block = await ethereum.getBlock(event.blockNumber);
+      const timestamp = Number(block.timestamp);
+
+      if (!event || event.length === 0) {
+        return res
+          .status(404)
+          .json({ error: "Transaction not found in blockchain" });
+      }
+
+      // Check if amount is greater than 10000
+      if (Number(event.returnValues.amount) < 10000) {
+        return res
+          .status(400)
+          .json({ error: "Amount must be greater than 10000" });
+      }
+
+      await processBurnRedeemEvent(
+        {
+          returnValues: {
+            wallet: event.returnValues.wallet,
+            btcAddress: event.returnValues.btcAddress,
+            amount: event.returnValues.amount,
+          },
+          transactionHash: event.transactionHash,
+        },
+        near,
+        chainConfig.chainID,
+        DELIMITER,
+        timestamp,
       );
     }
 
@@ -897,20 +940,20 @@ app.listen(PORT, async () => {
 
   runBatch().catch(console.error);
 
-  // Add the unstaking and withdrawal process to the job scheduler
-  // setInterval(async () => {
-  //   try {
-  //     await processUnstakingAndWithdrawal(
-  //       near,
-  //       bitcoin,
-  //       redemptions,
-  //       bridgings,
-  //       globalParams.atlasTreasuryAddress,
-  //     );
-  //   } catch (error) {
-  //     console.error("Error in unstaking and withdrawal process:", error);
-  //   }
-  // }, 60000); // Run every 1 minute
+  //Add the unstaking and withdrawal process to the job scheduler
+  setInterval(async () => {
+    try {
+      await processUnstakingAndWithdrawal(
+        near,
+        bitcoin,
+        redemptions,
+        bridgings,
+        globalParams.atlasTreasuryAddress,
+      );
+    } catch (error) {
+      console.error("Error in unstaking and withdrawal process:", error);
+    }
+  }, 60000); // Run every 1 minute
 
   setInterval(async () => {
     await getAllDepositHistory();

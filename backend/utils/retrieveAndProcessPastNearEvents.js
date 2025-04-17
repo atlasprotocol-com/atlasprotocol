@@ -80,7 +80,7 @@ async function RetrieveAndProcessPastNearEvents(
 
       // Get all events
       const events = await near.getPastEventsInBatches(
-        startBlock - 10,
+        startBlock,
         endBlock,
 
         // 188551586 - 10,

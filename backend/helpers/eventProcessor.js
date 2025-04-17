@@ -1,4 +1,9 @@
+const fs = require('fs');
+const path = require('path');
+
 const { getConstants } = require("../constants");
+
+const { logErrorToFile } = require("./logger");
 
 async function processEventsForChain(
   records,
@@ -58,21 +63,17 @@ async function processMintDepositEvent(event, near) {
     depositRecord.minted_txn_hash === "" &&
     depositRecord.remarks === ""
   ) {
-    // try {
-
+    try {
+      
       await near.updateDepositMintedTxnHash(btcTxnHash, transactionHash);
       console.log(
         `Updated deposit for btc_txn_hash: ${btcTxnHash} with transactionHash: ${transactionHash}`,
       );
       
-    // } catch (error) {
-    //   const remarks = `Error updating deposit minted txn hash for btc_txn_hash: ${btcTxnHash} with transactionHash: ${transactionHash}`;
-    //   console.error(
-    //     remarks,
-    //     error,
-    //   );
-    //   await near.updateDepositRemarks(btcTxnHash, remarks);
-    // }
+    } catch (error) {
+      // Log error to daily file with batch name
+      await logErrorToFile(btcTxnHash, transactionHash, error, 'UpdateDepositMintedTxnHash');
+    }
   }
 }
 
@@ -90,26 +91,32 @@ async function processBurnRedeemEvent(
   console.log("BurnRedeem event details:");
   console.log("- Wallet:", wallet);
   console.log("- BTC Address:", btcAddress);
-  console.log("- Amount:", amount);
+  console.log("- Amount:", Number(amount));
   console.log("- Transaction Hash:", transactionHash);
 
   const redemptionTxnHash = `${chainId}${DELIMITER.COMMA}${transactionHash}`;
   const redemptionRecord = await near.getRedemptionByTxnHash(redemptionTxnHash);
 
   if (!redemptionRecord) {
-    await near.insertRedemptionAbtc(
-      redemptionTxnHash,
-      wallet,
-      chainId,
-      btcAddress,
-      Number(amount),
-      timestamp,
-      timestamp,
-    );
+    try {
+      //throw new Error("Test error");
+      await near.insertRedemptionAbtc(
+        redemptionTxnHash,
+        wallet,
+        chainId,
+        btcAddress,
+        Number(amount),
+        timestamp,
+        timestamp,
+      );
 
-    console.log(
-      `Processed redemption: INSERT with txn hash ${redemptionTxnHash}`,
-    );
+      console.log(
+        `Processed redemption: INSERT with txn hash ${redemptionTxnHash}`,
+      );
+    } catch (error) {
+      // Log error to daily file with batch name
+      await logErrorToFile("", redemptionTxnHash, error, 'InsertRedemptionAbtc');
+    }
   }
 }
 
