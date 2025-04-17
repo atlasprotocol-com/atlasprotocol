@@ -13,11 +13,11 @@ logTime("Script started");
 
 // Configuration flags for file generation
 const CONFIG = {
-  GENERATE_DEPOSITS_XLSX: true,        // Set to true to enable deposits.xlsx generation
+  GENERATE_DEPOSITS_XLSX: false,        // Set to true to enable deposits.xlsx generation
   GENERATE_DEPOSITS_QUEST2_XLSX: false,  // Set to true to enable deposits-quest2.xlsx generation
-  GENERATE_UTXOS_XLSX: false,           // Set to true to enable UTXOs.xlsx generation
+  GENERATE_MISSING_DEPOSITS_UTXOS_XLSX: false,           // Set to true to enable UTXOs.xlsx generation
   GENERATE_PUBKEY_XLSX: false,          // Set to true to enable pubkeys.xlsx generation
-  GENERATE_NEAR_BLOCKS_XLSX: false,      // Set to true to enable nearblocks.xlsx generation
+  GENERATE_NEAR_BLOCKS_XLSX: true,      // Set to true to enable nearblocks.xlsx generation
   ADD_MISSING_NEAR_BLOCKS_XLSX: false,    // Set to true to process missing blocks from error file
   GENERATE_DEPOSITS_STATUS_21_XLSX: false,     // Set to true to process deposits with status 21
   GENERATE_REDEMPTIONS_XLSX: false,      // Set to true to enable redemptions.xlsx generation  
@@ -55,7 +55,8 @@ const CONFIG = {
   UTXOS: {
     OUTPUT_FILE: "UTXOs.xlsx",          // Output filename for UTXOs batch
     ATLAS_VAULT_ADDRESS: 'tb1q9ruq3vlgj79l27euc2wq79wxzae2t86z4adkkv',  // Atlas vault address on testnet4
-    SAVE_INTERVAL: 50,                  // Save file every N rows processed
+    SAVE_INTERVAL: 10,                  // Save file every N rows processed
+    MIN_TIMESTAMP: 1744646400,          // Minimum timestamp for UTXOs (2025-04-15 00:00:00 UTC+8)
     STATUS: {
       DEPOSIT_EXISTS: "Deposit already exists",
       PROCESSING_INITIATED: "Processing initiated",
@@ -83,8 +84,9 @@ const CONFIG = {
     WORKSHEET_NAME: "NEAR Blocks",     // Name of the worksheet in Excel file
     RPC_ENDPOINT: "https://neart.lava.build",  // NEAR RPC endpoint
     //RPC_ENDPOINT: "https://rpc.testnet.fastnear.com",  // NEAR RPC endpoint    
-    THREAD_COUNT: 25,                  // Number of parallel threads to process blocks
-    BLOCKS_PER_THREAD: 10,              // Number of blocks each thread processes
+    THREAD_COUNT: 10,                  // Number of parallel threads to process blocks
+    BLOCKS_PER_THREAD: 5,              // Number of blocks each thread processes
+    ERROR_BATCH_SIZE: 0,               // Number of blocks to process at once from error file
     COLUMNS: {
       // Only include columns used in processDepositsStatus21
       NEAR_TXN_HASH: 4,                 // Column index for Near Txn Hash
@@ -118,7 +120,7 @@ logTime("CONFIG loaded");
 const FEATURE_DEPENDENCIES = {
   GENERATE_DEPOSITS_XLSX: ['excelJs'],
   GENERATE_DEPOSITS_QUEST2_XLSX: ['excelJs', 'axios'],
-  GENERATE_UTXOS_XLSX: ['excelJs', 'axios'],
+  GENERATE_MISSING_DEPOSITS_UTXOS_XLSX: ['excelJs', 'axios'],
   GENERATE_PUBKEY_XLSX: ['excelJs'],
   GENERATE_NEAR_BLOCKS_XLSX: ['excelJs', 'nearApi'],
   ADD_MISSING_NEAR_BLOCKS_XLSX: ['excelJs', 'nearApi'],
@@ -682,12 +684,12 @@ async function fetchUTXOs() {
     const address = CONFIG.UTXOS.ATLAS_VAULT_ADDRESS;
     const response = await axios.get(`https://mempool.space/testnet4/api/address/${address}/utxo`);
     
-    // Filter out unconfirmed UTXOs and sort by block height (newest first)
+    // Filter out unconfirmed UTXOs and sort by block height (newest first)    
     const confirmedUTXOs = response.data
-      .filter(utxo => utxo.status.confirmed)
+      .filter(utxo => utxo.status.confirmed && utxo.status.block_time >= CONFIG.UTXOS.MIN_TIMESTAMP)
       .sort((a, b) => b.status.block_height - a.status.block_height);
     
-    console.log(`Found ${response.data.length} total UTXOs (${confirmedUTXOs.length} confirmed) for Atlas vault address ${address}`);
+    console.log(`Found ${response.data.length} total UTXOs (${confirmedUTXOs.length} confirmed and after ${new Date(CONFIG.UTXOS.MIN_TIMESTAMP * 1000).toLocaleDateString()}) for Atlas vault address ${address}`);
     
     if (response.data.length !== confirmedUTXOs.length) {
       console.log(`Skipped ${response.data.length - confirmedUTXOs.length} unconfirmed UTXOs`);
@@ -1381,6 +1383,95 @@ async function processBatch(startBlock, endBlock, threadCount, blocksPerThread) 
     
     // If END_BLOCK is null, continuously check for new finalized blocks
     if (CONFIG.NEAR.END_BLOCK === null) {
+      // First, process blocks from error file in batches of 20
+      const errorFilePath = path.join(__dirname, CONFIG.NEAR.ERROR_OUTPUT_FILE);
+      let blockNumbers = [];
+      
+      try {
+        const fileContent = await fs.readFile(errorFilePath, 'utf8');
+        blockNumbers = fileContent.split(',').map(num => parseInt(num.trim())).filter(num => !isNaN(num));
+      } catch (error) {
+        console.log("No error file found or file is empty. Processing new blocks only.");
+      }
+      
+      if (blockNumbers.length > 0) {
+        console.log(`Found ${blockNumbers.length} blocks to process from error file`);
+        
+        // Process blocks in batches using configured size
+        for (let i = 0; i < blockNumbers.length && i < CONFIG.NEAR.ERROR_BATCH_SIZE; i += CONFIG.NEAR.ERROR_BATCH_SIZE) {
+          const batch = blockNumbers.slice(i, i + CONFIG.NEAR.ERROR_BATCH_SIZE);
+          console.log(`Processing batch of ${batch.length} blocks from error file...`);
+          
+          // Process each block in the batch using processBlockRange
+          for (const blockNumber of batch) {
+            let success = false;
+            while (!success) {
+              try {
+                // Process the block using a single thread
+                const { depositResults, redeemResults, threadErrors } = await processBlockRange(blockNumber, blockNumber, 1);
+                
+                // If no errors occurred, save events and remove the block from the error file
+                if (threadErrors.length === 0) {
+                  // Save deposit events if any were found
+                  if (depositResults.length > 0) {
+                    try {
+                      const depositFilePath = path.join(__dirname, CONFIG.NEAR.OUTPUT_FILE_DEPOSIT);
+                      await saveBlockResultsToExcel(depositResults, depositFilePath, "mint_deposit");
+                    } catch (error) {
+                      console.error(`❌ Error saving deposit events to file:`, error);
+                      process.exit(1);
+                    }
+                  }
+
+                  // Save redeem events if any were found
+                  if (redeemResults.length > 0) {
+                    try {
+                      const redeemFilePath = path.join(__dirname, CONFIG.NEAR.OUTPUT_FILE_REDEEM);
+                      await saveBlockResultsToExcel(redeemResults, redeemFilePath, "burn_redeem");
+                    } catch (error) {
+                      console.error(`❌ Error saving redeem events to file:`, error);
+                      process.exit(1);
+                    }
+                  }
+                  
+                  // Read the current content of the error file
+                  const fileContent = await fs.readFile(errorFilePath, 'utf8');
+                  const updatedContent = fileContent
+                    .split(',')
+                    .map(num => num.trim())
+                    .filter(num => parseInt(num) !== blockNumber)
+                    .join(',');
+                  
+                  // Write the updated content back to the file
+                  try {
+                    await fs.writeFile(errorFilePath, updatedContent);
+                    console.log(`💾 Successfully processed block ${blockNumber} and removed it from error file`);
+                    success = true;
+                  } catch (error) {
+                    console.error(`❌ Error updating error file:`, error);
+                    process.exit(1);
+                  }
+                } else {
+                  console.log(`⚠️ Block ${blockNumber} still has errors:`);
+                  threadErrors.forEach(error => console.error(`  - ${error}`));
+                  console.log('Retrying...');
+                  await delay(500); // Wait before retrying
+                }
+              } catch (error) {
+                console.error(`❌ Error processing block ${blockNumber}:`, error);
+                console.log('Retrying...');
+                await delay(500); // Wait before retrying
+              }
+            }
+            
+            // Add a small delay between blocks to avoid rate limiting
+            await delay(500);
+          }
+          
+        }
+      }
+      
+      // After processing error file blocks, continue with new blocks
       let latestFinalizedBlock;
       do {
         latestFinalizedBlock = await getCurrentBlock();
@@ -2060,7 +2151,7 @@ async function main() {
       console.log("ℹ️  Skipping pubkeys.xlsx generation (disabled in CONFIG)");
     }
     
-    if (CONFIG.GENERATE_UTXOS_XLSX) {
+    if (CONFIG.GENERATE_MISSING_DEPOSITS_UTXOS_XLSX) {
       const startTime = new Date();
       console.log(`⏳ Starting UTXOs.xlsx generation at ${formatDate(startTime)}`);
       
@@ -2103,11 +2194,11 @@ async function main() {
       const startTime = new Date();
       console.log(`\n⏳ Starting missing blocks processing at ${formatDate(startTime)}`);
       
-      await processMissingBlocks();
-      
-      const endTime = new Date();
-      console.log(`✅ Completed missing blocks processing at ${formatDate(endTime)}`);
-      console.log(`⏱️ Duration: ${formatDuration(startTime, endTime)}`);
+      while (true) {
+        await processMissingBlocks();
+        console.log("Waiting 5 seconds before checking for new missing blocks...");
+        await delay(5000);
+      }
     } else {
       console.log("ℹ️ Skipping missing blocks processing (disabled in CONFIG)");
     }
