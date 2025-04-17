@@ -17,8 +17,8 @@ const CONFIG = {
   GENERATE_DEPOSITS_QUEST2_XLSX: false,  // Set to true to enable deposits-quest2.xlsx generation
   GENERATE_MISSING_DEPOSITS_UTXOS_XLSX: false,           // Set to true to enable UTXOs.xlsx generation
   GENERATE_PUBKEY_XLSX: false,          // Set to true to enable pubkeys.xlsx generation
-  GENERATE_NEAR_BLOCKS_XLSX: true,      // Set to true to enable nearblocks.xlsx generation
-  ADD_MISSING_NEAR_BLOCKS_XLSX: false,    // Set to true to process missing blocks from error file
+  GENERATE_NEAR_BLOCKS_XLSX: false,      // Set to true to enable nearblocks.xlsx generation
+  ADD_MISSING_NEAR_BLOCKS_XLSX: true,    // Set to true to process missing blocks from error file
   GENERATE_DEPOSITS_STATUS_21_XLSX: false,     // Set to true to process deposits with status 21
   GENERATE_REDEMPTIONS_XLSX: false,      // Set to true to enable redemptions.xlsx generation  
   
@@ -82,10 +82,10 @@ const CONFIG = {
     OUTPUT_FILE_REDEEM: "nearblocks_redeem.xlsx",      // Output filename for redeem events
     ERROR_OUTPUT_FILE: "nearblocks_errors.txt",  // File to log block processing errors
     WORKSHEET_NAME: "NEAR Blocks",     // Name of the worksheet in Excel file
-    RPC_ENDPOINT: "https://neart.lava.build",  // NEAR RPC endpoint
-    //RPC_ENDPOINT: "https://rpc.testnet.fastnear.com",  // NEAR RPC endpoint    
-    THREAD_COUNT: 25,                  // Number of parallel threads to process blocks
-    BLOCKS_PER_THREAD: 10,              // Number of blocks each thread processes
+    //RPC_ENDPOINT: "https://neart.lava.build",  // NEAR RPC endpoint
+    RPC_ENDPOINT: "https://rpc.testnet.fastnear.com",  // NEAR RPC endpoint    
+    THREAD_COUNT: 10,                  // Number of parallel threads to process blocks
+    BLOCKS_PER_THREAD: 5,              // Number of blocks each thread processes
     ERROR_BATCH_SIZE: 0,               // Number of blocks to process at once from error file
     COLUMNS: {
       // Only include columns used in processDepositsStatus21
