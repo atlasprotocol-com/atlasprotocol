@@ -187,10 +187,10 @@ class Near {
       console.log(`[${methodName}] Start time:`, new Date().toISOString());
     }
     console.log("this.gas:", this.gas);
-    console.log("this.amount:", this.amount);
     // MUST return original error to retrieve error context
     const result = await this.nearContract[methodName]({
       args,
+      gas: this.gas
     });
 
     // Log end time for update_redemption_yield_provider_unstake_processing
