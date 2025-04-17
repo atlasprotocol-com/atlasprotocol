@@ -231,22 +231,22 @@ async function processUnstakingAndWithdrawal(
         if (shouldProcessRedemptions) {
           const failedUnstakes = [];
 
-          console.log("[processRedemptions] Redemptions to unstake:", newRedemptions.length);
+          //console.log("[processRedemptions] Redemptions to unstake:", newRedemptions.length);
           let index = 0;
           for (const redemption of newRedemptions) {
             try {
               index++;
-              console.log("[processRedemptions] Processing redemption:", index, "of", newRedemptions.length);
+              //console.log("[processRedemptions] Processing redemption:", index, "of", newRedemptions.length);
               if (redemption.status === REDEMPTION_STATUS.ABTC_BURNT) {
                 await near.updateRedemptionYieldProviderUnstakeProcessing(redemption.txn_hash);
-                console.log("[processRedemptions] Updated redemption onchain status:", redemption.txn_hash);
+                //console.log("[processRedemptions] Updated redemption onchain status:", redemption.txn_hash);
               }
               // Update status in redemptions array
               const redemptionToUpdate = redemptions.find(r => r.txn_hash === redemption.txn_hash);
               if (redemptionToUpdate) {
                 redemptionToUpdate.status = REDEMPTION_STATUS.BTC_YIELD_PROVIDER_UNSTAKE_PROCESSING;
               }
-              console.log("[processRedemptions] Redemption updated offchain status:", redemption.txn_hash);
+              //console.log("[processRedemptions] Redemption updated offchain status:", redemption.txn_hash);
             } catch (error) {
               ///const remarks = `Error updating redemption pending yield provider unstake: ${error.message || error}`;
               ///await near.updateRedemptionRemarks(redemption.txn_hash, remarks);
