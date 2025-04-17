@@ -248,7 +248,9 @@ async function processUnstakingAndWithdrawal(
             } catch (error) {
               ///const remarks = `Error updating redemption pending yield provider unstake: ${error.message || error}`;
               ///await near.updateRedemptionRemarks(redemption.txn_hash, remarks);
+              console.log("[processRedemptions] Error updating redemption pending yield provider unstake:", error.message || error);
               failedUnstakes.push(redemption.txn_hash);
+              continue;
             }
           }
           
