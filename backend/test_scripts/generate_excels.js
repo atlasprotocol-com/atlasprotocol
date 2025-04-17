@@ -1477,7 +1477,7 @@ async function processBatch(startBlock, endBlock, threadCount, blocksPerThread) 
         latestFinalizedBlock = await getCurrentBlock();
         if (latestFinalizedBlock < batchEndBlock) {
           console.log(`⏳ Waiting for blocks to finalize... Latest finalized: ${latestFinalizedBlock}, Needed: ${batchEndBlock}`);
-          await delay(10000); // Wait 10 seconds before checking again
+          await delay(5000); // Wait 5 seconds before checking again
         }
       } while (latestFinalizedBlock < batchEndBlock);
     } else {
