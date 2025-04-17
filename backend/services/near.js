@@ -182,12 +182,25 @@ class Near {
       throw new Error("NEAR contract is not initialized. Call init() first.");
     }
 
+    // Log start time for update_redemption_yield_provider_unstake_processing
+    if (methodName === "update_redemption_yield_provider_unstake_processing") {
+      console.log(`[${methodName}] Start time:`, new Date().toISOString());
+    }
+    console.log("this.gas:", this.gas);
+    console.log("this.amount:", this.amount);
     // MUST return original error to retrieve error context
-    return this.nearContract[methodName]({
+    const result = await this.nearContract[methodName]({
       args,
       gas: this.gas,
       amount: this.amount,
     });
+
+    // Log end time for update_redemption_yield_provider_unstake_processing
+    if (methodName === "update_redemption_yield_provider_unstake_processing") {
+      console.log(`[${methodName}] End time:`, new Date().toISOString());
+    }
+
+    return result;
   }
 
   // Function to get deposit by BTC sender address from NEAR contract
