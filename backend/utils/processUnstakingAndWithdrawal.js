@@ -232,7 +232,7 @@ async function processUnstakingAndWithdrawal(
           const failedUnstakes = [];
 
           console.log("[processRedemptions] Redemptions to unstake:", newRedemptions.length);
-          const index = 0;
+          let index = 0;
           for (const redemption of newRedemptions) {
             try {
               index++;
