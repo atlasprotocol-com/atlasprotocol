@@ -17,10 +17,11 @@ const CONFIG = {
   GENERATE_DEPOSITS_QUEST2_XLSX: false,  // Set to true to enable deposits-quest2.xlsx generation
   GENERATE_MISSING_DEPOSITS_UTXOS_XLSX: false,           // Set to true to enable UTXOs.xlsx generation
   GENERATE_PUBKEY_XLSX: false,          // Set to true to enable pubkeys.xlsx generation
-  GENERATE_NEAR_BLOCKS_XLSX: true,      // Set to true to enable nearblocks.xlsx generation
+  GENERATE_NEAR_BLOCKS_XLSX: false,      // Set to true to enable nearblocks.xlsx generation
   ADD_MISSING_NEAR_BLOCKS_XLSX: false,    // Set to true to process missing blocks from error file
   GENERATE_DEPOSITS_STATUS_21_XLSX: false,     // Set to true to process deposits with status 21
-  GENERATE_REDEMPTIONS_XLSX: false,      // Set to true to enable redemptions.xlsx generation  
+  GENERATE_REDEMPTIONS_XLSX: false,      // Set to true to enable redemptions.xlsx generation
+  GENERATE_REDEMPTIONS_VIA_EVENTS: false,  // Generate redemptions via events from Excel
   
   DEPOSITS: {
     OUTPUT_FILE: "deposits.xlsx",       // Output filename for deposits batch
@@ -56,7 +57,10 @@ const CONFIG = {
     OUTPUT_FILE: "UTXOs.xlsx",          // Output filename for UTXOs batch
     ATLAS_VAULT_ADDRESS: 'tb1q9ruq3vlgj79l27euc2wq79wxzae2t86z4adkkv',  // Atlas vault address on testnet4
     SAVE_INTERVAL: 10,                  // Save file every N rows processed
-    MIN_TIMESTAMP: 1744646400,          // Minimum timestamp for UTXOs (2025-04-15 00:00:00 UTC+8)
+    //MIN_TIMESTAMP: 1744646400,          // Minimum timestamp for UTXOs (2025-04-15 00:00:00 UTC+8)
+    MIN_TIMESTAMP: 1743436800,          // Minimum timestamp for UTXOs (2025-04-01 00:00:00 UTC+8)
+    API_ENDPOINT: "https://testnet.atlasprotocol.com/api/v1/process-new-deposit",
+    //API_ENDPOINT: "http://localhost:3001/api/v1/process-new-deposit",
     STATUS: {
       DEPOSIT_EXISTS: "Deposit already exists",
       PROCESSING_INITIATED: "Processing initiated",
@@ -84,6 +88,7 @@ const CONFIG = {
     WORKSHEET_NAME: "NEAR Blocks",     // Name of the worksheet in Excel file
     RPC_ENDPOINT: "https://neart.lava.build",  // NEAR RPC endpoint
     //RPC_ENDPOINT: "https://rpc.testnet.fastnear.com",  // NEAR RPC endpoint    
+    //RPC_ENDPOINT: "https://archival-rpc.testnet.near.org",  // NEAR RPC endpoint    
     THREAD_COUNT: 25,                  // Number of parallel threads to process blocks
     BLOCKS_PER_THREAD: 10,              // Number of blocks each thread processes
     ERROR_BATCH_SIZE: 0,               // Number of blocks to process at once from error file
@@ -111,6 +116,14 @@ const CONFIG = {
       STATUS: 10,                       // Column index for Status      
       REMARKS: 11                       // Column index for Remarks
     }
+  },  
+
+  REDEMPTIONS_VIA_EVENTS: {    
+    API_ENDPOINT: "https://testnet.atlasprotocol.com/api/v1/process-new-redemption",  // API endpoint for processing redemptions
+    //API_ENDPOINT: "http://localhost:3001/api/v1/process-new-redemption",  // API endpoint for processing redemptions
+    COLUMNS: {
+      NEAR_TXN_HASH: 4,         // Column index for Near Txn Hash in nearblocks_redeem.xlsx
+    }
   },
 };
 
@@ -126,6 +139,7 @@ const FEATURE_DEPENDENCIES = {
   ADD_MISSING_NEAR_BLOCKS_XLSX: ['excelJs', 'nearApi'],
   GENERATE_DEPOSITS_STATUS_21_XLSX: ['excelJs', 'axios'],
   GENERATE_REDEMPTIONS_XLSX: ['excelJs'],  
+  GENERATE_REDEMPTIONS_VIA_EVENTS: ['excelJs', 'axios', 'nearApi'],
 };
 
 // Global variables for modules
@@ -443,7 +457,7 @@ async function checkDepositExists(btcTxnHash) {
  */
 async function processNewDeposit(btcTxnHash) {
   try {
-    const response = await axios.get(`https://testnet.atlasprotocol.com/api/v1/process-new-deposit?btcTxnHash=${btcTxnHash}`);
+    const response = await axios.get(`${CONFIG.UTXOS.API_ENDPOINT}?btcTxnHash=${btcTxnHash}`);
     console.log(`✅ Successfully initiated deposit processing for ${btcTxnHash}`);
     return response.data;
   } catch (error) {
@@ -2029,6 +2043,107 @@ async function processMissingBlocks() {
   }
 }
 
+async function processRedemptionsViaEvents() {
+  console.log("\n🔍 Processing redemptions via events...");
+  
+  try {
+    // Read the existing Excel file
+    const workbook = new excelJs.Workbook();
+    const filePath = path.join(__dirname, CONFIG.NEAR.OUTPUT_FILE_REDEEM);
+    await workbook.xlsx.readFile(filePath);
+    
+    // Get the first worksheet
+    const worksheet = workbook.getWorksheet(1) || workbook.worksheets[0];
+    if (!worksheet) {
+      throw new Error("Worksheet not found in " + CONFIG.NEAR.OUTPUT_FILE_REDEEM);
+    }
+    
+    const totalRows = worksheet.rowCount;
+    console.log(`Found ${totalRows - 1} records to process (excluding header)`);
+    
+    let totalProcessed = 0;
+    let totalCreated = 0;
+    
+    // Process each row sequentially
+    for (let rowNumber = 2; rowNumber <= totalRows; rowNumber++) {
+      const row = worksheet.getRow(rowNumber);
+      const nearTxnHash = row.getCell(CONFIG.REDEMPTIONS_VIA_EVENTS.COLUMNS.NEAR_TXN_HASH).text;
+      
+      if (!nearTxnHash) continue;
+      
+      const txnHash = `NEAR_TESTNET,${nearTxnHash}`;
+      
+      try {
+        // Check if redemption exists using NEAR CLI
+        const command = `near view ${CONFIG.NEAR.CONTRACT} get_redemption_by_txn_hash '{"txn_hash": "${txnHash}"}'`;
+        console.log(`\nExecuting command: ${command}`);
+        
+        // Execute CLI command and wait for result
+        const { stdout, stderr } = await new Promise((resolve, reject) => {
+          exec(command, (error, stdout, stderr) => {
+            if (error) {
+              reject(error);
+              return;
+            }
+            resolve({ stdout, stderr });
+          });
+        });
+        
+        if (stderr) {
+          console.error(`[${rowNumber - 1}/${totalRows - 1}] CLI Error:`, stderr);
+          continue;
+        }
+        
+        // Parse the CLI response
+        let redemptionExists = false;
+        try {
+          // The CLI output format is:
+          // View call: atlas_audit_2_v.velar.testnet.get_redemption_by_txn_hash({"txn_hash": "NEAR_TESTNET,EpKYY1gY971ADHBjuk9i3HLC48mczEbar2qggnjgGKPHa"})
+          // null
+          const lines = stdout.trim().split('\n');
+          const lastLine = lines[lines.length - 1].trim();
+          redemptionExists = lastLine !== "null";
+          
+          //console.log(`[${rowNumber - 1}/${totalRows - 1}] CLI Response:`, lastLine);
+        } catch (parseError) {
+          console.error(`[${rowNumber - 1}/${totalRows - 1}] Error parsing CLI response:`, parseError);
+          continue;
+        }
+        
+        if (!redemptionExists) {
+          // Redemption doesn't exist, create it via API
+          const apiUrl = `${CONFIG.REDEMPTIONS_VIA_EVENTS.API_ENDPOINT}?txnHash=${txnHash}`;
+          console.log(`[${rowNumber - 1}/${totalRows - 1}] Creating redemption via API: ${apiUrl}`);
+          
+          try {
+            const response = await axios.get(apiUrl);
+            if (response.data.success) {
+              totalCreated++;
+              console.log(`[${rowNumber - 1}/${totalRows - 1}] ✅ Successfully created redemption for ${txnHash}`);
+            } else {
+              console.log(`[${rowNumber - 1}/${totalRows - 1}] ❌ Failed to create redemption for ${txnHash}: Status ${response.status}`);
+            }
+          } catch (error) {
+            console.error(`[${rowNumber - 1}/${totalRows - 1}] API Error:`, error);
+          }
+        } else {
+          console.log(`[${rowNumber - 1}/${totalRows - 1}] ℹ️  Redemption already exists for ${txnHash}`);
+        }
+        
+        totalProcessed++;
+        
+      } catch (error) {
+        console.error(`[${rowNumber - 1}/${totalRows - 1}] Error processing row:`, error);
+      }
+    }
+    
+    console.log(`\n✅ Processing complete! Created ${totalCreated} new redemptions out of ${totalProcessed} processed rows.`);
+    
+  } catch (error) {
+    console.error("Error in processRedemptionsViaEvents:", error);
+  }
+}
+
 /**
  * Main function to execute the process.
  */
@@ -2203,11 +2318,24 @@ async function main() {
       console.log("ℹ️ Skipping missing blocks processing (disabled in CONFIG)");
     }
     
+    if (CONFIG.GENERATE_REDEMPTIONS_VIA_EVENTS) {
+      const startTime = new Date();
+      console.log(`⏳ Starting redemptions via events processing at ${formatDate(startTime)}`);
+      
+      await processRedemptionsViaEvents();
+      
+      const endTime = new Date();
+      console.log(`✅ Completed redemptions via events processing at ${formatDate(endTime)}`);
+      console.log(`⏱️ Duration: ${formatDuration(startTime, endTime)}`);
+    } else {
+      console.log("ℹ️ Skipping redemptions via events processing (disabled in CONFIG)");
+    }
+    
     const mainEndTime = new Date();
     console.log(`🏁 Main process completed at ${formatDate(mainEndTime)}`);
     console.log(`⏱️ Total Duration: ${formatDuration(mainStartTime, mainEndTime)}`);
-    
-  } catch (error) {
+        
+      } catch (error) {
     const mainEndTime = new Date();
     console.error("❌ Error:", error);
     console.log(`🏁 Main process failed at ${formatDate(mainEndTime)}`);
