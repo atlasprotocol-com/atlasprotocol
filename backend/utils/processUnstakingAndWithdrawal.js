@@ -63,13 +63,15 @@ async function processUnstakingAndWithdrawal(
 
     const { REDEMPTION_STATUS, BRIDGING_STATUS } = getConstants();
 
+    const totalAmount = lastWithdrawalData.totalNewAmount;
+
     // Step 2: Withdraw from yield provider
     console.log("\x1b[33mWithdrawal: \x1b[0m");
     console.log(
-      "\x1b[33mTotal amount to withdraw: " + lastWithdrawalData.totalNewAmount + "\x1b[0m",
+      "\x1b[33mTotal amount to withdraw: " + totalAmount + "\x1b[0m",
     );
 
-    if (lastWithdrawalData.totalNewAmount > 0) {
+    if (totalAmount > 0) {
       try {
         let partiallySignedPsbtHex = undefined;
         let withdrawnDeposits;
@@ -79,7 +81,7 @@ async function processUnstakingAndWithdrawal(
           await bitcoinInstance.deriveBTCAddress(near);
         const publicKeyString = publicKey.toString("hex");
 
-        const totalAmount = lastWithdrawalData.totalNewAmount;
+        
         console.log("totalAmount:", totalAmount);
 
         const { account } = await relayer.user.getAccount({
@@ -189,7 +191,9 @@ async function processUnstakingAndWithdrawal(
         redemption => {
           try {
             const chainConfig = getChainConfig(redemption.abtc_redemption_chain_id);
-            return (redemption.status === REDEMPTION_STATUS.ABTC_BURNT || redemption.status === REDEMPTION_STATUS.BTC_YIELD_PROVIDER_UNSTAKE_PROCESSING) &&
+            return (
+              redemption.status === REDEMPTION_STATUS.ABTC_BURNT || 
+              redemption.status === REDEMPTION_STATUS.BTC_YIELD_PROVIDER_UNSTAKE_PROCESSING) &&
               redemption.remarks === "" &&
               redemption.verified_count >= chainConfig.validators_threshold;
           } catch (error) {
@@ -229,42 +233,54 @@ async function processUnstakingAndWithdrawal(
 
         // Process redemptions if conditions met
         if (shouldProcessRedemptions) {
-          const failedUnstakes = [];
-
-          //console.log("[processRedemptions] Redemptions to unstake:", newRedemptions.length);
+    
           let index = 0;
           for (const redemption of newRedemptions) {
-            try {
-              index++;
-              //console.log("[processRedemptions] Processing redemption:", index, "of", newRedemptions.length);
-              if (redemption.status === REDEMPTION_STATUS.ABTC_BURNT) {
-                await near.updateRedemptionYieldProviderUnstakeProcessing(redemption.txn_hash);
-                //console.log("[processRedemptions] Updated redemption onchain status:", redemption.txn_hash);
+            let success = false;
+            let retryCount = 0;
+            const maxRetries = 3;
+
+            while (!success && retryCount < maxRetries) {
+              try {
+                index++;
+                console.log("[processRedemptions] Processing redemption:", index, "of", newRedemptions.length, "attempt:", retryCount + 1);
+                
+                if (redemption.status === REDEMPTION_STATUS.ABTC_BURNT) {
+                  await near.updateRedemptionYieldProviderUnstakeProcessing(redemption.txn_hash);
+                
+                  // Update status in redemptions array
+                  const redemptionToUpdate = redemptions.find(r => r.txn_hash === redemption.txn_hash);
+                  if (redemptionToUpdate) {
+                    redemptionToUpdate.status = REDEMPTION_STATUS.BTC_YIELD_PROVIDER_UNSTAKE_PROCESSING;
+                  }
+                }
+                success = true;
+              } catch (error) {
+                console.log("[processRedemptions] Error updating redemption pending yield provider unstake (attempt " + (retryCount + 1) + "):", error.message || error);
+                retryCount++;
+                if (retryCount < maxRetries) {
+                  // Wait 2 seconds before retrying
+                  await new Promise(resolve => setTimeout(resolve, 2000));
+                }
               }
-              // Update status in redemptions array
-              const redemptionToUpdate = redemptions.find(r => r.txn_hash === redemption.txn_hash);
-              if (redemptionToUpdate) {
-                redemptionToUpdate.status = REDEMPTION_STATUS.BTC_YIELD_PROVIDER_UNSTAKE_PROCESSING;
-              }
-              //console.log("[processRedemptions] Redemption updated offchain status:", redemption.txn_hash);
-            } catch (error) {
-              ///const remarks = `Error updating redemption pending yield provider unstake: ${error.message || error}`;
-              ///await near.updateRedemptionRemarks(redemption.txn_hash, remarks);
-              console.log("[processRedemptions] Error updating redemption pending yield provider unstake:", error.message || error);
-              failedUnstakes.push(redemption.txn_hash);
+            }
+
+            if (!success) {
+              console.log("[processRedemptions] Failed to process redemption after " + maxRetries + " attempts, skipping:", redemption.txn_hash);
               continue;
             }
           }
-          
-          // remove failed unstakes from `newRedemptions`
-          newRedemptions = newRedemptions.filter(
-            (redemption) => !failedUnstakes.includes(redemption.txn_hash)
+
+          // Get all redemptions with BTC_YIELD_PROVIDER_UNSTAKE_PROCESSING status
+          newRedemptions = redemptions.filter(
+            (redemption) => redemption.status === REDEMPTION_STATUS.BTC_YIELD_PROVIDER_UNSTAKE_PROCESSING
           );
 
           const totalNewAbtcAmount = newRedemptions.reduce(
             (sum, record) => sum + record.abtc_amount,
             0,
           );
+          
           totalNewAmount += totalNewAbtcAmount;
           console.log(`Total new abtc amount: ${totalNewAbtcAmount}`);
         }
@@ -310,10 +326,10 @@ async function processUnstakingAndWithdrawal(
         // Get Bitcoin address and public key
         const { publicKey } = await bitcoinInstance.deriveBTCAddress(near);
         const publicKeyString = publicKey.toString("hex");
-        let _deposits;
+        // let _deposits;
         // Initiate unstaking
+        
         const { message } = await relayer.unstake.buildUnsignedMessage({
-          deposits: _deposits,
           amount: totalNewAmount,
           publicKey: publicKeyString,
         });
@@ -323,6 +339,10 @@ async function processUnstakingAndWithdrawal(
           message,
         );
 
+        console.log("totalNewAmount:", totalNewAmount);
+        console.log("publicKeyString:", publicKeyString);
+        console.log("unstakeSignature:",  unstakeSignature.toString("hex"));
+        
         await relayer.unstake.submitSignature({
           amount: totalNewAmount,
           publicKey: publicKeyString,

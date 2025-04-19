@@ -229,7 +229,7 @@ const getAllRedemptionHistory = async (limit = 1000) => {
   try {
     // First, get the first batch to check if there are any redemptions
     const firstBatch = await near.getAllRedemptions(0, limit);
-    
+
     if (firstBatch.length === 0) {
       redemptions = [];
       console.log("[getAllRedemptionHistory] No redemptions found");
@@ -240,8 +240,10 @@ const getAllRedemptionHistory = async (limit = 1000) => {
 
     // Get total count from NEAR to calculate number of batches needed
     const totalCount = await near.getTotalRedemptionsCount();
+    // console.log("[getAllRedemptionHistory] Total redemptions count:", totalCount);
+    // console.log("[getAllRedemptionHistory] Total redemptions limit:", limit);
     const totalBatches = Math.ceil(totalCount / limit);
-
+    // console.log("[getAllRedemptionHistory] Total batches:", totalBatches);
     // Create an array of promises for parallel fetching
     const batchPromises = [];
     for (let i = 1; i < totalBatches; i++) {
@@ -251,15 +253,36 @@ const getAllRedemptionHistory = async (limit = 1000) => {
 
     // Fetch all batches in parallel
     const batchResults = await Promise.all(batchPromises);
-    
+
     // Combine all results
-    batchResults.forEach(batch => {
+    batchResults.forEach((batch) => {
       allRedemptions = allRedemptions.concat(batch);
     });
 
     redemptions = allRedemptions;
 
-    console.log("[getAllRedemptionHistory] Total redemptions fetched:", redemptions.length);
+    // const { REDEMPTION_STATUS } = getConstants();
+    // // Count redemptions with BTC_YIELD_PROVIDER_UNSTAKE_PROCESSING status
+    // const processingRedemptions = redemptions.filter(
+    //   redemption => redemption.status === REDEMPTION_STATUS.BTC_YIELD_PROVIDER_UNSTAKE_PROCESSING
+    // );
+    // const processingCount = processingRedemptions.length;
+    // const totalProcessingAmount = processingRedemptions.reduce(
+    //   (sum, redemption) => sum + redemption.abtc_amount, 
+    //   0
+    // );
+
+    // console.log(
+    //   "[getAllRedemptionHistory] Redemptions with BTC_YIELD_PROVIDER_UNSTAKE_PROCESSING status:",
+    //   processingCount,
+    //   "Total amount:", 
+    //   totalProcessingAmount
+    // );
+
+    console.log(
+      "[getAllRedemptionHistory] Total redemptions fetched:",
+      redemptions.length,
+    );
   } catch (error) {
     console.error(`[getAllRedemptionHistory] Failed: ${error.message}`);
   }
@@ -941,19 +964,19 @@ app.listen(PORT, async () => {
   runBatch().catch(console.error);
 
   //Add the unstaking and withdrawal process to the job scheduler
-  setInterval(async () => {
-    try {
-      // await processUnstakingAndWithdrawal(
-      //   near,
-      //   bitcoin,
-      //   redemptions,
-      //   bridgings,
-      //   globalParams.atlasTreasuryAddress,
-      // );
-    } catch (error) {
-      console.error("Error in unstaking and withdrawal process:", error);
-    }
-  }, 60000); // Run every 1 minute
+  // setInterval(async () => {
+  //   try {
+  //     await processUnstakingAndWithdrawal(
+  //       near,
+  //       bitcoin,
+  //       redemptions,
+  //       bridgings,
+  //       globalParams.atlasTreasuryAddress,
+  //     );
+  //   } catch (error) {
+  //     console.error("Error in unstaking and withdrawal process:", error);
+  //   }
+  // }, 60000); // Run every 1 minute
 
   setInterval(async () => {
     await getAllDepositHistory();

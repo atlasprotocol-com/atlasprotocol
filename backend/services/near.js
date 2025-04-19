@@ -91,6 +91,8 @@ class Near {
           "get_pubkey_by_address",
           "get_deposits_count",
           "get_redemptions_count",
+          "has_caller_verified_minted_txn_hash",
+          "has_caller_verified_redemption_txn_hash",
         ],
         changeMethods: [
           "insert_deposit_btc",
@@ -232,8 +234,11 @@ class Near {
   }
 
   // Function to get all redemptions from NEAR contract
-  async getAllRedemptions() {
-    return this.makeNearRpcViewCall("get_all_redemptions", {});
+  async getAllRedemptions(fromIndex, limit ) {
+    return this.makeNearRpcViewCall("get_all_redemptions", {
+      from_index: fromIndex,
+      limit: limit,
+    });
   }
 
   // Function to get all redemptions from NEAR contract
@@ -1766,6 +1771,24 @@ class Near {
 
   async getTotalRedemptionsCount() {
     return this.makeNearRpcViewCall("get_redemptions_count", {});
+  }
+  
+  async hasCallerVerifiedMintedTxnHash(btcTxnHash, mintedTxnHash) {
+    console.log("[hasCallerVerifiedMintedTxnHash] btcTxnHash: ", btcTxnHash);
+    console.log("[hasCallerVerifiedMintedTxnHash] mintedTxnHash: ", mintedTxnHash);
+    return this.makeNearRpcViewCall("has_caller_verified_minted_txn_hash", {
+      caller: this.atlas_account_id,
+      btc_txn_hash: btcTxnHash,
+      minted_txn_hash: mintedTxnHash
+    });
+  }
+
+  async hasCallerVerifiedRedemptionTxnHash(txnHash) {
+    console.log("[hasCallerVerifiedRedemptionTxnHash] txnHash: ", txnHash);
+    return this.makeNearRpcViewCall("has_caller_verified_redemption_txn_hash", {
+      caller: this.atlas_account_id,
+      txn_hash: txnHash,
+    });
   }
   
 }
