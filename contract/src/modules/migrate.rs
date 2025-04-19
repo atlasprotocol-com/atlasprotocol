@@ -1,3 +1,46 @@
+/// # Migration Guide
+///
+/// This module provides functionality to migrate the contract state from an older version to a newer version.
+/// Follow the steps below to perform the migration using the NEAR CLI:
+///
+/// ## Step 1: Prepare the Migration
+/// Use the `call` command to invoke the `migrate_prepare` method. This step serializes and stores the old state in storage.
+/// ```bash
+/// near call <contract-id> migrate_prepare --accountId <your-account-id>
+/// ```
+///
+/// - **Note**: If the migration has already been prepared, this method will panic with the message `"Migration already prepared"`.
+///
+/// ## Step 2: Initialize the Migration
+/// Use the `call` command to invoke the `migrate_init` method. This method reads the old state and sets up the new state structure.
+/// ```bash
+/// near call <contract-id> migrate_init --accountId <your-account-id>
+/// ```
+///
+/// - **Note**: This method must be called only after `migrate_prepare`. If the old state is not found, it will panic with the message `"call migrate_prepare first"`.
+///
+/// ## Step 3: Process the Migration
+/// Use the `call` command to invoke the `migrate_process` method. You can optionally specify the batch size (number of records to process in one call).
+/// ```bash
+/// near call <contract-id> migrate_process '{"size": 50}' --accountId <your-account-id>
+/// ```
+///
+/// - **Note**: This method can be called multiple times until all records are migrated. The cursor will track progress,
+/// and the method will log the migration status. Once all records are migrated, it will log `"DONE"`.
+///
+/// ## Step 4: Cleanup the Old State
+/// Use the `call` command to invoke the `migrate_cleanup` method. This step removes the old state from storage.
+/// ```bash
+/// near call <contract-id> migrate_cleanup --accountId <your-account-id>
+/// ```
+///
+/// - **Note**: This method will only remove the old state if it exists in storage.
+///
+/// ## Additional Information
+/// - Replace `<contract-id>` with the ID of your deployed contract.
+/// - Replace `<your-account-id>` with your NEAR account ID.
+/// - The migration process requires the caller to have owner privileges. Ensure that the caller is authorized to perform these actions.
+/// - Logs are provided throughout the migration process to track progress and identify any issues.
 use crate::chain_configs::ChainConfigs;
 use crate::global_params::GlobalParams;
 use crate::modules::structs::{BridgingRecord, DepositRecord, RedemptionRecord};
@@ -45,6 +88,8 @@ pub struct V1 {
 #[near_bindgen]
 impl Atlas {
     pub fn migrate_prepare(&mut self) {
+        self.assert_owner();
+
         if env::storage_has_key(STATE_V1) {
             panic!("Migration already prepared");
         }
