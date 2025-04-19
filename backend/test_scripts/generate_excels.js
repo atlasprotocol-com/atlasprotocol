@@ -21,7 +21,7 @@ const CONFIG = {
   ADD_MISSING_NEAR_BLOCKS_XLSX: false,    // Set to true to process missing blocks from error file
   GENERATE_DEPOSITS_STATUS_21_XLSX: false,     // Set to true to process deposits with status 21
   GENERATE_REDEMPTIONS_XLSX: false,      // Set to true to enable redemptions.xlsx generation
-  GENERATE_REDEMPTIONS_VIA_EVENTS: false,  // Generate redemptions via events from Excel
+  GENERATE_REDEMPTIONS_VIA_EVENTS: true,  // Generate redemptions via events from Excel
   
   DEPOSITS: {
     OUTPUT_FILE: "deposits.xlsx",       // Output filename for deposits batch
@@ -58,9 +58,9 @@ const CONFIG = {
     ATLAS_VAULT_ADDRESS: 'tb1q9ruq3vlgj79l27euc2wq79wxzae2t86z4adkkv',  // Atlas vault address on testnet4
     SAVE_INTERVAL: 10,                  // Save file every N rows processed
     //MIN_TIMESTAMP: 1744646400,          // Minimum timestamp for UTXOs (2025-04-15 00:00:00 UTC+8)
-    MIN_TIMESTAMP: 1743436800,          // Minimum timestamp for UTXOs (2025-04-01 00:00:00 UTC+8)
-    API_ENDPOINT: "https://testnet.atlasprotocol.com/api/v1/process-new-deposit",
-    //API_ENDPOINT: "http://localhost:3001/api/v1/process-new-deposit",
+    MIN_TIMESTAMP: 1714233600,          // Minimum timestamp for UTXOs (2024-04-25 00:00:00 UTC+8)
+    //API_ENDPOINT: "https://testnet.atlasprotocol.com/api/v1/process-new-deposit",
+    API_ENDPOINT: "http://localhost:3001/api/v1/process-new-deposit",
     STATUS: {
       DEPOSIT_EXISTS: "Deposit already exists",
       PROCESSING_INITIATED: "Processing initiated",
@@ -89,7 +89,7 @@ const CONFIG = {
     RPC_ENDPOINT: "https://neart.lava.build",  // NEAR RPC endpoint
     //RPC_ENDPOINT: "https://rpc.testnet.fastnear.com",  // NEAR RPC endpoint    
     //RPC_ENDPOINT: "https://archival-rpc.testnet.near.org",  // NEAR RPC endpoint    
-    THREAD_COUNT: 25,                  // Number of parallel threads to process blocks
+    THREAD_COUNT: 12,                  // Number of parallel threads to process blocks
     BLOCKS_PER_THREAD: 10,              // Number of blocks each thread processes
     ERROR_BATCH_SIZE: 0,               // Number of blocks to process at once from error file
     COLUMNS: {
@@ -100,7 +100,9 @@ const CONFIG = {
   },
   
   DEPOSITS_STATUS_21: {
-    OUTPUT_FILE: "deposits-status-21.xlsx"  // Output filename for status 21 deposits
+    OUTPUT_FILE: "deposits-status-21.xlsx",  // Output filename for status 21 deposits
+    API_ENDPOINT: "https://testnet.atlasprotocol.com/api/v1/check-minted-txn",
+    //API_ENDPOINT: "http://localhost:3001/api/v1/check-minted-txn",    
   },
   
   REDEMPTIONS: {
@@ -119,8 +121,10 @@ const CONFIG = {
   },  
 
   REDEMPTIONS_VIA_EVENTS: {    
-    API_ENDPOINT: "https://testnet.atlasprotocol.com/api/v1/process-new-redemption",  // API endpoint for processing redemptions
-    //API_ENDPOINT: "http://localhost:3001/api/v1/process-new-redemption",  // API endpoint for processing redemptions
+    //API_ENDPOINT: "https://testnet.atlasprotocol.com/api/v1/process-new-redemption",  // API endpoint for processing redemptions
+    API_ENDPOINT: "http://localhost:3001/api/v1/process-new-redemption",  // API endpoint for processing redemptions
+    START_INDEX: 0,  // Starting index for processing redemptions via events
+    END_INDEX: null,  // Ending index for processing redemptions via events (null for all rows)
     COLUMNS: {
       NEAR_TXN_HASH: 4,         // Column index for Near Txn Hash in nearblocks_redeem.xlsx
     }
@@ -271,6 +275,9 @@ function fixRecordText(recordText) {
   // Remove trailing commas before } or ]
   text = text.replace(/,(\s*[}\]])/g, '$1');
   
+  if (text.includes("WASM_HOST_COST") || text.includes("cloudflare") || text.includes("DOCTYPE")) {
+    console.log(text);
+  }
   return text;
 }
 
@@ -446,7 +453,7 @@ async function checkDepositExists(btcTxnHash) {
       const lines = output.split('\n');
       const depositExists = lines.some(line => line.trim().startsWith('{'));
       
-      console.log(`📊 Deposit exists: ${depositExists}`);
+      //console.log(`📊 Deposit exists: ${depositExists}`);
       resolve(depositExists);
     });
   });
@@ -456,12 +463,13 @@ async function checkDepositExists(btcTxnHash) {
  * Processes a new deposit via Atlas API
  */
 async function processNewDeposit(btcTxnHash) {
+  const apiUrl = `${CONFIG.UTXOS.API_ENDPOINT}?btcTxnHash=${btcTxnHash}`;
+  console.log(`✅ Processing new deposit via API: ${apiUrl}`);
+  
   try {
-    const response = await axios.get(`${CONFIG.UTXOS.API_ENDPOINT}?btcTxnHash=${btcTxnHash}`);
-    console.log(`✅ Successfully initiated deposit processing for ${btcTxnHash}`);
+    const response = await axios.get(apiUrl);    
     return response.data;
-  } catch (error) {
-    console.error(`❌ Failed to process deposit for ${btcTxnHash}:`, error.message);
+  } catch (error) {    
     throw error;
   }
 }
@@ -1747,7 +1755,9 @@ async function processDepositsStatus21() {
         // Call the API to check minted transaction
         console.log(`⏳ Initiating deposit processing for BTC Txn Hash: ${deposit.btc_txn_hash}`);
         try {
-          const response = await axios.get(`https://testnet.atlasprotocol.com/api/v1/check-minted-txn?btcTxnHash=${deposit.btc_txn_hash}&mintedTxnHash=${nearTxnHash}`);
+          const apiUrl = `${CONFIG.DEPOSITS_STATUS_21.API_ENDPOINT}?btcTxnHash=${deposit.btc_txn_hash}&mintedTxnHash=${nearTxnHash}`;
+          console.log(`🌐 Calling API: ${apiUrl}`);
+          const response = await axios.get(apiUrl);
           
           if (response.data.success) {
             console.log(`✅ Successfully checked minted transaction for BTC Txn Hash: ${deposit.btc_txn_hash}`);
@@ -1770,7 +1780,7 @@ async function processDepositsStatus21() {
             }
           } else if (error.request) {
             // The request was made but no response was received
-            console.log(`❌ Network Error for BTC Txn Hash ${deposit.btc_txn_hash}: No response received`);
+            console.log(`❌ Network Error for BTC Txn Hash ${deposit.btc_txn_hash}: ${error.message}`);
           } else {
             // Something happened in setting up the request that triggered an Error
             console.log(`❌ Error for BTC Txn Hash ${deposit.btc_txn_hash}: ${error.message}`);
@@ -2064,8 +2074,14 @@ async function processRedemptionsViaEvents() {
     let totalProcessed = 0;
     let totalCreated = 0;
     
-    // Process each row sequentially
-    for (let rowNumber = 2; rowNumber <= totalRows; rowNumber++) {
+    // Calculate actual end row based on configuration
+    const endRow = CONFIG.REDEMPTIONS_VIA_EVENTS.END_INDEX !== null 
+      ? Math.min(CONFIG.REDEMPTIONS_VIA_EVENTS.END_INDEX + 2, totalRows) 
+      : totalRows;
+    
+    // Process each row sequentially starting from START_INDEX
+    for (let rowNumber = CONFIG.REDEMPTIONS_VIA_EVENTS.START_INDEX + 2; rowNumber <= endRow; rowNumber++) {
+    //for (let rowNumber = totalRows; rowNumber >= 2; rowNumber--) {
       const row = worksheet.getRow(rowNumber);
       const nearTxnHash = row.getCell(CONFIG.REDEMPTIONS_VIA_EVENTS.COLUMNS.NEAR_TXN_HASH).text;
       
@@ -2076,7 +2092,7 @@ async function processRedemptionsViaEvents() {
       try {
         // Check if redemption exists using NEAR CLI
         const command = `near view ${CONFIG.NEAR.CONTRACT} get_redemption_by_txn_hash '{"txn_hash": "${txnHash}"}'`;
-        console.log(`\nExecuting command: ${command}`);
+        //console.log(`\nExecuting command: ${command}`);
         
         // Execute CLI command and wait for result
         const { stdout, stderr } = await new Promise((resolve, reject) => {
@@ -2113,7 +2129,7 @@ async function processRedemptionsViaEvents() {
         if (!redemptionExists) {
           // Redemption doesn't exist, create it via API
           const apiUrl = `${CONFIG.REDEMPTIONS_VIA_EVENTS.API_ENDPOINT}?txnHash=${txnHash}`;
-          console.log(`[${rowNumber - 1}/${totalRows - 1}] Creating redemption via API: ${apiUrl}`);
+          console.log(`[${rowNumber - 1}/${totalRows - 1}] ✅ Creating redemption via API: ${apiUrl}`);
           
           try {
             const response = await axios.get(apiUrl);
@@ -2124,10 +2140,10 @@ async function processRedemptionsViaEvents() {
               console.log(`[${rowNumber - 1}/${totalRows - 1}] ❌ Failed to create redemption for ${txnHash}: Status ${response.status}`);
             }
           } catch (error) {
-            console.error(`[${rowNumber - 1}/${totalRows - 1}] API Error:`, error);
+            console.error(`[${rowNumber - 1}/${totalRows - 1}] ❌ API Error:`, error);
           }
         } else {
-          console.log(`[${rowNumber - 1}/${totalRows - 1}] ℹ️  Redemption already exists for ${txnHash}`);
+          //console.log(`[${rowNumber - 1}/${totalRows - 1}] ℹ️  Redemption already exists for ${txnHash}`);
         }
         
         totalProcessed++;
