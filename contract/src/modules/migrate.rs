@@ -8,7 +8,6 @@ use near_sdk::log;
 use near_sdk::{borsh::to_vec, env};
 use near_sdk::{near_bindgen, store::IterableMap, AccountId};
 
-const MIGRATION_BATCH_SIZE: usize = 50;
 const MIGRATION_BATCH_CUSOR: &[u8] = b"BATCH_CUSOR";
 
 fn state_cursor_read() -> usize {
@@ -94,7 +93,7 @@ impl Atlas {
         }
     }
 
-    pub fn migrate_process(&mut self) {
+    pub fn migrate_process(&mut self, size: Option<u64>) {
         self.assert_owner();
 
         if !env::storage_has_key(STATE_V1) {
@@ -122,7 +121,7 @@ impl Atlas {
             .deposits
             .iter()
             .skip(cursor)
-            .take(MIGRATION_BATCH_SIZE)
+            .take(size.unwrap_or(50) as usize)
             .map(|(k, v)| (k.to_string(), v.clone()))
             .collect();
         log!("TO_MIGRATE_COUNT --> {}", to_migrate.len());
