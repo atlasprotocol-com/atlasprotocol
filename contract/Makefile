@@ -5,7 +5,8 @@ FT_CONTRACT_ID ?= atbtc_signet_20250405
 migrate: 
 	./build.sh
 	near deploy $(CONTRACT_ID).velar.testnet res/atlas_protocol.wasm;
-	near call $(CONTRACT_ID).velar.testnet migrate {} --accountId velar.testnet
+	near call $(CONTRACT_ID).velar.testnet migrate_prepare {} --accountId velar.testnet
+	near call $(CONTRACT_ID).velar.testnet migrate_init {} --accountId velar.testnet
 
 redeploy-all: redeploy redeploy-near-ft
 
@@ -17,7 +18,7 @@ redeploy:
 	near call $(CONTRACT_ID).velar.testnet clear_all_chain_configs --accountId velar.testnet;
 	
 	near delete-account $(CONTRACT_ID).velar.testnet velar.testnet;
-	near create-account $(CONTRACT_ID).velar.testnet --masterAccount velar.testnet --initialBalance 10;
+	near create-account $(CONTRACT_ID).velar.testnet --masterAccount velar.testnet --initialBalance 20;
 
 	sleep 10;
 	near state $(CONTRACT_ID).velar.testnet;
