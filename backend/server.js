@@ -731,7 +731,7 @@ app.get("/api/v1/process-new-redemption", async (req, res) => {
           transactionHash: event.transactionHash,
         },
         near,
-        chain.chainID,
+        chainConfig.chainID,
         DELIMITER,
         event.timestamp,
       );
