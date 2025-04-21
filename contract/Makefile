@@ -9,7 +9,7 @@ migrate:
 	near call $(CONTRACT_ID).velar.testnet migrate_init {} --accountId velar.testnet
 
 migrate_process:
-	for i in $$(seq $(OFFSET) 30 9999); do \
+	for i in $$(seq $(OFFSET) 10 9999); do \
 		echo "Migrating records $$i to $$(($$i + 49))"; \
 		near call $(CONTRACT_ID).velar.testnet migrate_process {} --accountId velar.testnet; \
 		sleep 2; \
