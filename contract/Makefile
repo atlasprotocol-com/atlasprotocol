@@ -8,6 +8,13 @@ migrate:
 	near call $(CONTRACT_ID).velar.testnet migrate_prepare {} --accountId velar.testnet
 	near call $(CONTRACT_ID).velar.testnet migrate_init {} --accountId velar.testnet
 
+migrate_process:
+	for i in $$(seq $(OFFSET) 50 9999); do \
+		echo "Migrating records $$i to $$(($$i + 49))"; \
+		near call $(CONTRACT_ID).velar.testnet migrate_process {} --accountId velar.testnet; \
+		sleep 2; \
+	done
+
 redeploy-all: redeploy redeploy-near-ft
 
 redeploy:
