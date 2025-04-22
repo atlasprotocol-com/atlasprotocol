@@ -139,7 +139,7 @@ async function StakeToYieldProvider(allDeposits, near, bitcoinInstance) {
           console.error(remarks);
           if (error.message.includes("Empty UTXOs")) {
             console.log("Empty UTXOs error");
-            const spendingTxs = await bitcoinInstance.findSpendingTransaction(btcTxnHash);
+            const spendingTxs = await bitcoinInstance.findSpendingTransaction(btcTxnHash, address);
             console.log("spendingTxs: ", spendingTxs);
             if (spendingTxs) {
               await near.updateYieldProviderTxnHash(btcTxnHash, spendingTxs);
