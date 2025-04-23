@@ -79,7 +79,7 @@ const CONFIG = {
     //last processed 192956448, 192957948
     //START_BLOCK: 192888235,            // Starting Redemption record in testnet
     END_BLOCK: null,                   // Ending block number to scan until (null for no end)
-    
+        
     //CONTRACT: "atlas_testnet4_v2.velar.testnet",  // Atlas contract ID    
     CONTRACT: "v2.atlas_public_testnet.testnet",  // Atlas contract ID
     //ATBTC_CONTRACT: "atbtc_testnet4_v2.velar.testnet",  // ATBTC contract ID
@@ -164,7 +164,7 @@ logTime("CONFIG loaded");
 
 // Define required dependencies for each feature
 const FEATURE_DEPENDENCIES = {
-  GENERATE_DEPOSITS_XLSX: ['excelJs'],
+  GENERATE_DEPOSITS_XLSX: CONFIG.DEPOSITS.PRINT_CLI_OUTPUT ? [] : ['excelJs'],
   GENERATE_DEPOSITS_QUEST2_XLSX: ['excelJs', 'axios'],
   GENERATE_MISSING_DEPOSITS_UTXOS_XLSX: ['excelJs', 'axios'],
   GENERATE_PUBKEY_XLSX: ['excelJs'],
@@ -173,7 +173,7 @@ const FEATURE_DEPENDENCIES = {
   GENERATE_DEPOSITS_STATUS_21_XLSX: ['excelJs', 'axios'],
   GENERATE_REDEMPTIONS_XLSX: ['excelJs'],  
   GENERATE_REDEMPTIONS_VIA_EVENTS: ['excelJs', 'axios', 'nearApi'],
-  GENERATE_EVM_BLOCKS_XLSX: ['excelJs', 'web3'],
+  GENERATE_EVM_BLOCKS_XLSX: ['excelJs', 'nearApi', 'web3'],
 };
 
 // Global variables for modules
@@ -315,7 +315,7 @@ function fixRecordText(recordText) {
   // Remove trailing commas before } or ]
   text = text.replace(/,(\s*[}\]])/g, '$1');
   
-  if (text.includes("WASM_HOST_COST") || text.includes("cloudflare") || text.includes("DOCTYPE")) {
+  if (text.includes("WASM_HOST_COST") || text.includes("cloudflare")) {
     console.log(text);
   }
   return text;
@@ -2330,111 +2330,109 @@ async function saveEvmBlockResultsToExcel(blockResults, filePath) {
 
 // Function to process and export EVM blocks
 async function processAndExportEvmBlocks() {
-  // Get chain configs using NEAR CLI
+  // Get chain configs using Near provider
   console.log("Getting chain configurations...");
-  const command = `near view ${CONFIG.NEAR.CONTRACT} get_all_chain_configs`;
   
-  const { stdout } = await new Promise((resolve, reject) => {
-    exec(command, (error, stdout, stderr) => {
-      if (error) {
-        reject(error);
-        return;
-      }
-      resolve({ stdout, stderr });
+  try {
+    // Call get_all_chain_configs view function directly using existing provider
+    const chainConfigs = await provider.query({
+      request_type: 'call_function',
+      finality: 'final',
+      account_id: CONFIG.NEAR.CONTRACT,
+      method_name: 'get_all_chain_configs',
+      args_base64: Buffer.from(JSON.stringify({})).toString('base64')
     });
-  });
-  
-  // Parse the chain configs - just remove the "View call:" line
-  const jsonStr = stdout.split('\n').slice(1).join('\n').trim();
-  
-  // Convert to valid JSON by adding quotes around property names and values
-  const validJsonStr = jsonStr
-    .replace(/(?:^|\s)(\w+):/g, ' "$1":')  // Add quotes around property names at start of line or after space
-    .replace(/'/g, '"');                   // Convert single quotes to double quotes
-  
-  const chainConfigs = JSON.parse(validJsonStr);
-  
-  // Filter EVM chains
-  const evmChains = chainConfigs.filter(chain => chain.network_type === 'EVM');
-  
-  console.log(`Found ${evmChains.length} EVM chains:`, evmChains);
-  
-  for (const chain of evmChains) {
-    //console.log(`Processing chain: ${JSON.stringify(chain)}`);
-    let startBlock;
-    if (CONFIG.EVM.START_BLOCK[chain.chain_id] === null) {
-      const maxBlockFromFiles = await findMaxBlockNumberFromFiles(
-        `${CONFIG.EVM.OUTPUT_FILE_PREFIX}${chain.chain_id}${CONFIG.EVM.OUTPUT_FILE_SUFFIX}`,
-        CONFIG.EVM.WORKSHEET_NAME
-      );
-      startBlock = maxBlockFromFiles + 1;
-      console.log(`Starting from block ${startBlock} (max block from files + 1)`);
-    } else {
-      startBlock = CONFIG.EVM.START_BLOCK[chain.chain_id];
-      console.log(`Starting from block ${startBlock} based on config`);
-    }
-
-    // Initialize web3 with chain's RPC URL
-    const chainProvider = new Web3(chain.chain_rpc_url);
+    console.log(`Chain configs: ${chainConfigs}`);
     
-    while (true) {
-      // Get current block number
-      const currentBlock = Number(await chainProvider.eth.getBlockNumber());  // Convert BigInt to number
-      const endBlock = CONFIG.EVM.END_BLOCK[chain.chain_id] || currentBlock;
-
-      // If END_BLOCK is null, wait for enough new blocks
-      if (CONFIG.EVM.END_BLOCK[chain.chain_id] === null) {
-        const batchEndBlock = startBlock + CONFIG.EVM.BLOCKS_PER_THREAD - 1;
-        if (currentBlock < batchEndBlock) {
-          console.log(`⏳ Waiting for blocks to finalize... Latest finalized: ${currentBlock}, Needed: ${batchEndBlock}`);
-          await delay(5000); // Wait 5 seconds before checking again
-          continue;
-        }
+    // Parse the chain configs from the response    
+    const parsedChainConfigs = JSON.parse(Buffer.from(chainConfigs.result).toString());
+    console.log(`Parsed chain configs: ${parsedChainConfigs}`);
+    
+    // Filter EVM chains
+    const evmChains = parsedChainConfigs.filter(chain => chain.network_type === 'EVM');
+    console.log(`EVM chains: ${evmChains}`);
+    
+    console.log(`Found ${evmChains.length} EVM chains:`, evmChains);
+    
+    for (const chain of evmChains) {
+      let startBlock;
+      if (CONFIG.EVM.START_BLOCK[chain.chain_id] === null) {
+        const maxBlockFromFiles = await findMaxBlockNumberFromFiles(
+          `${CONFIG.EVM.OUTPUT_FILE_PREFIX}${chain.chain_id}${CONFIG.EVM.OUTPUT_FILE_SUFFIX}`,
+          CONFIG.EVM.WORKSHEET_NAME
+        );
+        startBlock = maxBlockFromFiles + 1;
+        console.log(`Starting from block ${startBlock} (max block from files + 1)`);
+      } else {
+        startBlock = CONFIG.EVM.START_BLOCK[chain.chain_id];
+        console.log(`Starting from block ${startBlock} based on config`);
       }
 
-      console.log(`Processing chain_id ${chain.chain_id} from block ${startBlock} to ${endBlock}`);
-      const { results, threadErrors } = await processEvmBlockRange(chain, startBlock, endBlock);
+      // Initialize web3 with chain's RPC URL
+      const chainProvider = new Web3(chain.chain_rpc_url);
+      
+      while (true) {
+        // Get current block number
+        const currentBlock = Number(await chainProvider.eth.getBlockNumber());  // Convert BigInt to number
+        const endBlock = CONFIG.EVM.END_BLOCK[chain.chain_id] || currentBlock;
 
-      // Log errors to file if any occurred
-      if (threadErrors.length > 0) {
-        try {
-          // Extract just block numbers and ensure uniqueness
-          const filteredErrors = Array.from(new Set(
-            threadErrors          
-              .map(error => {
-                // Extract block number from error message
-                const blockMatch = error.match(/block (\d+)/);
-                return blockMatch ? blockMatch[1] : null;
-              })
-              .filter(blockNumber => blockNumber !== null)
-          )).join(',');
-
-          if (filteredErrors) {
-            const errorFilePath = `${CONFIG.EVM.OUTPUT_FILE_PREFIX}${chain.chain_id}${CONFIG.EVM.ERROR_OUTPUT_FILE_SUFFIX}`;
-            await fs.appendFile(errorFilePath, filteredErrors + ',');
-            console.log(`⚠️ Logged ${filteredErrors.split(',').length} unique error block numbers to ${errorFilePath}`);
+        // If END_BLOCK is null, wait for enough new blocks
+        if (CONFIG.EVM.END_BLOCK[chain.chain_id] === null) {
+          const batchEndBlock = startBlock + CONFIG.EVM.BLOCKS_PER_THREAD - 1;
+          if (currentBlock < batchEndBlock) {
+            console.log(`⏳ Waiting for blocks to finalize... Latest finalized: ${currentBlock}, Needed: ${batchEndBlock}`);
+            await delay(5000); // Wait 5 seconds before checking again
+            continue;
           }
-        } catch (error) {
-          console.error("❌ Error writing to error file:", error);
-          process.exit(1);
         }
+
+        console.log(`Processing chain_id ${chain.chain_id} from block ${startBlock} to ${endBlock}`);
+        const { results, threadErrors } = await processEvmBlockRange(chain, startBlock, endBlock);
+
+        // Log errors to file if any occurred
+        if (threadErrors.length > 0) {
+          try {
+            // Extract just block numbers and ensure uniqueness
+            const filteredErrors = Array.from(new Set(
+              threadErrors          
+                .map(error => {
+                  // Extract block number from error message
+                  const blockMatch = error.match(/block (\d+)/);
+                  return blockMatch ? blockMatch[1] : null;
+                })
+                .filter(blockNumber => blockNumber !== null)
+            )).join(',');
+
+            if (filteredErrors) {
+              const errorFilePath = `${CONFIG.EVM.OUTPUT_FILE_PREFIX}${chain.chain_id}${CONFIG.EVM.ERROR_OUTPUT_FILE_SUFFIX}`;
+              await fs.appendFile(errorFilePath, filteredErrors + ',');
+              console.log(`⚠️ Logged ${filteredErrors.split(',').length} unique error block numbers to ${errorFilePath}`);
+            }
+          } catch (error) {
+            console.error("❌ Error writing to error file:", error);
+            process.exit(1);
+          }
+        }
+
+        const filePath = `${CONFIG.EVM.OUTPUT_FILE_PREFIX}${chain.chain_id}${CONFIG.EVM.OUTPUT_FILE_SUFFIX}`;
+        await saveEvmBlockResultsToExcel(results, filePath);
+
+        // If END_BLOCK is specified, break the loop
+        if (CONFIG.EVM.END_BLOCK[chain.chain_id] !== null) {
+          break;
+        }
+
+        // Update startBlock for next iteration after processing current batch
+        startBlock = Number(endBlock) + 1;
+
+        // Add delay before processing next batch
+        console.log("Waiting 5 seconds before checking for new blocks...");
+        await delay(5000);
       }
-
-      const filePath = `${CONFIG.EVM.OUTPUT_FILE_PREFIX}${chain.chain_id}${CONFIG.EVM.OUTPUT_FILE_SUFFIX}`;
-      await saveEvmBlockResultsToExcel(results, filePath);
-
-      // If END_BLOCK is specified, break the loop
-      if (CONFIG.EVM.END_BLOCK[chain.chain_id] !== null) {
-        break;
-      }
-
-      // Update startBlock for next iteration after processing current batch
-      startBlock = Number(endBlock) + 1;
-
-      // Add delay before processing next batch
-      console.log("Waiting 5 seconds before checking for new blocks...");
-      await delay(5000);
     }
+  } catch (error) {
+    console.error("❌ Error processing EVM blocks:", error);
+    throw error;
   }
 }
 
