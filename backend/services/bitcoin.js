@@ -445,10 +445,10 @@ class Bitcoin {
         console.log('Using expired cached fee rates due to error');
         return Math.ceil(cachedRates.fastestFee);
       }
-      else{
-        console.log("No cached fee rates, using default 1 sat/byte");
-        return 1;
-      }
+      // else{
+      //   console.log("No cached fee rates, using default 1 sat/byte");
+      //   return 1;
+      // }
     }
     throw new Error("Cannot estimate bitcoin gas fee rate");
   }
