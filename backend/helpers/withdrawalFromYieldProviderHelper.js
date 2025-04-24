@@ -3,6 +3,7 @@ const path = require('path');
 
 const WITHDRAWAL_DATA_PATH = path.join(__dirname, '../utils/yieldProviderWithdrawal/lastWithdrawalTxHash.json');
 const RECORDS_FILE_PATH = path.join(__dirname, '../utils/yieldProviderWithdrawal/records.json');
+const PARTIALLY_SIGNED_PSBT_PATH = path.join(__dirname, '../utils/yieldProviderWithdrawal/partially_signed_psbt.hex');
 
 class WithdrawalFromYieldProviderHelper {
     static async getLastWithdrawalData() {
@@ -18,7 +19,8 @@ class WithdrawalFromYieldProviderHelper {
                 totalRecords: 0,
                 readySendToUser: false,
                 errorMessage: '',
-                sendToUserBtcTxnHash: ''
+                sendToUserBtcTxnHash: '',
+                partiallySignedPsbtHex: ''
             };
         } catch (error) {
             console.error('Error reading withdrawal data:', error);
@@ -29,7 +31,8 @@ class WithdrawalFromYieldProviderHelper {
                 totalRecords: 0,
                 readySendToUser: false,
                 errorMessage: error.message,
-                sendToUserBtcTxnHash: ''
+                sendToUserBtcTxnHash: '',
+                partiallySignedPsbtHex: ''
             };
         }
     }
@@ -58,7 +61,8 @@ class WithdrawalFromYieldProviderHelper {
                 totalRecords: 0,
                 readySendToUser: false,
                 errorMessage: '',
-                sendToUserBtcTxnHash: ''
+                sendToUserBtcTxnHash: '',
+                partiallySignedPsbtHex: ''
             };
             fs.writeFileSync(WITHDRAWAL_DATA_PATH, JSON.stringify(defaultData, null, 2));
             return defaultData;
@@ -161,6 +165,52 @@ class WithdrawalFromYieldProviderHelper {
         } catch (error) {
             console.error('Error getting record count:', error);
             return 0;
+        }
+    }
+
+    static async savePartiallySignedPsbt(psbtHex) {
+        try {
+            // Create directory if it doesn't exist
+            const dir = path.dirname(PARTIALLY_SIGNED_PSBT_PATH);
+            if (!fs.existsSync(dir)) {
+                fs.mkdirSync(dir, { recursive: true });
+            }
+
+            // Write PSBT hex to file
+            fs.writeFileSync(PARTIALLY_SIGNED_PSBT_PATH, psbtHex);
+            console.log('[WithdrawalFromYieldProviderHelper] Saved partially signed PSBT');
+            return true;
+        } catch (error) {
+            console.error('[WithdrawalFromYieldProviderHelper] Error saving partially signed PSBT:', error);
+            throw error;
+        }
+    }
+
+    static async loadPartiallySignedPsbt() {
+        try {
+            if (fs.existsSync(PARTIALLY_SIGNED_PSBT_PATH)) {
+                const psbtHex = fs.readFileSync(PARTIALLY_SIGNED_PSBT_PATH, 'utf8');
+                console.log('[WithdrawalFromYieldProviderHelper] Loaded partially signed PSBT');
+                return psbtHex;
+            }
+            console.log('[WithdrawalFromYieldProviderHelper] No partially signed PSBT found');
+            return null;
+        } catch (error) {
+            console.error('[WithdrawalFromYieldProviderHelper] Error loading partially signed PSBT:', error);
+            return null;
+        }
+    }
+
+    static async clearPartiallySignedPsbt() {
+        try {
+            if (fs.existsSync(PARTIALLY_SIGNED_PSBT_PATH)) {
+                fs.unlinkSync(PARTIALLY_SIGNED_PSBT_PATH);
+                console.log('[WithdrawalFromYieldProviderHelper] Cleared partially signed PSBT');
+            }
+            return true;
+        } catch (error) {
+            console.error('[WithdrawalFromYieldProviderHelper] Error clearing partially signed PSBT:', error);
+            throw error;
         }
     }
 }

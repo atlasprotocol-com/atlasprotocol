@@ -55,8 +55,12 @@ async function processUnstakingAndWithdrawal(
       console.log(
         "Not yet eligible for unstaking. Waiting for unstaking period to complete.",
       );
+      const timeRemaining = nextEligibleTime - Date.now();
+      const hours = Math.floor(timeRemaining / (1000 * 60 * 60));
+      const minutes = Math.floor((timeRemaining % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((timeRemaining % (1000 * 60)) / 1000);
       console.log(
-        `Time remaining: ${(nextEligibleTime - Date.now()) / 1000} seconds`,
+        `Time remaining: ${hours}h ${minutes}m ${seconds}s`,
       );
       return;
     }
@@ -64,6 +68,7 @@ async function processUnstakingAndWithdrawal(
     const { REDEMPTION_STATUS, BRIDGING_STATUS } = getConstants();
 
     const totalAmount = lastWithdrawalData.totalNewAmount;
+    const feeLimit = 100000 * lastWithdrawalData.totalRecords;
 
     // Step 2: Withdraw from yield provider
     console.log("\x1b[33mWithdrawal: \x1b[0m");
@@ -73,24 +78,26 @@ async function processUnstakingAndWithdrawal(
 
     if (totalAmount > 0) {
       try {
+        let unsignedPsbtHex = undefined;
         let partiallySignedPsbtHex = undefined;
         let withdrawnDeposits;
         let _deposits;
-
+        
         const { publicKey, address } =
           await bitcoinInstance.deriveBTCAddress(near);
         const publicKeyString = publicKey.toString("hex");
-
         
         console.log("totalAmount:", totalAmount);
-
+        console.log("publicKeyString:", publicKeyString);
         const { account } = await relayer.user.getAccount({
           publicKey: publicKeyString,
         });
 
+        console.log("account:", account);
+
         if (account.pendingSignPsbt) {
           // If there's a pending PSBT for signing, user cannot request signing a new PSBT
-          partiallySignedPsbtHex = account.pendingSignPsbt.psbt;
+          unsignedPsbtHex = account.pendingSignPsbt.psbt;
           withdrawnDeposits = account.pendingSignPsbt.deposits;
           console.warn(
             `[Warning] The account with public key (${publicKey}) has a pending withdrawal PSBT that has not been signed by NEAR Chain Signatures. ` +
@@ -100,30 +107,41 @@ async function processUnstakingAndWithdrawal(
           );
         } else {
           const feeRate = (await bitcoinInstance.fetchFeeRate()) + 1;
-
-          const { psbt: unsignedPsbtHex, deposits: depositsToSign } =
+          console.log("address:", address);
+          console.log("totalAmount:", totalAmount);
+          console.log("feeLimit:", feeLimit);
+          console.log("feeRate:", feeRate);
+          ({ psbt: unsignedPsbtHex, deposits: withdrawnDeposits } =
             await relayer.withdraw.buildUnsignedPsbt({
               publicKey: publicKeyString,
-              deposits: _deposits,
               amount: totalAmount,
               recipientAddress: address,
+              feeLimit: feeLimit,
               feeRate: feeRate,
-            });
+            }));
+        }
 
-          let partiallySignedPsbt = await bitcoinInstance.mpcSignPsbt(
+        console.log("unsignedPsbtHex:", unsignedPsbtHex);
+
+        const lastWithdrawalData = await WithdrawalFromYieldProviderHelper.getLastWithdrawalData();
+        
+        if (lastWithdrawalData.partiallySignedPsbtHex) {
+          partiallySignedPsbtHex = lastWithdrawalData.partiallySignedPsbtHex;
+          console.log("Using existing partially signed PSBT:", partiallySignedPsbtHex);
+        } else {
+          let partiallySignedPsbt = await bitcoinInstance.mpcSignYieldProviderPsbt(
             near,
             unsignedPsbtHex,
           );
 
           partiallySignedPsbtHex = partiallySignedPsbt.toHex();
 
-          withdrawnDeposits = depositsToSign;
+          console.log("Partially signed PSBT via MPC:", partiallySignedPsbtHex);
+
+          await WithdrawalFromYieldProviderHelper.updateLastWithdrawalData({
+            partiallySignedPsbtHex: partiallySignedPsbtHex
+          });
         }
-
-        console.log("Patially signed PSBT via MPC:", partiallySignedPsbtHex);
-
-        const depositTxHash = withdrawnDeposits[0].txHash;
-        console.log("depositTxHash:", depositTxHash);
 
         //Sign the PSBT with BitHive NEAR Chain Signatures
         const { psbt: fullySignedPsbt } = await relayer.withdraw.chainSignPsbt({

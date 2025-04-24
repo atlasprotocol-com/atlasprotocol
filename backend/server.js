@@ -118,6 +118,7 @@ const bitcoin = new Bitcoin(btcConfig.btcAPI, btcConfig.btcNetwork);
 const nearConfig = {
   networkId: process.env.NEAR_NETWORK_ID,
   nodeUrl: process.env.NEAR_NODE_URL,
+  nodeUrlProvider: process.env.NEAR_NODE_URL_PROVIDER,
   walletUrl: process.env.NEAR_WALLET_URL,
   helperUrl: process.env.NEAR_HELPER_URL,
   explorerUrl: process.env.NEAR_EXPLORER_URL,
@@ -131,6 +132,7 @@ const nearConfig = {
 
 const near = new Near(
   nearConfig.nodeUrl,
+  nearConfig.nodeUrlProvider,
   nearConfig.accountId,
   nearConfig.contractId,
   nearConfig.pk,
@@ -988,7 +990,7 @@ app.listen(PORT, async () => {
 
   setInterval(async () => {
     await getBithiveRecords();
-  }, 5000);
+  }, 10000);
 
   setInterval(async () => {
     await UpdateYieldProviderStaked(deposits, bithiveRecords, near);

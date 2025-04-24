@@ -4,6 +4,10 @@ const bitcoin = require("bitcoinjs-lib");
 const ecc = require("@bitcoinerlab/secp256k1");
 const { BorshSchema, borshSerialize, borshDeserialize } = require('borsher');
 const zlib = require('zlib');
+const fs = require('fs');
+const path = require('path');
+const WithdrawalFromYieldProviderHelper = require('../helpers/withdrawalFromYieldProviderHelper');
+const { MemoryCache } = require("../cache");
 
 const {
   derivep2wpkhChildPublicKey,
@@ -15,9 +19,11 @@ const { getConstants } = require("../constants");
 
 const { magicHash } = require('./message');
 
-
 // Initialize ECC library
 bitcoin.initEccLib(ecc);
+
+// Initialize cache
+const cache = new MemoryCache();
 
 // Define the schema for our data structure - using minimal field names and optimal types
 const schema = BorshSchema.Struct({
@@ -414,16 +420,37 @@ class Bitcoin {
    */
   async fetchFeeRate() {
     try {
+      // Try to get fee rates from cache first
+      const cachedRates = await cache.get('bitcoin_fee_rates');
+      if (cachedRates) {
+        console.log('Using cached fee rates');
+        return Math.ceil(cachedRates.fastestFee);
+      }
+
+      // If no cache, fetch new rates
       const response = await axios.get(`${this.chain_rpc}/v1/fees/recommended`);
       const feeRates = response.data;
+      
       if (feeRates.fastestFee) {
+        // Cache the rates for 1 minute
+        await cache.set('bitcoin_fee_rates', feeRates, 60000);
         return Math.ceil(feeRates.fastestFee);
       }
     } catch (error) {
       console.warn("Error fetching fee rates by mempool:", error.message);
+      
+      // If we have cached rates, use them even if expired
+      const cachedRates = await cache.get('bitcoin_fee_rates');
+      if (cachedRates && cachedRates.fastestFee) {
+        console.log('Using expired cached fee rates due to error');
+        return Math.ceil(cachedRates.fastestFee);
+      }
+      else{
+        console.log("No cached fee rates, using default 1 sat/byte");
+        return 1;
+      }
     }
     throw new Error("Cannot estimate bitcoin gas fee rate");
-
   }
 
   /**
@@ -799,6 +826,93 @@ class Bitcoin {
     }
 
     return psbt;
+  }
+
+  async mpcSignYieldProviderPsbt(near, psbtHex) {
+    // Try to load existing PSBT if available
+    let psbt;
+    try {
+      const savedPsbtHex = await WithdrawalFromYieldProviderHelper.loadPartiallySignedPsbt();
+      if (savedPsbtHex) {
+        psbt = bitcoin.Psbt.fromHex(savedPsbtHex, {network: this.network});
+        console.log('Loaded existing partially signed PSBT');
+      } else {
+        psbt = bitcoin.Psbt.fromHex(psbtHex, {network: this.network});
+        console.log('Created new PSBT');
+      }
+    } catch (error) {
+      console.error('Error loading PSBT:', error);
+      psbt = bitcoin.Psbt.fromHex(psbtHex, {network: this.network});
+    }
+
+    const { publicKey } = await this.deriveBTCAddress(near);
+    const sign = async (tx) => {
+      const btcPayload = Array.from(ethers.getBytes(tx));
+      console.log("Signing transaction:", btcPayload);
+      const result = await near.createAtlasSignedPayload(btcPayload);
+
+      const big_r = result.big_r.affine_point;
+      const big_s = result.s.scalar;
+
+      return this.reconstructSignature(big_r, big_s);
+    };
+
+    const totalInputs = psbt.data.inputs.length;
+    let lastSuccessfulIndex = -1;
+
+    try {
+      // Sign inputs that haven't been signed yet
+      for (let i = 0; i < totalInputs; i++) {
+        // Check if input is already signed
+        if (psbt.data.inputs[i].partialSig && psbt.data.inputs[i].partialSig.length > 0) {
+          console.log(`Input ${i} already signed, skipping...`);
+          lastSuccessfulIndex = i;
+          continue;
+        }
+
+        try {
+          console.log(`Signing input ${i}/${totalInputs}:`, psbt.data.inputs[i]);
+          await psbt.signInputAsync(i, { publicKey, sign });
+          lastSuccessfulIndex = i;
+          
+          // Save progress after each successful signature
+          await WithdrawalFromYieldProviderHelper.savePartiallySignedPsbt(psbt.toHex());
+          console.log(`Saved PSBT progress after signing input ${i}`);
+          
+        } catch (error) {
+          console.error(`Error signing input ${i}:`, error);
+          // Return partial progress if there's an error
+          return {
+            psbt,
+            error: {
+              message: error.message,
+              failedInputIndex: i,
+              lastSuccessfulIndex
+            }
+          };
+        }
+      }
+
+      // If we get here, all inputs were signed successfully
+      // Clean up the PSBT file since we're done
+      await WithdrawalFromYieldProviderHelper.clearPartiallySignedPsbt();
+
+      return {
+        psbt,
+        success: true
+      };
+
+    } catch (error) {
+      console.error('Unexpected error during signing:', error);
+      return {
+        psbt,
+        error: {
+          message: error.message,
+          failedInputIndex: lastSuccessfulIndex + 1,
+          lastSuccessfulIndex
+        }
+      };
+    }
   }
 
   async mpcSignMessage(near, message) {
