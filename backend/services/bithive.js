@@ -7,8 +7,14 @@ async function estimateRedemptionFees(bitcoinInstance, near, amount) {
         const { publicKey, address } = await bitcoinInstance.deriveBTCAddress(near);
         const publicKeyString = publicKey.toString("hex");
 
-        // Get the latest fee rate
-        const feeRate = await bitcoinInstance.fetchFeeRate() + 1;
+        let feeRate;
+       
+        feeRate = await bitcoinInstance.fetchFeeRate() + 1;
+      
+        if (!feeRate) {
+          console.error("No fee rate found");
+          feeRate = 1;
+        }
 
         const { psbt: unsignedPsbt } = await relayer.withdraw.buildUnsignedPsbt({
           publicKey: publicKeyString,
