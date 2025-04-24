@@ -107,7 +107,8 @@ async function processNewDeposit(txn, near, bitcoin, btcAtlasDepositAddress, tre
       }
       
       let timestamp = Math.floor(Date.now() / 1000);
-      let createdAt = txn.status.confirmed ? txn.status.block_time : await bitcoin.fetchUnconfirmedTransactionTime(txn);
+      //let createdAt = txn.status.confirmed ? txn.status.block_time : await bitcoin.fetchUnconfirmedTransactionTime(txn);
+      let createdAt = txn.status.confirmed ? txn.status.block_time : timestamp;
       console.log("createdAt:", createdAt);
       await near.insertDepositBtc(
         btcTxnHash,

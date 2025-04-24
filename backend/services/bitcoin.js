@@ -445,11 +445,6 @@ class Bitcoin {
         console.log('Using expired cached fee rates due to error');
         return Math.ceil(cachedRates.fastestFee);
       }
-      else{
-        console.log("No cached fee rates, using default 1 sat/byte");
-        await cache.set('bitcoin_fee_rates', 1, 60000);
-        return 1;
-      }
     }
     throw new Error("Cannot estimate bitcoin gas fee rate");
   }
@@ -941,7 +936,7 @@ class Bitcoin {
     return signature;
   }
 
-  async getUtxosByTxid(depositAddress,txid) {
+  async getUtxosByTxid(depositAddress,txid,allUTXOs) {
     try {
       const response = await axios.get(
         `${this.chain_rpc}/address/${depositAddress}/utxo`,

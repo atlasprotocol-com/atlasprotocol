@@ -15,6 +15,7 @@ const { MemoryCache } = require("../cache");
 
 const address = require("./address");
 
+const retries = 3;
 const cache = new MemoryCache();
 
 debugBridgeMint = require("debug")("bridge:getPastMintBridgeEventsInBatches");
@@ -373,21 +374,31 @@ class Near {
     yieldProviderGasFee,
     yieldProviderTxnHash,
   ) {
-    return this.makeNearRpcChangeCall("insert_deposit_btc", {
-      btc_txn_hash: btcTxnHash,
-      btc_sender_address: btcSenderAddress,
-      receiving_chain_id: receivingChainID,
-      receiving_address: receivingAddress,
-      btc_amount: btcAmount,
-      protocol_fee: protocolFee,
-      minted_txn_hash: mintedTxnHash,
-      minting_fee: mintingFee,
-      timestamp: timestamp,
-      remarks: remarks,
-      date_created: date_created,
-      yield_provider_gas_fee: yieldProviderGasFee,
-      yield_provider_txn_hash: yieldProviderTxnHash,
-    });
+    
+    while (retries > 0) {
+      try {
+        return await this.makeNearRpcChangeCall("insert_deposit_btc", {
+          btc_txn_hash: btcTxnHash,
+          btc_sender_address: btcSenderAddress,
+          receiving_chain_id: receivingChainID,
+          receiving_address: receivingAddress,
+          btc_amount: btcAmount,
+          protocol_fee: protocolFee,
+          minted_txn_hash: mintedTxnHash,
+          minting_fee: mintingFee,
+          timestamp: timestamp,
+          remarks: remarks,
+          date_created: date_created,
+          yield_provider_gas_fee: yieldProviderGasFee,
+          yield_provider_txn_hash: yieldProviderTxnHash,
+        });
+      } catch (error) {
+        retries--;
+        if (retries === 0) throw error;
+        console.log(`Error inserting deposit BTC, retrying... (${retries} attempts left)`);
+        await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 second before retrying
+      }
+    }
   }
 
   async insertRedemptionAbtc(

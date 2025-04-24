@@ -63,7 +63,7 @@ async function MintaBtcToReceivingChain(allDeposits, near) {
                 `Invalid receiving address: ${depositRecord.receiving_address}`,
               );
             }
-            console.log("chainConfig:", chainConfig);
+           
             const ethereum = new Ethereum(
               chainConfig.chainID,
               chainConfig.chainRpcUrl,

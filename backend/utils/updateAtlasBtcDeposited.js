@@ -4,6 +4,9 @@ const { flagsBatch } = require("./batchFlags");
 
 const BTC_MIN_CONFIRMATIONS = Number(process.env.BTC_MIN_CONFIRMATIONS || 12);
 
+// Helper function to sleep for specified milliseconds
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 async function UpdateAtlasBtcDeposited(depositRecords, near, bitcoinInstance) {
   const batchName = `Batch B UpdateAtlasBtcDeposited`;
   console.log(batchName);
@@ -25,7 +28,9 @@ async function UpdateAtlasBtcDeposited(depositRecords, near, bitcoinInstance) {
         !record.remarks,
     );
 
-    //console.log("filteredRecords:", filteredRecords);
+    let processedCount = 0;
+    const PAUSE_INTERVAL = 10;
+    const PAUSE_DURATION = 60000; // 1 minute in milliseconds
 
     for (const record of filteredRecords) {
       const btcTxnHash = record.btc_txn_hash;
@@ -46,7 +51,7 @@ async function UpdateAtlasBtcDeposited(depositRecords, near, bitcoinInstance) {
             // Update existing record
             await near.updateDepositBtcDeposited(btcTxnHash, timestamp);
 
-            console.log(`Updated Deposit with BTC txn hash ${btcTxnHash}`);
+            console.log(`[${batchName}] Updated Deposit with BTC txn hash ${btcTxnHash}`);
           }
         }
       } catch (error) {
@@ -54,6 +59,14 @@ async function UpdateAtlasBtcDeposited(depositRecords, near, bitcoinInstance) {
 
         await near.updateDepositRemarks(btcTxnHash, error.response.data);
         continue;
+      }
+
+      processedCount++;
+      
+      // Pause every 100 records
+      if (processedCount % PAUSE_INTERVAL === 0) {
+        console.log(`[${batchName}] Processed ${processedCount} records. Pausing for 1 minute...`);
+        await sleep(PAUSE_DURATION);
       }
     }
 

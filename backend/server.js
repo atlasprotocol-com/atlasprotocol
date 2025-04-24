@@ -153,6 +153,7 @@ let redemptions = [];
 let btcMempool = [];
 let bridgings = [];
 let bithiveRecords = [];
+let lastBithiveOffset = 0;
 const computeStats = async () => {
   atlasStats = await getTransactionsAndComputeStats(
     deposits,
@@ -326,10 +327,19 @@ const getBithiveRecords = async () => {
     //console.log("[getBithiveRecords] Starting at", new Date().toISOString());
     const { publicKey } = await bitcoin.deriveBTCAddress(near);
     //console.log("[getBithiveRecords] Got public key, fetching deposits");
-    bithiveRecords = await getBithiveDeposits(
+    const newRecords = await getBithiveDeposits(
       publicKey.toString("hex"),
       deposits.length,
+      lastBithiveOffset
     );
+    
+    // Update the last fetched offset
+    lastBithiveOffset += newRecords.length;
+    
+    // Append new records to existing ones
+    bithiveRecords = [...bithiveRecords, ...newRecords];
+    
+    console.log("[getBithiveRecords] Total records:", bithiveRecords.length);
     //console.log("[getBithiveRecords] Completed at", new Date().toISOString());
   } catch (error) {
     console.error(`[getBithiveRecords] Failed: ${error.message}`);
@@ -990,7 +1000,7 @@ app.listen(PORT, async () => {
 
   setInterval(async () => {
     await getBithiveRecords();
-  }, 10000);
+  }, 5000);
 
   setInterval(async () => {
     await UpdateYieldProviderStaked(deposits, bithiveRecords, near);

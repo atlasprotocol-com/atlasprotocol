@@ -10,17 +10,12 @@ async function estimateRedemptionFees(bitcoinInstance, near, amount) {
         let feeRate;
        
         feeRate = await bitcoinInstance.fetchFeeRate() + 1;
-      
-        if (!feeRate) {
-          console.error("No fee rate found");
-          feeRate = 1;
-        }
 
         const { psbt: unsignedPsbt } = await relayer.withdraw.buildUnsignedPsbt({
           publicKey: publicKeyString,
           amount: Number(amount),
           recipientAddress: address,
-          feeRate: feeRate,
+          feeLimit: 10000000
         });
 
         // Parse the PSBT
@@ -60,7 +55,7 @@ async function estimateBridgingFees(bitcoinInstance, near, amount) {
           publicKey: publicKeyString,
           amount: Number(amount),
           recipientAddress: address,
-          feeRate: feeRate,
+          feeLimit: 10000000
         });
 
         // Parse the PSBT

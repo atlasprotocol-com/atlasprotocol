@@ -63,7 +63,9 @@ async function StakeToYieldProvider(allDeposits, near, bitcoinInstance) {
         )
         //.slice(0, 1); // Get only first record
 
-        console.log("filteredDeposits in stakeToYieldProvider: ", filteredDeposits.length);
+      console.log("filteredDeposits in stakeToYieldProvider: ", filteredDeposits.length);
+
+      const allUTXOs = await bitcoinInstance.fetchUTXOs(address);
 
       for (let i = 0; i < filteredDeposits.length; i++) {
         const depositRecord = filteredDeposits[i];
@@ -87,11 +89,13 @@ async function StakeToYieldProvider(allDeposits, near, bitcoinInstance) {
           // Convert publicKey to a string
           const publicKeyString = publicKey.toString("hex");
 
-          const utxos = await bitcoinInstance.getUtxosByTxid(
-            address,
-            btcTxnHash,
-          );
-         
+          const utxos = allUTXOs
+            .filter(utxo => utxo.txid === btcTxnHash)
+            .map(utxo => ({
+              txHash: utxo.txid,
+              vout: utxo.vout
+            }));
+
           // 1. Build the PSBT that is ready for signing
           const { psbt: unsignedPsbtHex } =
             await relayer.deposit.buildUnsignedPsbt({
@@ -161,56 +165,45 @@ async function StakeToYieldProvider(allDeposits, near, bitcoinInstance) {
   }
 }
 
-async function getBithiveDeposits(publicKeyHex, totalDeposits) {
-
+async function getBithiveDeposits(publicKeyHex, totalDeposits, lastFetchedOffset = 0) {
   if (totalDeposits <= 0) {
     return [];
   }
 
   const relayer = createRelayerClient({ url: process.env.BITHIVE_RELAYER_URL });
   let deposits = [];
-  let offset = 0;
   const limit = 1000;
 
   try {
-    // First, get the first batch to check if there are any deposits
-    const { deposits: firstBatch } = await relayer.user.getDeposits({
-      publicKey: publicKeyHex, 
-      offset: 0,
-      limit
-    });
-
-    if (firstBatch.length === 0) {
-      return deposits;
+    // Calculate remaining deposits to fetch
+    const remainingDeposits = totalDeposits - lastFetchedOffset;
+    if (remainingDeposits <= 0) {
+      return [];
     }
 
-    deposits = deposits.concat(firstBatch);
-    offset += limit;
+    // Calculate number of batches needed for remaining deposits
+    const totalBatches = Math.ceil(remainingDeposits / limit);
 
-    const totalBatches = Math.ceil(totalDeposits / limit);
+    // Fetch batches sequentially
+    for (let i = 0; i < totalBatches; i++) {
+      const currentOffset = lastFetchedOffset + (i * limit);
+      console.log("Fetching batch with offset:", currentOffset);
+      
+      const { deposits: batchDeposits } = await relayer.user.getDeposits({
+        publicKey: publicKeyHex,
+        offset: currentOffset,
+        limit
+      });
 
-    // Create an array of promises for parallel fetching
-    const batchPromises = [];
-    for (let i = 1; i < totalBatches; i++) {
-      const currentOffset = i * limit;
-      batchPromises.push(
-        relayer.user.getDeposits({
-          publicKey: publicKeyHex,
-          offset: currentOffset,
-          limit
-        })
-      );
+      if (batchDeposits.length === 0) {
+        break; // No more deposits to fetch
+      }
+
+      deposits = deposits.concat(batchDeposits);
+      console.log(`Fetched ${batchDeposits.length} deposits in batch ${i + 1}/${totalBatches}`);
     }
 
-    // Fetch all batches in parallel
-    const batchResults = await Promise.all(batchPromises);
-    
-    // Combine all results
-    batchResults.forEach(result => {
-      deposits = deposits.concat(result.deposits);
-    });
-
-    console.log("[getBithiveDeposits] Total bithive deposits fetched:", deposits.length);
+    console.log("[getBithiveDeposits] New bithive deposits fetched:", deposits.length);
     return deposits;
   } catch (error) {
     console.error("Failed to fetch Bithive deposits:", error);
