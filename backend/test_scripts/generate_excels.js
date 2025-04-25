@@ -61,8 +61,8 @@ const CONFIG = {
     SAVE_INTERVAL: 10,                  // Save file every N rows processed
     //MIN_TIMESTAMP: 1744646400,          // Minimum timestamp for UTXOs (2025-04-15 00:00:00 UTC+8)
     MIN_TIMESTAMP: 1743436800,          // Minimum timestamp for UTXOs (2025-04-01 00:00:00 UTC+8)
-    API_ENDPOINT: "https://testnet.atlasprotocol.com/api/v1/process-new-deposit",
-    //API_ENDPOINT: "http://localhost:3001/api/v1/process-new-deposit",
+    //API_ENDPOINT: "https://testnet.atlasprotocol.com/api/v1/process-new-deposit",
+    API_ENDPOINT: "http://localhost:3001/api/v1/process-new-deposit",
     STATUS: {
       DEPOSIT_EXISTS: "Deposit already exists",
       PROCESSING_INITIATED: "Processing initiated",
@@ -79,7 +79,7 @@ const CONFIG = {
     //last processed 192956448, 192957948
     //START_BLOCK: 192888235,            // Starting Redemption record in testnet
     END_BLOCK: null,                   // Ending block number to scan until (null for no end)
-    
+        
     //CONTRACT: "atlas_testnet4_v2.velar.testnet",  // Atlas contract ID    
     CONTRACT: "v2.atlas_public_testnet.testnet",  // Atlas contract ID
     //ATBTC_CONTRACT: "atbtc_testnet4_v2.velar.testnet",  // ATBTC contract ID
@@ -103,8 +103,8 @@ const CONFIG = {
   
   DEPOSITS_STATUS_21: {
     OUTPUT_FILE: "deposits-status-21.xlsx",  // Output filename for status 21 deposits
-    API_ENDPOINT: "https://testnet.atlasprotocol.com/api/v1/check-minted-txn",
-    //API_ENDPOINT: "http://localhost:3001/api/v1/check-minted-txn",    
+    //API_ENDPOINT: "https://testnet.atlasprotocol.com/api/v1/check-minted-txn",
+    API_ENDPOINT: "http://localhost:3001/api/v1/check-minted-txn",    
   },
   
   REDEMPTIONS: {
@@ -138,15 +138,17 @@ const CONFIG = {
       // Use null to read max block number from excel files
       //"11155111": 8171100,    // SG time 22-Apr-2025 4:01:24 pm
       //"11155111": 8172607,     // First MintDeposit on testnet
+      //"11155111": 8180316,     // First BurnRedeem on testnet
       "11155111": null,
       "421614": 113946754,  
       "11155420": 22345149, 
       // Add more chain IDs and their start blocks as needed
     },
     END_BLOCK: {
-      // Use null for no end block
-      "11155111": null,
+      // Use null for no end block      
       //"11155111": 8172616,
+      //"11155111": 8180327,
+      "11155111": null,
       "421614": null,
       "11155420": null,
       // Add more chain IDs and their end blocks as needed
@@ -164,7 +166,7 @@ logTime("CONFIG loaded");
 
 // Define required dependencies for each feature
 const FEATURE_DEPENDENCIES = {
-  GENERATE_DEPOSITS_XLSX: ['excelJs'],
+  GENERATE_DEPOSITS_XLSX: CONFIG.DEPOSITS.PRINT_CLI_OUTPUT ? [] : ['excelJs'],
   GENERATE_DEPOSITS_QUEST2_XLSX: ['excelJs', 'axios'],
   GENERATE_MISSING_DEPOSITS_UTXOS_XLSX: ['excelJs', 'axios'],
   GENERATE_PUBKEY_XLSX: ['excelJs'],
@@ -173,7 +175,7 @@ const FEATURE_DEPENDENCIES = {
   GENERATE_DEPOSITS_STATUS_21_XLSX: ['excelJs', 'axios'],
   GENERATE_REDEMPTIONS_XLSX: ['excelJs'],  
   GENERATE_REDEMPTIONS_VIA_EVENTS: ['excelJs', 'axios', 'nearApi'],
-  GENERATE_EVM_BLOCKS_XLSX: ['excelJs', 'web3'],
+  GENERATE_EVM_BLOCKS_XLSX: ['excelJs', 'nearApi', 'web3'],
 };
 
 // Global variables for modules
@@ -315,9 +317,12 @@ function fixRecordText(recordText) {
   // Remove trailing commas before } or ]
   text = text.replace(/,(\s*[}\]])/g, '$1');
   
-  if (text.includes("WASM_HOST_COST") || text.includes("cloudflare") || text.includes("DOCTYPE")) {
+  /*
+  if (text.includes("WASM_HOST_COST") || text.includes("cloudflare")) {
     console.log(text);
   }
+  */
+
   return text;
 }
 
@@ -394,10 +399,15 @@ function parseRecordsSeparately(rawOutput) {
       const fixedText = fixRecordText(recordText);
       return JSON.parse(fixedText);
     } catch (e) {
-      console.error("Failed to parse record:", recordText);
+      // Extract BTC transaction hash from the record text
+      const match = recordText.match(/btc_txn_hash\s*:\s*['"]([^'"]+)['"]/);
+      const btcTxnHash = match ? match[1] : "unknown";
+      //console.error(`Failed to parse record for BTC transaction hash: ${btcTxnHash}`);
+      console.error(`near call `+ CONFIG.NEAR.CONTRACT +` rollback_deposit_status_by_btc_txn_hash '{"btc_txn_hash": "${btcTxnHash}"}' --accountId velar.testnet;`);
+      //console.error(recordText);
       return null;
     }
-  });
+  }).filter(record => record !== null);  // This will remove all null values from the array
   
   return records;
 }
@@ -1749,7 +1759,7 @@ async function processDepositsStatus21() {
     const filePath = path.join(__dirname, CONFIG.DEPOSITS_STATUS_21.OUTPUT_FILE);
     await exportToExcel(filteredDeposits, filePath);
     
-    // Read nearblocks.xlsx and create map of BTC Txn Hash to NEAR Txn Hash
+    // Read nearblocks_deposit.xlsx and create map of BTC Txn Hash to NEAR Txn Hash
     console.log(`⏳ Reading ${CONFIG.NEAR.OUTPUT_FILE_DEPOSIT} to create transaction map...`);
     const nearBlocksWorkbook = new excelJs.Workbook();
     const nearBlocksFilePath = path.join(__dirname, CONFIG.NEAR.OUTPUT_FILE_DEPOSIT);
@@ -2224,7 +2234,20 @@ function createEvmBlocksWorksheet(workbook) {
     { header: "EVM Txn Hash", key: "tx_hash", width: 70 },
     { header: "Wallet Address", key: "wallet", width: 30 },
     { header: "atBTC Amount", key: "amount", width: 15 },
-    { header: "Event Type", key: "event_type", width: 20 }
+    { header: "Event Type", key: "event_type", width: 20 },
+    // MintDeposit specific columns
+    { header: "MintDeposit BTC Txn Hash", key: "btcTxnHash", width: 70 },
+    // BurnRedeem specific columns
+    { header: "BurnRedeem BTC Address", key: "btcAddress", width: 42 },
+    // BurnBridge specific columns
+    { header: "BurnBridge Dest Chain ID", key: "destChainId", width: 20 },
+    { header: "BurnBridge Dest Chain Address", key: "destChainAddress", width: 42 },
+    { header: "BurnBridge Minting Fee Sat", key: "mintingFeeSat", width: 20 },
+    { header: "BurnBridge Bridging Fee Sat", key: "bridgingFeeSat", width: 20 },
+    // MintBridge specific columns
+    { header: "MintBridge Origin Chain ID", key: "originChainId", width: 20 },
+    { header: "MintBridge Origin Chain Address", key: "originChainAddress", width: 42 },
+    { header: "MintBridge Origin Txn Hash", key: "originTxnHash", width: 70 }
   ];
 
   worksheet.columns = columns;
@@ -2272,6 +2295,27 @@ async function processEvmBlockRange(chain, startBlock, endBlock) {
           event_type: event.event
         };
 
+        // Populate event-specific fields based on event type
+        switch (event.event) {
+          case "MintDeposit":
+            result.btcTxnHash = event.returnValues.btcTxnHash || "";
+            break;
+          case "BurnRedeem":
+            result.btcAddress = event.returnValues.btcAddress || "";
+            break;
+          case "BurnBridge":
+            result.destChainId = event.returnValues.destChainId || "";
+            result.destChainAddress = event.returnValues.destChainAddress || "";
+            result.mintingFeeSat = event.returnValues.mintingFeeSat ? Number(event.returnValues.mintingFeeSat) : 0;
+            result.bridgingFeeSat = event.returnValues.bridgingFeeSat ? Number(event.returnValues.bridgingFeeSat) : 0;
+            break;
+          case "MintBridge":
+            result.originChainId = event.returnValues.originChainId || "";
+            result.originChainAddress = event.returnValues.originChainAddress || "";
+            result.originTxnHash = event.returnValues.originTxnHash || "";
+            break;
+        }
+
         results.push(result);
         console.log(`Processed event ${event.event} in block ${event.blockNumber}`);
       } catch (error) {
@@ -2316,6 +2360,19 @@ async function saveEvmBlockResultsToExcel(blockResults, filePath) {
     newRow.getCell(5).value = result.wallet;
     newRow.getCell(6).value = result.amount;
     newRow.getCell(7).value = result.event_type;
+    // MintDeposit specific columns
+    newRow.getCell(8).value = result.btcTxnHash || "";
+    // BurnRedeem specific columns
+    newRow.getCell(9).value = result.btcAddress || "";
+    // BurnBridge specific columns
+    newRow.getCell(10).value = result.destChainId || "";
+    newRow.getCell(11).value = result.destChainAddress || "";
+    newRow.getCell(12).value = result.mintingFeeSat || 0;
+    newRow.getCell(13).value = result.bridgingFeeSat || 0;
+    // MintBridge specific columns
+    newRow.getCell(14).value = result.originChainId || "";
+    newRow.getCell(15).value = result.originChainAddress || "";
+    newRow.getCell(16).value = result.originTxnHash || "";
     await newRow.commit();
   }
 
@@ -2323,118 +2380,116 @@ async function saveEvmBlockResultsToExcel(blockResults, filePath) {
     await workbook.xlsx.writeFile(filePath);
     console.log(`Successfully saved ${blockResults.length} EVM block events to ${filePath}`);
   } catch (error) {
-    console.error(`Error saving file ${filePath}:`, error);
+    console.error(`Error saving EVM block results to Excel file ${filePath}:`, error);
     throw error;
   }
 }
 
 // Function to process and export EVM blocks
 async function processAndExportEvmBlocks() {
-  // Get chain configs using NEAR CLI
+  // Get chain configs using Near provider
   console.log("Getting chain configurations...");
-  const command = `near view ${CONFIG.NEAR.CONTRACT} get_all_chain_configs`;
   
-  const { stdout } = await new Promise((resolve, reject) => {
-    exec(command, (error, stdout, stderr) => {
-      if (error) {
-        reject(error);
-        return;
-      }
-      resolve({ stdout, stderr });
+  try {
+    // Call get_all_chain_configs view function directly using existing provider
+    const chainConfigs = await provider.query({
+      request_type: 'call_function',
+      finality: 'final',
+      account_id: CONFIG.NEAR.CONTRACT,
+      method_name: 'get_all_chain_configs',
+      args_base64: Buffer.from(JSON.stringify({})).toString('base64')
     });
-  });
-  
-  // Parse the chain configs - just remove the "View call:" line
-  const jsonStr = stdout.split('\n').slice(1).join('\n').trim();
-  
-  // Convert to valid JSON by adding quotes around property names and values
-  const validJsonStr = jsonStr
-    .replace(/(?:^|\s)(\w+):/g, ' "$1":')  // Add quotes around property names at start of line or after space
-    .replace(/'/g, '"');                   // Convert single quotes to double quotes
-  
-  const chainConfigs = JSON.parse(validJsonStr);
-  
-  // Filter EVM chains
-  const evmChains = chainConfigs.filter(chain => chain.network_type === 'EVM');
-  
-  console.log(`Found ${evmChains.length} EVM chains:`, evmChains);
-  
-  for (const chain of evmChains) {
-    //console.log(`Processing chain: ${JSON.stringify(chain)}`);
-    let startBlock;
-    if (CONFIG.EVM.START_BLOCK[chain.chain_id] === null) {
-      const maxBlockFromFiles = await findMaxBlockNumberFromFiles(
-        `${CONFIG.EVM.OUTPUT_FILE_PREFIX}${chain.chain_id}${CONFIG.EVM.OUTPUT_FILE_SUFFIX}`,
-        CONFIG.EVM.WORKSHEET_NAME
-      );
-      startBlock = maxBlockFromFiles + 1;
-      console.log(`Starting from block ${startBlock} (max block from files + 1)`);
-    } else {
-      startBlock = CONFIG.EVM.START_BLOCK[chain.chain_id];
-      console.log(`Starting from block ${startBlock} based on config`);
-    }
-
-    // Initialize web3 with chain's RPC URL
-    const chainProvider = new Web3(chain.chain_rpc_url);
+    //console.log(`Chain configs: ${chainConfigs}`);
     
-    while (true) {
-      // Get current block number
-      const currentBlock = Number(await chainProvider.eth.getBlockNumber());  // Convert BigInt to number
-      const endBlock = CONFIG.EVM.END_BLOCK[chain.chain_id] || currentBlock;
-
-      // If END_BLOCK is null, wait for enough new blocks
-      if (CONFIG.EVM.END_BLOCK[chain.chain_id] === null) {
-        const batchEndBlock = startBlock + CONFIG.EVM.BLOCKS_PER_THREAD - 1;
-        if (currentBlock < batchEndBlock) {
-          console.log(`⏳ Waiting for blocks to finalize... Latest finalized: ${currentBlock}, Needed: ${batchEndBlock}`);
-          await delay(5000); // Wait 5 seconds before checking again
-          continue;
-        }
+    // Parse the chain configs from the response    
+    const parsedChainConfigs = JSON.parse(Buffer.from(chainConfigs.result).toString());
+    //console.log(`Parsed chain configs: ${parsedChainConfigs}`);
+    
+    // Filter EVM chains
+    const evmChains = parsedChainConfigs.filter(chain => chain.network_type === 'EVM');
+    //console.log(`EVM chains: ${evmChains}`);
+    
+    //console.log(`Found ${evmChains.length} EVM chains:`, evmChains);
+    
+    for (const chain of evmChains) {
+      let startBlock;
+      if (CONFIG.EVM.START_BLOCK[chain.chain_id] === null) {
+        const maxBlockFromFiles = await findMaxBlockNumberFromFiles(
+          `${CONFIG.EVM.OUTPUT_FILE_PREFIX}${chain.chain_id}${CONFIG.EVM.OUTPUT_FILE_SUFFIX}`,
+          CONFIG.EVM.WORKSHEET_NAME
+        );
+        startBlock = maxBlockFromFiles + 1;
+        console.log(`Starting from block ${startBlock} (max block from files + 1)`);
+      } else {
+        startBlock = CONFIG.EVM.START_BLOCK[chain.chain_id];
+        console.log(`Starting from block ${startBlock} based on config`);
       }
 
-      console.log(`Processing chain_id ${chain.chain_id} from block ${startBlock} to ${endBlock}`);
-      const { results, threadErrors } = await processEvmBlockRange(chain, startBlock, endBlock);
+      // Initialize web3 with chain's RPC URL
+      const chainProvider = new Web3(chain.chain_rpc_url);
+      
+      while (true) {
+        // Get current block number
+        const currentBlock = Number(await chainProvider.eth.getBlockNumber());  // Convert BigInt to number
+        const endBlock = CONFIG.EVM.END_BLOCK[chain.chain_id] || currentBlock;
 
-      // Log errors to file if any occurred
-      if (threadErrors.length > 0) {
-        try {
-          // Extract just block numbers and ensure uniqueness
-          const filteredErrors = Array.from(new Set(
-            threadErrors          
-              .map(error => {
-                // Extract block number from error message
-                const blockMatch = error.match(/block (\d+)/);
-                return blockMatch ? blockMatch[1] : null;
-              })
-              .filter(blockNumber => blockNumber !== null)
-          )).join(',');
-
-          if (filteredErrors) {
-            const errorFilePath = `${CONFIG.EVM.OUTPUT_FILE_PREFIX}${chain.chain_id}${CONFIG.EVM.ERROR_OUTPUT_FILE_SUFFIX}`;
-            await fs.appendFile(errorFilePath, filteredErrors + ',');
-            console.log(`⚠️ Logged ${filteredErrors.split(',').length} unique error block numbers to ${errorFilePath}`);
+        // If END_BLOCK is null, wait for enough new blocks
+        if (CONFIG.EVM.END_BLOCK[chain.chain_id] === null) {
+          const batchEndBlock = startBlock + CONFIG.EVM.BLOCKS_PER_THREAD - 1;
+          if (currentBlock < batchEndBlock) {
+            console.log(`⏳ Waiting for blocks to finalize... Latest finalized: ${currentBlock}, Needed: ${batchEndBlock}`);
+            await delay(5000); // Wait 5 seconds before checking again
+            continue;
           }
-        } catch (error) {
-          console.error("❌ Error writing to error file:", error);
-          process.exit(1);
         }
+
+        console.log(`Processing chain_id ${chain.chain_id} from block ${startBlock} to ${endBlock}`);
+        const { results, threadErrors } = await processEvmBlockRange(chain, startBlock, endBlock);
+
+        // Log errors to file if any occurred
+        if (threadErrors.length > 0) {
+          try {
+            // Extract just block numbers and ensure uniqueness
+            const filteredErrors = Array.from(new Set(
+              threadErrors          
+                .map(error => {
+                  // Extract block number from error message
+                  const blockMatch = error.match(/block (\d+)/);
+                  return blockMatch ? blockMatch[1] : null;
+                })
+                .filter(blockNumber => blockNumber !== null)
+            )).join(',');
+
+            if (filteredErrors) {
+              const errorFilePath = `${CONFIG.EVM.OUTPUT_FILE_PREFIX}${chain.chain_id}${CONFIG.EVM.ERROR_OUTPUT_FILE_SUFFIX}`;
+              await fs.appendFile(errorFilePath, filteredErrors + ',');
+              console.log(`⚠️ Logged ${filteredErrors.split(',').length} unique error block numbers to ${errorFilePath}`);
+            }
+          } catch (error) {
+            console.error("❌ Error writing to error file:", error);
+            process.exit(1);
+          }
+        }
+
+        const filePath = `${CONFIG.EVM.OUTPUT_FILE_PREFIX}${chain.chain_id}${CONFIG.EVM.OUTPUT_FILE_SUFFIX}`;
+        await saveEvmBlockResultsToExcel(results, filePath);
+
+        // If END_BLOCK is specified, break the loop
+        if (CONFIG.EVM.END_BLOCK[chain.chain_id] !== null) {
+          break;
+        }
+
+        // Update startBlock for next iteration after processing current batch
+        startBlock = Number(endBlock) + 1;
+
+        // Add delay before processing next batch
+        console.log("Waiting 5 seconds before checking for new blocks...");
+        await delay(5000);
       }
-
-      const filePath = `${CONFIG.EVM.OUTPUT_FILE_PREFIX}${chain.chain_id}${CONFIG.EVM.OUTPUT_FILE_SUFFIX}`;
-      await saveEvmBlockResultsToExcel(results, filePath);
-
-      // If END_BLOCK is specified, break the loop
-      if (CONFIG.EVM.END_BLOCK[chain.chain_id] !== null) {
-        break;
-      }
-
-      // Update startBlock for next iteration after processing current batch
-      startBlock = Number(endBlock) + 1;
-
-      // Add delay before processing next batch
-      console.log("Waiting 5 seconds before checking for new blocks...");
-      await delay(5000);
     }
+  } catch (error) {
+    console.error("❌ Error processing EVM blocks:", error);
+    throw error;
   }
 }
 
