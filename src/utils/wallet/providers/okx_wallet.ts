@@ -23,11 +23,12 @@ import {
 export const okxProvider = "okxwallet";
 
 export class OKXWallet extends WalletProvider {
+  readonly id: string = "okx";
+  readonly name: string = "OKX";
   private okxWalletInfo: WalletInfo | undefined;
   private okxWallet: any;
   private bitcoinNetworkProvider: any;
   private networkEnv: Network | undefined;
-  readonly name: string = "OKX";
 
   constructor() {
     super();

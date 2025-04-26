@@ -114,6 +114,10 @@ export class Xverse extends WalletProvider {
   }
 
   async signMessageBIP322(message: string): Promise<string> {
+    console.log({
+      address: await this.getAddress(),
+      message,
+    });
     const response = await Wallet.request("signMessage", {
       address: await this.getAddress(),
       message,

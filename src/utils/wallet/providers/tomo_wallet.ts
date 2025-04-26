@@ -26,6 +26,7 @@ const INTERNAL_NETWORK_NAMES = {
 };
 
 export class TomoWallet extends WalletProvider {
+  readonly id: string = "tomo";
   readonly name: string = "Tomo";
   private tomoWalletInfo: WalletInfo | undefined;
   private bitcoinNetworkProvider: any;

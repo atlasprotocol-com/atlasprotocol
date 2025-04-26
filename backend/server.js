@@ -999,7 +999,7 @@ app.listen(PORT, async () => {
 
   console.log(`Server is running on port ${PORT} | ${nearConfig.contractId}`);
 
-  // runBatch().catch(console.error);
+  runBatch().catch(console.error);
 
   //Add the unstaking and withdrawal process to the job scheduler
   // setInterval(async () => {
