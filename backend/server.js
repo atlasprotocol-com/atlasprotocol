@@ -307,7 +307,7 @@ const getAllBridgingHistory = async () => {
 // Function to poll Btc mempool records
 const getBtcMempoolRecords = async () => {
   try {
-    console.log("[getBtcMempoolRecords] etching Btc Mempool Records");
+    console.log("[getBtcMempoolRecords] Fetching Btc Mempool Records");
     const latestestBtcMempool = await bitcoin.fetchTxnsByAddress(btcAtlasDepositAddress);
     btcMempool = latestestBtcMempool;
     //btcMempool = await bitcoin.fetchUTXOs(btcAtlasDepositAddress);
@@ -514,8 +514,8 @@ app.get("/api/v1/staker/redemptionHistories", async (req, res) => {
       return res.status(400).json({ error: "ERR_MISSING_WALLET_ADDRESS" });
     }
 
-    await getAllRedemptionHistory();
-    await computeStats();
+    // await getAllRedemptionHistory();
+    // await computeStats();
 
     const data = redemptions
       .filter((record) => record.btc_receiving_address === btc_address)
