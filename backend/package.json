@@ -21,6 +21,7 @@
     "bitcoinjs-lib": "6.1.6",
     "bitcoinjs-message": "^2.2.0",
     "bitcore-lib": "^8.25.47",
+    "body-parser": "^2.2.0",
     "borsh": "^0.7.0",
     "borsher": "^3.6.0",
     "cors": "2.8.5",

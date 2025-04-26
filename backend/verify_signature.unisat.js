@@ -1,24 +1,4 @@
-const bitcore_lib_1 = require("bitcore-lib");
-
-function verifyMessage(publicKey, text, sig) {
-  const message = new bitcore_lib_1.Message(text);
-  var signature = bitcore_lib_1.crypto.Signature.fromCompact(
-    Buffer.from(sig, "base64"),
-  );
-  var hash = message.magicHash();
-  // recover the public key
-  var ecdsa = new bitcore_lib_1.crypto.ECDSA();
-  ecdsa.hashbuf = hash;
-  ecdsa.sig = signature;
-  const pubkeyInSig = ecdsa.toPublicKey();
-  const pubkeyInSigString = new bitcore_lib_1.PublicKey(
-    Object.assign({}, pubkeyInSig.toObject(), { compressed: true }),
-  ).toString();
-  if (pubkeyInSigString != publicKey) {
-    return false;
-  }
-  return bitcore_lib_1.crypto.ECDSA.verify(hash, signature, pubkeyInSig);
-}
+const verifySignature = require("./utils/verifySignature");
 
 const data = {
   id: "unisat",
@@ -33,5 +13,4 @@ const data = {
     "IE4/pWWHTtMwHHhwMZdpDrRLPwLsKbP5rEXuYQ3ne/GYIKabWkLNlQih/AVnVYK7TLazUFnN4M+W8cWg6JgfTRs=",
 };
 
-const result = verifyMessage(data.publicKey, data.message, data.signature);
-console.log(result);
+verifySignature(data).then(console.log).catch(console.error);

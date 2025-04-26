@@ -1,4 +1,4 @@
-const bitcoinMessage = require("bitcoinjs-message");
+const verifySignature = require("./utils/verifySignature");
 
 const data = {
   id: "xverse",
@@ -11,9 +11,5 @@ const data = {
   signature:
     "JwjVW1NpEOgCAwa25gH18SVVPkuBXamh98yU7ZwqE2ubEoDgOuuSBT5XSQ5HjT+0dSINcgMxrzVTyd4/fGx8Fyo=",
 };
-const result = bitcoinMessage.verify(
-  data.message,
-  data.address,
-  data.signature,
-);
-console.log(result);
+
+verifySignature(data).then(console.log).catch(console.error);
