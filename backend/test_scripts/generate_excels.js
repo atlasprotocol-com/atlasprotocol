@@ -14,13 +14,13 @@ logTime("Script started");
 
 // Configuration flags for file generation
 const CONFIG = {
-  GENERATE_DEPOSITS_XLSX: true,        // Set to true to enable deposits.xlsx generation
+  GENERATE_DEPOSITS_XLSX: false,        // Set to true to enable deposits.xlsx generation
   GENERATE_DEPOSITS_QUEST2_XLSX: false,  // Set to true to enable deposits-quest2.xlsx generation
   GENERATE_MISSING_DEPOSITS_UTXOS_XLSX: false,           // Set to true to enable UTXOs.xlsx generation
   GENERATE_PUBKEY_XLSX: false,          // Set to true to enable pubkeys.xlsx generation
   GENERATE_NEAR_BLOCKS_XLSX: false,      // Set to true to enable nearblocks.xlsx generation
   ADD_MISSING_NEAR_BLOCKS_XLSX: false,    // Set to true to process missing blocks from error file
-  GENERATE_DEPOSITS_STATUS_21_XLSX: false,     // Set to true to process deposits with status 21
+  GENERATE_DEPOSITS_STATUS_21_XLSX: true,     // Set to true to process deposits with status 21
   GENERATE_REDEMPTIONS_XLSX: false,      // Set to true to enable redemptions.xlsx generation
   GENERATE_REDEMPTIONS_VIA_EVENTS: false,  // Generate redemptions via events from Excel
   GENERATE_EVM_BLOCKS_XLSX: false,      // Set to true to enable evmblocks.xlsx generation
@@ -160,8 +160,12 @@ const CONFIG = {
     OUTPUT_FILE_SUFFIX: "_events.xlsx",
     ERROR_OUTPUT_FILE_SUFFIX: "_errors.txt",
     WORKSHEET_NAME: "EVM Blocks",
-    //THREAD_COUNT: 10,  // Number of parallel threads to process blocks
-    BLOCKS_PER_THREAD: 10  // Number of blocks each thread processes
+    //THREAD_COUNT: 10,  // No parallel threads are used
+    BLOCKS_PER_THREAD: 10,  // Number of blocks each thread processes
+    COLUMNS: {
+      EVM_TXN_HASH: 4,  // Column index for EVM Txn Hash  
+      BTC_TXN_HASH: 8,  // Column index for BTC Txn Hash
+    }
   },
 };
 
@@ -1822,11 +1826,56 @@ async function processDepositsStatus21() {
     }
     console.log(`✅ Created map with ${nearTxnMap.size} NEAR transaction records`);
     
+    // Create a map of BTC Txn Hash to NEAR/EVM Txn Hash
+    const btcToNearEVMTxnMap = new Map();
+    
+    // Add NEAR transactions to map
+    for (let rowNumber = 2; rowNumber <= nearBlocksWorksheet.rowCount; rowNumber++) {
+      const row = nearBlocksWorksheet.getRow(rowNumber);
+      const btcTxnHash = row.getCell(CONFIG.NEAR.COLUMNS.BTC_TXN_HASH).value;
+      const nearTxnHash = row.getCell(CONFIG.NEAR.COLUMNS.NEAR_TXN_HASH).value;
+      if (btcTxnHash && nearTxnHash) {
+        btcToNearEVMTxnMap.set(btcTxnHash, nearTxnHash);
+      }
+    }
+    console.log(`✅ Added ${btcToNearEVMTxnMap.size} NEAR transaction records to map`);
+
+    // Read all EVM blocks event files and add to map
+    const evmFiles = (await fs.readdir(__dirname))
+      .filter(file => file.startsWith(CONFIG.EVM.OUTPUT_FILE_PREFIX) && file.endsWith(CONFIG.EVM.OUTPUT_FILE_SUFFIX));
+    
+    for (const file of evmFiles) {
+      console.log(`⏳ Reading EVM blocks file: ${file}`);
+      const evmWorkbook = new excelJs.Workbook();
+      const evmFilePath = path.join(__dirname, file);
+      await evmWorkbook.xlsx.readFile(evmFilePath);
+      
+      const evmWorksheet = evmWorkbook.getWorksheet(1) || evmWorkbook.worksheets[0];
+      if (!evmWorksheet) {
+        console.log(`⚠️ No EVM blocks worksheet found in ${file}, skipping...`);
+        continue;
+      }
+
+      let evmCount = 0;
+      for (let rowNumber = 2; rowNumber <= evmWorksheet.rowCount; rowNumber++) {
+        const row = evmWorksheet.getRow(rowNumber);
+        const btcTxnHash = row.getCell(CONFIG.EVM.COLUMNS.BTC_TXN_HASH).value;
+        const evmTxnHash = row.getCell(CONFIG.EVM.COLUMNS.EVM_TXN_HASH).value;
+        if (btcTxnHash && evmTxnHash) {
+          btcToNearEVMTxnMap.set(btcTxnHash, evmTxnHash);
+          evmCount++;
+        }
+      }
+      console.log(`✅ Added ${evmCount} EVM transaction records from ${file}`);
+    }
+    
+    console.log(`✅ Final map contains ${btcToNearEVMTxnMap.size} total transaction records`);
+
     // Now process each record by calling the API
     console.log("\n⏳ Processing records by calling API...");
     let successCount = 0;
     let failedCount = 0;
-    let noMatchingNearTxn = 0;
+    let noMatchingTxn = 0;
     let filteredRecords = 0;
     
     for (const deposit of filteredDeposits) {
@@ -1834,12 +1883,12 @@ async function processDepositsStatus21() {
       console.log(`\n⏳ Processing record ${filteredRecords} of ${filteredDeposits.length}: ${deposit.btc_txn_hash}`);
       
       try {
-        // Find corresponding NEAR transaction hash from map
-        const nearTxnHash = nearTxnMap.get(deposit.btc_txn_hash);
+        // Find corresponding NEAR/EVM transaction hash from map
+        const txnHash = btcToNearEVMTxnMap.get(deposit.btc_txn_hash);
         
-        if (!nearTxnHash) {
-          console.log(`⚠️ No matching NEAR transaction found for BTC Txn Hash: ${deposit.btc_txn_hash}`);
-          noMatchingNearTxn++;
+        if (!txnHash) {
+          console.log(`⚠️ No matching transaction found for BTC Txn Hash: ${deposit.btc_txn_hash}`);
+          noMatchingTxn++;
           failedCount++;
           continue;
         }
@@ -1850,11 +1899,11 @@ async function processDepositsStatus21() {
           const apiUrl = CONFIG.DEPOSITS_STATUS_21.RUN_LOCAL 
             ? CONFIG.DEPOSITS_STATUS_21.LOCAL_API_ENDPOINT 
             : CONFIG.DEPOSITS_STATUS_21.SERVER_API_ENDPOINT;
-          const requestUrl = `${apiUrl}?btcTxnHash=${deposit.btc_txn_hash}&mintedTxnHash=${nearTxnHash}`;
+          const requestUrl = `${apiUrl}?btcTxnHash=${deposit.btc_txn_hash}&mintedTxnHash=${txnHash}`;
           console.log(`✅ Processing deposit status via API: ${requestUrl}`);
           
           const response = CONFIG.DEPOSITS_STATUS_21.RUN_LOCAL
-            ? await axios.post(apiUrl, { btcTxnHash: deposit.btc_txn_hash, mintedTxnHash: nearTxnHash }, {
+            ? await axios.post(apiUrl, { btcTxnHash: deposit.btc_txn_hash, mintedTxnHash: txnHash }, {
                 headers: {
                   'Content-Type': 'application/json',
                   'Accept': 'application/json'
@@ -1904,7 +1953,7 @@ async function processDepositsStatus21() {
     console.log("\n📊 Final Processing Summary:");
     console.log(`✅ Successfully processed: ${successCount}`);
     console.log(`❌ Failed to process: ${failedCount}`);
-    console.log(`⚠️ No matching NEAR transaction: ${noMatchingNearTxn}`);
+    console.log(`⚠️ No matching NEAR/EVM transaction: ${noMatchingTxn}`);
     
   } catch (error) {
     console.error("❌ Error processing deposits with status 21:", error);
