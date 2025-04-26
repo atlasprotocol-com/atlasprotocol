@@ -61,6 +61,9 @@ async function UpdateAtlasBtcDeposits(
     console.log(`${batchName} completed successfully.`);
   } catch (error) {
     console.error(`Error ${batchName}:`, error);
+    // Pause execution for 1 minute before continuing
+    await new Promise(resolve => setTimeout(resolve, 60000));
+    console.log("Pausing for 1 minute before continuing...");
   } finally {
     flagsBatch.UpdateAtlasBtcDepositsRunning = false;
   }

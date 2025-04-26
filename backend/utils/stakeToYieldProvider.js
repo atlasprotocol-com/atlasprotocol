@@ -65,7 +65,11 @@ async function StakeToYieldProvider(allDeposits, near, bitcoinInstance) {
 
       console.log("filteredDeposits in stakeToYieldProvider: ", filteredDeposits.length);
 
-      const allUTXOs = await bitcoinInstance.fetchUTXOs(address);
+      let allUTXOs;
+      
+      if (filteredDeposits.length > 0) {
+        allUTXOs = await bitcoinInstance.fetchUTXOs(address);
+      }
 
       for (let i = 0; i < filteredDeposits.length; i++) {
         const depositRecord = filteredDeposits[i];

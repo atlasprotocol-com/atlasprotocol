@@ -307,11 +307,12 @@ const getAllBridgingHistory = async () => {
 // Function to poll Btc mempool records
 const getBtcMempoolRecords = async () => {
   try {
-    //console.log("Fetching Btc Mempool Records");
-    btcMempool = await bitcoin.fetchTxnsByAddress(btcAtlasDepositAddress);
+    console.log("[getBtcMempoolRecords] etching Btc Mempool Records");
+    const latestestBtcMempool = await bitcoin.fetchTxnsByAddress(btcAtlasDepositAddress);
+    btcMempool = latestestBtcMempool;
     //btcMempool = await bitcoin.fetchUTXOs(btcAtlasDepositAddress);
   } catch (error) {
-    console.error(`Failed to fetch Btc Mempool records: ${error.message}`);
+    console.error(`[getBtcMempoolRecords] Failed to fetch Btc Mempool records: ${error.message}`);
   }
 };
 
@@ -324,23 +325,36 @@ const getBithiveRecords = async () => {
   flagsBatch.GetBithiveRecordsRunning = true;
 
   try {
-    //console.log("[getBithiveRecords] Starting at", new Date().toISOString());
+    console.log("[getBithiveRecords] Starting at", new Date().toISOString());
     const { publicKey } = await bitcoin.deriveBTCAddress(near);
-    //console.log("[getBithiveRecords] Got public key, fetching deposits");
-    const newRecords = await getBithiveDeposits(
-      publicKey.toString("hex"),
-      deposits.length,
-      lastBithiveOffset
-    );
+    console.log("[getBithiveRecords] Got public key, fetching deposits");
+
+    const PAGE_SIZE = 10000;
+    let allRecords = [];
+    let currentOffset = 0;
+
+    while (currentOffset < deposits.length) {
+      const newRecords = await getBithiveDeposits(
+        publicKey.toString("hex"),
+        PAGE_SIZE,
+        currentOffset
+      );
+      
+      if (newRecords.length === 0) {
+        break;
+      }
+
+      allRecords = [...allRecords, ...newRecords];
+      currentOffset += PAGE_SIZE;
+      
+      console.log(`[getBithiveRecords] Fetched ${allRecords.length} records so far`);
+    }
     
-    // Update the last fetched offset
-    lastBithiveOffset += newRecords.length;
-    
-    // Append new records to existing ones
-    bithiveRecords = [...bithiveRecords, ...newRecords];
+    // Update the global records
+    bithiveRecords = allRecords;
     
     console.log("[getBithiveRecords] Total records:", bithiveRecords.length);
-    //console.log("[getBithiveRecords] Completed at", new Date().toISOString());
+    console.log("[getBithiveRecords] Completed at", new Date().toISOString());
   } catch (error) {
     console.error(`[getBithiveRecords] Failed: ${error.message}`);
   } finally {
@@ -931,7 +945,7 @@ app.get('/api/v1/update-send-to-user-btc-txn-hash', async (req, res) => {
 });
 
 async function runBatch() {
-  await getBtcMempoolRecords();
+  //await getBtcMempoolRecords();
   await getAllBridgingHistory();
   await computeStats();
 
@@ -941,14 +955,6 @@ async function runBatch() {
     deposits,
     redemptions,
     bridgings,
-  );
-
-  await UpdateAtlasBtcDeposits(
-    btcMempool,
-    btcAtlasDepositAddress,
-    globalParams.atlasTreasuryAddress,
-    near,
-    bitcoin,
   );
 
   // await WithdrawFailDeposits(deposits, near, bitcoin);
@@ -991,6 +997,17 @@ app.listen(PORT, async () => {
   // }, 60000); // Run every 1 minute
 
   setInterval(async () => {
+    await getBtcMempoolRecords();
+    await UpdateAtlasBtcDeposits(
+      btcMempool,
+      btcAtlasDepositAddress,
+      globalParams.atlasTreasuryAddress,
+      near,
+      bitcoin,
+    );
+  }, 60000); // 1 minute
+  
+  setInterval(async () => {
     await getAllDepositHistory();
   }, 5000);
 
@@ -1000,15 +1017,12 @@ app.listen(PORT, async () => {
 
   setInterval(async () => {
     await getBithiveRecords();
-  }, 5000);
-
-  setInterval(async () => {
     await UpdateYieldProviderStaked(deposits, bithiveRecords, near);
-  }, 10000);
+  }, 1800000); // 30 minutes
 
   setInterval(async () => {
-    await UpdateAtlasAbtcMinted(deposits, near);
-  }, 10000);
+    await UpdateAtlasBtcDeposited(deposits, near, bitcoin);
+  }, 1800000); // 30 minutes
 
   setInterval(async () => {
     await StakeToYieldProvider(deposits, near, bitcoin);
@@ -1019,7 +1033,7 @@ app.listen(PORT, async () => {
   }, 10000);
 
   setInterval(async () => {
-    await UpdateAtlasBtcDeposited(deposits, near, bitcoin);
+    await UpdateAtlasAbtcMinted(deposits, near);
   }, 10000);
   
   setInterval(async () => {
@@ -1042,5 +1056,3 @@ app.listen(PORT, async () => {
     await UpdateAtlasBtcBackToUser(redemptions, near, bitcoin);
   }, 10000);
 });
-
-

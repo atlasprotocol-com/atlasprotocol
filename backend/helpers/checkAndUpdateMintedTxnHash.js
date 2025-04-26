@@ -48,27 +48,25 @@ async function checkAndUpdateMintedTxnHash(btcTxnHash, near, mintedTxnHash) {
 
     if (chainConfig.networkType === NETWORK_TYPE.EVM) {
       // For EVM chains
-      // const ethereum = new Ethereum(
-      //   chainConfig.chainID,
-      //   chainConfig.chainRpcUrl,
-      //   chainConfig.gasLimit,
-      //   chainConfig.aBTCAddress,
-      //   chainConfig.abiPath,
-      // );
+      const ethereum = new Ethereum(
+        chainConfig.chainID,
+        chainConfig.chainRpcUrl,
+        chainConfig.gasLimit,
+        chainConfig.aBTCAddress,
+        chainConfig.abiPath,
+      );
 
-      // // Get past events in batches
-      // const events = await ethereum.getPastEventsInBatches(
-      //   mintedTxnHash - 2,
-      //   mintedTxnHash + 2,
-      //   chainConfig.aBTCAddress,
-      // );
+      // Fetch event using mintedTxnHash
+      const event = await ethereum.fetchEventByTxnHashAndEventName(mintedTxnHash, EVENT_NAME.MINT_DEPOSIT);
 
-      // console.log(events);
+      if (!event) {
+        console.log(`No mint deposit event found for mintedTxnHash: ${mintedTxnHash}`);
+        return false;
+      }
 
-      // // Find matching event
-      // matchingEvent = events.find(
-      //   (event) => event.returnValues?.btcTxnHash === btcTxnHash,
-      // );
+      // Process the event
+      await processMintDepositEvent(event, near);
+      return true;
 
     } else if (chainConfig.networkType === NETWORK_TYPE.NEAR) {
       const events = await near.getPastEventsByMintedTxnHash(mintedTxnHash);
