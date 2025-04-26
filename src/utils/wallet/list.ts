@@ -34,19 +34,19 @@ export const walletList: IntegratedWallet[] = [
       Network.TESTNET4,
     ],
   },
-  // {
-  //   name: "Xverse",
-  //   icon: xverseIcon,
-  //   wallet: Xverse,
-  //   provider: xverseProvider,
-  //   linkToDocs: "https://www.xverse.app/",
-  //   supportedNetworks: [
-  //     Network.MAINNET,
-  //     Network.SIGNET,
-  //     Network.TESTNET,
-  //     Network.TESTNET4,
-  //   ],
-  // },
+  {
+    name: "Xverse",
+    icon: xverseIcon,
+    wallet: Xverse,
+    provider: xverseProvider,
+    linkToDocs: "https://www.xverse.app/",
+    supportedNetworks: [
+      Network.MAINNET,
+      Network.SIGNET,
+      Network.TESTNET,
+      Network.TESTNET4,
+    ],
+  },
   // {
   //   name: "OKX",
   //   icon: okxIcon,

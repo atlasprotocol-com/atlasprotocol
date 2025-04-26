@@ -43,6 +43,7 @@ export type WalletInfo = {
  */
 
 export abstract class WalletProvider {
+  public id: string | undefined;
   public name: string | undefined;
 
   /**
