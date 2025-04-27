@@ -113,7 +113,7 @@ const Home: React.FC<HomeProps> = () => {
   }, []);
 
   useEffect(() => {
-    let timer: NodeJS.Timeout;
+    let timer: ReturnType<typeof setInterval>;
     if (address) {
       timer = setInterval(() => {
         refetchBalance();
