@@ -1,6 +1,7 @@
 "use client";
 
 import React, { Suspense, useEffect, useState } from "react";
+import { ToastContainer } from "react-toastify";
 import Wallet from "sats-connect";
 
 import { network } from "@/config/network.config";
@@ -251,6 +252,7 @@ const Home: React.FC<HomeProps> = () => {
         </main>
       </TooltipProvider>
       <Footer />
+      <ToastContainer />
     </AppContext.Provider>
   );
 };

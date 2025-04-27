@@ -1,10 +1,10 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { BsExclamationDiamondFill, BsInfoCircleFill } from "react-icons/bs";
 import InfiniteScroll from "react-infinite-scroll-component";
 import { useLocalStorage } from "usehooks-ts";
 
 import { ATLAS_BTC_TOKEN, useAppContext } from "@/app/context/app";
-import { useGetStakingHistory } from "@/app/hooks/history";
+import { useGetStakingHistory, useRetryTransaction } from "@/app/hooks/history";
 import { DepositStatus, getStatusMessage, Stakes } from "@/app/types/stakes";
 import { getNetworkConfig } from "@/config/network.config";
 import { useGetChainConfig } from "@/hooks";
@@ -26,6 +26,8 @@ import {
   TableRow,
 } from "../Table";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../Tooltip";
+
+import { ConfirmRetryDialog } from "./ConfirmRetryDialog/ConfirmRetryDialog";
 
 interface StakeHistoryWithAmountInfo extends Stakes {
   amountInfo: {
@@ -149,24 +151,21 @@ export function StakeHistory() {
     };
   }
 
-  async function withDrawFailedDeposit(stakingHistory: Stakes) {
-    const publicKey = await btcWallet?.getPublicKeyHex();
-    const address = await btcWallet?.getAddress();
-    const message = [address, stakingHistory.btcTxnHash].join(",");
-    const signature = await btcWallet?.signMessageBIP322(message);
-    const data = {
-      id: btcWallet?.id,
-      publicKey,
-      address,
-      btcTxnHash: stakingHistory.btcTxnHash,
-      message,
-      signature,
-    };
-    console.log(JSON.stringify(data));
-  }
+  const [retryDialogOpen, setRetryDialogOpen] = useState<Stakes | undefined>();
+
+  const retryTransaction = useRetryTransaction();
 
   return (
     <Card>
+      <ConfirmRetryDialog
+        open={!!retryDialogOpen}
+        onClose={() => setRetryDialogOpen(undefined)}
+        onRetry={() => {
+          if (!retryDialogOpen) return;
+          retryTransaction.mutate(retryDialogOpen);
+        }}
+        isPending={retryTransaction.isPending}
+      />
       <h3 className="text-2xl font-bold">Staking History</h3>
       <div className="mt-4">
         {sortedStakingHistoriesData.length === 0 ? (
@@ -409,12 +408,7 @@ export function StakeHistory() {
                                 {stakingHistory.remarks && (
                                   <Tooltip>
                                     <TooltipTrigger>
-                                      <span
-                                        className="text-red-500"
-                                        onClick={async () =>
-                                          withDrawFailedDeposit(stakingHistory)
-                                        }
-                                      >
+                                      <span className="text-red-500">
                                         <BsExclamationDiamondFill />
                                       </span>
                                     </TooltipTrigger>
@@ -425,11 +419,7 @@ export function StakeHistory() {
                                 )}
                                 <Tooltip>
                                   <TooltipTrigger>
-                                    <span
-                                      onClick={async () =>
-                                        withDrawFailedDeposit(stakingHistory)
-                                      }
-                                    >
+                                    <span>
                                       <BsInfoCircleFill />
                                     </span>
                                   </TooltipTrigger>
@@ -444,6 +434,16 @@ export function StakeHistory() {
                                 <span className=" px-2 py-0.5 bg-secondary-200 dark:bg-secondary-900 text-secondary-800 dark:text-secondary-700 rounded-[30px] justify-center items-center gap-px inline-flex text-[12px] font-semibold">
                                   {getStatusMessage(stakingHistory.status)}
                                 </span>
+                                {stakingHistory.remarks && (
+                                  <button
+                                    className="ml-1 text-primary hover:underline text-sm"
+                                    onClick={async () =>
+                                      setRetryDialogOpen(stakingHistory)
+                                    }
+                                  >
+                                    Retry
+                                  </button>
+                                )}
                               </div>
                             </TableCell>
                           </TableRow>

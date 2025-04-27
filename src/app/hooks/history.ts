@@ -1,4 +1,7 @@
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation } from "@tanstack/react-query";
+import { toast } from "react-toastify";
+
+import { Stakes } from "@/app/types/stakes";
 
 import {
   getBridgeHistories,
@@ -12,11 +15,12 @@ import {
   getStakingHistories,
   PaginatedStakingHistories,
 } from "../api/getStakingHistories";
+import { retryTransaction } from "../api/retry";
+import { useAppContext } from "../context/app";
 
 export function useGetStakingHistory({
   address,
   publicKeyNoCoord,
-  isErrorOpen,
 }: {
   address?: string;
   publicKeyNoCoord?: string;
@@ -44,7 +48,7 @@ export function useGetStakingHistory({
 
       return flattenedData;
     },
-    retry: (failureCount, error) => {
+    retry: (failureCount) => {
       return failureCount <= 3;
     },
   });
@@ -81,7 +85,7 @@ export function useGetRedemptionHistory({
 
       return flattenedData;
     },
-    retry: (failureCount, error) => {
+    retry: (failureCount) => {
       return !isErrorOpen && failureCount <= 3;
     },
   });
@@ -111,8 +115,42 @@ export function useGetBridgeHistory({ address }: { address?: string }) {
 
       return flattenedData;
     },
-    retry: (failureCount, error) => {
+    retry: (failureCount) => {
       return failureCount <= 3;
+    },
+  });
+}
+
+export function useRetryTransaction() {
+  const { btcWallet } = useAppContext();
+
+  async function withDrawFailedDeposit(stakingHistory: Stakes) {
+    const publicKey = await btcWallet?.getPublicKeyHex();
+    const address = await btcWallet?.getAddress();
+    const message = [address, stakingHistory.btcTxnHash].join(",");
+    const signature = await btcWallet?.signMessageBIP322(message);
+    const data = {
+      id: btcWallet?.id,
+      publicKey,
+      address,
+      btcTxnHash: stakingHistory.btcTxnHash,
+      message,
+      signature,
+    };
+    return data;
+  }
+
+  return useMutation({
+    mutationFn: async (stakingHistory: Stakes) => {
+      const data = await withDrawFailedDeposit(stakingHistory);
+      await retryTransaction(data);
+    },
+    onSuccess: () => {
+      toast.success("Transaction retried");
+    },
+    onError: (error) => {
+      toast.error("Transaction retry failed");
+      console.error(error);
     },
   });
 }
