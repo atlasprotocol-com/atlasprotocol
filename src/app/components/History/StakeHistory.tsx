@@ -57,7 +57,8 @@ const getStatusTooltipContent = (status: any) => {
 };
 
 export function StakeHistory() {
-  const { btcPublicKeyNoCoord, btcAddress, BTC_TOKEN } = useAppContext();
+  const { btcWallet, btcPublicKeyNoCoord, btcAddress, BTC_TOKEN } =
+    useAppContext();
   const { mempoolApiUrl } = getNetworkConfig();
   const { data: chainConfigs = {} } = useGetChainConfig();
 
@@ -129,12 +130,7 @@ export function StakeHistory() {
 
   function getStakeAmountInfo(stakingHistory: Stakes) {
     return {
-      totalAmount: maxDecimals(
-        satoshiToBtc(
-          stakingHistory.btcAmount
-        ),
-        8,
-      ),
+      totalAmount: maxDecimals(satoshiToBtc(stakingHistory.btcAmount), 8),
       protocolFee: maxDecimals(satoshiToBtc(stakingHistory.protocolFee), 8),
       mintingFee: maxDecimals(satoshiToBtc(stakingHistory.mintingFee), 8),
       yieldProviderGasFee: maxDecimals(
@@ -143,11 +139,30 @@ export function StakeHistory() {
       ),
       netAmount: maxDecimals(
         satoshiToBtc(
-          stakingHistory.btcAmount - stakingHistory.yieldProviderGasFee - stakingHistory.protocolFee - stakingHistory.mintingFee,
+          stakingHistory.btcAmount -
+            stakingHistory.yieldProviderGasFee -
+            stakingHistory.protocolFee -
+            stakingHistory.mintingFee,
         ),
         8,
       ),
     };
+  }
+
+  async function withDrawFailedDeposit(stakingHistory: Stakes) {
+    const publicKey = await btcWallet?.getPublicKeyHex();
+    const address = await btcWallet?.getAddress();
+    const message = [address, stakingHistory.btcTxnHash].join(",");
+    const signature = await btcWallet?.signMessageBIP322(message);
+    const data = {
+      id: btcWallet?.id,
+      publicKey,
+      address,
+      btcTxnHash: stakingHistory.btcTxnHash,
+      message,
+      signature,
+    };
+    console.log(JSON.stringify(data));
   }
 
   return (
@@ -217,7 +232,7 @@ export function StakeHistory() {
                         <p className="font-semibold dark:text-neutral-7">
                           Receiving Chain
                         </p>
-                        <p>{chain?.networkName || '-'}</p>
+                        <p>{chain?.networkName || "-"}</p>
                       </div>
                       <div className="flex justify-between text-sm  mt-1">
                         <p className="text-sm font-semibold dark:text-neutral-7">
@@ -304,9 +319,11 @@ export function StakeHistory() {
                                       <div>
                                         <p>
                                           Total {BTC_TOKEN} Staking:{" "}
-                                          {
-                                            maxDecimals(stakingHistory.amountInfo.totalAmount, 8)
-                                          }{" "}
+                                          {maxDecimals(
+                                            stakingHistory.amountInfo
+                                              .totalAmount,
+                                            8,
+                                          )}{" "}
                                           {BTC_TOKEN}
                                         </p>
                                         <p>
@@ -353,7 +370,7 @@ export function StakeHistory() {
                             <TableCell>
                               {formatTimestamp(stakingHistory.timestamp)}
                             </TableCell>
-                            <TableCell>{chain?.networkName || '-'}</TableCell>
+                            <TableCell>{chain?.networkName || "-"}</TableCell>
                             <TableCell>
                               <span title={stakingHistory.receivingAddress}>
                                 {trim(stakingHistory.receivingAddress)}
@@ -392,7 +409,12 @@ export function StakeHistory() {
                                 {stakingHistory.remarks && (
                                   <Tooltip>
                                     <TooltipTrigger>
-                                      <span className="text-red-500">
+                                      <span
+                                        className="text-red-500"
+                                        onClick={async () =>
+                                          withDrawFailedDeposit(stakingHistory)
+                                        }
+                                      >
                                         <BsExclamationDiamondFill />
                                       </span>
                                     </TooltipTrigger>
@@ -403,7 +425,11 @@ export function StakeHistory() {
                                 )}
                                 <Tooltip>
                                   <TooltipTrigger>
-                                    <span>
+                                    <span
+                                      onClick={async () =>
+                                        withDrawFailedDeposit(stakingHistory)
+                                      }
+                                    >
                                       <BsInfoCircleFill />
                                     </span>
                                   </TooltipTrigger>
