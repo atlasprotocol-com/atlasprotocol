@@ -955,7 +955,7 @@ app.get("/api/v1/update-send-to-user-btc-txn-hash", async (req, res) => {
   }
 });
 
-app.use("/api/v1/depoists", useDepositAPIs(near, bitcoin));
+app.use("/api/v1/deposits", useDepositAPIs(near, bitcoin));
 
 app.use((err, req, res, next) => {
   console.error(err.stack);
