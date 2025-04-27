@@ -80,17 +80,13 @@ const {
   UpdateAtlasRedemptionPendingBtcMempool,
 } = require("./utils/updateAtlasRedemptionPendingBtcMempool");
 
-const useDepositAPIs = require("./apis/deposit");
-
 const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
-const { json } = require("body-parser");
 
 const app = express();
 app.use(cors());
 app.use(helmet());
-app.use(json());
 
 const { Bitcoin } = require("./services/bitcoin");
 const { Near } = require("./services/near");
@@ -310,7 +306,7 @@ const getAllBridgingHistory = async () => {
 // Function to poll Btc mempool records
 const getBtcMempoolRecords = async () => {
   try {
-    console.log("[getBtcMempoolRecords] etching Btc Mempool Records");
+    console.log("[getBtcMempoolRecords] Fetching Btc Mempool Records");
     const latestestBtcMempool = await bitcoin.fetchTxnsByAddress(
       btcAtlasDepositAddress,
     );
@@ -523,8 +519,8 @@ app.get("/api/v1/staker/redemptionHistories", async (req, res) => {
       return res.status(400).json({ error: "ERR_MISSING_WALLET_ADDRESS" });
     }
 
-    await getAllRedemptionHistory();
-    await computeStats();
+    // await getAllRedemptionHistory();
+    // await computeStats();
 
     const data = redemptions
       .filter((record) => record.btc_receiving_address === btc_address)
@@ -965,7 +961,7 @@ app.use((err, req, res, next) => {
 });
 
 async function runBatch() {
-  await getBtcMempoolRecords();
+  //await getBtcMempoolRecords();
   await getAllBridgingHistory();
   await computeStats();
 
