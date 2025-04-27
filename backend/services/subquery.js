@@ -116,6 +116,7 @@ async function getBurnBridgeEntities(network, transactions) {
 }
 
 function detectNetwork(rpcUrl) {
+  if (!rpcUrl) return "";
   if (rpcUrl.includes("arbitrum")) return "arbitrum";
   if (rpcUrl.includes("optimism")) return "optimism";
   if (rpcUrl.includes("near")) return "near";

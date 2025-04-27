@@ -965,7 +965,7 @@ app.use((err, req, res, next) => {
 });
 
 async function runBatch() {
-  //await getBtcMempoolRecords();
+  await getBtcMempoolRecords();
   await getAllBridgingHistory();
   await computeStats();
 
