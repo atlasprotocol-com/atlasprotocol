@@ -80,6 +80,8 @@ const {
   UpdateAtlasRedemptionPendingBtcMempool,
 } = require("./utils/updateAtlasRedemptionPendingBtcMempool");
 
+const useDepositAPIs = require("./apis/deposit");
+
 const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
