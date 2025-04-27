@@ -20,10 +20,10 @@ const CONFIG = {
   GENERATE_PUBKEY_XLSX: false,          // Set to true to enable pubkeys.xlsx generation
   GENERATE_NEAR_BLOCKS_XLSX: false,      // Set to true to enable nearblocks.xlsx generation
   ADD_MISSING_NEAR_BLOCKS_XLSX: false,    // Set to true to process missing blocks from error file
-  GENERATE_DEPOSITS_STATUS_21_XLSX: false,     // Set to true to process deposits with status 21
+  GENERATE_DEPOSITS_STATUS_21_XLSX: true,     // Set to true to process deposits with status 21
   GENERATE_REDEMPTIONS_XLSX: false,      // Set to true to enable redemptions.xlsx generation
   GENERATE_REDEMPTIONS_VIA_EVENTS: false,  // Generate redemptions via events from Excel
-  GENERATE_EVM_BLOCKS_XLSX: true,      // Set to true to enable evmblocks.xlsx generation
+  GENERATE_EVM_BLOCKS_XLSX: false,      // Set to true to enable evmblocks.xlsx generation
   
   DEPOSITS: {
     OUTPUT_FILE: "deposits.xlsx",       // Output filename for deposits batch
@@ -42,9 +42,9 @@ const CONFIG = {
   
   DEPOSITS_QUEST2: {
     INPUT_FILE: "deposits-quest2.xlsx", // Fixed input file to read from and write to
-    BATCH_SIZE: 100,                     // Number of rows to process in parallel
-    SAVE_INTERVAL: 100,                 // Save file every N rows processed
-    START_INDEX: 2000,                     // Starting row index (0-based, excluding header)
+    BATCH_SIZE: 25,                     // Number of rows to process in parallel
+    SAVE_INTERVAL: 25,                 // Save file every N rows processed
+    START_INDEX: 0,                     // Starting row index (0-based, excluding header)
     END_INDEX: null,                     // Ending row index (null for all rows)
   },
   
@@ -56,13 +56,14 @@ const CONFIG = {
   },
   
   UTXOS: {
+    RUN_LOCAL: true,                   // Set to true to run locally using PowerShell
     OUTPUT_FILE: "UTXOs.xlsx",          // Output filename for UTXOs batch
     ATLAS_VAULT_ADDRESS: 'tb1q9ruq3vlgj79l27euc2wq79wxzae2t86z4adkkv',  // Atlas vault address on testnet4
     SAVE_INTERVAL: 10,                  // Save file every N rows processed
     //MIN_TIMESTAMP: 1744646400,          // Minimum timestamp for UTXOs (2025-04-15 00:00:00 UTC+8)
     MIN_TIMESTAMP: 1743436800,          // Minimum timestamp for UTXOs (2025-04-01 00:00:00 UTC+8)
-    //API_ENDPOINT: "https://testnet.atlasprotocol.com/api/v1/process-new-deposit",
-    API_ENDPOINT: "http://localhost:3001/api/v1/process-new-deposit",
+    SERVER_API_ENDPOINT: "https://testnet.atlasprotocol.com/api/v1/process-new-deposit",
+    LOCAL_API_ENDPOINT: "http://localhost:3001/api/v1/process-new-deposit",
     STATUS: {
       DEPOSIT_EXISTS: "Deposit already exists",
       PROCESSING_INITIATED: "Processing initiated",
@@ -88,9 +89,9 @@ const CONFIG = {
     OUTPUT_FILE_REDEEM: "nearblocks_redeem.xlsx",      // Output filename for redeem events
     ERROR_OUTPUT_FILE: "nearblocks_errors.txt",  // File to log block processing errors
     WORKSHEET_NAME: "NEAR Blocks",     // Name of the worksheet in Excel file
-    //RPC_ENDPOINT: "https://neart.lava.build",  // NEAR RPC endpoint
+    RPC_ENDPOINT: "https://neart.lava.build",  // NEAR RPC endpoint
     //RPC_ENDPOINT: "https://rpc.testnet.fastnear.com",  // NEAR RPC endpoint    
-    RPC_ENDPOINT: "https://archival-rpc.testnet.near.org",  // NEAR RPC endpoint    
+    //RPC_ENDPOINT: "https://archival-rpc.testnet.near.org",  // NEAR RPC endpoint    
     THREAD_COUNT: 12,                  // Number of parallel threads to process blocks
     BLOCKS_PER_THREAD: 10,              // Number of blocks each thread processes
     ERROR_BATCH_SIZE: 0,               // Number of blocks to process at once from error file
@@ -102,9 +103,10 @@ const CONFIG = {
   },
   
   DEPOSITS_STATUS_21: {
+    RUN_LOCAL: true,                    // Set to true to run locally using PowerShell
     OUTPUT_FILE: "deposits-status-21.xlsx",  // Output filename for status 21 deposits
-    //API_ENDPOINT: "https://testnet.atlasprotocol.com/api/v1/check-minted-txn",
-    API_ENDPOINT: "http://localhost:3001/api/v1/check-minted-txn",    
+    SERVER_API_ENDPOINT: "https://testnet.atlasprotocol.com/api/v1/check-minted-txn",
+    LOCAL_API_ENDPOINT: "http://localhost:3001/api/v1/check-minted-txn",    
   },
   
   REDEMPTIONS: {
@@ -123,8 +125,9 @@ const CONFIG = {
   },  
 
   REDEMPTIONS_VIA_EVENTS: {    
-    //API_ENDPOINT: "https://testnet.atlasprotocol.com/api/v1/process-new-redemption",  // API endpoint for processing redemptions
-    API_ENDPOINT: "http://localhost:3001/api/v1/process-new-redemption",  // API endpoint for processing redemptions
+    RUN_LOCAL: true,                    // Set to true to run locally using PowerShell
+    SERVER_API_ENDPOINT: "https://testnet.atlasprotocol.com/api/v1/process-new-redemption",  // API endpoint for processing redemptions
+    LOCAL_API_ENDPOINT: "http://localhost:3001/api/v1/process-new-redemption",  // API endpoint for processing redemptions
     START_INDEX: null,  // Starting index for processing redemptions via events (null for all rows)
     END_INDEX: null,  // Ending index for processing redemptions via events (null for all rows)
     READ_FROM_LATEST: true,  // If true, process from the latest row to the earliest
@@ -157,8 +160,12 @@ const CONFIG = {
     OUTPUT_FILE_SUFFIX: "_events.xlsx",
     ERROR_OUTPUT_FILE_SUFFIX: "_errors.txt",
     WORKSHEET_NAME: "EVM Blocks",
-    //THREAD_COUNT: 10,  // Number of parallel threads to process blocks
-    BLOCKS_PER_THREAD: 10  // Number of blocks each thread processes
+    //THREAD_COUNT: 10,  // No parallel threads are used
+    BLOCKS_PER_THREAD: 10,  // Number of blocks each thread processes
+    COLUMNS: {
+      EVM_TXN_HASH: 4,  // Column index for EVM Txn Hash  
+      BTC_TXN_HASH: 8,  // Column index for BTC Txn Hash
+    }
   },
 };
 
@@ -316,12 +323,10 @@ function fixRecordText(recordText) {
   
   // Remove trailing commas before } or ]
   text = text.replace(/,(\s*[}\]])/g, '$1');
-  
-  /*
-  if (text.includes("WASM_HOST_COST") || text.includes("cloudflare")) {
-    console.log(text);
+    
+  if (text.includes("WASM_HOST_COST") || text.includes("cloudflare") || text.includes("Cloudflare")) {
+    //console.log(text);
   }
-  */
 
   return text;
 }
@@ -397,14 +402,24 @@ function parseRecordsSeparately(rawOutput) {
   const records = recordMatches.map(recordText => {
     try {
       const fixedText = fixRecordText(recordText);
-      return JSON.parse(fixedText);
+      const parsed = JSON.parse(fixedText);
+      if (!parsed) {
+        console.error(`Failed to parse record: ${recordText}`);
+        return null;
+      }
+      return parsed;
     } catch (e) {
-      // Extract BTC transaction hash from the record text
-      const match = recordText.match(/btc_txn_hash\s*:\s*['"]([^'"]+)['"]/);
-      const btcTxnHash = match ? match[1] : "unknown";
-      //console.error(`Failed to parse record for BTC transaction hash: ${btcTxnHash}`);
-      console.error(`near call `+ CONFIG.NEAR.CONTRACT +` rollback_deposit_status_by_btc_txn_hash '{"btc_txn_hash": "${btcTxnHash}"}' --accountId velar.testnet;`);
-      //console.error(recordText);
+      try {
+        // Extract BTC transaction hash from the record text
+        const match = recordText.match(/btc_txn_hash\s*:\s*['"]([^'"]+)['"]/);
+        const btcTxnHash = match ? match[1] : "unknown";
+        //console.error(`Failed to parse record for BTC transaction hash: ${btcTxnHash}`);
+        console.error(`near call `+ CONFIG.NEAR.CONTRACT +` rollback_deposit_status_by_btc_txn_hash '{"btc_txn_hash": "${btcTxnHash}"}' --accountId velar.testnet;`);
+        //console.error(recordText);
+      } catch (e) {
+        console.error(`Failed to parse record: ${e.message}`);
+        console.error(recordText);
+      }
       return null;
     }
   }).filter(record => record !== null);  // This will remove all null values from the array
@@ -480,46 +495,70 @@ async function exportToExcel(deposits, filePath = null) {
  * Checks if a deposit exists for a given BTC transaction hash
  */
 async function checkDepositExists(btcTxnHash) {
-  return new Promise(async (resolve, reject) => {
-    const command = `near view ${CONFIG.NEAR.CONTRACT} get_deposit_by_btc_txn_hash '{"btc_txn_hash": "${btcTxnHash}"}'`;
+  try {
+    const command = CONFIG.UTXOS.RUN_LOCAL
+      ? `near view ${CONFIG.NEAR.CONTRACT} get_deposit_by_btc_txn_hash \"{\\\"btc_txn_hash\\\": \\\"${btcTxnHash}\\\"}\" --networkId testnet`
+      : `near view ${CONFIG.NEAR.CONTRACT} get_deposit_by_btc_txn_hash '{"btc_txn_hash": "${btcTxnHash}"}' --networkId testnet`;
     //console.log(`\n🔍 Executing CLI command:\n${command}`);
     
-    // Add 0.8 second delay before executing the command
-    await delay(800);
-    
-    exec(command, (error, stdout, stderr) => {
-      if (error) {
-        console.error(`Error checking deposit: ${error.message}`);
-        return reject(error);
-      }
-      if (stderr) {
-        console.error(`NEAR CLI stderr: ${stderr}`);
-      }
-      
-      const output = stdout.trim();
-      //console.log(`📄 Raw CLI output:\n${output}`);
-      
-      // Split into lines and check if any line starts with '{'
-      const lines = output.split('\n');
-      const depositExists = lines.some(line => line.trim().startsWith('{'));
-      
-      //console.log(`📊 Deposit exists: ${depositExists}`);
-      resolve(depositExists);
+    // Add 0.3 second delay before executing the command
+    await delay(300);
+
+    return new Promise((resolve, reject) => {
+      exec(command, (error, stdout, stderr) => {
+        if (error) {
+          console.error(`Error checking deposit: ${error.message}`);
+          if (stderr && stderr.includes("does not exist")) {
+            resolve(false);
+          } else {
+            reject(error);
+          }
+          return;
+        }
+        if (stderr) {
+          console.error(`NEAR CLI stderr: ${stderr}`);
+        }
+        
+        const output = stdout.trim();
+        //console.log(`📄 Raw CLI output:\n${output}`);
+        
+        // Split into lines and check if any line starts with '{'
+        const lines = output.split('\n');
+        const depositExists = lines.some(line => line.trim().startsWith('{'));
+        
+        //console.log(`📊 Deposit exists: ${depositExists}`);
+        resolve(depositExists);
+      });
     });
-  });
+  } catch (error) {
+    console.error("Error checking deposit:", error);
+    throw error;
+  }
 }
 
 /**
  * Processes a new deposit via Atlas API
  */
 async function processNewDeposit(btcTxnHash) {
-  const apiUrl = `${CONFIG.UTXOS.API_ENDPOINT}?btcTxnHash=${btcTxnHash}`;
-  console.log(`✅ Processing new deposit via API: ${apiUrl}`);
-  
   try {
-    const response = await axios.get(apiUrl);    
+    const apiUrl = CONFIG.UTXOS.RUN_LOCAL 
+      ? CONFIG.UTXOS.LOCAL_API_ENDPOINT 
+      : CONFIG.UTXOS.SERVER_API_ENDPOINT;
+    const requestUrl = `${apiUrl}?btcTxnHash=${btcTxnHash}`;
+    console.log(`✅ Processing new deposit via API: ${requestUrl}`);
+    
+    const response = CONFIG.UTXOS.RUN_LOCAL
+      ? await axios.post(apiUrl, { btcTxnHash }, {
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          }
+        })
+      : await axios.get(requestUrl);
+
     return response.data;
-  } catch (error) {    
+  } catch (error) {
+    console.error(`❌ Failed to process deposit for ${btcTxnHash}: ${error.message}`);
     throw error;
   }
 }
@@ -995,6 +1034,9 @@ async function processDepositsQuest2() {
         console.log(`💾 Saved progress: ${currentEndRow - 1}/${totalRecords} rows processed, total ${totalUpdated} rows updated`);
         lastSaveRow = currentEndRow;
       }
+
+      // Add a small delay before processing the next batch size to avoid rate limiting
+      await delay(1000);
     }
     
     // Final save
@@ -1147,7 +1189,9 @@ async function fetchDeposits() {
         ? Math.min(limit, CONFIG.DEPOSITS.END_INDEX - startIndex)
         : limit;
       
-      const command = `near view ${CONFIG.NEAR.CONTRACT} get_all_deposits '{"from_index": ${startIndex}, "limit": ${adjustedLimit}}'`;
+      const command = CONFIG.DEPOSITS_STATUS_21.RUN_LOCAL
+        ? `near view ${CONFIG.NEAR.CONTRACT} get_all_deposits "{\\"from_index\\": ${startIndex}, \\"limit\\": ${adjustedLimit}}"`
+        : `near view ${CONFIG.NEAR.CONTRACT} get_all_deposits '{"from_index": ${startIndex}, "limit": ${adjustedLimit}}'`;
       
       if (CONFIG.DEPOSITS.PRINT_CLI_OUTPUT) {
         console.log(`\n🔍 Executing command: ${command}`);
@@ -1782,11 +1826,56 @@ async function processDepositsStatus21() {
     }
     console.log(`✅ Created map with ${nearTxnMap.size} NEAR transaction records`);
     
+    // Create a map of BTC Txn Hash to NEAR/EVM Txn Hash
+    const btcToNearEVMTxnMap = new Map();
+    
+    // Add NEAR transactions to map
+    for (let rowNumber = 2; rowNumber <= nearBlocksWorksheet.rowCount; rowNumber++) {
+      const row = nearBlocksWorksheet.getRow(rowNumber);
+      const btcTxnHash = row.getCell(CONFIG.NEAR.COLUMNS.BTC_TXN_HASH).value;
+      const nearTxnHash = row.getCell(CONFIG.NEAR.COLUMNS.NEAR_TXN_HASH).value;
+      if (btcTxnHash && nearTxnHash) {
+        btcToNearEVMTxnMap.set(btcTxnHash, nearTxnHash);
+      }
+    }
+    console.log(`✅ Added ${btcToNearEVMTxnMap.size} NEAR transaction records to map`);
+
+    // Read all EVM blocks event files and add to map
+    const evmFiles = (await fs.readdir(__dirname))
+      .filter(file => file.startsWith(CONFIG.EVM.OUTPUT_FILE_PREFIX) && file.endsWith(CONFIG.EVM.OUTPUT_FILE_SUFFIX));
+    
+    for (const file of evmFiles) {
+      console.log(`⏳ Reading EVM blocks file: ${file}`);
+      const evmWorkbook = new excelJs.Workbook();
+      const evmFilePath = path.join(__dirname, file);
+      await evmWorkbook.xlsx.readFile(evmFilePath);
+      
+      const evmWorksheet = evmWorkbook.getWorksheet(1) || evmWorkbook.worksheets[0];
+      if (!evmWorksheet) {
+        console.log(`⚠️ No EVM blocks worksheet found in ${file}, skipping...`);
+        continue;
+      }
+
+      let evmCount = 0;
+      for (let rowNumber = 2; rowNumber <= evmWorksheet.rowCount; rowNumber++) {
+        const row = evmWorksheet.getRow(rowNumber);
+        const btcTxnHash = row.getCell(CONFIG.EVM.COLUMNS.BTC_TXN_HASH).value;
+        const evmTxnHash = row.getCell(CONFIG.EVM.COLUMNS.EVM_TXN_HASH).value;
+        if (btcTxnHash && evmTxnHash) {
+          btcToNearEVMTxnMap.set(btcTxnHash, evmTxnHash);
+          evmCount++;
+        }
+      }
+      console.log(`✅ Added ${evmCount} EVM transaction records from ${file}`);
+    }
+    
+    console.log(`✅ Final map contains ${btcToNearEVMTxnMap.size} total transaction records`);
+
     // Now process each record by calling the API
     console.log("\n⏳ Processing records by calling API...");
     let successCount = 0;
     let failedCount = 0;
-    let noMatchingNearTxn = 0;
+    let noMatchingTxn = 0;
     let filteredRecords = 0;
     
     for (const deposit of filteredDeposits) {
@@ -1794,12 +1883,12 @@ async function processDepositsStatus21() {
       console.log(`\n⏳ Processing record ${filteredRecords} of ${filteredDeposits.length}: ${deposit.btc_txn_hash}`);
       
       try {
-        // Find corresponding NEAR transaction hash from map
-        const nearTxnHash = nearTxnMap.get(deposit.btc_txn_hash);
+        // Find corresponding NEAR/EVM transaction hash from map
+        const txnHash = btcToNearEVMTxnMap.get(deposit.btc_txn_hash);
         
-        if (!nearTxnHash) {
-          console.log(`⚠️ No matching NEAR transaction found for BTC Txn Hash: ${deposit.btc_txn_hash}`);
-          noMatchingNearTxn++;
+        if (!txnHash) {
+          console.log(`⚠️ No matching transaction found for BTC Txn Hash: ${deposit.btc_txn_hash}`);
+          noMatchingTxn++;
           failedCount++;
           continue;
         }
@@ -1807,9 +1896,20 @@ async function processDepositsStatus21() {
         // Call the API to check minted transaction
         console.log(`⏳ Initiating deposit processing for BTC Txn Hash: ${deposit.btc_txn_hash}`);
         try {
-          const apiUrl = `${CONFIG.DEPOSITS_STATUS_21.API_ENDPOINT}?btcTxnHash=${deposit.btc_txn_hash}&mintedTxnHash=${nearTxnHash}`;
-          console.log(`🌐 Calling API: ${apiUrl}`);
-          const response = await axios.get(apiUrl);
+          const apiUrl = CONFIG.DEPOSITS_STATUS_21.RUN_LOCAL 
+            ? CONFIG.DEPOSITS_STATUS_21.LOCAL_API_ENDPOINT 
+            : CONFIG.DEPOSITS_STATUS_21.SERVER_API_ENDPOINT;
+          const requestUrl = `${apiUrl}?btcTxnHash=${deposit.btc_txn_hash}&mintedTxnHash=${txnHash}`;
+          console.log(`✅ Processing deposit status via API: ${requestUrl}`);
+          
+          const response = CONFIG.DEPOSITS_STATUS_21.RUN_LOCAL
+            ? await axios.post(apiUrl, { btcTxnHash: deposit.btc_txn_hash, mintedTxnHash: txnHash }, {
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Accept': 'application/json'
+                }
+              })
+            : await axios.get(requestUrl);
           
           if (response.data.success) {
             console.log(`✅ Successfully checked minted transaction for BTC Txn Hash: ${deposit.btc_txn_hash}`);
@@ -1853,7 +1953,7 @@ async function processDepositsStatus21() {
     console.log("\n📊 Final Processing Summary:");
     console.log(`✅ Successfully processed: ${successCount}`);
     console.log(`❌ Failed to process: ${failedCount}`);
-    console.log(`⚠️ No matching NEAR transaction: ${noMatchingNearTxn}`);
+    console.log(`⚠️ No matching NEAR/EVM transaction: ${noMatchingTxn}`);
     
   } catch (error) {
     console.error("❌ Error processing deposits with status 21:", error);
@@ -2153,7 +2253,9 @@ async function processRedemptionsViaEvents() {
       
       try {
         // Check if redemption exists using NEAR CLI
-        const command = `near view ${CONFIG.NEAR.CONTRACT} get_redemption_by_txn_hash '{"txn_hash": "${txnHash}"}'`;
+        const command = CONFIG.REDEMPTIONS_VIA_EVENTS.RUN_LOCAL
+          ? `near view ${CONFIG.NEAR.CONTRACT} get_redemption_by_txn_hash "{\\"txn_hash\\": \\"${txnHash}\\"}"`
+          : `near view ${CONFIG.NEAR.CONTRACT} get_redemption_by_txn_hash '{"txn_hash": "${txnHash}"}'`;
         //console.log(`\nExecuting command: ${command}`);
         
         // Execute CLI command and wait for result
@@ -2190,11 +2292,21 @@ async function processRedemptionsViaEvents() {
         
         if (!redemptionExists) {
           // Redemption doesn't exist, create it via API
-          const apiUrl = `${CONFIG.REDEMPTIONS_VIA_EVENTS.API_ENDPOINT}?txnHash=${txnHash}`;
-          console.log(`[${rowNumber - 1}/${totalRows - 1}] ✅ Creating redemption via API: ${apiUrl}`);
+          const apiUrl = CONFIG.REDEMPTIONS_VIA_EVENTS.RUN_LOCAL 
+            ? CONFIG.REDEMPTIONS_VIA_EVENTS.LOCAL_API_ENDPOINT 
+            : CONFIG.REDEMPTIONS_VIA_EVENTS.SERVER_API_ENDPOINT;
+          const requestUrl = `${apiUrl}?txnHash=${txnHash}`;
+          console.log(`[${rowNumber - 1}/${totalRows - 1}] ✅ Creating redemption via API: ${requestUrl}`);
           
           try {
-            const response = await axios.get(apiUrl);
+            const response = CONFIG.REDEMPTIONS_VIA_EVENTS.RUN_LOCAL
+              ? await axios.post(apiUrl, { txnHash }, {
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                  }
+                })
+              : await axios.get(requestUrl);
             if (response.data.success) {
               totalCreated++;
               console.log(`[${rowNumber - 1}/${totalRows - 1}] ✅ Successfully created redemption for ${txnHash}`);
@@ -2667,7 +2779,7 @@ async function main() {
         await delay(5000);
       }
     } else {
-      console.log("ℹ️ Skipping missing blocks processing (disabled in CONFIG)");
+      console.log("ℹ️  Skipping missing blocks processing (disabled in CONFIG)");
     }
     
     if (CONFIG.GENERATE_REDEMPTIONS_VIA_EVENTS) {
@@ -2680,7 +2792,7 @@ async function main() {
       console.log(`✅ Completed redemptions via events processing at ${formatDate(endTime)}`);
       console.log(`⏱️ Duration: ${formatDuration(startTime, endTime)}`);
     } else {
-      console.log("ℹ️ Skipping redemptions via events processing (disabled in CONFIG)");
+      console.log("ℹ️  Skipping redemptions via events processing (disabled in CONFIG)");
     }
     
     if (CONFIG.GENERATE_EVM_BLOCKS_XLSX) {
@@ -2693,7 +2805,7 @@ async function main() {
       console.log(`Completed evmblocks.xlsx generation at ${formatDate(endTime)}`);
       console.log(`Duration: ${formatDuration(startTime, endTime)}`);
     } else {
-      console.log("Skipping evmblocks.xlsx generation (disabled in CONFIG)");
+      console.log("ℹ️  Skipping evmblocks.xlsx generation (disabled in CONFIG)");
     }
     
     const mainEndTime = new Date();

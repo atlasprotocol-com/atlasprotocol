@@ -19,7 +19,6 @@ const {
   getBlockCursor,
 } = require("./batchTime/lastScannedBlockHelper");
 
-
 const batchName = "Batch P RetrieveAndProcessPastNearEvents";
 
 async function RetrieveAndProcessPastNearEvents(
@@ -28,16 +27,15 @@ async function RetrieveAndProcessPastNearEvents(
   allRedemptions,
   allBridgings,
 ) {
-  if (flagsBatch.RetrieveAndProcessPastNearEvents) {
+  if (flagsBatch.RetrieveAndProcessPastNearEventsRunning) {
     console.log(`${batchName} is not completed yet. Will skip this run.`);
     return;
   }
 
   console.log(`${batchName} Start run ...`);
-  flagsBatch.RetrieveAndProcessPastNearEvents = true;
+  flagsBatch.RetrieveAndProcessPastNearEventsRunning = true;
 
-  const { BRIDGING_STATUS, NETWORK_TYPE, DELIMITER, DEPOSIT_STATUS } =
-    getConstants();
+  const { NETWORK_TYPE, DELIMITER } = getConstants();
   const chainConfig = getAllChainConfig();
 
   try {
@@ -72,7 +70,7 @@ async function RetrieveAndProcessPastNearEvents(
       console.log(`${batchName} endBlock: ${endBlock}`);
 
       const startBlock = await getBlockCursor(
-        "RetrieveAndProcessPastNearEvents",
+        "RetrieveAndProcessPastNearEventsRunning",
         chain.chainID,
         endBlock,
       );
@@ -115,13 +113,12 @@ async function RetrieveAndProcessPastNearEvents(
               timestamp,
             );
           } else if (event.type === "burn_redemption") {
-
-             // Check if amount is greater than 10000
-             if (Number(event.returnValues.amount) < 10000) {
+            // Check if amount is greater than 10000
+            if (Number(event.returnValues.amount) < 10000) {
               console.log("Amount is less than 10000, skipping...");
               continue;
             }
-            
+
             await processBurnRedeemEvent(
               {
                 returnValues: {
@@ -155,7 +152,7 @@ async function RetrieveAndProcessPastNearEvents(
       }
 
       await setBlockCursor(
-        "RetrieveAndProcessPastNearEvents",
+        "RetrieveAndProcessPastNearEventsRunning",
         chain.chainID,
         endBlock,
       );
@@ -165,7 +162,7 @@ async function RetrieveAndProcessPastNearEvents(
   }
 
   console.log(`${batchName} completed successfully.`);
-  flagsBatch.RetrieveAndProcessPastNearEvents = false;
+  flagsBatch.RetrieveAndProcessPastNearEventsRunning = false;
 }
 
 async function doWithSubquery(
@@ -191,7 +188,7 @@ async function doWithSubqueryForDeposits(chain, network, near, allDeposits) {
       deposit.remarks === "" &&
       deposit.receiving_chain_id === chain.chainID,
   );
-  
+
   const records = await getMintDepositEntities(
     network,
     filteredTxns.map((deposit) => deposit.btc_txn_hash),

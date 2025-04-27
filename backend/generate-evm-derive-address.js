@@ -22,6 +22,7 @@ const bitcoin = new Bitcoin(btcConfig.btcAPI, btcConfig.btcNetwork);
 const nearConfig = {
   networkId: process.env.NEAR_NETWORK_ID,
   nodeUrl: process.env.NEAR_NODE_URL,
+  nodeUrlProvider: process.env.NEAR_NODE_URL_PROVIDER,
   walletUrl: process.env.NEAR_WALLET_URL,
   helperUrl: process.env.NEAR_HELPER_URL,
   explorerUrl: process.env.NEAR_EXPLORER_URL,
@@ -30,16 +31,19 @@ const nearConfig = {
   accountId: process.env.NEAR_ACCOUNT_ID,
   pk: process.env.NEAR_PRIVATE_KEY,
   gas: process.env.NEAR_DEFAULT_GAS,
+  bitHiveContractId: process.env.NEAR_BIT_HIVE_CONTRACT_ID,
 };
 
 const near = new Near(
   nearConfig.nodeUrl,
+  nearConfig.nodeUrlProvider,
   nearConfig.accountId,
   nearConfig.contractId,
   nearConfig.pk,
   nearConfig.networkId,
   nearConfig.gas,
   nearConfig.mpcContractId,
+  nearConfig.bitHiveContractId,
 );
 
 main().then(() => setTimeout(process.exit.bind(process, 0), 1000));
