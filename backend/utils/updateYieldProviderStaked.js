@@ -45,8 +45,8 @@ async function UpdateYieldProviderStaked(allDeposits, bithiveRecords, near) {
           );
 
           if (!bithiveDeposit) {
-            console.log("bithiveDeposit not found for txn: ", txn);
-            return;
+            //console.log("bithiveDeposit not found for txn: ", txn);
+            continue;
           }
 
           if (bithiveDeposit.status === BITHIVE_STATUS.DEPOSIT_FAILED) {

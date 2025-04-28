@@ -739,7 +739,7 @@ class Bitcoin {
 
   async deriveBTCAddress(near) {
     const { NETWORK_TYPE } = getConstants();
-
+    // await near.nearMPCContract.public_key():secp256k1:4NfTiv3UsGahebgTaHyD9vF8KYKMBnfd6kh94mK6xv8fGBiJB8TBtFMP5WWXz6B89Ac1fbpzPwAvoyQebemHFwx3
     const publicKey = await derivep2wpkhChildPublicKey(
       await najPublicKeyStrToUncompressedHexPoint(await near.nearMPCContract.public_key()),
       near.contract_id,

@@ -169,7 +169,7 @@ async function StakeToYieldProvider(allDeposits, near, bitcoinInstance) {
   }
 }
 
-async function getBithiveDeposits(publicKeyHex, totalDeposits, lastFetchedOffset = 0) {
+async function getBithiveDeposits(publicKeyHex, totalDeposits) {
   if (totalDeposits <= 0) {
     return [];
   }
@@ -177,20 +177,13 @@ async function getBithiveDeposits(publicKeyHex, totalDeposits, lastFetchedOffset
   const relayer = createRelayerClient({ url: process.env.BITHIVE_RELAYER_URL });
   let deposits = [];
   const limit = 1000;
+  let currentOffset = 0;
 
   try {
-    // Calculate remaining deposits to fetch
-    const remainingDeposits = totalDeposits - lastFetchedOffset;
-    if (remainingDeposits <= 0) {
-      return [];
-    }
-
-    // Calculate number of batches needed for remaining deposits
-    const totalBatches = Math.ceil(remainingDeposits / limit);
-
-    // Fetch batches sequentially
-    for (let i = 0; i < totalBatches; i++) {
-      const currentOffset = lastFetchedOffset + (i * limit);
+    // Fetch batches sequ
+    // entially
+    while (true) {
+      
       console.log("Fetching batch with offset:", currentOffset);
       
       const { deposits: batchDeposits } = await relayer.user.getDeposits({
@@ -204,7 +197,9 @@ async function getBithiveDeposits(publicKeyHex, totalDeposits, lastFetchedOffset
       }
 
       deposits = deposits.concat(batchDeposits);
-      console.log(`Fetched ${batchDeposits.length} deposits in batch ${i + 1}/${totalBatches}`);
+      console.log(`Fetched ${deposits.length} deposits in batch ${totalDeposits}`);
+
+      currentOffset = currentOffset + limit;
     }
 
     console.log("[getBithiveDeposits] New bithive deposits fetched:", deposits.length);

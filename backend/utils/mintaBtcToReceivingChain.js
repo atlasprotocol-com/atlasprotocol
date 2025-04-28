@@ -30,6 +30,11 @@ async function MintaBtcToReceivingChain(allDeposits, near) {
           deposit.date_created > 0,
       );
 
+      console.log(
+        "[mintAtbtcToReceivingChain] records to mint to atBTC: ",
+        filteredTxns.length
+      );
+
       for (const depositRecord of filteredTxns) {
         const btcTxnHash = depositRecord.btc_txn_hash;
        
@@ -105,6 +110,7 @@ async function MintaBtcToReceivingChain(allDeposits, near) {
             // Relay the transaction to EVM
             console.log(`Relay transaction to EVM...`);
 
+            
             const { txnHash, status } =
               await ethereum.relayTransaction(signedTransaction);
             console.log(
