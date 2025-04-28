@@ -396,9 +396,13 @@ class Ethereum {
 
   // This code can be used to actually relay the transaction to the Ethereum network
   async relayTransaction(signedTransaction) {
-    const serializedTx = bytesToHex(signedTransaction);
     try {
+    
+      console.log("[relayTransaction] signedTransaction: ", signedTransaction);
+      const serializedTx = bytesToHex(signedTransaction);
+      console.log("[relayTransaction] serializedTx: ", serializedTx);
       const relayed = await this.web3.eth.sendSignedTransaction(serializedTx);
+      console.log("[relayTransaction] relayed: ", relayed);
       const txnHash = relayed.transactionHash;
       const receipt = relayed.receipt;
       const status = relayed.status;
@@ -407,7 +411,7 @@ class Ethereum {
     } catch (err) {
       console.log(err);
       console.log(
-        `EVM relayTransaction error: ${err.message} | ${serializedTx}`,
+        `EVM relayTransaction error: ${err.message}`,
       );
       throw err;
     }
