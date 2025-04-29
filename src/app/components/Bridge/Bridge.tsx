@@ -297,10 +297,10 @@ export function Bridge() {
         throw new Error("Chain is missing");
       }
 
-      let evmTxHash: string | undefined;
+      let txnHash: string | undefined;
 
       if (selectedChain?.networkType === "EVM") {
-        evmTxHash = await evmBurnRedeem({
+        txnHash = await evmBurnRedeem({
           amount: previewData.amountSat.toString(),
           destChainAddress: previewData.address,
           destChainId: toSelectedChain?.chainID || "",
@@ -310,18 +310,19 @@ export function Bridge() {
       }
 
       if (selectedChain?.networkType === "NEAR") {
-        await nearBurnRedeem({
+        const result = await nearBurnRedeem({
           amount: previewData.amountSat.toString(),
           destinationAddress: previewData.address,
           destinationChain: toSelectedChain?.chainID || "",
           mintingFeeSat: previewData.mintingFeeSat?.toString(),
           bridgingFeeSat: previewData.bridgingFeeSat?.toString(),
         });
+        txnHash = result?.transaction_hash;
       }
 
       // Add the record to local storage
       const newBridgeHistory: BridgeHistory = {
-        txn_hash: selectedChain.chainID + "," + evmTxHash,
+        txn_hash: selectedChain.chainID + "," + txnHash,
         origin_chain_id: selectedChain.chainID,
         origin_chain_address: fromAddress || "",
         dest_chain_id: toSelectedChain.chainID,
@@ -351,9 +352,9 @@ export function Bridge() {
             transaction to show up in the history section. You may close this
             window anytime.
             <br />
-            {evmTxHash && selectedChain && (
+            {txnHash && selectedChain && (
               <a
-                href={`${selectedChain?.explorerURL}tx/${evmTxHash}`}
+                href={`${selectedChain?.explorerURL}tx/${txnHash}`}
                 target="_blank"
                 rel="noreferrer"
                 className="text-primary hover:underline"

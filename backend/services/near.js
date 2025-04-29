@@ -94,8 +94,8 @@ class Near {
           "get_pubkey_by_address",
           "get_deposits_count",
           "get_redemptions_count",
-          "has_caller_verified_minted_txn_hash",
-          "has_caller_verified_redemption_txn_hash",
+          "is_production_mode",
+          "get_validators_by_txn_hash"
         ],
         changeMethods: [
           "insert_deposit_btc",
@@ -116,7 +116,8 @@ class Near {
           "update_bridging_btc_bridged",
           "update_bridging_remarks",
           "create_bridging_abtc_signed_tx",
-          "update_bridging_minted",
+          "update_bridging_minted_txn_hash",
+          "update_bridging_atbtc_minted",
           "update_deposit_yield_provider_deposited",
           "update_deposit_pending_yield_provider_deposit",
           "update_yield_provider_txn_hash",
@@ -1158,8 +1159,8 @@ class Near {
     });
   }
 
-  async updateBridgingMinted(txnHash, destTxnHash, timestamp) {
-    return this.makeNearRpcChangeCall("update_bridging_minted", {
+  async updateBridgingMintedTxnHash(txnHash, destTxnHash, timestamp) {
+    return this.makeNearRpcChangeCall("update_bridging_minted_txn_hash", {
       txn_hash: txnHash,
       dest_txn_hash: destTxnHash,
       timestamp: timestamp,
@@ -1782,27 +1783,25 @@ class Near {
     return this.makeNearRpcViewCall("get_deposits_count", {});
   }
 
+  async isProductionMode() {
+    return this.makeNearRpcViewCall("is_production_mode", {});
+  }
+
   async getTotalRedemptionsCount() {
     return this.makeNearRpcViewCall("get_redemptions_count", {});
   }
   
-  async hasCallerVerifiedMintedTxnHash(btcTxnHash, mintedTxnHash) {
-    console.log("[hasCallerVerifiedMintedTxnHash] btcTxnHash: ", btcTxnHash);
-    console.log("[hasCallerVerifiedMintedTxnHash] mintedTxnHash: ", mintedTxnHash);
-    return this.makeNearRpcViewCall("has_caller_verified_minted_txn_hash", {
-      caller: this.atlas_account_id,
-      btc_txn_hash: btcTxnHash,
-      minted_txn_hash: mintedTxnHash
-    });
-  }
-
-  async hasCallerVerifiedRedemptionTxnHash(txnHash) {
-    console.log("[hasCallerVerifiedRedemptionTxnHash] txnHash: ", txnHash);
-    return this.makeNearRpcViewCall("has_caller_verified_redemption_txn_hash", {
-      caller: this.atlas_account_id,
+  async getValidatorsByTxnHash(txnHash) {
+    return this.makeNearRpcViewCall("get_validators_by_txn_hash", {
       txn_hash: txnHash,
     });
   }
+
+  async updateBridgingAtbtcMinted(txnHash) {
+    return this.makeNearRpcChangeCall("update_bridging_atbtc_minted", {
+      txn_hash: txnHash,
+    });
+  } 
   
 }
 

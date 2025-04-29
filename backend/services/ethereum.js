@@ -397,16 +397,46 @@ class Ethereum {
   // This code can be used to actually relay the transaction to the Ethereum network
   async relayTransaction(signedTransaction) {
     try {
-    
+      let relayed;
       console.log("[relayTransaction] signedTransaction: ", signedTransaction);
       const serializedTx = bytesToHex(signedTransaction);
       console.log("[relayTransaction] serializedTx: ", serializedTx);
-      const relayed = await this.web3.eth.sendSignedTransaction(serializedTx);
-      console.log("[relayTransaction] relayed: ", relayed);
+      
+      // Verify serializedTx format - should be a long hex string starting with 0x02f9
+      if (!serializedTx.startsWith('0x02f9') || !/^0x[0-9a-fA-F]+$/.test(serializedTx)) {
+        throw new Error('Invalid transaction format - must be EIP-1559 transaction starting with 0x02f9');
+      }
+
+      // Extract r,s,v values from the end of the transaction
+      const txLength = serializedTx.length;
+      const v = serializedTx.slice(txLength-68, txLength-66);
+      const r = serializedTx.slice(txLength-66, txLength-2);
+      const s = serializedTx.slice(txLength-2);
+
+      // Validate r and s values
+      const validateNoLeadingZeros = (value, name) => {
+        const bytes = Buffer.from(value.slice(2), 'hex');
+
+        if (bytes[0] === 0) {
+          throw new Error(`${name} cannot have leading zeroes, received: ${value}`);
+        }
+      };
+
+      validateNoLeadingZeros(r, 'r');
+      validateNoLeadingZeros(s, 's');
+      
+      try {
+        relayed = await this.web3.eth.sendSignedTransaction(serializedTx);
+      } catch (error) {
+        console.log(
+          `EVM relayTransaction error: ${error.message}`,
+        );
+        throw new Error(error.message);
+      }
+      
       const txnHash = relayed.transactionHash;
-      const receipt = relayed.receipt;
       const status = relayed.status;
-      console.log("receipt: " + receipt);
+
       return { txnHash, status };
     } catch (err) {
       console.log(err);

@@ -80,6 +80,10 @@ const {
   UpdateAtlasRedemptionPendingBtcMempool,
 } = require("./utils/updateAtlasRedemptionPendingBtcMempool");
 
+const {
+  UpdateBridgingAtbtcMinted,
+} = require("./utils/updateBridgingAtbtcMinted");
+
 const useDepositAPIs = require("./apis/deposit");
 
 const express = require("express");
@@ -980,7 +984,6 @@ async function runBatch() {
   // await WithdrawFailDeposits(deposits, near, bitcoin);
   // await UpdateWithdrawFailDeposits(deposits, near, bitcoin);
 
-  // await MintBridgeABtcToDestChain(near);
   // await SendBridgingFeesToTreasury(near, bitcoin);
   // await UpdateAtlasBtcBridgingYieldProviderWithdrawn(bridgings, near, bitcoin);
 
@@ -1082,5 +1085,13 @@ app.listen(PORT, async () => {
 
   setInterval(async () => {
     await UpdateAtlasBtcBackToUser(redemptions, near, bitcoin);
+  }, 10000);
+
+  setInterval(async () => {
+    await MintBridgeABtcToDestChain(bridgings, near);
+  }, 10000);
+
+  setInterval(async () => {
+    await UpdateBridgingAtbtcMinted(bridgings, near);
   }, 10000);
 });
