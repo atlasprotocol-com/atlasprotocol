@@ -1,6 +1,9 @@
 /* eslint-disable import/order */
 
 const dotenv = require("dotenv");
+const { getAllBridgingHistory } = require("./helpers/bridgingHelper");
+const { getAllDepositHistory } = require("./helpers/depositsHelper");
+const { getAllRedemptionHistory } = require("./helpers/redemptionHelper");
 
 // Load environment variables from .env.local or .env based on NODE_ENV
 const envFile = process.env.NODE_ENV === "production" ? ".env" : ".env.local";
@@ -108,7 +111,6 @@ const UpdateSendToUserBtcTxnHash = require("./helpers/updateSendToUserBtcTxnHash
 
 const { processBurnRedeemEvent } = require("./helpers/eventProcessor");
 
-// Configuration for BTC connection
 const btcConfig = {
   btcAtlasDepositAddress: process.env.BTC_ATLAS_DEPOSIT_ADDRESS,
   btcAPI: process.env.BTC_MEMPOOL_API_URL,
@@ -120,32 +122,16 @@ const btcConfig = {
 
 const bitcoin = new Bitcoin(btcConfig.btcAPI, btcConfig.btcNetwork);
 
-// Configuration for NEAR connection
-const nearConfig = {
-  networkId: process.env.NEAR_NETWORK_ID,
-  nodeUrl: process.env.NEAR_NODE_URL,
-  nodeUrlProvider: process.env.NEAR_NODE_URL_PROVIDER,
-  walletUrl: process.env.NEAR_WALLET_URL,
-  helperUrl: process.env.NEAR_HELPER_URL,
-  explorerUrl: process.env.NEAR_EXPLORER_URL,
-  contractId: process.env.NEAR_CONTRACT_ID,
-  mpcContractId: process.env.NEAR_MPC_CONTRACT_ID,
-  accountId: process.env.NEAR_ACCOUNT_ID,
-  pk: process.env.NEAR_PRIVATE_KEY,
-  gas: process.env.NEAR_DEFAULT_GAS,
-  bitHiveContractId: process.env.NEAR_BIT_HIVE_CONTRACT_ID,
-};
-
 const near = new Near(
-  nearConfig.nodeUrl,
-  nearConfig.nodeUrlProvider,
-  nearConfig.accountId,
-  nearConfig.contractId,
-  nearConfig.pk,
-  nearConfig.networkId,
-  nearConfig.gas,
-  nearConfig.mpcContractId,
-  nearConfig.bitHiveContractId,
+  process.env.NEAR_NODE_URL,
+  process.env.NEAR_NODE_URL_PROVIDER,
+  process.env.NEAR_ACCOUNT_ID,
+  process.env.NEAR_CONTRACT_ID,
+  process.env.NEAR_PRIVATE_KEY,
+  process.env.NEAR_NETWORK_ID,
+  process.env.NEAR_DEFAULT_GAS,
+  process.env.NEAR_MPC_CONTRACT_ID,
+  process.env.NEAR_BIT_HIVE_CONTRACT_ID,
 );
 
 app.use(cors());
@@ -159,7 +145,7 @@ let redemptions = [];
 let btcMempool = [];
 let bridgings = [];
 let bithiveRecords = [];
-let lastBithiveOffset = 0;
+
 const computeStats = async () => {
   atlasStats = await getTransactionsAndComputeStats(
     deposits,
@@ -169,149 +155,7 @@ const computeStats = async () => {
   //console.log("Computed Atlas Stats:", atlasStats);
 };
 
-// Function to poll Near Atlas deposit records
-const getAllDepositHistory = async (limit = 1000) => {
-  if (flagsBatch.GetAllDepositHistoryRunning) {
-    console.log(
-      "[getAllDepositHistory] GetAllDepositHistoryRunning is running",
-    );
-    return;
-  }
-
-  flagsBatch.GetAllDepositHistoryRunning = true;
-
-  try {
-    //console.log("[getAllDepositHistory] Starting at", new Date().toISOString());
-
-    // First, get the first batch to check if there are any deposits
-    const firstBatch = await near.getAllDeposits(0, limit);
-
-    if (firstBatch.length === 0) {
-      deposits = [];
-      console.log("[getAllDepositHistory] No deposits found");
-      return;
-    }
-
-    let allDeposits = [...firstBatch];
-
-    // Get total count from NEAR to calculate number of batches needed
-    const totalCount = await near.getTotalDepositsCount();
-    const totalBatches = Math.ceil(totalCount / limit);
-
-    // Create an array of promises for parallel fetching
-    const batchPromises = [];
-    for (let i = 1; i < totalBatches; i++) {
-      const currentOffset = i * limit;
-      batchPromises.push(near.getAllDeposits(currentOffset, limit));
-    }
-
-    // Fetch all batches in parallel
-    const batchResults = await Promise.all(batchPromises);
-
-    // Combine all results
-    batchResults.forEach((batch) => {
-      allDeposits = allDeposits.concat(batch);
-    });
-
-    deposits = allDeposits;
-
-    console.log(
-      "[getAllDepositHistory] Total deposits fetched:",
-      deposits.length,
-    );
-  } catch (error) {
-    console.error(`[getAllDepositHistory] Failed: ${error.message}`);
-  } finally {
-    flagsBatch.GetAllDepositHistoryRunning = false;
-  }
-};
-
-// Function to poll Near Atlas redemption records
-const getAllRedemptionHistory = async (limit = 1000) => {
-  if (flagsBatch.GetAllRedemptionHistoryRunning) {
-    console.log(
-      "[getAllRedemptionHistory] GetAllRedemptionHistoryRunning is running",
-    );
-    return;
-  }
-
-  flagsBatch.GetAllRedemptionHistoryRunning = true;
-
-  try {
-    // First, get the first batch to check if there are any redemptions
-    const firstBatch = await near.getAllRedemptions(0, limit);
-
-    if (firstBatch.length === 0) {
-      redemptions = [];
-      console.log("[getAllRedemptionHistory] No redemptions found");
-      return;
-    }
-
-    let allRedemptions = [...firstBatch];
-
-    // Get total count from NEAR to calculate number of batches needed
-    const totalCount = await near.getTotalRedemptionsCount();
-    // console.log("[getAllRedemptionHistory] Total redemptions count:", totalCount);
-    // console.log("[getAllRedemptionHistory] Total redemptions limit:", limit);
-    const totalBatches = Math.ceil(totalCount / limit);
-    // console.log("[getAllRedemptionHistory] Total batches:", totalBatches);
-    // Create an array of promises for parallel fetching
-    const batchPromises = [];
-    for (let i = 1; i < totalBatches; i++) {
-      const currentOffset = i * limit;
-      batchPromises.push(near.getAllRedemptions(currentOffset, limit));
-    }
-
-    // Fetch all batches in parallel
-    const batchResults = await Promise.all(batchPromises);
-
-    // Combine all results
-    batchResults.forEach((batch) => {
-      allRedemptions = allRedemptions.concat(batch);
-    });
-
-    redemptions = allRedemptions;
-
-    // const { REDEMPTION_STATUS } = getConstants();
-    // // Count redemptions with BTC_YIELD_PROVIDER_UNSTAKE_PROCESSING status
-    // const processingRedemptions = redemptions.filter(
-    //   redemption => redemption.status === REDEMPTION_STATUS.BTC_YIELD_PROVIDER_UNSTAKE_PROCESSING
-    // );
-    // const processingCount = processingRedemptions.length;
-    // const totalProcessingAmount = processingRedemptions.reduce(
-    //   (sum, redemption) => sum + redemption.abtc_amount,
-    //   0
-    // );
-
-    // console.log(
-    //   "[getAllRedemptionHistory] Redemptions with BTC_YIELD_PROVIDER_UNSTAKE_PROCESSING status:",
-    //   processingCount,
-    //   "Total amount:",
-    //   totalProcessingAmount
-    // );
-
-    console.log(
-      "[getAllRedemptionHistory] Total redemptions fetched:",
-      redemptions.length,
-    );
-  } catch (error) {
-    console.error(`[getAllRedemptionHistory] Failed: ${error.message}`);
-  } finally {
-    flagsBatch.GetAllRedemptionHistoryRunning = false;
-  }
-};
-
 // Function to poll Near Atlas bridging records
-const getAllBridgingHistory = async () => {
-  try {
-    //console.log("Fetching bridgings history");
-    bridgings = await near.getAllBridgings();
-  } catch (error) {
-    console.error(`Failed to fetch bridging history: ${error.message}`);
-  }
-};
-
-// Function to poll Btc mempool records
 const getBtcMempoolRecords = async () => {
   try {
     console.log("[getBtcMempoolRecords] Fetching Btc Mempool Records");
@@ -566,9 +410,6 @@ app.get("/api/v1/staker/bridgeHistories", async (req, res) => {
     if (!chain_address) {
       return res.status(400).json({ error: "ERR_MISSING_CHAIN_ADDRESS" });
     }
-
-    await getAllBridgingHistory();
-    await computeStats();
 
     const data = bridgings.filter(
       (record) =>
@@ -968,30 +809,6 @@ app.use((err, req, res, next) => {
     .json({ error: "ERR_INTERNAL_SERVER_ERROR", data: JSON.stringify(err) });
 });
 
-async function runBatch() {
-  //await getBtcMempoolRecords();
-  await getAllBridgingHistory();
-  await computeStats();
-
-  await RetrieveAndProcessPastEvmEvents(near, deposits, redemptions, bridgings);
-  await RetrieveAndProcessPastNearEvents(
-    near,
-    deposits,
-    redemptions,
-    bridgings,
-  );
-
-  // await WithdrawFailDeposits(deposits, near, bitcoin);
-  // await UpdateWithdrawFailDeposits(deposits, near, bitcoin);
-
-  // await SendBridgingFeesToTreasury(near, bitcoin);
-  // await UpdateAtlasBtcBridgingYieldProviderWithdrawn(bridgings, near, bitcoin);
-
-  // Delay for 5 seconds before running the batch again
-  await new Promise((resolve) => setTimeout(resolve, 5000));
-  return runBatch();
-}
-
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, async () => {
   await near.init();
@@ -1000,24 +817,69 @@ app.listen(PORT, async () => {
   await fetchAndSetChainConfigs(near);
   await fetchAndSetConstants(near); // Load constants
 
-  console.log(`Server is running on port ${PORT} | ${nearConfig.contractId}`);
+  console.log(`Server is running on port ${PORT} | ${process.env.NEAR_CONTRACT_ID}`);
 
-  runBatch().catch(console.error);
+  // setInterval(async () => {
+  //   if (!flagsBatch.RetrieveAndProcessPastEventsRunning) {
+  //     flagsBatch.RetrieveAndProcessPastEventsRunning = true;
+  //     try {
+  //       await RetrieveAndProcessPastEvmEvents(near, deposits, redemptions, bridgings);
+  //       await RetrieveAndProcessPastNearEvents(
+  //         near,
+  //         deposits,
+  //         redemptions,
+  //         bridgings
+  //       );
+  //     } catch (error) {
+  //       console.error("Error processing past events:", error);
+  //     } finally {
+  //       flagsBatch.RetrieveAndProcessPastEventsRunning = false;
+  //     }
+  //   }
+  // }, 5000);
+
+  // Function to poll Near Atlas deposit records
+  setInterval(async () => {
+    const result = await getAllDepositHistory(near);
+    if (result) {
+      deposits = result;
+    }
+  }, 100000);
+  
+  // Function to poll Near Atlas redemption records
+  setInterval(async () => {
+    const result = await getAllRedemptionHistory(near);
+    if (result) {
+      redemptions = result;
+    }
+  }, 10000);
+
+  // Function to poll Near Atlas bridging records
+  setInterval(async () => {
+    const result = await getAllBridgingHistory(near);
+    if (result) {
+      bridgings = result;
+    }
+  }, 10000);
+
+  setInterval(async () => {
+    await computeStats();
+  }, 10000);
 
   //Add the unstaking and withdrawal process to the job scheduler
-  // setInterval(async () => {
-  //   try {
-  //     await processUnstakingAndWithdrawal(
-  //       near,
-  //       bitcoin,
-  //       redemptions,
-  //       bridgings,
-  //       globalParams.atlasTreasuryAddress,
-  //     );
-  //   } catch (error) {
-  //     console.error("Error in unstaking and withdrawal process:", error);
-  //   }
-  // }, 60000); // Run every 1 minute
+  setInterval(async () => {
+    try {
+      await processUnstakingAndWithdrawal(
+        near,
+        bitcoin,
+        redemptions,
+        bridgings,
+        globalParams.atlasTreasuryAddress,
+      );
+    } catch (error) {
+      console.error("Error in unstaking and withdrawal process:", error);
+    }
+  }, 60000); // Run every 1 minute
 
   setInterval(async () => {
     await getBtcMempoolRecords();
@@ -1029,14 +891,6 @@ app.listen(PORT, async () => {
       bitcoin,
     );
   }, 60000); // 1 minute
-
-  setInterval(async () => {
-    await getAllDepositHistory();
-  }, 5000);
-
-  setInterval(async () => {
-    await getAllRedemptionHistory();
-  }, 5000);
 
   setInterval(async () => {
     await getBithiveRecords();

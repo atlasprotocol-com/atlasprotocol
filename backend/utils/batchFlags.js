@@ -28,6 +28,8 @@ const flagsBatch = {
   UpdateAtlasBtcWithdrawingFromYieldProviderRunning: false,
   UpdateAtlasRedemptionPendingBtcMempoolRunning: false,
   UpdateBridgingAtbtcMintedRunning: false,
+  GetAllBridgingHistoryRunning: false,
+  RetrieveAndProcessPastEventsRunning: false,
 };
 
 function blockRange(block, start = 1000, end = 2000) {

@@ -2,6 +2,7 @@ const { Web3 } = require("web3");
 const { bytesToHex } = require("@ethereumjs/util");
 const { FeeMarketEIP1559Transaction } = require("@ethereumjs/tx");
 const { Common } = require("@ethereumjs/common");
+const { ethers } = require("ethers");
 const fs = require("fs");
 const path = require("path");
 const _ = require("lodash");
@@ -23,10 +24,12 @@ const cache = new MemoryCache();
 
 class Ethereum {
   constructor(chainID, rpcUrl, gasLimit, aBTCAddress, abiPath) {
-    this.contractABI = JSON.parse(
-      fs.readFileSync(path.resolve(__dirname, abiPath), "utf-8"),
-    );
+    // Handle both file path and direct ABI array
+    this.contractABI = typeof abiPath === 'string' 
+      ? JSON.parse(fs.readFileSync(path.resolve(__dirname, abiPath), "utf-8"))
+      : abiPath;
 
+    this.rpcUrl = rpcUrl;
     this.web3 = new Web3(rpcUrl);
     this.abtcContract = new this.web3.eth.Contract(
       this.contractABI,
@@ -55,8 +58,8 @@ class Ethereum {
   async satsToWei(sats, currencyPriceBtc) {
     const satsInBtc = sats / 100_000_000; // Convert sats to BTC
     const ethAmount = satsInBtc / currencyPriceBtc; // Convert BTC to ETH by dividing by BTC/ETH price ratio
-    const weiAmount = BigInt(Math.floor(ethAmount * 1e18)); // Convert ETH to wei using BigInt
-    return weiAmount; // Remove decimals before converting to BigInt
+    const weiAmount = BigInt(Math.ceil(ethAmount * 1e18)); // Convert ETH to wei using BigInt, using ceil to ensure enough funds
+    return weiAmount;
   }
 
   async calculateEvmGasFeeFromMintingFee(
@@ -81,8 +84,13 @@ class Ethereum {
       mintingFeeUsd = Number(mintingFeeEth) * polPrice;
     } else {
       // Convert mintingFeeSat (in satoshis) to wei, adjusting for ETH price
+      console.log("mintingFeeSat: ", mintingFeeSat);
+      console.log("ethPriceBtc: ", ethPriceBtc);
       mintingFeeWei = await this.satsToWei(mintingFeeSat, ethPriceBtc);
+      console.log("mintingFeeWei: ", mintingFeeWei.toString());
       const mintingFeeEth = mintingFeeWei / BigInt(1e18);
+      console.log("mintingFeeEth: ", mintingFeeEth.toString());
+      console.log("ethPrice: ", ethPrice);
       mintingFeeUsd = Number(mintingFeeEth) * ethPrice;
     }
 
@@ -92,12 +100,12 @@ class Ethereum {
 
     // Get current gas price
     const { baseFeePerGas: rawBaseFeePerGas } = await this.queryGasPrice();
-    const baseFeePerGas = BigInt(rawBaseFeePerGas) * 110n / 100n; // 1.1 multiplier
+    const baseFeePerGas = BigInt(rawBaseFeePerGas) * 120n / 100n; // 1.2 multiplier
 
     // Estimate gas for mintDeposit transaction
     const gasLimit = BigInt(Math.ceil(Number(await this.abtcContract.methods
       .mintDeposit(receiver, amount, btcTxnHash)
-      .estimateGas({ from: sender })) * 1.1));
+      .estimateGas({ from: sender })) * 1.2));
 
     // Calculate required gas price to match minting fee
     const requiredGasPrice = mintingFeeWei / gasLimit;
@@ -395,9 +403,8 @@ class Ethereum {
   }
 
   // This code can be used to actually relay the transaction to the Ethereum network
-  async relayTransaction(signedTransaction) {
+  async relayTransaction(signedTransaction, timeoutMs = 120000) { // Default 2 minute timeout
     try {
-      let relayed;
       console.log("[relayTransaction] signedTransaction: ", signedTransaction);
       const serializedTx = bytesToHex(signedTransaction);
       console.log("[relayTransaction] serializedTx: ", serializedTx);
@@ -407,42 +414,32 @@ class Ethereum {
         throw new Error('Invalid transaction format - must be EIP-1559 transaction starting with 0x02f9');
       }
 
-      // Extract r,s,v values from the end of the transaction
-      const txLength = serializedTx.length;
-      const v = serializedTx.slice(txLength-68, txLength-66);
-      const r = serializedTx.slice(txLength-66, txLength-2);
-      const s = serializedTx.slice(txLength-2);
+      // Create a new ethers provider
+      const provider = new ethers.JsonRpcProvider(this.rpcUrl);
+      
+      console.log("[relayTransaction] Attempting to send transaction...");
+      const tx = await provider.broadcastTransaction(serializedTx);
+      console.log("[relayTransaction] Transaction sent successfully:", tx.hash);
+      
+      // Wait for transaction to be mined with timeout
+      const receipt = await Promise.race([
+        tx.wait(),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error(`Transaction ${tx.hash} timed out after ${timeoutMs}ms`)), timeoutMs)
+        )
+      ]);
+      console.log("[relayTransaction] Transaction mined:", receipt);
 
-      // Validate r and s values
-      const validateNoLeadingZeros = (value, name) => {
-        const bytes = Buffer.from(value.slice(2), 'hex');
-
-        if (bytes[0] === 0) {
-          throw new Error(`${name} cannot have leading zeroes, received: ${value}`);
-        }
+      return { 
+        txnHash: receipt.hash, 
+        status: receipt.status === 1 ? true : false 
       };
-
-      validateNoLeadingZeros(r, 'r');
-      validateNoLeadingZeros(s, 's');
-      
-      try {
-        relayed = await this.web3.eth.sendSignedTransaction(serializedTx);
-      } catch (error) {
-        console.log(
-          `EVM relayTransaction error: ${error.message}`,
-        );
-        throw new Error(error.message);
-      }
-      
-      const txnHash = relayed.transactionHash;
-      const status = relayed.status;
-
-      return { txnHash, status };
     } catch (err) {
-      console.log(err);
-      console.log(
-        `EVM relayTransaction error: ${err.message}`,
-      );
+      console.error("[relayTransaction] Error:", {
+        message: err.message,
+        code: err.code,
+        stack: err.stack
+      });
       throw err;
     }
   }
@@ -746,6 +743,46 @@ class Ethereum {
     const events = await this.abtcContract.getPastEvents(eventName, { fromBlock: receipt.blockNumber, toBlock: receipt.blockNumber });
 
     return events[0];
+  }
+
+  /**
+   * Get all events of a specific type using ethers.js
+   * @param {string} eventName - Name of the event to fetch
+   * @param {number} [fromBlock=0] - Starting block number, defaults to 0
+   * @param {number} [toBlock='latest'] - Ending block number, defaults to latest block
+   * @returns {Promise<Array>} Array of events with transaction hashes
+   */
+  async getEventsByType(eventName, fromBlock = 0, toBlock = 'latest') {
+    try {
+      console.log(`[getEventsByType] Fetching ${eventName} events from block ${fromBlock} to ${toBlock}`);
+      
+      // Create ethers contract instance
+      const provider = new ethers.JsonRpcProvider(this.rpcUrl);
+      const contract = new ethers.Contract(this.aBTCAddress, this.contractABI, provider);
+
+      // Get events
+      const events = await contract.queryFilter(eventName, fromBlock, toBlock);
+      
+      // Format events to include transaction hash
+      const formattedEvents = events.map(event => ({
+        eventName: eventName,
+        transactionHash: event.transactionHash,
+        blockNumber: event.blockNumber,
+        args: event.args,
+        timestamp: event.timestamp,
+        logIndex: event.logIndex
+      }));
+
+      console.log(`[getEventsByType] Found ${formattedEvents.length} ${eventName} events`);
+      return formattedEvents;
+    } catch (error) {
+      console.error(`[getEventsByType] Error fetching ${eventName} events:`, {
+        message: error.message,
+        code: error.code,
+        stack: error.stack
+      });
+      throw error;
+    }
   }
 }
 module.exports = { Ethereum };

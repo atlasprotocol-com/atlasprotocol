@@ -147,15 +147,20 @@ impl Atlas {
             .collect()
     }
 
-    pub fn get_all_bridgings(&self) -> Vec<BridgingRecord> {
-        let mut valid_records = Vec::new();
+    pub fn get_all_bridgings(
+        &self,
+        from_index: Option<u64>,
+        limit: Option<u64>,
+    ) -> Vec<BridgingRecord> {
+        let start = from_index.unwrap_or(0) as usize;
+        let page_size = limit.unwrap_or(1000) as usize; // Default to 1000 records per page
 
-        for record in self.bridgings.values() {
-            // No need to match since we're not dealing with Results
-            valid_records.push(record.clone());
-        }
-
-        valid_records
+        self.bridgings
+            .values()
+            .skip(start)
+            .take(page_size)
+            .cloned()
+            .collect()
     }
 
     pub fn get_bridgings_count(&self) -> u64 {
@@ -202,13 +207,16 @@ impl Atlas {
         self.assert_admin();
         if let Some(mut bridging) = self.bridgings.get(&txn_hash).cloned() {
             // Check that remarks is empty and status is pending bridge
-            if (bridging.remarks == "" && 
+            if bridging.remarks == "" && 
                 bridging.status == BRG_ABTC_PENDING_BRIDGE_FROM_ORIGIN_TO_DEST &&
                 bridging.origin_chain_id != "" &&
                 bridging.origin_chain_address != "" &&
                 bridging.dest_chain_id != "" &&
                 bridging.dest_chain_address != "" &&
-                bridging.dest_txn_hash == "") {
+                bridging.dest_txn_hash == "" 
+            {
+                log!("Updating bridging minted txn hash for txn_hash: {}", txn_hash);
+
                 bridging.dest_txn_hash = dest_txn_hash;
                 bridging.timestamp = timestamp;
                 self.bridgings.insert(txn_hash, bridging);
@@ -1407,7 +1415,8 @@ impl Atlas {
         assert!(!txn_hash.is_empty(), "Transaction hash cannot be empty");
         
         if let Some(mut bridging) = self.bridgings.get(&txn_hash).cloned() {
-            if bridging.status == BRG_ABTC_PENDING_BRIDGE_FROM_ORIGIN_TO_DEST &&
+            if (bridging.status == BRG_ABTC_BURNT ||
+                bridging.status == BRG_ABTC_PENDING_BRIDGE_FROM_ORIGIN_TO_DEST) &&
                 bridging.origin_chain_id != "" &&
                 bridging.origin_chain_address != "" &&
                 bridging.dest_chain_id != "" &&

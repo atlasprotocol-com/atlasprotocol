@@ -279,12 +279,13 @@ impl Atlas {
 
             if let Some(chain_config) = self.chain_configs.get_chain_config(chain_id.clone()) {
                 // Check all specified conditions
-                if (deposit.status == DEP_BTC_PENDING_MINTED_INTO_ABTC)
+                if (deposit.status == DEP_BTC_PENDING_MINTED_INTO_ABTC || deposit.status == DEP_BTC_YIELD_PROVIDER_DEPOSITED)
                     && deposit.verified_count >= chain_config.validators_threshold
                     && deposit.remarks.is_empty()
                     && deposit.minted_txn_hash.is_empty()
                 {
                     // All conditions are met, proceed to update the minted transaction hash
+                    deposit.status = DEP_BTC_PENDING_MINTED_INTO_ABTC;
                     deposit.minted_txn_hash = minted_txn_hash.clone();
                     self.deposits.insert(btc_txn_hash.clone(), deposit);
                     log!(

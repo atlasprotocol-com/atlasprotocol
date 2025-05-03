@@ -24,11 +24,9 @@ async function UpdateYieldProviderStaked(allDeposits, bithiveRecords, near) {
           deposit.remarks === "",
       );
 
-      console.log("filteredTxns: ", filteredTxns.length);
       const relevantBithiveRecords = bithiveRecords.filter(record => 
         filteredTxns.some(txn => txn.yield_provider_txn_hash === record.depositTxHash)
       );
-      console.log("Relevant bithiveRecords: ", relevantBithiveRecords.length);
 
       for (const txn of filteredTxns) {
         try {
