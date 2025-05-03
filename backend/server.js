@@ -819,24 +819,24 @@ app.listen(PORT, async () => {
 
   console.log(`Server is running on port ${PORT} | ${process.env.NEAR_CONTRACT_ID}`);
 
-  // setInterval(async () => {
-  //   if (!flagsBatch.RetrieveAndProcessPastEventsRunning) {
-  //     flagsBatch.RetrieveAndProcessPastEventsRunning = true;
-  //     try {
-  //       await RetrieveAndProcessPastEvmEvents(near, deposits, redemptions, bridgings);
-  //       await RetrieveAndProcessPastNearEvents(
-  //         near,
-  //         deposits,
-  //         redemptions,
-  //         bridgings
-  //       );
-  //     } catch (error) {
-  //       console.error("Error processing past events:", error);
-  //     } finally {
-  //       flagsBatch.RetrieveAndProcessPastEventsRunning = false;
-  //     }
-  //   }
-  // }, 5000);
+  setInterval(async () => {
+    if (!flagsBatch.RetrieveAndProcessPastEventsRunning) {
+      flagsBatch.RetrieveAndProcessPastEventsRunning = true;
+      try {
+        await RetrieveAndProcessPastEvmEvents(near, deposits, redemptions, bridgings);
+        await RetrieveAndProcessPastNearEvents(
+          near,
+          deposits,
+          redemptions,
+          bridgings
+        );
+      } catch (error) {
+        console.error("Error processing past events:", error);
+      } finally {
+        flagsBatch.RetrieveAndProcessPastEventsRunning = false;
+      }
+    }
+  }, 5000);
 
   // Function to poll Near Atlas deposit records
   setInterval(async () => {
