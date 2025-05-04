@@ -32,6 +32,8 @@ import { SelectField } from "../SelectField";
 
 import { BridgePreview } from "./BridgePreview";
 
+const MIN_AMOUNT = 0.0001;
+
 const redeemFormSchema = z.object({
   amount: z.coerce.number().positive().nonnegative(),
   fromChainID: z
@@ -102,26 +104,42 @@ export function Bridge() {
     formState: { errors, isSubmitting },
   } = useForm<SchemaType>({
     resolver: zodResolver(
-      redeemFormSchema.refine(
-        (data) => {
-          const chain = chainConfigs[data.toChainID];
-          if (
-            !chain ||
-            (chain.networkType !== "EVM" && chain.networkType !== "NEAR")
-          ) {
-            return true;
-          }
+      redeemFormSchema
+        .refine(
+          (data) => {
+            const chain = chainConfigs[data.toChainID];
+            if (
+              !chain ||
+              (chain.networkType !== "EVM" && chain.networkType !== "NEAR")
+            ) {
+              return true;
+            }
 
-          return validateBlockchainAddress({
-            address: data.address,
-            networkType: chain.networkType,
-          });
-        },
-        {
-          message: "Please enter a valid address",
-          path: ["address"],
-        },
-      ),
+            return validateBlockchainAddress({
+              address: data.address,
+              networkType: chain.networkType,
+            });
+          },
+          {
+            message: "Please enter a valid address",
+            path: ["address"],
+          },
+        )
+        .refine(
+          (data) => {
+            if (!params.data) return false;
+
+            if (MIN_AMOUNT > data.amount) {
+              return false;
+            }
+
+            return true;
+          },
+          {
+            message: `Please enter a minimum amount of ${MIN_AMOUNT} ${ATLAS_BTC_TOKEN}`,
+            path: ["amount"],
+          },
+        ),
     ),
     mode: "onBlur",
   });
@@ -464,6 +482,7 @@ export function Bridge() {
               </button>
             </div>
           }
+          captionEnd={`min: ${MIN_AMOUNT} ${ATLAS_BTC_TOKEN}`}
           inputProps={{
             placeholder: "0.0002",
             type: "string",
