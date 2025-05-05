@@ -32,6 +32,8 @@ import { SelectField } from "../SelectField";
 
 import { BridgePreview } from "./BridgePreview";
 
+const MIN_AMOUNT = 0.0001;
+
 const redeemFormSchema = z.object({
   amount: z.coerce.number().positive().nonnegative(),
   fromChainID: z
@@ -102,26 +104,42 @@ export function Bridge() {
     formState: { errors, isSubmitting },
   } = useForm<SchemaType>({
     resolver: zodResolver(
-      redeemFormSchema.refine(
-        (data) => {
-          const chain = chainConfigs[data.toChainID];
-          if (
-            !chain ||
-            (chain.networkType !== "EVM" && chain.networkType !== "NEAR")
-          ) {
-            return true;
-          }
+      redeemFormSchema
+        .refine(
+          (data) => {
+            const chain = chainConfigs[data.toChainID];
+            if (
+              !chain ||
+              (chain.networkType !== "EVM" && chain.networkType !== "NEAR")
+            ) {
+              return true;
+            }
 
-          return validateBlockchainAddress({
-            address: data.address,
-            networkType: chain.networkType,
-          });
-        },
-        {
-          message: "Please enter a valid address",
-          path: ["address"],
-        },
-      ),
+            return validateBlockchainAddress({
+              address: data.address,
+              networkType: chain.networkType,
+            });
+          },
+          {
+            message: "Please enter a valid address",
+            path: ["address"],
+          },
+        )
+        .refine(
+          (data) => {
+            if (!params.data) return false;
+
+            if (MIN_AMOUNT > data.amount) {
+              return false;
+            }
+
+            return true;
+          },
+          {
+            message: `Please enter a minimum amount of ${MIN_AMOUNT} ${ATLAS_BTC_TOKEN}`,
+            path: ["amount"],
+          },
+        ),
     ),
     mode: "onBlur",
   });
@@ -297,10 +315,10 @@ export function Bridge() {
         throw new Error("Chain is missing");
       }
 
-      let evmTxHash: string | undefined;
+      let txnHash: string | undefined;
 
       if (selectedChain?.networkType === "EVM") {
-        evmTxHash = await evmBurnRedeem({
+        txnHash = await evmBurnRedeem({
           amount: previewData.amountSat.toString(),
           destChainAddress: previewData.address,
           destChainId: toSelectedChain?.chainID || "",
@@ -310,18 +328,19 @@ export function Bridge() {
       }
 
       if (selectedChain?.networkType === "NEAR") {
-        await nearBurnRedeem({
+        const result = await nearBurnRedeem({
           amount: previewData.amountSat.toString(),
           destinationAddress: previewData.address,
           destinationChain: toSelectedChain?.chainID || "",
           mintingFeeSat: previewData.mintingFeeSat?.toString(),
           bridgingFeeSat: previewData.bridgingFeeSat?.toString(),
         });
+        txnHash = result?.transaction_hash;
       }
 
       // Add the record to local storage
       const newBridgeHistory: BridgeHistory = {
-        txn_hash: selectedChain.chainID + "," + evmTxHash,
+        txn_hash: selectedChain.chainID + "," + txnHash,
         origin_chain_id: selectedChain.chainID,
         origin_chain_address: fromAddress || "",
         dest_chain_id: toSelectedChain.chainID,
@@ -351,9 +370,9 @@ export function Bridge() {
             transaction to show up in the history section. You may close this
             window anytime.
             <br />
-            {evmTxHash && selectedChain && (
+            {txnHash && selectedChain && (
               <a
-                href={`${selectedChain?.explorerURL}tx/${evmTxHash}`}
+                href={`${selectedChain?.explorerURL}tx/${txnHash}`}
                 target="_blank"
                 rel="noreferrer"
                 className="text-primary hover:underline"
@@ -463,6 +482,7 @@ export function Bridge() {
               </button>
             </div>
           }
+          captionEnd={`min: ${MIN_AMOUNT} ${ATLAS_BTC_TOKEN}`}
           inputProps={{
             placeholder: "0.0002",
             type: "string",

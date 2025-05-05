@@ -32,7 +32,7 @@ async function UpdateAtlasBtcBackToUser(allRedemptions, near, bitcoinInstance) {
           redemption.btc_txn_hash_verified_count >= chainConfig.validators_threshold;
       } catch (error) {
         const remarks = `Chain config not found for chain ID: ${redemption.abtc_redemption_chain_id}`;
-        near.updateRedemptionRemarks(redemption.txn_hash, remarks);
+        console.log(remarks);
         return false;
       }
     });

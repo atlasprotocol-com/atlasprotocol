@@ -379,7 +379,14 @@ export function useNearAbtcBridge({ contract }: { contract?: string } = {}) {
         deposit: "1", // 1 octa deposit
       });
 
-      return result;
+      console.log("[useNearAbtcBridge] Result:", result);
+      
+      // Get the transaction hash from the result
+      const txHash = result.transaction_hash || `${Date.now()}`;
+      console.log("[useNearAbtcBridge] Transaction hash:", txHash);
+      
+      // Return an object with the transaction hash
+      return { transaction_hash: txHash };
     },
   });
 }

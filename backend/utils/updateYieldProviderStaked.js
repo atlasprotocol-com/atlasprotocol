@@ -1,4 +1,5 @@
 const { getConstants } = require("../constants");
+const { updateOffchainDepositStatus, updateOffchainDepositRemarks } = require("../helpers/depositsHelper");
 
 const { flagsBatch } = require("./batchFlags");
 
@@ -24,21 +25,19 @@ async function UpdateYieldProviderStaked(allDeposits, bithiveRecords, near) {
           deposit.remarks === "",
       );
 
-      console.log("filteredTxns: ", filteredTxns.length);
       const relevantBithiveRecords = bithiveRecords.filter(record => 
         filteredTxns.some(txn => txn.yield_provider_txn_hash === record.depositTxHash)
       );
-      console.log("Relevant bithiveRecords: ", relevantBithiveRecords.length);
 
       for (const txn of filteredTxns) {
         try {
           
-          const deposit = await near.getDepositByBtcTxnHash(txn.btc_txn_hash);
+          // const deposit = await near.getDepositByBtcTxnHash(txn.btc_txn_hash);
 
-          // Another check to ensure the onchain deposit is in the correct status
-          if (deposit.status !== DEPOSIT_STATUS.BTC_PENDING_YIELD_PROVIDER_DEPOSIT || deposit.remarks !== "") {
-            continue;
-          }
+          // // Another check to ensure the onchain deposit is in the correct status
+          // if (deposit.status !== DEPOSIT_STATUS.BTC_PENDING_YIELD_PROVIDER_DEPOSIT || deposit.remarks !== "") {
+          //   continue;
+          // }
 
           const bithiveDeposit = relevantBithiveRecords.find(
             (d) => d.depositTxHash === txn.yield_provider_txn_hash,
@@ -48,6 +47,8 @@ async function UpdateYieldProviderStaked(allDeposits, bithiveRecords, near) {
             //console.log("bithiveDeposit not found for txn: ", txn);
             continue;
           }
+
+          console.log("bithiveDeposit: ", bithiveDeposit);
 
           if (bithiveDeposit.status === BITHIVE_STATUS.DEPOSIT_FAILED) {
             throw new Error(
@@ -64,6 +65,8 @@ async function UpdateYieldProviderStaked(allDeposits, bithiveRecords, near) {
           }
 
           await near.updateDepositYieldProviderDeposited(txn.btc_txn_hash);
+          updateOffchainDepositStatus(allDeposits, txn.btc_txn_hash, DEPOSIT_STATUS.BTC_YIELD_PROVIDER_DEPOSITED);
+
         } catch (error) {
           let remarks = error.toString();
           console.log(
@@ -71,6 +74,8 @@ async function UpdateYieldProviderStaked(allDeposits, bithiveRecords, near) {
             remarks,
           );
           await near.updateDepositRemarks(txn.btc_txn_hash, remarks.toString());
+          updateOffchainDepositRemarks(allDeposits, txn.btc_txn_hash, remarks.toString());
+
         }
       }
     } catch (error) {

@@ -184,7 +184,7 @@ async function processMintBridgeEvent(event, near, timestamp) {
     bridgingRecord.dest_txn_hash === "" &&
     bridgingRecord.remarks === ""
   ) {
-    await near.updateBridgingMinted(originTxnHash, transactionHash, timestamp);
+    await near.updateBridgingMintedTxnHash(originTxnHash, transactionHash, timestamp);
     console.log(
       `Updated bridging for txn_hash: ${originTxnHash} with transactionHash: ${transactionHash}`,
     );
