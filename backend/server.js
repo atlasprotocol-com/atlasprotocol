@@ -109,7 +109,7 @@ const {
 
 const UpdateSendToUserBtcTxnHash = require("./helpers/updateSendToUserBtcTxnHash");
 
-const { processBurnRedeemEvent } = require("./helpers/eventProcessor");
+const { processBurnRedeemEvent, processBurnBridgeEvent } = require("./helpers/eventProcessor");
 
 const btcConfig = {
   btcAtlasDepositAddress: process.env.BTC_ATLAS_DEPOSIT_ADDRESS,
@@ -674,6 +674,140 @@ app.get("/api/v1/process-new-redemption", async (req, res) => {
   }
 });
 
+
+app.get("/api/v1/process-new-bridging", async (req, res) => {
+  try {
+    const { txnHash } = req.query;
+
+    if (!txnHash) {
+      return res.status(400).json({ error: "Transaction hash is required" });
+    }
+
+    // Extract chainId from txnHash
+    const [chainId, chainTxHash] = txnHash.split(",");
+
+    if (!chainId) {
+      return res
+        .status(400)
+        .json({ error: "Chain ID not found in transaction hash" });
+    }
+
+    // Get chain config for the specified chainId
+    const chainConfig = getChainConfig(chainId);
+    const { EVENT_NAME } = getConstants();
+
+    if (!chainConfig) {
+      return res.status(400).json({ error: "Invalid chain ID" });
+    }
+
+    // Check if redemption record already exists
+    const bridgingRecord = await near.getBridgingByTxnHash(txnHash);
+    if (bridgingRecord) {
+      return res
+        .status(409)
+        .json({ error: "Bridging record already exists" });
+    }
+
+    const { DELIMITER } = getConstants();
+
+    if (chainConfig.networkType === "NEAR") {
+      // Fetch transaction from mempool
+      const event = await near.fetchEventByTxnHashAndEventName(
+        chainTxHash,
+        "ft_burn_bridge",
+      );
+
+      if (!event || event.length === 0) {
+        return res
+          .status(404)
+          .json({ error: "Transaction not found in blockchain" });
+      }
+
+      console.log("event:", JSON.stringify(event, null, 2));
+
+      // Check if amount is greater than 10000
+      if (Number(event.returnValues.amount) < 10000) {
+        return res
+          .status(400)
+          .json({ error: "Amount must be greater than 10000" });
+      }
+
+      await processBurnBridgeEvent(
+        {
+          returnValues: {
+            wallet: event.returnValues.wallet,
+            destChainId: event.returnValues.destChainId,
+            destChainAddress: event.returnValues.destChainAddress,
+            amount: event.returnValues.amount,
+            mintingFeeSat: event.returnValues.mintingFeeSat,
+            bridgingFeeSat: event.returnValues.bridgingFeeSat,
+          },
+          transactionHash: event.transactionHash,
+        },
+        near,
+        chainConfig.chainID,
+        event.timestamp,
+      );
+    } else if (chainConfig.networkType === "EVM") {
+      const ethereum = new Ethereum(
+        chainConfig.chainID,
+        chainConfig.chainRpcUrl,
+        chainConfig.gasLimit,
+        chainConfig.aBTCAddress,
+        chainConfig.abiPath,
+      );
+
+      // Fetch transaction from mempool
+      const event = await ethereum.fetchEventByTxnHashAndEventName(
+        chainTxHash,
+        EVENT_NAME.BURN_BRIDGE,
+      );
+
+      const block = await ethereum.getBlock(event.blockNumber);
+      const timestamp = Number(block.timestamp);
+
+      if (!event || event.length === 0) {
+        return res
+          .status(404)
+          .json({ error: "Transaction not found in blockchain" });
+      }
+
+      // Check if amount is greater than 10000
+      if (Number(event.returnValues.amount) < 10000) {
+        return res
+          .status(400)
+          .json({ error: "Amount must be greater than 10000" });
+      }
+      
+      await processBurnRedeemEvent(
+        {
+          returnValues: {
+            wallet: event.returnValues.wallet,
+            btcAddress: event.returnValues.btcAddress,
+            amount: event.returnValues.amount,
+          },
+          transactionHash: event.transactionHash,
+        },
+        near,
+        chainConfig.chainID,
+        DELIMITER,
+        timestamp,
+      );
+    }
+
+    res.json({
+      success: true,
+      message: `Successfully processed redemption for transaction ${txnHash}`,
+    });
+  } catch (error) {
+    console.error("Error processing new redemption:", error);
+    res.status(500).json({
+      error: "Failed to process new redemption",
+      details: error.message,
+    });
+  }
+});
+
 // Queue for processing BTC pubkey insertions
 const insertPubkeyQueue = [];
 let isProcessing = false;
@@ -894,6 +1028,7 @@ app.listen(PORT, async () => {
 
   setInterval(async () => {
     await MintaBtcToReceivingChain(deposits, near);
+    await MintBridgeABtcToDestChain(bridgings, near);
   }, 10000);
 
   setInterval(async () => {
@@ -943,10 +1078,6 @@ app.listen(PORT, async () => {
   // setInterval(async () => {
   //   await UpdateAtlasBtcBackToUser(redemptions, near, bitcoin);
   // }, 10000);
-
-  setInterval(async () => {
-    await MintBridgeABtcToDestChain(bridgings, near);
-  }, 10000);
 
   setInterval(async () => {
     await UpdateBridgingAtbtcMinted(bridgings, near);
