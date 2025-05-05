@@ -1,4 +1,5 @@
 const { getConstants } = require("../constants");
+const { updateOffchainDepositStatus, updateOffchainDepositRemarks } = require("../helpers/depositsHelper");
 
 const { flagsBatch } = require("./batchFlags");
 
@@ -50,6 +51,7 @@ async function UpdateAtlasBtcDeposited(depositRecords, near, bitcoinInstance) {
 
             // Update existing record
             await near.updateDepositBtcDeposited(btcTxnHash, timestamp);
+            updateOffchainDepositStatus(depositRecords, btcTxnHash, DEPOSIT_STATUS.BTC_DEPOSITED_INTO_ATLAS);
 
             console.log(`[${batchName}] Updated Deposit with BTC txn hash ${btcTxnHash}`);
           }
@@ -58,6 +60,8 @@ async function UpdateAtlasBtcDeposited(depositRecords, near, bitcoinInstance) {
         console.log("error.response.data:", error.response.data);
 
         await near.updateDepositRemarks(btcTxnHash, error.response.data);
+        updateOffchainDepositRemarks(depositRecords, btcTxnHash, error.response.data);
+
         continue;
       }
 

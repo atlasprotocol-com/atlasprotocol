@@ -221,20 +221,20 @@ async function processUnstakingAndWithdrawal(
           }
         }
       );
-      newBridgings = bridgings.filter(
-        bridging => {
-          try {
-            const chainConfig = getChainConfig(bridging.dest_chain_id);
-            return bridging.status === BRIDGING_STATUS.ABTC_BURNT &&
-              bridging.remarks === "" &&
-              bridging.verified_count >= chainConfig.validators_threshold;
-          } catch (error) {
-            const remarks = `Chain config not found for chain ID: ${bridging.dest_chain_id}`;
-            near.updateBridgingFeesYieldProviderRemarks(bridging.txn_hash, remarks);
-            return false;
-          }
-        }
-      );
+      // newBridgings = bridgings.filter(
+      //   bridging => {
+      //     try {
+      //       const chainConfig = getChainConfig(bridging.dest_chain_id);
+      //       return bridging.status === BRIDGING_STATUS.ABTC_BURNT &&
+      //         bridging.remarks === "" &&
+      //         bridging.verified_count >= chainConfig.validators_threshold;
+      //     } catch (error) {
+      //       const remarks = `Chain config not found for chain ID: ${bridging.dest_chain_id}`;
+      //       near.updateBridgingFeesYieldProviderRemarks(bridging.txn_hash, remarks);
+      //       return false;
+      //     }
+      //   }
+      // );
 
       console.log("\x1b[34mUnstaking: \x1b[0m");
       console.log(

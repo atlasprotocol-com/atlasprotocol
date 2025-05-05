@@ -1156,12 +1156,19 @@ impl Atlas {
         // Check if the deposit exists for the given btc_txn_hash
         if let Some(mut deposit) = self.deposits.get(&btc_txn_hash).cloned() {
             // Update the yield_provider_txn_hash
-            deposit.yield_provider_txn_hash = yield_provider_txn_hash;
-            self.deposits.insert(btc_txn_hash.clone(), deposit);
-            log!(
-                "Yield provider transaction hash updated for btc_txn_hash: {}",
-                btc_txn_hash
-            );
+            if deposit.status == DEP_BTC_DEPOSITED_INTO_ATLAS 
+                && deposit.yield_provider_txn_hash == "" 
+                && deposit.remarks == "" {
+                    deposit.status = DEP_BTC_PENDING_YIELD_PROVIDER_DEPOSIT;
+                    deposit.yield_provider_txn_hash = yield_provider_txn_hash;
+                    self.deposits.insert(btc_txn_hash.clone(), deposit);
+                    log!(
+                        "Yield provider transaction hash updated for btc_txn_hash: {}",
+                        btc_txn_hash);
+            }
+            else {
+                env::panic_str("Deposit record not in valid conditions");
+            }
         } else {
             env::panic_str("Deposit record not found");
         }

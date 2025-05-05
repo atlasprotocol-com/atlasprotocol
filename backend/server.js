@@ -33,9 +33,9 @@ const {
 const {
   UpdateAtlasBtcBackToUser,
 } = require("./utils/updateAtlasBtcBackToUser");
-const {
-  UpdateAtlasAbtcMintedTxnHash,
-} = require("./utils/updateAtlasAbtcMintedTxnHash");
+// const {
+//   UpdateAtlasAbtcMintedTxnHash,
+// } = require("./utils/updateAtlasAbtcMintedTxnHash");
 const { UpdateAtlasAbtcMinted } = require("./utils/updateAtlasAbtcMinted");
 const {
   UpdateYieldProviderStaked,
@@ -844,7 +844,7 @@ app.listen(PORT, async () => {
     if (result) {
       deposits = result;
     }
-  }, 100000);
+  }, 5000);
   
   // Function to poll Near Atlas redemption records
   setInterval(async () => {
@@ -866,7 +866,42 @@ app.listen(PORT, async () => {
     await computeStats();
   }, 10000);
 
-  //Add the unstaking and withdrawal process to the job scheduler
+  setInterval(async () => {
+    await getBtcMempoolRecords();
+    await UpdateAtlasBtcDeposits(
+      btcMempool,
+      btcAtlasDepositAddress,
+      globalParams.atlasTreasuryAddress,
+      near,
+      bitcoin,
+    );
+  }, 10000); // 1 minute
+
+  setInterval(async () => {
+    await UpdateAtlasBtcDeposited(deposits, near, bitcoin);
+  }, 1800000); // 30 minutes
+  //}, 10000);
+
+  setInterval(async () => {
+    await StakeToYieldProvider(deposits, near, bitcoin);
+  }, 10000);
+
+  setInterval(async () => {
+    await getBithiveRecords();
+    await UpdateYieldProviderStaked(deposits, bithiveRecords, near);
+  }, 1800000); // 30 minutes
+  //}, 10000);
+
+  setInterval(async () => {
+    await MintaBtcToReceivingChain(deposits, near);
+  }, 10000);
+
+  setInterval(async () => {
+    await UpdateAtlasAbtcMinted(deposits, near);
+  }, 10000);
+
+  
+  // Add the unstaking and withdrawal process to the job scheduler
   // setInterval(async () => {
   //   try {
   //     await processUnstakingAndWithdrawal(
@@ -880,39 +915,7 @@ app.listen(PORT, async () => {
   //     console.error("Error in unstaking and withdrawal process:", error);
   //   }
   // }, 60000); // Run every 1 minute
-
-  setInterval(async () => {
-    await getBtcMempoolRecords();
-    await UpdateAtlasBtcDeposits(
-      btcMempool,
-      btcAtlasDepositAddress,
-      globalParams.atlasTreasuryAddress,
-      near,
-      bitcoin,
-    );
-  }, 60000); // 1 minute
-
-  setInterval(async () => {
-    await getBithiveRecords();
-    await UpdateYieldProviderStaked(deposits, bithiveRecords, near);
-  }, 1800000); // 30 minutes
-
-  setInterval(async () => {
-    await UpdateAtlasBtcDeposited(deposits, near, bitcoin);
-  }, 1800000); // 30 minutes
-
-  setInterval(async () => {
-    await StakeToYieldProvider(deposits, near, bitcoin);
-  }, 10000);
-
-  setInterval(async () => {
-    await MintaBtcToReceivingChain(deposits, near);
-  }, 10000);
-
-  setInterval(async () => {
-    await UpdateAtlasAbtcMinted(deposits, near);
-  }, 10000);
-
+  
   // setInterval(async () => {
   //   await UpdateAtlasBtcWithdrawingFromYieldProvider(
   //     redemptions,

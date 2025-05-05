@@ -28,6 +28,8 @@ async function UpdateBridgingAtbtcMinted(allBridgings, near) {
     // Update status to DEP_ABTC_MINTED_INTO_ATBTC for all deposits
     for (const bridging of filteredTxns) {
       
+      console.log('[UpdateBridgingAtbtcMinted] Bridging record:', bridging);
+      
       await near.updateBridgingAtbtcMinted(bridging.txn_hash);
       
       updateOffchainBridgingStatus(

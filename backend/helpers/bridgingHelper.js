@@ -37,7 +37,7 @@ const validateCommonBridgingFields = (bridging) => {
 const getAllBridgingHistory = async (
   near,
   limit = 100,
-  concurrentLimit = 5,
+  concurrentLimit = 10,
 ) => {
   if (flagsBatch.GetAllBridgingHistoryRunning) {
     console.log(
@@ -150,6 +150,21 @@ const updateOffchainBridgingStatus = (allBridgings, txnHash, newStatus) => {
   const index = allBridgings.findIndex(b => b.txn_hash === txnHash);
   if (index !== -1) {
     allBridgings[index].status = newStatus;
+    console.log(`[updateOffchainBridgingStatus] Updated status for bridging ${txnHash} to ${newStatus}`);
+  } 
+};
+
+/**
+ * Updates the remarks of a bridging record in the array
+ * @param {Array} allBridgings - Array of bridging records
+ * @param {string} txnHash - Transaction hash to update
+ * @param {string} newRemarks - New remarks to set
+ */
+const updateOffchainBridgingRemarks = (allBridgings, txnHash, newRemarks) => {
+  const index = allBridgings.findIndex(b => b.txn_hash === txnHash);
+  if (index !== -1) {
+    allBridgings[index].remarks = newRemarks;
+    console.log(`[updateOffchainBridgingRemarks] Updated remarks for bridging ${txnHash} to ${newRemarks}`);
   }
 };
 
@@ -159,4 +174,5 @@ module.exports = {
   validateCommonBridgingFields,
   getBridgingRecordsToUpdateMinted,
   updateOffchainBridgingStatus,
+  updateOffchainBridgingRemarks,
 };

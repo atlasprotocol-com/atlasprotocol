@@ -2,7 +2,7 @@ const _ = require("lodash");
 
 const { getChainConfig } = require("../utils/network.chain.config");
 const { getConstants } = require("../constants");
-const { updateOffchainDepositStatus } = require("../helpers/depositsHelper");
+const { updateOffchainDepositStatus, updateOffchainDepositRemarks } = require("../helpers/depositsHelper");
 
 const { flagsBatch } = require("./batchFlags");
 async function UpdateAtlasAbtcMinted(allDeposits, near) {
@@ -42,7 +42,7 @@ async function UpdateAtlasAbtcMinted(allDeposits, near) {
           deposit.btc_txn_hash,
           deposit.minted_txn_hash,
         );
-        updateOffchainDepositStatus(allDeposits, deposit.btc_txn_hash, DEPOSIT_STATUS.BTC_DEPOSITED_INTO_ATLAS);
+        updateOffchainDepositStatus(allDeposits, deposit.btc_txn_hash, DEPOSIT_STATUS.BTC_MINTED_INTO_ABTC);
         console.log(
           `Updated deposit status to DEP_BTC_MINTED_INTO_ABTC for btc_txn_hash: ${deposit.btc_txn_hash} with minted_txn_hash: ${deposit.minted_txn_hash}`,
         );

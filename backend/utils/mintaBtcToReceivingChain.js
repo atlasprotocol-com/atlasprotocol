@@ -1,7 +1,7 @@
 const { getConstants } = require("../constants");
 const { Ethereum } = require("../services/ethereum");
 const address = require("../services/address");
-const { updateOffchainDepositStatus } = require("../helpers/depositsHelper");
+const { updateOffchainDepositStatus, updateOffchainDepositRemarks } = require("../helpers/depositsHelper");
 
 const { flagsBatch } = require("./batchFlags");
 const { getChainConfig } = require("./network.chain.config");
@@ -159,12 +159,14 @@ async function MintaBtcToReceivingChain(allDeposits, near) {
                 let remarks = `Error ${batchName} processing Txn with BTC txn hash ${btcTxnHash}: Transaction relayer return with error`;
                 console.error(remarks);
                 await near.updateDepositRemarks(btcTxnHash, remarks);
+                updateOffchainDepositRemarks(allDeposits, btcTxnHash, remarks);
               }
             } catch (error) {
               let remarks = `Error ${batchName} processing Txn with BTC txn hash ${btcTxnHash}: ${error}`;
               console.error(remarks);
               if (!error.message.includes("Gas price is less than base fee per gas")) {
                 await near.updateDepositRemarks(btcTxnHash, remarks);
+                updateOffchainDepositRemarks(allDeposits, btcTxnHash, remarks);
               }
               continue
             }
@@ -208,16 +210,17 @@ async function MintaBtcToReceivingChain(allDeposits, near) {
               console.log(`Minting aBTC on NEAR...`);
               const signedTransaction =
                 await near.createMintaBtcSignedTx(payloadHeader);
+              
+              updateOffchainDepositStatus(allDeposits, btcTxnHash, DEPOSIT_STATUS.BTC_PENDING_MINTED_INTO_ABTC);
 
               console.log(signedTransaction);
-
-              updateOffchainDepositStatus(allDeposits, btcTxnHash, DEPOSIT_STATUS.BTC_PENDING_MINTED_INTO_ABTC);
 
             } catch (error) {
               let remarks = `Error ${batchName} processing Txn with BTC txn hash ${btcTxnHash}: ${error}`;
               console.error(remarks);
               if (!error.message.includes("Gas price is less than base fee per gas")) {
                 await near.updateDepositRemarks(btcTxnHash, remarks);
+                updateOffchainDepositRemarks(allDeposits, btcTxnHash, remarks);
               }
               continue;
             }

@@ -7,10 +7,38 @@ const { flagsBatch } = require("../utils/batchFlags");
  * @param {string} newStatus - New status to set
  */
 const updateOffchainDepositStatus = (allDeposits, txnHash, newStatus) => {
-  const index = allDeposits.findIndex(d => d.txn_hash === txnHash);
+  const index = allDeposits.findIndex(d => d.btc_txn_hash === txnHash);
   if (index !== -1) {
     allDeposits[index].status = newStatus;
     console.log(`[updateOffchainDepositStatus] Updated status for deposit ${txnHash} to ${newStatus}`);
+  }
+};
+
+/**
+ * Updates the remarks of a deposit record in the array
+ * @param {Array} allDeposits - Array of deposit records
+ * @param {string} txnHash - Transaction hash to update
+ * @param {string} newRemarks - New remarks to set
+ */
+const updateOffchainDepositRemarks = (allDeposits, txnHash, newRemarks) => {
+  const index = allDeposits.findIndex(d => d.btc_txn_hash === txnHash);
+  if (index !== -1) {
+    allDeposits[index].remarks = newRemarks;
+    console.log(`[updateOffchainDepositRemarks] Updated remarks for deposit ${txnHash} to ${newRemarks}`);
+  }
+};
+
+/**
+ * Updates the yield provider transaction hash of a deposit record in the array
+ * @param {Array} allDeposits - Array of deposit records
+ * @param {string} txnHash - Original transaction hash to identify the deposit
+ * @param {string} yieldProviderTxnHash - New yield provider transaction hash to set
+ */
+const updateOffchainYieldProviderTxnHash = (allDeposits, txnHash, yieldProviderTxnHash) => {
+  const index = allDeposits.findIndex(d => d.btc_txn_hash === txnHash);
+  if (index !== -1) {
+    allDeposits[index].yield_provider_txn_hash = yieldProviderTxnHash;
+    console.log(`[updateOffchainYieldProviderTxnHash] Updated yield provider txn hash for deposit ${txnHash} to ${yieldProviderTxnHash}`);
   }
 };
 
@@ -21,7 +49,7 @@ const updateOffchainDepositStatus = (allDeposits, txnHash, newStatus) => {
  * @param {number} concurrentLimit - Maximum number of concurrent requests
  * @returns {Promise<Array>} Array of deposit records
  */
-const getAllDepositHistory = async (near, limit = 100, concurrentLimit = 5) => {
+const getAllDepositHistory = async (near, limit = 100, concurrentLimit = 10) => {
   if (flagsBatch.GetAllDepositHistoryRunning) {
     console.log(
       "[getAllDepositHistory] GetAllDepositHistoryRunning is running",
@@ -87,4 +115,6 @@ const getAllDepositHistory = async (near, limit = 100, concurrentLimit = 5) => {
 module.exports = {
   getAllDepositHistory,
   updateOffchainDepositStatus,
+  updateOffchainDepositRemarks,
+  updateOffchainYieldProviderTxnHash,
 }; 

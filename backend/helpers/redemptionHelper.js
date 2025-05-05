@@ -7,7 +7,7 @@ const { flagsBatch } = require("../utils/batchFlags");
  * @param {number} concurrentLimit - Maximum number of concurrent requests
  * @returns {Promise<Array>} Array of redemption records
  */
-const getAllRedemptionHistory = async (near, limit = 100, concurrentLimit = 5) => {
+const getAllRedemptionHistory = async (near, limit = 100, concurrentLimit = 10) => {
   if (flagsBatch.GetAllRedemptionHistoryRunning) {
     console.log(
       "[getAllRedemptionHistory] GetAllRedemptionHistoryRunning is running",
@@ -70,6 +70,36 @@ const getAllRedemptionHistory = async (near, limit = 100, concurrentLimit = 5) =
   }
 };
 
+/**
+ * Updates the status of a redemption record in the array
+ * @param {Array} allRedemptions - Array of redemption records
+ * @param {string} txnHash - Transaction hash to update
+ * @param {string} newStatus - New status to set
+ */
+const updateOffchainRedemptionStatus = (allRedemptions, txnHash, newStatus) => {
+  const index = allRedemptions.findIndex(r => r.txn_hash === txnHash);
+  if (index !== -1) {
+    allRedemptions[index].status = newStatus;
+    console.log(`[updateOffchainRedemptionStatus] Updated status for redemption ${txnHash} to ${newStatus}`);
+  }
+};
+
+/**
+ * Updates the remarks of a redemption record in the array
+ * @param {Array} allRedemptions - Array of redemption records
+ * @param {string} txnHash - Transaction hash to update
+ * @param {string} newRemarks - New remarks to set
+ */
+const updateOffchainRedemptionRemarks = (allRedemptions, txnHash, newRemarks) => {
+  const index = allRedemptions.findIndex(r => r.txn_hash === txnHash);
+  if (index !== -1) {
+    allRedemptions[index].remarks = newRemarks;
+    console.log(`[updateOffchainRedemptionRemarks] Updated remarks for redemption ${txnHash} to ${newRemarks}`);
+  }
+};
+
 module.exports = {
   getAllRedemptionHistory,
+  updateOffchainRedemptionStatus,
+  updateOffchainRedemptionRemarks,
 }; 

@@ -1,7 +1,7 @@
 const { getConstants } = require("../constants");
 const { Ethereum } = require("../services/ethereum");
 const address = require("../services/address");
-const { getBridgingRecordsToBridge, updateOffchainBridgingStatus } = require("../helpers/bridgingHelper");
+const { getBridgingRecordsToBridge, updateOffchainBridgingStatus, updateOffchainBridgingRemarks } = require("../helpers/bridgingHelper");
 
 const { getChainConfig } = require("./network.chain.config");
 const { flagsBatch } = require("./batchFlags");
@@ -156,12 +156,22 @@ async function MintBridgeABtcToDestChain(allBridgings, near) {
                 let remarks = `Error ${batchName} processing Txn with txn hash ${txnHash}: Transaction relayer return with error`;
                 console.error(remarks);
                 await near.updateBridgingRemarks(txnHash, remarks);
+                updateOffchainBridgingRemarks(
+                  allBridgings,
+                  txnHash,
+                  remarks
+                );
               }
             } catch (error) {
               let remarks = `Error ${batchName} processing Txn with txn hash ${txnHash}: ${error}`;
               console.error(remarks);
               if (!error.message.includes("Gas price is less than base fee per gas")) {
                 await near.updateBridgingRemarks(txnHash, remarks);
+                updateOffchainBridgingRemarks(
+                  allBridgings,
+                  txnHash,
+                  remarks
+                );
               }
               continue;
             }
@@ -213,6 +223,11 @@ async function MintBridgeABtcToDestChain(allBridgings, near) {
               console.error(remarks);
               if (!error.message.includes("Gas price is less than base fee per gas")) {
                 await near.updateBridgingRemarks(txnHash, remarks);
+                updateOffchainBridgingRemarks(
+                  allBridgings,
+                  txnHash,
+                  remarks
+                );
               }
               continue;
             }

@@ -1,6 +1,7 @@
 const { createRelayerClient } = require("@bithive/relayer-api");
 
 const { getConstants } = require("../constants");
+const { updateOffchainDepositStatus, updateOffchainDepositRemarks, updateOffchainYieldProviderTxnHash } = require("../helpers/depositsHelper");
 
 const { getChainConfig } = require("./network.chain.config");
 const { flagsBatch } = require("./batchFlags");
@@ -50,6 +51,7 @@ async function StakeToYieldProvider(allDeposits, near, bitcoinInstance) {
                   deposit.status === DEPOSIT_STATUS.BTC_DEPOSITED_INTO_ATLAS &&
                   deposit.remarks === "" &&
                   deposit.minted_txn_hash === "" &&
+                  deposit.yield_provider_txn_hash === "" &&
                   deposit.btc_amount > 0 &&
                   deposit.date_created > 0 &&
                   deposit.verified_count >= chainConfig.validators_threshold;
@@ -80,15 +82,15 @@ async function StakeToYieldProvider(allDeposits, near, bitcoinInstance) {
 
         try {
           
-          const deposit = await near.getDepositByBtcTxnHash(btcTxnHash);
+          // const deposit = await near.getDepositByBtcTxnHash(btcTxnHash);
 
-          // Another check to ensure the onchain deposit is in the correct status
-          if (deposit.status === DEPOSIT_STATUS.BTC_DEPOSITED_INTO_ATLAS && deposit.remarks === "") {
-            await near.updateDepositPendingYieldProviderDeposit(btcTxnHash);
-          }
-          else {
-            continue;
-          }
+          // // Another check to ensure the onchain deposit is in the correct status
+          // if (deposit.status === DEPOSIT_STATUS.BTC_DEPOSITED_INTO_ATLAS && deposit.remarks === "") {
+          //   await near.updateDepositPendingYieldProviderDeposit(btcTxnHash);
+          // }
+          // else {
+          //   continue;
+          // }
 
           // Convert publicKey to a string
           const publicKeyString = publicKey.toString("hex");
@@ -129,6 +131,8 @@ async function StakeToYieldProvider(allDeposits, near, bitcoinInstance) {
           console.log("Updating Yield provider txn hash");
 
           await near.updateYieldProviderTxnHash(btcTxnHash, txHash);
+          updateOffchainDepositStatus(allDeposits, btcTxnHash, DEPOSIT_STATUS.BTC_PENDING_YIELD_PROVIDER_DEPOSIT);
+          updateOffchainYieldProviderTxnHash(allDeposits, btcTxnHash, txHash);
 
           console.log("Yield provider txn hash updated");
 
@@ -151,13 +155,17 @@ async function StakeToYieldProvider(allDeposits, near, bitcoinInstance) {
             console.log("spendingTxs: ", spendingTxs);
             if (spendingTxs) {
               await near.updateYieldProviderTxnHash(btcTxnHash, spendingTxs);
+              updateOffchainDepositStatus(allDeposits, btcTxnHash, DEPOSIT_STATUS.BTC_PENDING_YIELD_PROVIDER_DEPOSIT);
+              updateOffchainYieldProviderTxnHash(allDeposits, btcTxnHash, spendingTxs); 
             }
             else {
               await near.updateDepositRemarks(btcTxnHash, remarks);
+              updateOffchainDepositRemarks(allDeposits, btcTxnHash, remarks);
             }
           }
           else {
             await near.updateDepositRemarks(btcTxnHash, remarks);
+            updateOffchainDepositRemarks(allDeposits, btcTxnHash, remarks);
           }
         }
       }
