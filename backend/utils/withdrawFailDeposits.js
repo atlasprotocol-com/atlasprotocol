@@ -40,7 +40,20 @@ async function WithdrawFailDeposits(allDeposits, near, bitcoin) {
         `${batchName}: ${deposit.btc_txn_hash} retry_count:${deposit.retry_count}`,
       );
 
-      const utxos = await bitcoin.fetchUTXOs(depositAddress);
+      const allUTXOs = await bitcoin.fetchUTXOs(depositAddress);
+      const utxos = allUTXOs
+        .filter((utxo) => utxo.txid === deposit.btc_txn_hash)
+        .map((utxo) => ({
+          txHash: utxo.txid,
+          vout: utxo.vout,
+        }));
+      if (utxos.length === 0) {
+        console.error(
+          `${batchName}: No UTXOs found for ${deposit.btc_txn_hash}. Skipping...`,
+        );
+        continue;
+      }
+
       const result = await near.withdrawFailDepositByBtcTxHash({
         btc_txn_hash: deposit.btc_txn_hash,
         utxos: utxos,
