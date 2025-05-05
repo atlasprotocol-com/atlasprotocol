@@ -30,6 +30,7 @@ const flagsBatch = {
   UpdateBridgingAtbtcMintedRunning: false,
   GetAllBridgingHistoryRunning: false,
   RetrieveAndProcessPastEventsRunning: false,
+  MintingEventsRunning: false,
 };
 
 function blockRange(block, start = 1000, end = 2000) {
