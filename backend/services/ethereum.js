@@ -310,7 +310,7 @@ class Ethereum {
   ) {
     // Get the nonce & gas price
     // console.log(`Getting nonce...`);
-    const nonce = await this.web3.eth.getTransactionCount(sender);
+    const nonce = await this.web3.eth.getTransactionCount(sender, "pending");
     
 
     const { baseFeePerGas, gasLimit, gasPrice, maxPriority, mintingFeeUsd } =

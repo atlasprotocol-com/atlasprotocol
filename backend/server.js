@@ -1031,7 +1031,7 @@ app.listen(PORT, async () => {
       flagsBatch.MintingEventsRunning = true;
       try {
         await MintaBtcToReceivingChain(deposits, near);
-        await MintBridgeABtcToDestChain(bridgings, near);
+        //await MintBridgeABtcToDestChain(bridgings, near);
       } catch (error) {
         console.error("Error processing minting events:", error);
       } finally {
