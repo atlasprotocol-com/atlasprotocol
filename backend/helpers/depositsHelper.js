@@ -49,7 +49,7 @@ const updateOffchainYieldProviderTxnHash = (allDeposits, txnHash, yieldProviderT
  * @param {number} concurrentLimit - Maximum number of concurrent requests
  * @returns {Promise<Array>} Array of deposit records
  */
-const getAllDepositHistory = async (near, limit = 100, concurrentLimit = 10) => {
+const getAllDepositHistory = async (near, limit = 1000, concurrentLimit = 5) => {
   if (flagsBatch.GetAllDepositHistoryRunning) {
     console.log(
       "[getAllDepositHistory] GetAllDepositHistoryRunning is running",

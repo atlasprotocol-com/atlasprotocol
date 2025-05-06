@@ -7,7 +7,7 @@ const { flagsBatch } = require("../utils/batchFlags");
  * @param {number} concurrentLimit - Maximum number of concurrent requests
  * @returns {Promise<Array>} Array of redemption records
  */
-const getAllRedemptionHistory = async (near, limit = 100, concurrentLimit = 10) => {
+const getAllRedemptionHistory = async (near, limit = 1000, concurrentLimit = 5) => {
   if (flagsBatch.GetAllRedemptionHistoryRunning) {
     console.log(
       "[getAllRedemptionHistory] GetAllRedemptionHistoryRunning is running",

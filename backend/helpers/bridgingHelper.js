@@ -36,8 +36,8 @@ const validateCommonBridgingFields = (bridging) => {
  */
 const getAllBridgingHistory = async (
   near,
-  limit = 100,
-  concurrentLimit = 10,
+  limit = 1000,
+  concurrentLimit = 5,
 ) => {
   if (flagsBatch.GetAllBridgingHistoryRunning) {
     console.log(
