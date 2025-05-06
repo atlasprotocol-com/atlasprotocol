@@ -20,10 +20,11 @@ const CONFIG = {
   GENERATE_PUBKEY_XLSX: false,          // Set to true to enable pubkeys.xlsx generation
   GENERATE_NEAR_BLOCKS_XLSX: false,      // Set to true to enable nearblocks.xlsx generation
   ADD_MISSING_NEAR_BLOCKS_XLSX: false,    // Set to true to process missing blocks from error file
-  GENERATE_DEPOSITS_STATUS_21_XLSX: true,     // Set to true to process deposits with status 21
+  GENERATE_DEPOSITS_STATUS_21_XLSX: false,     // Set to true to process deposits with status 21
   GENERATE_REDEMPTIONS_XLSX: false,      // Set to true to enable redemptions.xlsx generation
   GENERATE_REDEMPTIONS_VIA_EVENTS: false,  // Generate redemptions via events from Excel
   GENERATE_EVM_BLOCKS_XLSX: false,      // Set to true to enable evmblocks.xlsx generation
+  GENERATE_BRIDGINGS_XLSX: true,       // Set to true to enable bridgings.xlsx generation
   
   DEPOSITS: {
     OUTPUT_FILE: "deposits.xlsx",       // Output filename for deposits batch
@@ -44,7 +45,7 @@ const CONFIG = {
     INPUT_FILE: "deposits-quest2.xlsx", // Fixed input file to read from and write to
     BATCH_SIZE: 25,                     // Number of rows to process in parallel
     SAVE_INTERVAL: 25,                 // Save file every N rows processed
-    START_INDEX: 0,                     // Starting row index (0-based, excluding header)
+    START_INDEX: 2999,                     // Starting row index (0-based, excluding header)
     END_INDEX: null,                     // Ending row index (null for all rows)
   },
   
@@ -76,7 +77,7 @@ const CONFIG = {
   
   NEAR: {
     //START_BLOCK: 189828204,            // Starting block number to scan from for first testnet deposit
-    START_BLOCK: null,            // Starting block number to scan from
+    START_BLOCK: 194527216,            // Starting block number to scan from
     //last processed 192956448, 192957948
     //START_BLOCK: 192888235,            // Starting Redemption record in testnet
     END_BLOCK: null,                   // Ending block number to scan until (null for no end)
@@ -87,10 +88,11 @@ const CONFIG = {
     ATBTC_CONTRACT: "atbtc_v2.atlas_public_testnet.testnet",  // ATBTC contract ID
     OUTPUT_FILE_DEPOSIT: "nearblocks_deposit.xlsx",    // Output filename for deposit events
     OUTPUT_FILE_REDEEM: "nearblocks_redeem.xlsx",      // Output filename for redeem events
+    OUTPUT_FILE_BRIDGE: "nearblocks_bridge.xlsx",      // Output filename for bridge events
     ERROR_OUTPUT_FILE: "nearblocks_errors.txt",  // File to log block processing errors
     WORKSHEET_NAME: "NEAR Blocks",     // Name of the worksheet in Excel file
-    RPC_ENDPOINT: "https://neart.lava.build",  // NEAR RPC endpoint
-    //RPC_ENDPOINT: "https://rpc.testnet.fastnear.com",  // NEAR RPC endpoint    
+    //RPC_ENDPOINT: "https://neart.lava.build",  // NEAR RPC endpoint
+    RPC_ENDPOINT: "https://rpc.testnet.fastnear.com",  // NEAR RPC endpoint    
     //RPC_ENDPOINT: "https://archival-rpc.testnet.near.org",  // NEAR RPC endpoint    
     THREAD_COUNT: 12,                  // Number of parallel threads to process blocks
     BLOCKS_PER_THREAD: 10,              // Number of blocks each thread processes
@@ -167,6 +169,14 @@ const CONFIG = {
       BTC_TXN_HASH: 8,  // Column index for BTC Txn Hash
     }
   },
+  BRIDGINGS: {
+    OUTPUT_FILE: "bridgings.xlsx",      // Output filename
+    MAX_RECORDS: null,                 // Maximum number of records to process
+    BATCH_SIZE: 1000,                   // Number of records to process in each batch
+    START_INDEX: 0,                     // Starting index for processing
+    END_INDEX: null,                    // Ending index for processing (null for all)
+    PRINT_CLI_OUTPUT: false,            // Set to true to print raw CLI output
+  },
 };
 
 logTime("CONFIG loaded");
@@ -183,6 +193,7 @@ const FEATURE_DEPENDENCIES = {
   GENERATE_REDEMPTIONS_XLSX: ['excelJs'],  
   GENERATE_REDEMPTIONS_VIA_EVENTS: ['excelJs', 'axios', 'nearApi'],
   GENERATE_EVM_BLOCKS_XLSX: ['excelJs', 'nearApi', 'web3'],
+  GENERATE_BRIDGINGS_XLSX: ['excelJs'],
 };
 
 // Global variables for modules
@@ -1300,113 +1311,148 @@ function createNearBlocksWorksheet(workbook, eventType) {
 
 // Process NEAR blocks with a range of blocks
 async function processNearBlockRange(startBlock, endBlock, threadId) {
-  console.log(`🧵 Thread ${threadId}: Processing blocks ${startBlock} to ${endBlock}`);
-  
-  const depositResults = [];
-  const redeemResults = [];
-  const threadErrors = [];
+  console.log(`[Thread ${threadId}] Processing blocks from ${startBlock} to ${endBlock}`);
+  const blockResults = {
+    depositResults: [],
+    redeemResults: [],
+    bridgeResults: [],
+    threadErrors: []
+  };
 
   for (let blockNumber = startBlock; blockNumber <= endBlock; blockNumber++) {
     try {
-      // Use block_id parameter
       const block = await provider.block({ blockId: blockNumber });
-      const chunks = block.chunks;
-
-      for (const chunk of chunks) {
-        if (chunk.tx_root === "11111111111111111111111111111111") {
+      for (const chunk of block.chunks) {
+        if (chunk.tx_root === Near.TRANSACTION_ROOT) {
           continue;
         }
 
         const chunkData = await provider.chunk(chunk.chunk_hash);
-        const transactions = chunkData.transactions || [];
+        const transactions = chunkData.transactions;
+
+        if (!transactions || transactions.length === 0) {
+          continue;
+        }
 
         for (const tx of transactions) {
+          if (tx.receiver_id !== CONFIG.NEAR.CONTRACT_ID) {
+            continue;
+          }
+
           try {
-            // Skip transactions not sent to our contracts
-            if (tx.receiver_id !== CONFIG.NEAR.CONTRACT && tx.receiver_id !== CONFIG.NEAR.ATBTC_CONTRACT) {
-              continue;
-            }
+            const txResult = await provider.txStatus(tx.hash, tx.signer_id);
 
-            const txStatus = await provider.txStatus(tx.hash, tx.signer_id);
-            const receipts = txStatus.receipts_outcome || [];
+            for (const receipt of txResult.receipts_outcome) {
+              if (receipt.outcome.status.SuccessValue !== "") {
+                continue;
+              }
 
-            // Process logs in a single loop
-            for (const receipt of receipts) {
-              const logs = receipt.outcome.logs || [];
-              
-              // Process logs in a single loop
-              for (const log of logs) {
-                if (log.includes("EVENT_JSON:")) {
-                  
-                  const eventData = JSON.parse(log.split("EVENT_JSON:")[1]);
-                  const timestamp = Math.floor(block.header.timestamp / 1000000000);  // Convert from nanoseconds to seconds and round down
-                  
-                  let accountId = "";
-                  let amount = "";
-                  let btcInfo = "";
+              for (const log of receipt.outcome.logs) {
+                try {
+                  if (!log.startsWith("EVENT_JSON:")) continue;
 
-                  if (log.includes("ft_mint")) {
-                                        
-                    try {
-                      // Get the first item from the data array
-                      const mintData = eventData.data[0];
-                      amount = mintData.amount;
-                      
-                      if (mintData.memo) {
-                        const memo = JSON.parse(mintData.memo);
-                        accountId = memo.address;
-                        btcInfo = memo.btc_txn_hash;
+                  const eventJson = JSON.parse(log.replace("EVENT_JSON:", ""));
+                  const eventName = eventJson.event;
+                  const memo = JSON.parse(eventJson.data[0].memo);
+                  const transactionHash = txResult.transaction.hash;
+                  const timestamp = Math.floor(block.header.timestamp / 1000000000);
+
+                  switch (eventName) {
+                    case "ft_mint":
+                      blockResults.depositResults.push({
+                        btcTxnHash: memo.btc_txn_hash,
+                        receiptId: receipt.id,
+                        transactionHash,
+                      });
+                      break;
+
+                    case "ft_burn_redeem":
+                      if (!address.isValidBTCAddress(memo.btcAddress)) {
+                        const errorMsg = `[${transactionHash}] Invalid BTC address: ${memo.btcAddress} in block ${blockNumber}`;
+                        console.error(errorMsg);
+                        blockResults.threadErrors.push(`Thread ${threadId}: ${errorMsg}`);
+                        continue;
                       }
-                    } catch (error) {
-                      console.error(`❌ Thread ${threadId}: Error parsing memo in block ${blockNumber}:`, error);
-                    }                                        
-                    
-                    depositResults.push({
-                      block_number: blockNumber,
-                      timestamp: timestamp,
-                      formatted_timestamp: formatDate(new Date(timestamp * 1000)),
-                      tx_hash: tx.hash,
-                      account_id: accountId,
-                      amount: amount,
-                      btc_txn_hash: btcInfo,
-                      event_type: "mint_deposit"
-                    });
-                    console.log(`✅ Thread ${threadId}: Added deposit event in block ${blockNumber}`);
-                  } else if (log.includes("ft_burn_redeem")) {
+                      blockResults.redeemResults.push({
+                        returnValues: {
+                          amount: eventJson.data[0].amount,
+                          wallet: memo.address,
+                          btcAddress: memo.btcAddress
+                        },
+                        transactionHash,
+                        receiptId: receipt.id,
+                        blockNumber,
+                        timestamp,
+                        status: true,
+                      });
+                      break;
 
-                    try {
-                      // Get the first item from the data array
-                      const redeemData = eventData.data[0];
-                      amount = redeemData.amount;
-                      accountId = redeemData.owner_id;
-                      
-                      if (redeemData.memo) {
-                        const memo = JSON.parse(redeemData.memo);
-                        
-                        btcInfo = memo.btcAddress;
+                    case "ft_mint_bridge":
+                      try {
+                        blockResults.bridgeResults.push({
+                          type: "mint_bridge",
+                          address: memo.address,
+                          originChainId: memo.originChainId,
+                          originChainAddress: memo.originChainAddress,
+                          originTxnHash: memo.originTxnHash,
+                          transactionHash,
+                          receiptId: receipt.id,
+                          timestamp,
+                        });
+                      } catch (error) {
+                        const errorMsg = `Thread ${threadId}: Error processing ft_mint_bridge in block ${blockNumber}, Tx ${transactionHash} - ${error.message}`;
+                        console.error(errorMsg);
+                        blockResults.threadErrors.push(errorMsg);
                       }
-                    } catch (error) {
-                      console.error(`❌ Thread ${threadId}: Error parsing memo in block ${blockNumber}:`, error);
-                    }    
+                      break;
 
-                    redeemResults.push({
-                      block_number: blockNumber,
-                      timestamp: timestamp,
-                      formatted_timestamp: formatDate(new Date(timestamp * 1000)),
-                      tx_hash: tx.hash,
-                      account_id: accountId,
-                      amount: amount,
-                      btc_address: btcInfo,
-                      event_type: "burn_redeem"
-                    });
-                    console.log(`✅ Thread ${threadId}: Added redeem event in block ${blockNumber}`);
+                    case "ft_burn_bridge":
+                      try {
+                        const isValidAddress =
+                          address.isValidEthereumAddress(memo.destChainAddress) ||
+                          address.isValidNearAddress(memo.destChainAddress);
+
+                        if (!isValidAddress) {
+                          const errorMsg = `[${transactionHash}] Invalid destination address: ${memo.destChainAddress} in block ${blockNumber}`;
+                          console.error(errorMsg);
+                          blockResults.threadErrors.push(`Thread ${threadId}: ${errorMsg}`);
+                          continue;
+                        }
+                        blockResults.bridgeResults.push({
+                          type: "burn_bridging",
+                          returnValues: {
+                            amount: eventJson.data[0].amount,
+                            wallet: memo.address,
+                            destChainId: memo.destChainId,
+                            destChainAddress: memo.destChainAddress,
+                            mintingFeeSat: memo.mintingFeeSat,
+                            bridgingFeeSat: memo.bridgingFeeSat
+                          },
+                          transactionHash,
+                          receiptId: receipt.id,
+                          blockNumber,
+                          timestamp,
+                          status: true,
+                        });
+                      } catch (error) {
+                        const errorMsg = `Thread ${threadId}: Error processing ft_burn_bridge in block ${blockNumber}, Tx ${transactionHash} - ${error.message}`;
+                        console.error(errorMsg);
+                        blockResults.threadErrors.push(errorMsg);
+                      }
+                      break;
                   }
+                } catch (e) {
+                  const errorMsg = `Thread ${threadId}: Error processing log in block ${blockNumber}, Tx ${tx.hash} - ${e.message}`;
+                  console.error(errorMsg);
+                  blockResults.threadErrors.push(errorMsg);
+                  continue;
                 }
               }
             }
           } catch (error) {
-            console.error(`❌ Thread ${threadId}: Error processing transaction in block ${blockNumber}:`, error);
-            threadErrors.push(`Thread ${threadId}: Block ${blockNumber}, Tx ${tx.hash} - ${error.message}`);
+            const errorMsg = `Thread ${threadId}: Error processing transaction in block ${blockNumber}, Tx ${tx.hash} - ${error.message}`;
+            console.error(errorMsg);
+            blockResults.threadErrors.push(errorMsg);
           }
         }
       }
@@ -1414,15 +1460,14 @@ async function processNearBlockRange(startBlock, endBlock, threadId) {
       const errorMessage = error.message || String(error);
       if (!errorMessage.includes("DB Not Found Error") && !errorMessage.includes("Chunk Missing")) {
         console.error(`❌ Thread ${threadId}: Error processing block ${blockNumber}:`, error);
-        threadErrors.push(`Thread ${threadId}: Block ${blockNumber} - ${error.message}`);
+        blockResults.threadErrors.push(`Thread ${threadId}: Block ${blockNumber} - ${error.message}`);
       }
     }
-
     // Add a small delay before processing the next block to avoid rate limiting
     await delay(300);
   }
 
-  return { depositResults, redeemResults, threadErrors };
+  return blockResults;
 }
 
 // Add this new function before processAndExportBlocks
@@ -1524,32 +1569,41 @@ async function processNearBatch(startBlock, endBlock, threadCount, blocksPerThre
             while (!success) {
               try {
                 // Process the block using a single thread
-                const { depositResults, redeemResults, threadErrors } = await processNearBlockRange(blockNumber, blockNumber, 1);
+                const { depositResults, redeemResults, bridgeResults, threadErrors } = await processNearBlockRange(blockNumber, blockNumber, 1);
                 
-                // If no errors occurred, save events and remove the block from the error file
-                if (threadErrors.length === 0) {
-                  // Save deposit events if any were found
-                  if (depositResults.length > 0) {
-                    try {
-                      const depositFilePath = path.join(__dirname, CONFIG.NEAR.OUTPUT_FILE_DEPOSIT);
-                      await saveBlockResultsToExcel(depositResults, depositFilePath, "mint_deposit");
-                    } catch (error) {
-                      console.error(`❌ Error saving deposit events to file:`, error);
-                      process.exit(1);
-                    }
+                // Save events if any were found
+                if (depositResults.length > 0) {
+                  try {
+                    const depositFilePath = path.join(__dirname, CONFIG.NEAR.OUTPUT_FILE_DEPOSIT);
+                    await saveBlockResultsToExcel(depositResults, depositFilePath, "mint_deposit");
+                  } catch (error) {
+                    console.error(`❌ Error saving deposit events to file:`, error);
+                    process.exit(1);
                   }
+                }
 
-                  // Save redeem events if any were found
-                  if (redeemResults.length > 0) {
-                    try {
-                      const redeemFilePath = path.join(__dirname, CONFIG.NEAR.OUTPUT_FILE_REDEEM);
-                      await saveBlockResultsToExcel(redeemResults, redeemFilePath, "burn_redeem");
-                    } catch (error) {
-                      console.error(`❌ Error saving redeem events to file:`, error);
-                      process.exit(1);
-                    }
+                if (redeemResults.length > 0) {
+                  try {
+                    const redeemFilePath = path.join(__dirname, CONFIG.NEAR.OUTPUT_FILE_REDEEM);
+                    await saveBlockResultsToExcel(redeemResults, redeemFilePath, "burn_redeem");
+                  } catch (error) {
+                    console.error(`❌ Error saving redeem events to file:`, error);
+                    process.exit(1);
                   }
-                  
+                }
+
+                if (bridgeResults.length > 0) {
+                  try {
+                    const bridgeFilePath = path.join(__dirname, CONFIG.NEAR.OUTPUT_FILE_BRIDGE);
+                    await saveBlockResultsToExcel(bridgeResults, bridgeFilePath, "bridge");
+                  } catch (error) {
+                    console.error(`❌ Error saving bridge events to file:`, error);
+                    process.exit(1);
+                  }
+                }
+                
+                // If no errors occurred, remove the block from the error file
+                if (threadErrors.length === 0) {
                   // Read the current content of the error file
                   const fileContent = await fs.readFile(errorFilePath, 'utf8');
                   const updatedContent = fileContent
@@ -1628,6 +1682,7 @@ async function processNearBatch(startBlock, endBlock, threadCount, blocksPerThre
     // Flatten results and errors from all threads
     const allDepositResults = batchResults.flatMap(result => result.depositResults);
     const allRedeemResults = batchResults.flatMap(result => result.redeemResults);
+    const allBridgeResults = batchResults.flatMap(result => result.bridgeResults);
     const allErrors = batchResults.flatMap(result => result.threadErrors);
     
     // Log errors to file if any occurred
@@ -1673,6 +1728,17 @@ async function processNearBatch(startBlock, endBlock, threadCount, blocksPerThre
         console.log(`💾 Saved batch ${batchIndex + 1} redeem results: ${allRedeemResults.length} events processed (blocks ${batchStartBlock} to ${batchEndBlock})`);
       } catch (error) {
         console.error("❌ Error saving redeem results to Excel:", error);
+        process.exit(1);
+      }
+    }
+    
+    if (allBridgeResults.length > 0) {
+      try {
+        const bridgeFilePath = path.join(__dirname, CONFIG.NEAR.OUTPUT_FILE_BRIDGE);
+        await saveBlockResultsToExcel(allBridgeResults, bridgeFilePath, "burn_bridging");
+        console.log(`💾 Saved batch ${batchIndex + 1} burn results: ${allBridgeResults.length} events processed (blocks ${batchStartBlock} to ${batchEndBlock})`);
+      } catch (error) {
+        console.error("❌ Error saving burn results to Excel:", error);
         process.exit(1);
       }
     }
@@ -2139,34 +2205,41 @@ async function processMissingBlocks() {
       while (!success) {
         try {
           // Process the block using a single thread
-          const { depositResults, redeemResults, threadErrors } = await processNearBlockRange(blockNumber, blockNumber, 1);
+          const { depositResults, redeemResults, bridgeResults } = await processNearBlockRange(blockNumber, blockNumber, 1);
           
-          // If no errors occurred, save events and remove the block from the error file
-          if (threadErrors.length === 0) {
-            // Save deposit events if any were found
-            if (depositResults.length > 0) {
-              try {
-                const depositFilePath = path.join(__dirname, CONFIG.NEAR.OUTPUT_FILE_DEPOSIT);
-                await saveBlockResultsToExcel(depositResults, depositFilePath, "mint_deposit");
-                //console.log(`💾 Saved ${depositResults.length} deposit events to ${CONFIG.NEAR.OUTPUT_FILE_DEPOSIT}`);
-              } catch (error) {
-                console.error(`❌ Error saving deposit events to file:`, error);
-                process.exit(1);
-              }
+          // Save events if any were found
+          if (depositResults.length > 0) {
+            try {
+              const depositFilePath = path.join(__dirname, CONFIG.NEAR.OUTPUT_FILE_DEPOSIT);
+              await saveBlockResultsToExcel(depositResults, depositFilePath, "mint_deposit");
+            } catch (error) {
+              console.error(`❌ Error saving deposit events to file:`, error);
+              process.exit(1);
             }
+          }
 
-            // Save redeem events if any were found
-            if (redeemResults.length > 0) {
-              try {
-                const redeemFilePath = path.join(__dirname, CONFIG.NEAR.OUTPUT_FILE_REDEEM);
-                await saveBlockResultsToExcel(redeemResults, redeemFilePath, "burn_redeem");
-                //console.log(`💾 Saved ${redeemResults.length} redeem events to ${CONFIG.NEAR.OUTPUT_FILE_REDEEM}`);
-              } catch (error) {
-                console.error(`❌ Error saving redeem events to file:`, error);
-                process.exit(1);
-              }
+          if (redeemResults.length > 0) {
+            try {
+              const redeemFilePath = path.join(__dirname, CONFIG.NEAR.OUTPUT_FILE_REDEEM);
+              await saveBlockResultsToExcel(redeemResults, redeemFilePath, "burn_redeem");
+            } catch (error) {
+              console.error(`❌ Error saving redeem events to file:`, error);
+              process.exit(1);
             }
-            
+          }
+
+          if (bridgeResults.length > 0) {
+            try {
+              const bridgeFilePath = path.join(__dirname, CONFIG.NEAR.OUTPUT_FILE_BRIDGE);
+              await saveBlockResultsToExcel(bridgeResults, bridgeFilePath, "bridge");
+            } catch (error) {
+              console.error(`❌ Error saving bridge events to file:`, error);
+              process.exit(1);
+            }
+          }
+          
+          // If no errors occurred, remove the block from the error file
+          if (bridgeResults.length === 0) {
             // Read the current content of the error file
             const fileContent = await fs.readFile(errorFilePath, 'utf8');
             const updatedContent = fileContent
@@ -2186,7 +2259,7 @@ async function processMissingBlocks() {
             }
           } else {
             console.log(`⚠️ Block ${blockNumber} still has errors:`);
-            threadErrors.forEach(error => console.error(`  - ${error}`));
+            bridgeResults.forEach(error => console.error(`  - ${error}`));
             console.log('Retrying...');
             await delay(500); // Wait before retrying
           }
@@ -2605,6 +2678,155 @@ async function processAndExportEvmBlocks() {
   }
 }
 
+async function exportBridgingsToExcel(bridgings, filePath = null) {
+  const workbook = new excelJs.Workbook();
+  const worksheet = workbook.addWorksheet("Bridgings");
+
+  // Add headers
+  worksheet.columns = [
+    { header: "Transaction Hash", key: "txn_hash", width: 70 },
+    { header: "Origin Chain ID", key: "origin_chain_id", width: 20 },
+    { header: "Origin Chain Address", key: "origin_chain_address", width: 50 },
+    { header: "Destination Chain ID", key: "dest_chain_id", width: 20 },
+    { header: "Destination Chain Address", key: "dest_chain_address", width: 50 },
+    { header: "Destination Transaction Hash", key: "dest_txn_hash", width: 70 },
+    { header: "ABTC Amount", key: "abtc_amount", width: 20 },
+    { header: "Protocol Fee", key: "protocol_fee", width: 20 },
+    { header: "Timestamp", key: "timestamp", width: 20 },
+    { header: "Timestamp UNIX", key: "timestamp_unix", width: 15 },
+    { header: "Status", key: "status", width: 15 },
+    { header: "Remarks", key: "remarks", width: 50 },
+    { header: "Date Created", key: "date_created", width: 20 },
+    { header: "Date Created UNIX", key: "date_created_unix", width: 20 },
+    { header: "Verified Count", key: "verified_count", width: 15 },
+    { header: "Minting Fee (sat)", key: "minting_fee_sat", width: 20 },
+    { header: "Bridging Gas Fee (sat)", key: "bridging_gas_fee_sat", width: 20 },
+    { header: "Actual Gas Fee (sat)", key: "actual_gas_fee_sat", width: 20 },
+    { header: "Yield Provider Gas Fee", key: "yield_provider_gas_fee", width: 20 },
+    { header: "Yield Provider Transaction Hash", key: "yield_provider_txn_hash", width: 70 },
+    { header: "Yield Provider Status", key: "yield_provider_status", width: 20 },
+    { header: "Yield Provider Remarks", key: "yield_provider_remarks", width: 50 },
+    { header: "Treasury BTC Transaction Hash", key: "treasury_btc_txn_hash", width: 70 },
+    { header: "Treasury Verified Count", key: "treasury_verified_count", width: 20 },
+    { header: "Minted Transaction Hash Verified Count", key: "minted_txn_hash_verified_count", width: 30 }
+  ];
+
+  // Add rows
+  bridgings.forEach(bridging => {
+    worksheet.addRow({
+      txn_hash: bridging.txn_hash,
+      origin_chain_id: bridging.origin_chain_id,
+      origin_chain_address: bridging.origin_chain_address,
+      dest_chain_id: bridging.dest_chain_id,
+      dest_chain_address: bridging.dest_chain_address,
+      dest_txn_hash: bridging.dest_txn_hash,
+      abtc_amount: bridging.abtc_amount,
+      protocol_fee: bridging.protocol_fee,
+      timestamp: formatDate(new Date(bridging.timestamp * 1000)),
+      timestamp_unix: bridging.timestamp,
+      status: bridging.status,
+      remarks: bridging.remarks,
+      date_created: formatDate(new Date(bridging.date_created * 1000)),
+      date_created_unix: bridging.date_created,
+      verified_count: bridging.verified_count,
+      minting_fee_sat: bridging.minting_fee_sat,
+      bridging_gas_fee_sat: bridging.bridging_gas_fee_sat,
+      actual_gas_fee_sat: bridging.actual_gas_fee_sat,
+      yield_provider_gas_fee: bridging.yield_provider_gas_fee,
+      yield_provider_txn_hash: bridging.yield_provider_txn_hash,
+      yield_provider_status: bridging.yield_provider_status,
+      yield_provider_remarks: bridging.yield_provider_remarks,
+      treasury_btc_txn_hash: bridging.treasury_btc_txn_hash,
+      treasury_verified_count: bridging.treasury_verified_count,
+      minted_txn_hash_verified_count: bridging.minted_txn_hash_verified_count
+    });
+  });
+
+  // Style the header row
+  worksheet.getRow(1).font = { bold: true };
+  worksheet.getRow(1).alignment = { vertical: 'middle', horizontal: 'center' };
+
+  // Save the workbook
+  const outputPath = filePath || path.join(__dirname, CONFIG.BRIDGINGS.OUTPUT_FILE);
+  await workbook.xlsx.writeFile(outputPath);
+  console.log(`✅ Bridgings exported to ${outputPath}`);
+}
+
+async function fetchBridgings() {
+  console.log("Fetching bridgings...");
+  let allBridgings = [];
+  let startIndex = CONFIG.BRIDGINGS.START_INDEX;
+  const limit = CONFIG.BRIDGINGS.BATCH_SIZE;
+
+  const fetchPage = () => {
+    return new Promise((resolve, reject) => {
+      const command = `near view ${CONFIG.NEAR.CONTRACT} get_all_bridgings '{"from_index": ${startIndex},"limit": ${limit}}'`;
+      
+      if (CONFIG.BRIDGINGS.PRINT_CLI_OUTPUT) {
+        console.log(`\n🔍 Executing command: ${command}`);
+      }
+
+      exec(
+        command,
+        { maxBuffer: 1024 * 1024 * 100 }, // 100 MB buffer
+        (error, stdout, stderr) => {
+          if (error) {
+            console.error(`Error executing CLI command: ${error.message}`);
+            return reject(error);
+          }
+
+          if (stderr) {
+            console.error(`NEAR CLI stderr: ${stderr}`);
+          }
+
+          try {
+            if (CONFIG.BRIDGINGS.PRINT_CLI_OUTPUT) {
+              console.log(`📄 Raw CLI output:\n${stdout}`);
+            }
+
+            const records = parseRecordsSeparately(stdout);
+            console.log(`Parsed ${records.length} records from index ${startIndex}`);
+            
+            // Add warning if records count is less than batch size
+            if (records.length < limit) {
+              console.log(`⚠️ Warning: Received ${records.length} records, expected ${limit} records`);
+            }
+
+            if (records && records.length > 0) {
+              allBridgings.push(...records);
+              startIndex += records.length;
+              resolve(records.length);
+            } else {
+              resolve(0);
+            }
+          } catch (parseError) {
+            console.error("Error parsing command output:", parseError);
+            reject(parseError);
+          }
+        }
+      );
+    });
+  };
+
+  try {
+    let hasMore = true;
+    while (hasMore) {
+      const count = await fetchPage();
+      hasMore = count === limit && 
+                (CONFIG.BRIDGINGS.MAX_RECORDS === null || allBridgings.length < CONFIG.BRIDGINGS.MAX_RECORDS) &&
+                (CONFIG.BRIDGINGS.END_INDEX === null || startIndex <= CONFIG.BRIDGINGS.END_INDEX);
+      
+      if (hasMore) {
+        //await delay(1000);
+      }
+    }
+    return allBridgings;
+  } catch (error) {
+    console.error("Error in fetchBridgings:", error);
+    throw error;
+  }
+}
+
 /**
  * Main function to execute the process.
  */
@@ -2806,6 +3028,19 @@ async function main() {
       console.log(`Duration: ${formatDuration(startTime, endTime)}`);
     } else {
       console.log("ℹ️  Skipping evmblocks.xlsx generation (disabled in CONFIG)");
+    }
+    
+    if (CONFIG.GENERATE_BRIDGINGS_XLSX) {
+      const startTime = new Date();
+      console.log(`⏳ Starting bridgings.xlsx generation at ${formatDate(startTime)}`);
+      
+      await exportBridgingsToExcel(await fetchBridgings());
+      
+      const endTime = new Date();
+      console.log(`✅ Completed bridgings.xlsx generation at ${formatDate(endTime)}`);
+      console.log(`⏱️ Duration: ${formatDuration(startTime, endTime)}`);
+    } else {
+      console.log("ℹ️  Skipping bridgings.xlsx generation (disabled in CONFIG)");
     }
     
     const mainEndTime = new Date();
