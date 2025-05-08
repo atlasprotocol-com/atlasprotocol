@@ -31,11 +31,7 @@ export function Reward() {
 
   const { mutateAsync: bindReward } = useBindReward();
 
-  const {
-    disconnectAsync,
-    address: fromAddress,
-    connect,
-  } = useConnectMultiChain({
+  const { address: fromAddress, connect } = useConnectMultiChain({
     selectedChain,
     lazyConnect: true,
   });
@@ -57,12 +53,11 @@ export function Reward() {
       account: `btc:${btcPublicKeyHex}`,
       contract: Contract,
       address: fromAddress,
-      signature,
+      signature: signature,
     });
 
     console.log("[result]", result);
   }
-
   const handleConnectModal = () => {
     connect();
   };

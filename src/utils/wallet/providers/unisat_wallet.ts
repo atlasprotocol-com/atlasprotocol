@@ -5,6 +5,7 @@ import {
   pushTx,
 } from "@/utils/mempool_api";
 
+import base64ToHex from "@/utils/base642hex";
 import { Fees, Network, UTXO, WalletProvider } from "../wallet_provider";
 
 export const unisatProvider = "unisat";
@@ -12,7 +13,11 @@ export const unisatProvider = "unisat";
 export class UnisatWallet extends WalletProvider {
   readonly id = "unisat";
   readonly name: string = "Unisat";
-  readonly networks: Network[] = [Network.MAINNET, Network.TESTNET, Network.TESTNET4];
+  readonly networks: Network[] = [
+    Network.MAINNET,
+    Network.TESTNET,
+    Network.TESTNET4,
+  ];
   public homepage = "https://unisat.io";
   public balance: { confirmed: number; unconfirmed: number; total: number } = {
     confirmed: 0,
@@ -129,7 +134,8 @@ export class UnisatWallet extends WalletProvider {
   }
 
   async signMessageBIP322(message: string): Promise<string> {
-    return this.unisat.signMessage(message);
+    const signature = await this.unisat.signMessage(message);
+    return base64ToHex(signature);
   }
 
   getBTCTipHeight = async (): Promise<number> => {
