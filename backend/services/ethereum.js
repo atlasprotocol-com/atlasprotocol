@@ -772,7 +772,7 @@ class Ethereum {
 
     const events = await this.abtcContract.getPastEvents(eventName, { fromBlock: receipt.blockNumber, toBlock: receipt.blockNumber });
 
-    return events[0];
+    return events.find(event => event.transactionHash === txnHash);
   }
 
   /**
