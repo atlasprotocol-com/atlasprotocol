@@ -22,7 +22,6 @@ export interface RedeemPreviewProps {
   networkType?: string;
   fromSymbol?: string;
   toSymbol?: string;
-  
 }
 
 export function BridgePreview({
@@ -48,40 +47,59 @@ export function BridgePreview({
   const ethPriceUsd = stats?.ethPriceUsd || 0;
   const nearPriceUsd = stats?.nearPriceUsd || 0;
   const polPriceUsd = stats?.polPriceUsd || 0;
-  
 
   console.log("mintingFeeSat:", mintingFeeSat);
 
-  const transactionFeeUsd = transactionFee && toSymbol
-    ? (Number(transactionFee) * (
-      fromSymbol === "ETH" ? ethPriceUsd :
-      fromSymbol === "NEAR" ? nearPriceUsd :
-      fromSymbol === "POL" ? polPriceUsd : ethPriceUsd
-    )).toFixed(8)
-    : '--';
+  const transactionFeeUsd =
+    transactionFee && toSymbol
+      ? (
+          Number(transactionFee) *
+          (fromSymbol === "ETH"
+            ? ethPriceUsd
+            : fromSymbol === "NEAR"
+              ? nearPriceUsd
+              : fromSymbol === "POL"
+                ? polPriceUsd
+                : ethPriceUsd)
+        ).toFixed(8)
+      : "--";
 
   // Show loading state if either fee is not available
-  const isBridgingFeesLoading = bridgingFeeSat === undefined || mintingFeeSat === undefined;
-  const totalBridgingFee = !isBridgingFeesLoading ? Number(bridgingFeeSat || 0) + Number(mintingFeeSat || 0) : 0;
-  const totalBridgingFeeUsd = !isBridgingFeesLoading && btcPriceUsd
-    ? ((totalBridgingFee / 100000000) * btcPriceUsd).toFixed(2)
-    : '--';
+  const isBridgingFeesLoading =
+    bridgingFeeSat === undefined || mintingFeeSat === undefined;
+  const totalBridgingFee = !isBridgingFeesLoading
+    ? Number(bridgingFeeSat || 0) + Number(mintingFeeSat || 0)
+    : 0;
+  const totalBridgingFeeUsd =
+    !isBridgingFeesLoading && btcPriceUsd
+      ? ((totalBridgingFee / 100000000) * btcPriceUsd).toFixed(2)
+      : "--";
 
-  const atlasProtocolFeeUsd = atlasProtocolFee && btcPriceUsd
-    ? ((atlasProtocolFee / 100000000) * btcPriceUsd).toFixed(2)
-    : '--';
+  const atlasProtocolFeeUsd =
+    atlasProtocolFee && btcPriceUsd
+      ? ((atlasProtocolFee / 100000000) * btcPriceUsd).toFixed(2)
+      : "--";
 
-  const amountUsd = amount && btcPriceUsd
-    ? (amount * btcPriceUsd).toFixed(2)
-    : '--';
+  const amountUsd =
+    amount && btcPriceUsd ? (amount * btcPriceUsd).toFixed(2) : "--";
 
-  const actualReceived = amount && !isBridgingFeesLoading && (atlasProtocolFee || atlasProtocolFee === 0)
-    ? Number((amount - (totalBridgingFee / 100000000) - (atlasProtocolFee / 100000000)).toFixed(8))
-    : '--';
+  const actualReceived =
+    amount &&
+    !isBridgingFeesLoading &&
+    (atlasProtocolFee || atlasProtocolFee === 0)
+      ? Number(
+          (
+            amount -
+            totalBridgingFee / 100000000 -
+            atlasProtocolFee / 100000000
+          ).toFixed(8),
+        )
+      : "--";
 
-  const actualReceivedUsd = actualReceived !== '--' && btcPriceUsd
-    ? (actualReceived * btcPriceUsd).toFixed(2)
-    : '--';
+  const actualReceivedUsd =
+    actualReceived !== "--" && btcPriceUsd
+      ? (actualReceived * btcPriceUsd).toFixed(2)
+      : "--";
 
   return (
     <Dialog
@@ -103,21 +121,29 @@ export function BridgePreview({
         <div className="mt-4">
           <p className="text-caption text-sm font-semibold">Bridging Amount</p>
           <p className="text-base font-semibold break-all">
-            {amount || "--"} {ATLAS_BTC_TOKEN} <span className="text-sm text-neutral-7">(≈{amountUsd} USD)</span>
+            {amount || "--"} {ATLAS_BTC_TOKEN}{" "}
+            <span className="text-sm text-neutral-7">(≈{amountUsd} USD)</span>
           </p>
         </div>
         <div className="mt-4">
           <p className="text-caption text-sm font-semibold">
             {ATLAS_BTC_TOKEN} Receiving Address
           </p>
-          <p className="text-base font-semibold break-all">{toAddress || "--"}</p>
+          <p className="text-base font-semibold break-all">
+            {toAddress || "--"}
+          </p>
         </div>
         <div className="mt-4">
-          <p className="text-caption text-sm font-semibold">Amount to Receive</p>
+          <p className="text-caption text-sm font-semibold">
+            Amount to Receive
+          </p>
           <p className="text-base font-semibold break-all">
-            {actualReceived !== '--' ? (
+            {actualReceived !== "--" ? (
               <>
-                {actualReceived} {ATLAS_BTC_TOKEN} <span className="text-sm text-neutral-7">(≈{actualReceivedUsd} USD)</span>
+                {actualReceived} {ATLAS_BTC_TOKEN}{" "}
+                <span className="text-sm text-neutral-7">
+                  (≈{actualReceivedUsd} USD)
+                </span>
               </>
             ) : (
               <span className="text-neutral-7">Loading...</span>
@@ -164,9 +190,7 @@ export function BridgePreview({
           </p>
         </div>
         <div className="rounded-lg border border-neutral-5 dark:border-neutral-8 dark:bg-neutral-10 p-3 flex-1">
-          <p className="text-caption text-sm font-semibold">
-            Protocol Fee
-          </p>
+          <p className="text-caption text-sm font-semibold">Protocol Fee</p>
           <p className="text-base font-semibold break-all">
             {atlasProtocolFee ? (
               <>
@@ -182,9 +206,9 @@ export function BridgePreview({
           </p>
         </div>
       </div>
-      <Button 
-        className="mt-4 w-full" 
-        onClick={onConfirm} 
+      <Button
+        className="mt-4 w-full"
+        onClick={onConfirm}
         disabled={isPending || isBridgingFeesLoading || !transactionFee}
       >
         Process
