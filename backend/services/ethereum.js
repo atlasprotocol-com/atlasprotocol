@@ -40,19 +40,25 @@ class Ethereum {
     this.aBTCAddress = aBTCAddress;
   }
 
-  async queryGasPrice() {
+  async queryGasPrice(sender) {
+    const cacheKey = `gasPrice_${this.chainID}_${sender}`;
+    
+    // Try to get from cache first
+    const cachedData = await cache.get(cacheKey);
+    if (cachedData) {
+      return cachedData;
+    }
+
+    // If not in cache, fetch new data
     const baseFeePerGas = await this.web3.eth.getGasPrice();
     const maxPriorityFeePerGas = await this.web3.eth.getMaxPriorityFeePerGas();
-    return { baseFeePerGas, maxPriorityFeePerGas };
-  }
+    
+    const gasPriceData = { baseFeePerGas, maxPriorityFeePerGas };
+    
+    // Cache for 5 seconds
+    await cache.set(cacheKey, gasPriceData, 5000);
 
-  async estimateMintingGasLimit(sender, receiver, amount, btcTxnHash) {
-    // Estimate gas for mintDeposit transaction using sender address
-    const gasLimit = await this.abtcContract.methods
-      .mintDeposit(receiver, amount, btcTxnHash)
-      .estimateGas({ from: sender });
-
-    return Number(gasLimit);
+    return gasPriceData;
   }
 
   async satsToWei(sats, currencyPriceBtc) {
@@ -99,13 +105,13 @@ class Ethereum {
     console.log("mintingFeeWei: ", mintingFeeWei.toString());
 
     // Get current gas price
-    const { baseFeePerGas: rawBaseFeePerGas } = await this.queryGasPrice();
-    const baseFeePerGas = BigInt(rawBaseFeePerGas) * 120n / 100n; // 1.2 multiplier
+    const { baseFeePerGas: rawBaseFeePerGas } = await this.queryGasPrice(sender);
+    const baseFeePerGas = BigInt(rawBaseFeePerGas) * 110n / 100n; // 1.1 multiplier
 
     // Estimate gas for mintDeposit transaction
     const gasLimit = BigInt(Math.ceil(Number(await this.abtcContract.methods
       .mintDeposit(receiver, amount, btcTxnHash)
-      .estimateGas({ from: sender })) * 1.2));
+      .estimateGas({ from: sender }))));
 
     // Calculate required gas price to match minting fee
     const requiredGasPrice = mintingFeeWei / gasLimit;
@@ -155,7 +161,7 @@ class Ethereum {
     console.log("mintingFeeWei: ", mintingFeeWei.toString());
 
     // Get current gas price
-    const { baseFeePerGas: rawBaseFeePerGas } = await this.queryGasPrice();
+    const { baseFeePerGas: rawBaseFeePerGas } = await this.queryGasPrice(sender);
     const baseFeePerGas = BigInt(rawBaseFeePerGas) * 110n / 100n; // 1.1 multiplier
 
     // Estimate gas for mintDeposit transaction
@@ -167,7 +173,7 @@ class Ethereum {
         originChainAddress,
         originTxnHash,
       )
-      .estimateGas({ from: sender })) * 1.1));
+      .estimateGas({ from: sender }))));
 
     // Calculate required gas price to match minting fee
     const requiredGasPrice = mintingFeeWei / gasLimit;
@@ -189,13 +195,17 @@ class Ethereum {
     return Number((balance * 100n) / ONE_ETH) / 100;
   }
 
+  async getNonce(sender) {
+    return await this.web3.eth.getTransactionCount(sender);
+  }
+
   async createPayload(sender, receiver, amount) {
     const common = new Common({ chain: this.chainID });
 
     // Get the nonce & gas price
-    const nonce = await this.web3.eth.getTransactionCount(sender);
+    const nonce = await this.getNonce(sender);
     const { baseFeePerGas: maxFeePerGas, maxPriorityFeePerGas } =
-      await this.queryGasPrice();
+      await this.queryGasPrice(sender);
 
     // Construct transaction
     const transactionData = {
@@ -235,7 +245,7 @@ class Ethereum {
     console.log("mintingFeeSat:", mintingFeeSat);
 
     // Get the nonce & gas price
-    const nonce = await this.web3.eth.getTransactionCount(sender);
+    const nonce = await this.getNonce(sender);
 
     const { baseFeePerGas, gasLimit, gasPrice, maxPriority, mintingFeeUsd } =
       await this.calculateEvmGasFeeFromMintingFee(
@@ -253,6 +263,7 @@ class Ethereum {
     console.log("maxPriority:", maxPriority);
 
     if (gasPrice < baseFeePerGas) {
+      console.log("Gas price:", gasPrice, "Base fee per gas:", baseFeePerGas);
       throw new Error("Gas price is less than base fee per gas");
     }
 
@@ -266,7 +277,10 @@ class Ethereum {
 
     try {
       const signed = await near.createMintaBtcSignedTx(payloadHeader);
-      return new Uint8Array(signed);
+      return {
+        nonce: nonce,
+        signed: new Uint8Array(signed)
+      };
     } catch (err) {
       const txnhash = err.context?.transactionHash;
       if (!txnhash) throw err;
@@ -292,8 +306,10 @@ class Ethereum {
       const value = Buffer.from(tx.status.SuccessValue, "base64").toString(
         "utf-8",
       );
-
-      return new Uint8Array(JSON.parse(value));
+      return {
+        nonce: nonce,
+        signed: new Uint8Array(JSON.parse(value))
+      };
     }
   }
 
@@ -308,11 +324,7 @@ class Ethereum {
     originTxnHash,
     mintingFeeSat,
   ) {
-    // Get the nonce & gas price
-    // console.log(`Getting nonce...`);
-    const nonce = await this.web3.eth.getTransactionCount(sender, "pending");
     
-
     const { baseFeePerGas, gasLimit, gasPrice, maxPriority, mintingFeeUsd } =
       await this.calculateEvmGasFeeFromMintingBridgeFee(
         sender,
@@ -325,9 +337,13 @@ class Ethereum {
       );
 
     if (gasPrice < baseFeePerGas) {
+      console.log("Gas price:", gasPrice, "Base fee per gas:", baseFeePerGas);
       throw new Error("Gas price is less than base fee per gas");
     }
 
+    // console.log(`Getting nonce...`);
+    const nonce = await this.getNonce(sender);
+    
     const payloadHeader = {
       txn_hash: txnHash,
       nonce: Number(nonce), // Convert BigInt to Number
@@ -338,7 +354,10 @@ class Ethereum {
 
     try {
       const signed = await near.createMintBridgeABtcSignedTx(payloadHeader);
-      return new Uint8Array(signed);
+      return {
+        nonce: nonce,
+        signed: new Uint8Array(signed)
+      };
     } catch (err) {
       const txnhash = err.context?.transactionHash;
       if (!txnhash) throw err;
@@ -364,7 +383,10 @@ class Ethereum {
       const value = Buffer.from(tx.status.SuccessValue, "base64").toString(
         "utf-8",
       );
-      return new Uint8Array(JSON.parse(value));
+      return {
+        nonce: nonce,
+        signed: new Uint8Array(JSON.parse(value))
+      };
     }
   }
   // This is a sample function for send eth transaction, Arbitrum gasLimit set to 5 million
@@ -372,11 +394,11 @@ class Ethereum {
     const common = new Common({ chain: this.chainID });
 
     // Get the nonce & gas price
-    const nonce = await this.web3.eth.getTransactionCount(sender);
+    const nonce = await this.getNonce(sender);
     console.log(`Nonce: ${nonce}`);
 
     const { baseFeePerGas: maxFeePerGas, maxPriorityFeePerGas } =
-      await this.queryGasPrice();
+      await this.queryGasPrice(sender);
     console.log(`maxFeePerGas: ${maxFeePerGas}`);
     console.log(`maxPriorityFeePerGas: ${maxPriorityFeePerGas}`);
 
@@ -403,7 +425,15 @@ class Ethereum {
   }
 
   // This code can be used to actually relay the transaction to the Ethereum network
-  async relayTransaction(signedTransaction, timeoutMs = 120000) { // Default 2 minute timeout
+  async relayTransaction(nonce, sender, signedTransaction, timeoutMs = 120000) { // Default 2 minute timeout
+    
+    // const latestNonce = await this.web3.eth.getTransactionCount(sender);
+    
+    // if (nonce !== latestNonce) {
+    //   console.error("[relayTransaction] nonce mismatch - latestNonce:", latestNonce, "nonce:", nonce);
+    //   throw new Error("Nonce mismatch");
+    // }
+
     try {
       console.log("[relayTransaction] signedTransaction: ", signedTransaction);
       const serializedTx = bytesToHex(signedTransaction);
@@ -687,9 +717,9 @@ class Ethereum {
   }
 
   async createAcceptOwnershipTx(near, sender) {
-    const nonce = await this.web3.eth.getTransactionCount(sender);
+    const nonce = await this.getNonce(sender);
 
-    const { baseFeePerGas, maxPriorityFeePerGas } = await this.queryGasPrice();
+    const { baseFeePerGas, maxPriorityFeePerGas } = await this.queryGasPrice(sender);
     const gasLimit = Math.ceil(Number(await this.abtcContract.methods
       .acceptOwnership()
       .estimateGas({ from: sender })) * 1.1);

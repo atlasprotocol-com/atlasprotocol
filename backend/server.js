@@ -247,7 +247,7 @@ app.get("/api/v1/atlas/redemptionFees", async (req, res) => {
   try {
     const { amount } = req.query;
 
-    const feeData = await estimateRedemptionFees(bitcoin, near, amount);
+    const feeData = await estimateRedemptionFees(bitcoin, near, amount, bithiveRecords);
 
     const protocolFee = globalParams.atlasRedemptionFeePercentage * amount;
 
@@ -274,7 +274,7 @@ app.get("/api/v1/atlas/bridgingFees", async (req, res) => {
   try {
     const { amount } = req.query;
 
-    const feeData = await estimateBridgingFees(bitcoin, near, amount);
+    const feeData = await estimateBridgingFees(bitcoin, near, amount, bithiveRecords);
 
     console.log("feeData", feeData);
 
@@ -779,18 +779,20 @@ app.get("/api/v1/process-new-bridging", async (req, res) => {
           .json({ error: "Amount must be greater than 10000" });
       }
       
-      await processBurnRedeemEvent(
+      await processBurnBridgeEvent(
         {
           returnValues: {
             wallet: event.returnValues.wallet,
-            btcAddress: event.returnValues.btcAddress,
-            amount: event.returnValues.amount,
+            destChainId: event.returnValues.destChainId,
+            destChainAddress: event.returnValues.destChainAddress,
+            amount: Number(event.returnValues.amount),
+            mintingFeeSat: Number(event.returnValues.mintingFeeSat),
+            bridgingFeeSat: Number(event.returnValues.bridgingFeeSat),
           },
           transactionHash: event.transactionHash,
         },
         near,
         chainConfig.chainID,
-        DELIMITER,
         timestamp,
       );
     }
@@ -1023,22 +1025,30 @@ app.listen(PORT, async () => {
   setInterval(async () => {
     await getBithiveRecords();
     await UpdateYieldProviderStaked(deposits, bithiveRecords, near);
-  }, 1800000); // 30 minutes
-  //}, 10000);
-
-  setInterval(async () => {
-    if (!flagsBatch.MintingEventsRunning) {
-      flagsBatch.MintingEventsRunning = true;
-      try {
-        await MintaBtcToReceivingChain(deposits, near);
-        //await MintBridgeABtcToDestChain(bridgings, near);
-      } catch (error) {
-        console.error("Error processing minting events:", error);
-      } finally {
-        flagsBatch.MintingEventsRunning = false;
-      }
-    }
+  //}, 1800000); // 30 minutes
   }, 10000);
+
+
+  // This is for testing purposes
+  // setInterval(async () => {
+  //    await getBithiveRecords();
+  // }, 10000);
+  // end of testing
+
+
+  // setInterval(async () => {
+  //   if (!flagsBatch.MintingEventsRunning) {
+  //     flagsBatch.MintingEventsRunning = true;
+  //     try {
+  //       await MintaBtcToReceivingChain(deposits, near);
+  //       await MintBridgeABtcToDestChain(bridgings, near);
+  //     } catch (error) {
+  //       console.error("Error processing minting events:", error);
+  //     } finally {
+  //       flagsBatch.MintingEventsRunning = false;
+  //     }
+  //   }
+  // }, 10000);
 
   setInterval(async () => {
     await UpdateAtlasAbtcMinted(deposits, near);

@@ -70,12 +70,23 @@ async function MintaBtcToReceivingChain(allDeposits, near) {
             chainConfig.aBTCAddress,
             chainConfig.abiPath,
           );
+          
+          let derivationPath = chainConfig.networkType;
+
+          // Generate the derived address for the aBTC minter & sender
+          const sender = await ethereum.deriveEthAddress(
+            await near.nearMPCContract.public_key(),
+            near.contract_id,
+            derivationPath,
+          );
 
           const events = await ethereum.getEventsByType("MintDeposit");
           console.log(`Found ${events.length} MintDeposit events for chain ${chainId}`);
     
           let totalRecords = chainTransactions.length;
           let currentIndex = 0;
+
+          console.log(`Processing EVM Chain signatures`);
 
           for (const depositRecord of chainTransactions) {
             const btcTxnHash = depositRecord.btc_txn_hash;
@@ -113,22 +124,11 @@ async function MintaBtcToReceivingChain(allDeposits, near) {
                 console.log(`No event found for BTC txn hash ${btcTxnHash}`);
               } 
 
-              let derivationPath = chainConfig.networkType;
-
-              console.log(`Processing EVM Chain signatures`);
-
-              // Generate the derived address for the aBTC minter & sender
-              const sender = await ethereum.deriveEthAddress(
-                await near.nearMPCContract.public_key(),
-                near.contract_id,
-                derivationPath,
-              );
-
               console.log(`Minter and sender address: ${sender}`);
 
               // Create payload to deploy the contract
               console.log(`Creating EVM and Sign payload...`);
-              const signedTransaction = await ethereum.createMintaBtcSignedTx(
+              const { nonce, signed } = await ethereum.createMintaBtcSignedTx(
                 near,
                 sender,
                 depositRecord.receiving_address,
@@ -138,7 +138,7 @@ async function MintaBtcToReceivingChain(allDeposits, near) {
               );
 
               // Check if signedTransaction is an empty Uint8Array
-              if (signedTransaction.length === 0) {
+              if (signed.length === 0) {
                 console.error("Signed transaction is empty. Aborting process.");
                 return;
               }
@@ -147,7 +147,7 @@ async function MintaBtcToReceivingChain(allDeposits, near) {
               // console.log(`Relay transaction to EVM...`);
 
               const { txnHash, status } =
-              await ethereum.relayTransaction(signedTransaction);
+              await ethereum.relayTransaction(nonce, sender, signed);
               console.log(
                 "\x1b[35m%s\x1b[0m",
                 `Processed Txn: Mint aBTC with BTC txn hash ${btcTxnHash}, mintStatus = ${status}`,

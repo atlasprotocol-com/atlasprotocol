@@ -59,6 +59,14 @@ async function MintBridgeABtcToDestChain(allBridgings, near) {
             chainConfig.abiPath,
           );
 
+          let derivationPath = chainConfig.networkType;
+          // Generate the derived address for the aBTC minter & sender
+          const sender = await ethereum.deriveEthAddress(
+            await near.nearMPCContract.public_key(),
+            near.contract_id,
+            derivationPath,
+          );
+          
           const events = await ethereum.getEventsByType("MintBridge");
           console.log(`Found ${events.length} MintBridge events for chain ${chainId}`);
     
@@ -99,17 +107,7 @@ async function MintBridgeABtcToDestChain(allBridgings, near) {
                 console.log(`No event found for txn hash ${txnHash}`);
               }
 
-              let derivationPath = chainConfig.networkType;
-
               console.log(`${batchName} Processing EVM Chain signatures`);
-
-              // Generate the derived address for the aBTC minter & sender
-              const sender = await ethereum.deriveEthAddress(
-                await near.nearMPCContract.public_key(),
-                near.contract_id,
-                derivationPath,
-              );
-
               console.log(`${batchName} Minter and sender address: ${sender}`);
 
               // Create payload to deploy the contract
@@ -118,7 +116,7 @@ async function MintBridgeABtcToDestChain(allBridgings, near) {
               const finalAbtcAmount = bridging.abtc_amount - bridging.bridging_gas_fee_sat - bridging.protocol_fee - bridging.minting_fee_sat;
               console.log(`${batchName} Final aBTC amount: ${finalAbtcAmount}`);
               
-              const signedTransaction = await ethereum.createMintBridgeABtcSignedTx(
+              const { nonce, signed } = await ethereum.createMintBridgeABtcSignedTx(
                 near,
                 txnHash,
                 sender,
@@ -131,7 +129,7 @@ async function MintBridgeABtcToDestChain(allBridgings, near) {
               );
 
               // Check if signedTransaction is an empty Uint8Array
-              if (signedTransaction.length === 0) {
+              if (signed.length === 0) {
                 console.error("Signed transaction is empty. Aborting process.");
                 return;
               }
@@ -139,7 +137,7 @@ async function MintBridgeABtcToDestChain(allBridgings, near) {
               // Relay the transaction to EVM
               console.log(`${batchName} Relay transaction to EVM...`);
 
-              const { txnHash: evmTxnHash, status } = await ethereum.relayTransaction(signedTransaction);
+              const { txnHash: evmTxnHash, status } = await ethereum.relayTransaction(nonce, sender, signed);
               
               console.log(
                 "\x1b[35m%s\x1b[0m",
@@ -207,10 +205,9 @@ async function MintBridgeABtcToDestChain(allBridgings, near) {
 
               // Create payload to deploy the contract
               console.log(`Bridging aBTC on NEAR...`);
-              const signedTransaction =
-                await near.createMintBridgeABtcSignedTx(payloadHeader);
+              const { nonce, signed } = await near.createMintBridgeABtcSignedTx(payloadHeader);
 
-              console.log(signedTransaction);
+              console.log(signed);
 
               updateOffchainBridgingStatus(
                 allBridgings,

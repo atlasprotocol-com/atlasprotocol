@@ -188,11 +188,10 @@ async function getBithiveDeposits(publicKeyHex, totalDeposits) {
   let currentOffset = 0;
 
   try {
-    // Fetch batches sequ
-    // entially
+    // Fetch batches sequentially
     while (true) {
       
-      console.log("Fetching batch with offset:", currentOffset);
+      console.log("[getBithiveDeposits] Fetching batch with offset:", currentOffset);
       
       const { deposits: batchDeposits } = await relayer.user.getDeposits({
         publicKey: publicKeyHex,
@@ -205,7 +204,7 @@ async function getBithiveDeposits(publicKeyHex, totalDeposits) {
       }
 
       deposits = deposits.concat(batchDeposits);
-      console.log(`Fetched ${deposits.length} deposits in batch ${totalDeposits}`);
+      console.log(`[getBithiveDeposits] Fetched ${deposits.length} bithive deposits in batch ${totalDeposits}`);
 
       currentOffset = currentOffset + limit;
     }
