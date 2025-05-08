@@ -32,7 +32,7 @@ export function useConnectBTCWallet({
     networks.Network | undefined
   >();
   const [publicKeyNoCoord, setPublicKeyNoCoord] = useState<string>("");
-
+  const [publicKeyHex, setPublicKeyHex] = useState<string>("");
   const [address, setAddress] = useState<string>("");
   const { showError } = useError();
 
@@ -64,7 +64,7 @@ export function useConnectBTCWallet({
         setBTCWalletNetwork(toNetwork(await walletProvider.getNetwork()));
         setAddress(address);
         setPublicKeyNoCoord(publicKeyNoCoord.toString("hex"));
-
+        setPublicKeyHex(publicHeyHex);
         // Call the API to insert BTC public key
         try {
           await apiWrapper(
@@ -174,6 +174,7 @@ export function useConnectBTCWallet({
     btcWalletBalanceSat: currentBalance,
     btcWalletNetwork,
     publicKeyNoCoord,
+    publicKeyHex,
     address,
     handleConnectBTC,
     handleDisconnectBTC,
