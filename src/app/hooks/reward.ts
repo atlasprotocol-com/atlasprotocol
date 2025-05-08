@@ -61,7 +61,7 @@ export function useGetBindMessage({
           recipient_address: address,
         },
       });
-
+      console.log("[result]", result, typeof result);
       return result;
     },
     enabled: !!account && !!contract && !!address,

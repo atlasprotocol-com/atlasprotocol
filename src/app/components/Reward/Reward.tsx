@@ -1,7 +1,11 @@
 import { useMemo } from "react";
 
 import { useAppContext } from "@/app/context/app";
-import { useCheckBindReward, useGetBindMessage } from "@/app/hooks/reward";
+import {
+  useBindReward,
+  useCheckBindReward,
+  useGetBindMessage,
+} from "@/app/hooks/reward";
 import { useConnectMultiChain } from "@/app/hooks/useConnectMultiChain";
 import { ChainConfig } from "@/app/types/chainConfig";
 import { useGetChainConfig } from "@/hooks";
@@ -25,6 +29,8 @@ export function Reward() {
     contract: Contract,
   });
 
+  const { mutateAsync: bindReward } = useBindReward();
+
   const {
     disconnectAsync,
     address: fromAddress,
@@ -40,19 +46,28 @@ export function Reward() {
     contract: Contract,
   });
 
-  console.log("[getBindMessage]", getBindMessage);
-
   async function signMessage() {
-    if (!btcWallet || !getBindMessage) return;
+    if (!btcWallet || !getBindMessage || !fromAddress) return;
 
-    const message = getBindMessage?.message;
-    const signature = await btcWallet.signMessageBIP322(message);
+    const signature = await btcWallet.signMessageBIP322(getBindMessage);
+
     console.log("[signature]", signature);
+
+    const result = await bindReward({
+      account: `btc:${btcPublicKeyHex}`,
+      contract: Contract,
+      address: fromAddress,
+      signature,
+    });
+
+    console.log("[result]", result);
   }
 
   const handleConnectModal = () => {
     connect();
   };
+
+  console.log("[checkBindReward]", checkBindReward);
 
   return (
     <RequireConnectWallet
@@ -63,6 +78,7 @@ export function Reward() {
         <>
           <div>
             <p>Reward</p>
+            <button onClick={signMessage}>Sign Message</button>
           </div>
         </>
       }
