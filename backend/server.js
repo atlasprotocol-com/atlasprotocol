@@ -184,28 +184,10 @@ const getBithiveRecords = async () => {
     const { publicKey } = await bitcoin.deriveBTCAddress(near);
     console.log("[getBithiveRecords] Got public key, fetching deposits");
 
-    const PAGE_SIZE = 10000;
-    let allRecords = [];
-    let currentOffset = 0;
-
-    while (currentOffset < deposits.length) {
-      const newRecords = await getBithiveDeposits(
-        publicKey.toString("hex"),
-        PAGE_SIZE,
-        currentOffset,
-      );
-
-      if (newRecords.length === 0) {
-        break;
-      }
-
-      allRecords = [...allRecords, ...newRecords];
-      currentOffset += PAGE_SIZE;
-
-      console.log(
-        `[getBithiveRecords] Fetched ${allRecords.length} records so far`,
-      );
-    }
+    const allRecords = await getBithiveDeposits(
+      publicKey.toString("hex"),
+      deposits.length,
+    );
 
     // Update the global records
     bithiveRecords = allRecords;
@@ -274,11 +256,11 @@ app.get("/api/v1/atlas/bridgingFees", async (req, res) => {
   try {
     const { amount } = req.query;
 
-    const feeData = await estimateBridgingFees(bitcoin, near, amount, bithiveRecords);
+    const protocolFee = globalParams.atlasBridgingFeePercentage * amount;
+
+    const feeData = await estimateBridgingFees(bitcoin, near, protocolFee, bithiveRecords);
 
     console.log("feeData", feeData);
-
-    const protocolFee = globalParams.atlasBridgingFeePercentage * amount;
 
     const data = {
       estimatedBridgingFee:
@@ -1031,9 +1013,9 @@ app.listen(PORT, async () => {
 
   // This is for testing purposes
   // setInterval(async () => {
-  //    await getBithiveRecords();
+  //  await getBithiveRecords();
   // }, 10000);
-  // end of testing
+  // end
 
 
   // setInterval(async () => {
