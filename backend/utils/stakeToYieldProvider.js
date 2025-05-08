@@ -207,6 +207,8 @@ async function getBithiveDeposits(publicKeyHex, totalDeposits) {
       console.log(`[getBithiveDeposits] Fetched ${deposits.length} bithive deposits in batch ${totalDeposits}`);
 
       currentOffset = currentOffset + limit;
+
+      await new Promise((resolve) => setTimeout(resolve, 10000));
     }
 
     console.log("[getBithiveDeposits] New bithive deposits fetched:", deposits.length);
