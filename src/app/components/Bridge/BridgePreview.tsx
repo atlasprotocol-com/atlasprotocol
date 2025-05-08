@@ -101,6 +101,12 @@ export function BridgePreview({
       ? (actualReceived * btcPriceUsd).toFixed(2)
       : "--";
 
+  const hasValidAmount =
+    amount &&
+    !isBridgingFeesLoading &&
+    actualReceived !== "--" &&
+    actualReceived > 0;
+
   return (
     <Dialog
       open={open}
@@ -209,9 +215,16 @@ export function BridgePreview({
       <Button
         className="mt-4 w-full"
         onClick={onConfirm}
-        disabled={isPending || isBridgingFeesLoading || !transactionFee}
+        disabled={
+          isPending ||
+          isBridgingFeesLoading ||
+          !transactionFee ||
+          !hasValidAmount
+        }
       >
-        Process
+        {!hasValidAmount && actualReceived !== "--"
+          ? "Insufficient balance atBTC after bridging"
+          : "Process"}
       </Button>
     </Dialog>
   );
