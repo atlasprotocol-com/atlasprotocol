@@ -216,7 +216,11 @@ const Home: React.FC<HomeProps> = () => {
                           <LazyBridge />
                         </TabsContent>
                         <TabsContent value="reward">
-                          <LazyReward />
+                          <RequireConnectWallet
+                            required={!address}
+                            onConnect={handleConnectModal}
+                            renderContent={<LazyReward />}
+                          />
                         </TabsContent>
                         {/* <TabsContent value="points">
                         <LazyPoints />

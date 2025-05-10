@@ -1,3 +1,4 @@
+import base64ToHex from "@/utils/base642hex";
 import {
   getFundingUTXOs,
   getNetworkFees,
@@ -5,7 +6,6 @@ import {
   pushTx,
 } from "@/utils/mempool_api";
 
-import base64ToHex from "@/utils/base642hex";
 import { Fees, Network, UTXO, WalletProvider } from "../wallet_provider";
 
 export const unisatProvider = "unisat";
@@ -102,7 +102,7 @@ export class UnisatWallet extends WalletProvider {
   async getBalance(): Promise<number> {
     const balance = await this.unisat.getBalance();
     this.balance = balance; // Update local balance state
-    return balance.total; // Assuming total balance is returned
+    return balance?.total || 0; // Assuming total balance is returned
   }
 
   async getNetwork(): Promise<Network> {

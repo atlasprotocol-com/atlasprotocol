@@ -3,6 +3,8 @@ import { useContext } from "react";
 
 import { NearContext } from "@/utils/near/near";
 
+import { getReward } from "../api/reward";
+
 export function useCheckBindReward({
   contract,
   account,
@@ -31,6 +33,7 @@ export function useCheckBindReward({
       return result;
     },
     enabled: !!account && !!contract,
+    refetchInterval: 30000,
   });
 }
 
@@ -61,10 +64,11 @@ export function useGetBindMessage({
           recipient_address: address,
         },
       });
-      console.log("[result]", result, typeof result);
+
       return result;
     },
     enabled: !!account && !!contract && !!address,
+    refetchInterval: 30000,
   });
 }
 
@@ -97,5 +101,105 @@ export function useBindReward() {
 
       return result;
     },
+  });
+}
+
+export function useClaimReward() {
+  const { wallet } = useContext(NearContext);
+
+  return useMutation({
+    mutationFn: async ({
+      contract,
+      account,
+      amount,
+      roundId,
+      proof,
+    }: {
+      contract: string;
+      account: string;
+      amount: string;
+      roundId: number;
+      proof: string[];
+    }) => {
+      if (!contract || !wallet) return undefined;
+
+      const result = await wallet.callMethod({
+        contractId: contract,
+        method: "claim_single_round",
+        args: {
+          account,
+          amount,
+          round_id: roundId,
+          proof,
+        },
+      });
+
+      return result;
+    },
+  });
+}
+
+export function useCheckReward({
+  account,
+  contract,
+}: {
+  account?: string;
+  contract?: string;
+}) {
+  const { wallet } = useContext(NearContext);
+
+  async function getSummary(contract: string) {
+    if (!wallet) return undefined;
+
+    const result = await wallet.viewMethod({
+      contractId: contract,
+      method: "get_summary",
+    });
+
+    return result;
+  }
+
+  async function canClaimRewards(contract: string) {
+    if (!wallet) return undefined;
+
+    const result = await wallet.viewMethod({
+      contractId: contract,
+      method: "can_claim_rewards",
+      args: {
+        account,
+        offset: 0,
+        limit: 10,
+      },
+    });
+
+    return result;
+  }
+
+  return useQuery({
+    queryKey: ["check-reward", { account, contract }],
+
+    queryFn: async () => {
+      if (!account || !contract) {
+        throw new Error("Account and contract are required");
+      }
+
+      const [result, summary, canClaim] = await Promise.all([
+        getReward({
+          account: account,
+        }),
+        getSummary(contract),
+        canClaimRewards(contract),
+      ]);
+
+      console.log("[canClaim]", canClaim);
+
+      return {
+        rewards: result,
+        summary,
+        canClaim: (canClaim as boolean[]) || [false],
+      };
+    },
+    enabled: !!account && !!contract,
+    refetchInterval: 30000,
   });
 }
