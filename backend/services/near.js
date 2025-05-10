@@ -7,12 +7,12 @@ const {
 } = require("near-api-js");
 const _ = require("lodash");
 const pRetry = require("p-retry");
-
 const { InMemoryKeyStore } = keyStores;
 
 const { getPrice } = require("../coin");
 const { MemoryCache } = require("../cache");
 
+const NearKeyManager = require("./nearKeyManager");
 const address = require("./address");
 
 const retries = 3;
@@ -21,8 +21,86 @@ const cache = new MemoryCache();
 debugBridgeMint = require("debug")("bridge:getPastMintBridgeEventsInBatches");
 debugBridgeBurn = require("debug")("bridge:getPastBurnBridgingEventsInBatches");
 
+const viewMethods = [
+  "get_deposit_by_btc_txn_hash",
+  "get_all_deposits",
+  "get_redemption_by_txn_hash",
+  "get_all_redemptions",
+  "get_all_global_params",
+  "get_all_chain_configs",
+  "get_all_constants",
+  "get_chain_config_by_chain_id",
+  "get_first_valid_redemption",
+  "get_bridging_by_txn_hash",
+  "get_all_bridgings",
+  "get_first_valid_bridging_chain_config",
+  "get_first_valid_user_redemption",
+  "get_first_valid_bridging_fees_unstake",
+  "get_first_valid_bridging_fees_unstaked",
+  "get_redemptions_for_yield_provider_by_status_and_timestamp",
+  "get_bridgings_for_yield_provider_by_status_and_timestamp",
+  "get_redemptions_to_send_btc",
+  "get_bridging_records_to_send_btc",
+  "get_pubkey_by_address",
+  "get_deposits_count",
+  "get_redemptions_count",
+  "is_production_mode",
+  "get_validators_by_txn_hash",
+  "get_bridgings_count",
+];
+
+const changeMethods = [
+  "insert_deposit_btc",
+  "update_deposit_remarks",
+  "insert_redemption_abtc",
+  "update_redemption_remarks",
+  "create_mint_abtc_signed_tx",
+  "update_deposit_minted_txn_hash",
+  "update_deposit_minted",
+  "update_deposit_btc_deposited",
+  "update_deposit_refund_txn_id",
+  "create_atlas_signed_payload",
+  "create_redeem_abtc_transaction",
+  "update_redemption_pending_btc_mempool",
+  "update_redemption_redeemed",
+  "insert_bridging_abtc",
+  "update_bridging_status",
+  "update_bridging_btc_bridged",
+  "update_bridging_remarks",
+  "create_bridging_abtc_signed_tx",
+  "update_bridging_minted_txn_hash",
+  "update_bridging_atbtc_minted",
+  "update_deposit_yield_provider_deposited",
+  "update_deposit_pending_yield_provider_deposit",
+  "update_yield_provider_txn_hash",
+  "update_redemption_pending_yield_provider_unstake",
+  "update_redemption_yield_provider_unstaked",
+  "update_redemption_yield_provider_unstake_processing",
+  "update_redemption_pending_yield_provider_withdraw",
+  "update_redemption_yield_provider_withdrawing",
+  "update_redemption_yield_provider_withdrawn",
+  "update_withdraw_fail_deposit_status",
+  "create_abtc_accept_ownership_tx",
+  "withdraw_fail_deposit_by_btc_tx_hash",
+  "rollback_deposit_status_by_btc_txn_hash",
+  "update_bridging_fees_pending_yield_provider_unstake",
+  "update_bridging_fees_yield_provider_unstake_processing",
+  "update_bridging_fees_yield_provider_remarks",
+  "update_bridging_fees_yield_provider_unstaked",
+  "update_bridging_fees_pending_yield_provider_withdraw",
+  "update_bridging_fees_yield_provider_withdrawing",
+  "update_bridging_fees_yield_provider_withdrawn",
+  "update_last_unstaking_time",
+  "create_send_bridging_fees_transaction",
+  "update_bridging_sending_fee_to_treasury",
+  "set_chain_configs_from_json",
+  "insert_btc_pubkey",
+];
+
 class Near {
   static TRANSACTION_ROOT = "11111111111111111111111111111111";
+  static initializedContracts = [];
+  static currentContractIndex = 0;
 
   constructor(
     chain_rpc,
@@ -42,170 +120,155 @@ class Near {
     this.pk = pk;
     this.network_id = network_id;
     this.keyStore = new InMemoryKeyStore();
-    this.provider = new providers.JsonRpcProvider({ url: this.chain_rpc_provider }); // Initialize provider here
-    this.nearContract = null;
+    this.provider = new providers.JsonRpcProvider({ url: this.chain_rpc_provider });
     this.gas = gas;
     this.mpcContractId = mpcContractId;
     this.bitHiveContractId = bitHiveContractId;
+    this.keyManager = null;
+    this.contractConfig = {
+      viewMethods,
+      changeMethods,
+    };
+  }
+
+  static async initializeConnections(config) {
+    if (Near.initializedContracts.length === 0) {
+      // First create a temporary connection to get the number of keys
+      const tempKeyStore = new InMemoryKeyStore();
+      const keyPair = KeyPair.fromString(config.pk);
+      await tempKeyStore.setKey(
+        config.network_id,
+        config.atlas_account_id,
+        keyPair
+      );
+
+      const tempConnection = await connect({
+        networkId: config.network_id,
+        keyStore: tempKeyStore,
+        nodeUrl: config.chain_rpc,
+      });
+
+      const account = await tempConnection.account(config.atlas_account_id);
+      const accessKeys = await account.getAccessKeys();
+      
+      console.log(`[NearService] Found ${accessKeys.length} access keys, initializing contracts...`);
+      
+      // Initialize key manager first
+      const keyManager = new NearKeyManager();
+      keyManager.initializeKeys(accessKeys.map(key => ({
+        public_key: key.public_key,
+        secret_key: config.pk
+      })));
+
+      // Initialize one contract per key using the key manager's keys
+      const keys = keyManager.keys; // Get all keys from the manager
+      for (const key of keys) {
+        const keyStore = new InMemoryKeyStore();
+        const keyPair = KeyPair.fromString(key.secret_key);
+        await keyStore.setKey(
+          config.network_id,
+          config.atlas_account_id,
+          keyPair
+        );
+
+        const connection = await connect({
+          networkId: config.network_id,
+          keyStore: keyStore,
+          nodeUrl: config.chain_rpc,
+        });
+        
+        const account = await connection.account(config.atlas_account_id);
+        const contract = new Contract(account, config.contract_id, {
+          viewMethods,
+          changeMethods,
+        });
+        Near.initializedContracts.push(contract);
+      }
+      console.log(`[NearService] Initialized ${Near.initializedContracts.length} contracts`);
+    }
+  }
+
+  static getNextContract() {
+    const contract = Near.initializedContracts[Near.currentContractIndex];
+    const publicKey = contract.account.connection.signer.keyStore.getKey(
+      contract.account.connection.networkId,
+      contract.account.accountId
+    ).publicKey;
+    console.log(`[NearService] Using contract instance ${Near.currentContractIndex + 1}/${Near.initializedContracts.length} with public key ${publicKey}`);
+    Near.currentContractIndex = (Near.currentContractIndex + 1) % Near.initializedContracts.length;
+    return contract;
   }
 
   async init() {
     try {
-      const keyPair = KeyPair.fromString(this.pk);
-      await this.keyStore.setKey(
-        this.network_id,
-        this.atlas_account_id,
-        keyPair,
-      );
-
-      // Setup connection to NEAR
-      const nearConnection = await connect({
-        networkId: this.network_id,
-        keyStore: this.keyStore,
-        nodeUrl: this.chain_rpc,
-        // walletUrl: `https://wallet.${this.network_id}.near.org`,
-        // helperUrl: `https://helper.${this.network_id}.near.org`,
-        // explorerUrl: `https://explorer.${this.network_id}.near.org`,
+      // Initialize contracts if not already done
+      await Near.initializeConnections({
+        network_id: this.network_id,
+        chain_rpc: this.chain_rpc,
+        pk: this.pk,
+        atlas_account_id: this.atlas_account_id,
+        contract_id: this.contract_id
       });
 
-      this.account = await nearConnection.account(this.atlas_account_id);
+      // Get the first contract to initialize key manager
+      const contract = Near.initializedContracts[0];
+      const account = contract.account;
+      const accessKeys = await account.getAccessKeys();
+      console.log(`[NearService] Found ${accessKeys.length} access keys for account`);
 
-      this.nearContract = new Contract(this.account, this.contract_id, {
-        viewMethods: [
-          "get_deposit_by_btc_txn_hash",
-          "get_all_deposits",
-          "get_redemption_by_txn_hash",
-          "get_all_redemptions",
-          "get_all_global_params",
-          "get_all_chain_configs",
-          "get_all_constants",
-          "get_chain_config_by_chain_id",
-          "get_first_valid_redemption",
-          "get_bridging_by_txn_hash",
-          "get_all_bridgings",
-          "get_first_valid_bridging_chain_config",
-          "get_first_valid_user_redemption",
-          "get_first_valid_bridging_fees_unstake",
-          "get_first_valid_bridging_fees_unstaked",
-          "get_redemptions_for_yield_provider_by_status_and_timestamp",
-          "get_bridgings_for_yield_provider_by_status_and_timestamp",
-          "get_redemptions_to_send_btc",
-          "get_bridging_records_to_send_btc",
-          "get_pubkey_by_address",
-          "get_deposits_count",
-          "get_redemptions_count",
-          "is_production_mode",
-          "get_validators_by_txn_hash",
-          "get_bridgings_count",
-        ],
-        changeMethods: [
-          "insert_deposit_btc",
-          "update_deposit_remarks",
-          "insert_redemption_abtc",
-          "update_redemption_remarks",
-          "create_mint_abtc_signed_tx",
-          "update_deposit_minted_txn_hash",
-          "update_deposit_minted",
-          "update_deposit_btc_deposited",
-          "update_deposit_refund_txn_id",
-          "create_atlas_signed_payload",
-          "create_redeem_abtc_transaction",
-          "update_redemption_pending_btc_mempool",
-          "update_redemption_redeemed",
-          "insert_bridging_abtc",
-          "update_bridging_status",
-          "update_bridging_btc_bridged",
-          "update_bridging_remarks",
-          "create_bridging_abtc_signed_tx",
-          "update_bridging_minted_txn_hash",
-          "update_bridging_atbtc_minted",
-          "update_deposit_yield_provider_deposited",
-          "update_deposit_pending_yield_provider_deposit",
-          "update_yield_provider_txn_hash",
-          "update_redemption_pending_yield_provider_unstake",
-          "update_redemption_yield_provider_unstaked",
-          "update_redemption_yield_provider_unstake_processing",
-          "update_redemption_pending_yield_provider_withdraw",
-          "update_redemption_yield_provider_withdrawing",
-          "update_redemption_yield_provider_withdrawn",
-          "update_withdraw_fail_deposit_status",
-          "create_abtc_accept_ownership_tx",
-          "withdraw_fail_deposit_by_btc_tx_hash",
-          "rollback_deposit_status_by_btc_txn_hash",
-          "update_bridging_fees_pending_yield_provider_unstake",
-          "update_bridging_fees_yield_provider_unstake_processing",
-          "update_bridging_fees_yield_provider_remarks",
-          "update_bridging_fees_yield_provider_unstaked",
-          "update_bridging_fees_pending_yield_provider_withdraw",
-          "update_bridging_fees_yield_provider_withdrawing",
-          "update_bridging_fees_yield_provider_withdrawn",
-          "update_last_unstaking_time",
-          "create_send_bridging_fees_transaction",
-          "update_bridging_sending_fee_to_treasury",
-          "set_chain_configs_from_json",
-          "insert_btc_pubkey",
-        ],
-      });
-
-      this.nearMPCContract = new Contract(this.account, this.mpcContractId, {
+      // Initialize contract instances with the first contract
+      this.nearContract = contract;
+      this.nearMPCContract = new Contract(account, this.mpcContractId, {
         viewMethods: ["public_key"],
         changeMethods: ["sign"],
       });
-
-      this.bitHiveContract = new Contract(
-        this.account,
-        this.bitHiveContractId,
-        {
-          viewMethods: [
-            "get_deposit",
-            "view_account",
-            "get_summary",
-            "get_deposits",
-          ],
-        },
-      );
+      this.bitHiveContract = new Contract(account, this.bitHiveContractId, {
+        viewMethods: [
+          "get_deposit",
+          "view_account",
+          "get_summary",
+          "get_deposits",
+        ],
+      });
     } catch (error) {
       console.error("Failed to initialize NEAR contract:", error);
       throw error;
     }
   }
 
-  // General function to make NEAR RPC view calls
-  async makeNearRpcViewCall(methodName, args) {
-    if (!this.nearContract) {
-      throw new Error("NEAR contract is not initialized. Call init() first.");
-    }
-    try {
-      const result = await this.nearContract[methodName](args);
-      return result;
-    } catch (error) {
-      throw new Error(`Failed to call method ${methodName}: ${error.message}`);
-    }
-  }
-
-  // General function to make NEAR RPC change calls using this.nearContract
   async makeNearRpcChangeCall(methodName, args) {
     if (!this.nearContract) {
       throw new Error("NEAR contract is not initialized. Call init() first.");
     }
 
-    // Log start time for update_redemption_yield_provider_unstake_processing
-    // if (methodName === "update_redemption_yield_provider_unstake_processing") {
-    //   console.log(`[${methodName}] Start time:`, new Date().toISOString());
-    // }
-    //console.log("this.gas:", this.gas);
-    // MUST return original error to retrieve error context
-    const result = await this.nearContract[methodName]({
-      args,
-      gas: this.gas
-    });
+    try {
+      // Get next contract in rotation
+      const contract = Near.getNextContract();
+      
+      const result = await contract[methodName]({
+        args,
+        gas: this.gas
+      });
 
-    // Log end time for update_redemption_yield_provider_unstake_processing
-    // if (methodName === "update_redemption_yield_provider_unstake_processing") {
-    //   console.log(`[${methodName}] End time:`, new Date().toISOString());
-    // }
+      return result;
+    } catch (error) {
+      console.error(`[NearService] Change call failed for method ${methodName}:`, error);
+      throw error;
+    }
+  }
 
-    return result;
+  async makeNearRpcViewCall(methodName, args) {
+    if (!this.nearContract) {
+      throw new Error("NEAR contract is not initialized. Call init() first.");
+    }
+    try {
+      // View calls don't need signing, so we can use the existing contract instance
+      const result = await this.nearContract[methodName](args);
+      return result;
+    } catch (error) {
+      console.error(`[NearService] View call failed for method ${methodName}:`, error);
+      throw error;
+    }
   }
 
   // Function to get deposit by BTC sender address from NEAR contract
@@ -544,7 +607,6 @@ class Near {
     } catch (err) {
       const txnhash = err.context?.transactionHash;
       if (!txnhash) throw err;
-
       // if we have a transaction hash, we can wait until the transaction is confirmed
       const tx = await pRetry(
         async (count) => {

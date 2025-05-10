@@ -7,6 +7,7 @@ const { getChainConfig } = require("./network.chain.config");
 const { flagsBatch } = require("./batchFlags");
 
 const GAS_FOR_MINT_CALL = 100; // Gas for minting call
+const RECORDS_BEFORE_PAUSE = 10;
 
 const batchName = `Batch K BridgeaBtcToDestChain`;
 async function MintBridgeABtcToDestChain(allBridgings, near) {
@@ -76,6 +77,12 @@ async function MintBridgeABtcToDestChain(allBridgings, near) {
           for (const bridging of chainTransactions) {
             const txnHash = bridging.txn_hash;
             currentIndex++;
+
+            if (currentIndex % RECORDS_BEFORE_PAUSE === 0) {
+              console.log(`[mintBridgeABtcToDestChain] Pausing for ${RECORDS_BEFORE_PAUSE} records...`);
+              await new Promise(resolve => setTimeout(resolve, 10000));
+            }
+
             console.log(`[mintBridgeABtcToDestChain] Processing record ${currentIndex} of ${totalRecords} for chain ${chainId}: bridging with txn hash ${txnHash}`);
             
             try {
@@ -182,6 +189,12 @@ async function MintBridgeABtcToDestChain(allBridgings, near) {
           for (const bridging of chainTransactions) {
             const txnHash = bridging.txn_hash;
             currentIndex++;
+
+            if (currentIndex % RECORDS_BEFORE_PAUSE === 0) {
+              console.log(`[mintBridgeABtcToDestChain] Pausing for ${RECORDS_BEFORE_PAUSE} records...`);
+              await new Promise(resolve => setTimeout(resolve, 10000));
+            }
+            
             console.log(`[mintBridgeABtcToDestChain] Processing record ${currentIndex} of ${totalRecords} for chain ${chainId}: bridging with txn hash ${txnHash}`);
             
             try {

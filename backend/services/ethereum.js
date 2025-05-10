@@ -435,9 +435,9 @@ class Ethereum {
     // }
 
     try {
-      console.log("[relayTransaction] signedTransaction: ", signedTransaction);
+      //console.log("[relayTransaction] signedTransaction: ", signedTransaction);
       const serializedTx = bytesToHex(signedTransaction);
-      console.log("[relayTransaction] serializedTx: ", serializedTx);
+      //console.log("[relayTransaction] serializedTx: ", serializedTx);
       
       // Verify serializedTx format - should be a long hex string starting with 0x02f9
       if (!serializedTx.startsWith('0x02f9') || !/^0x[0-9a-fA-F]+$/.test(serializedTx)) {
@@ -458,7 +458,7 @@ class Ethereum {
           setTimeout(() => reject(new Error(`Transaction ${tx.hash} timed out after ${timeoutMs}ms`)), timeoutMs)
         )
       ]);
-      console.log("[relayTransaction] Transaction mined:", receipt);
+      //console.log("[relayTransaction] Transaction mined:", receipt);
 
       return { 
         txnHash: receipt.hash, 

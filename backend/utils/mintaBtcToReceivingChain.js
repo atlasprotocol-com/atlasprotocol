@@ -6,6 +6,8 @@ const { updateOffchainDepositStatus, updateOffchainDepositRemarks } = require(".
 const { flagsBatch } = require("./batchFlags");
 const { getChainConfig } = require("./network.chain.config");
 
+const RECORDS_BEFORE_PAUSE = 10;
+
 async function MintaBtcToReceivingChain(allDeposits, near) {
   const batchName = `Batch E MintaBtcToReceivingChain`;
 
@@ -70,7 +72,7 @@ async function MintaBtcToReceivingChain(allDeposits, near) {
             chainConfig.aBTCAddress,
             chainConfig.abiPath,
           );
-          
+
           let derivationPath = chainConfig.networkType;
 
           // Generate the derived address for the aBTC minter & sender
@@ -91,6 +93,12 @@ async function MintaBtcToReceivingChain(allDeposits, near) {
           for (const depositRecord of chainTransactions) {
             const btcTxnHash = depositRecord.btc_txn_hash;
             currentIndex++;
+
+            if (currentIndex % RECORDS_BEFORE_PAUSE === 0) {
+              console.log(`[mintBridgeABtcToDestChain] Pausing for ${RECORDS_BEFORE_PAUSE} records...`);
+              await new Promise(resolve => setTimeout(resolve, 10000));
+            }
+
             console.log(`[mintAtbtcToReceivingChain] Processing record ${currentIndex} of ${totalRecords} for chain ${chainId}: minting with BTC txn hash ${btcTxnHash}`);
             try {
               
@@ -179,8 +187,15 @@ async function MintaBtcToReceivingChain(allDeposits, near) {
           for (const depositRecord of chainTransactions) {
             const btcTxnHash = depositRecord.btc_txn_hash;
             currentIndex++;
+
+            if (currentIndex % RECORDS_BEFORE_PAUSE === 0) {
+              console.log(`[mintBridgeABtcToDestChain] Pausing for ${RECORDS_BEFORE_PAUSE} records...`);
+              await new Promise(resolve => setTimeout(resolve, 10000));
+            }
+            
             console.log(`[mintAtbtcToReceivingChain] Processing record ${currentIndex} of ${totalRecords} for chain ${chainId}: minting with BTC txn hash ${btcTxnHash}`);
             
+
             try {
               console.log("Processing NEAR Chain signatures");
 

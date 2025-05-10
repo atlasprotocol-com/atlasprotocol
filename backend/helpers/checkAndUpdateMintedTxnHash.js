@@ -5,7 +5,7 @@ const { getChainConfig } = require("../utils/network.chain.config");
 const { processMintDepositEvent } = require("./eventProcessor");
 
 async function checkAndUpdateMintedTxnHash(btcTxnHash, near, mintedTxnHash) {
-  const { NETWORK_TYPE, DEPOSIT_STATUS } = getConstants();
+  const { NETWORK_TYPE, DEPOSIT_STATUS, EVENT_NAME } = getConstants();
 
   try {
     // First get the deposit record
