@@ -6,7 +6,7 @@ const { flagsBatch } = require("../utils/batchFlags");
  * @param {string} txnHash - Transaction hash to update
  * @param {string} newStatus - New status to set
  */
-const updateOffchainDepositStatus = (allDeposits, txnHash, newStatus) => {
+const updateOffchainDepositStatus = async (allDeposits, txnHash, newStatus) => {
   const index = allDeposits.findIndex(d => d.btc_txn_hash === txnHash);
   if (index !== -1) {
     allDeposits[index].status = newStatus;
@@ -20,7 +20,7 @@ const updateOffchainDepositStatus = (allDeposits, txnHash, newStatus) => {
  * @param {string} txnHash - Transaction hash to update
  * @param {string} newRemarks - New remarks to set
  */
-const updateOffchainDepositRemarks = (allDeposits, txnHash, newRemarks) => {
+const updateOffchainDepositRemarks = async (allDeposits, txnHash, newRemarks) => {
   const index = allDeposits.findIndex(d => d.btc_txn_hash === txnHash);
   if (index !== -1) {
     allDeposits[index].remarks = newRemarks;
@@ -34,7 +34,7 @@ const updateOffchainDepositRemarks = (allDeposits, txnHash, newRemarks) => {
  * @param {string} txnHash - Original transaction hash to identify the deposit
  * @param {string} yieldProviderTxnHash - New yield provider transaction hash to set
  */
-const updateOffchainYieldProviderTxnHash = (allDeposits, txnHash, yieldProviderTxnHash) => {
+const updateOffchainYieldProviderTxnHash = async (allDeposits, txnHash, yieldProviderTxnHash) => {
   const index = allDeposits.findIndex(d => d.btc_txn_hash === txnHash);
   if (index !== -1) {
     allDeposits[index].yield_provider_txn_hash = yieldProviderTxnHash;

@@ -682,6 +682,7 @@ app.get("/api/v1/process-new-bridging", async (req, res) => {
       return res.status(400).json({ error: "Invalid chain ID" });
     }
 
+    console.log("[process-new-bridging] txnHash:", txnHash);
     // Check if redemption record already exists
     const bridgingRecord = await near.getBridgingByTxnHash(txnHash);
     if (bridgingRecord) {
@@ -724,7 +725,7 @@ app.get("/api/v1/process-new-bridging", async (req, res) => {
             mintingFeeSat: event.returnValues.mintingFeeSat,
             bridgingFeeSat: event.returnValues.bridgingFeeSat,
           },
-          transactionHash: event.transactionHash,
+          transactionHash: chainTxHash,
         },
         near,
         chainConfig.chainID,
@@ -739,11 +740,15 @@ app.get("/api/v1/process-new-bridging", async (req, res) => {
         chainConfig.abiPath,
       );
 
+
+      console.log("[process-new-bridging] chainTxHash:", chainTxHash);
       // Fetch transaction from mempool
       const event = await ethereum.fetchEventByTxnHashAndEventName(
         chainTxHash,
         EVENT_NAME.BURN_BRIDGE,
       );
+
+      console.log("event:", event);
 
       const block = await ethereum.getBlock(event.blockNumber);
       const timestamp = Number(block.timestamp);
@@ -771,7 +776,7 @@ app.get("/api/v1/process-new-bridging", async (req, res) => {
             mintingFeeSat: Number(event.returnValues.mintingFeeSat),
             bridgingFeeSat: Number(event.returnValues.bridgingFeeSat),
           },
-          transactionHash: event.transactionHash,
+          transactionHash: chainTxHash,
         },
         near,
         chainConfig.chainID,
@@ -1011,26 +1016,19 @@ app.listen(PORT, async () => {
   }, 10000);
 
 
-  // This is for testing purposes
-  // setInterval(async () => {
-  //  await getBithiveRecords();
-  // }, 10000);
-  // end
-
-
-  // setInterval(async () => {
-  //   if (!flagsBatch.MintingEventsRunning) {
-  //     flagsBatch.MintingEventsRunning = true;
-  //     try {
-  //       await MintaBtcToReceivingChain(deposits, near);
-  //       await MintBridgeABtcToDestChain(bridgings, near);
-  //     } catch (error) {
-  //       console.error("Error processing minting events:", error);
-  //     } finally {
-  //       flagsBatch.MintingEventsRunning = false;
-  //     }
-  //   }
-  // }, 10000);
+  setInterval(async () => {
+    if (!flagsBatch.MintingEventsRunning) {
+      flagsBatch.MintingEventsRunning = true;
+      try {
+        await MintaBtcToReceivingChain(deposits, near);
+        await MintBridgeABtcToDestChain(bridgings, near);
+      } catch (error) {
+        console.error("Error processing minting events:", error);
+      } finally {
+        flagsBatch.MintingEventsRunning = false;
+      }
+    }
+  }, 10000);
 
   setInterval(async () => {
     await UpdateAtlasAbtcMinted(deposits, near);

@@ -133,8 +133,8 @@ const getBridgingRecordsToUpdateMinted = (allBridgings) => {
       isValid &&
       (bridging.status === BRIDGING_STATUS.ABTC_PENDING_BRIDGE_FROM_ORIGIN_TO_DEST ||
         bridging.status === BRIDGING_STATUS.ABTC_BURNT) &&
-      bridging.dest_txn_hash !== "" &&
-      bridging.minted_txn_hash_verified_count >=
+        bridging.dest_txn_hash !== "" &&
+        bridging.minted_txn_hash_verified_count >=
         chainConfig.validators_threshold
     );
   });
@@ -146,7 +146,7 @@ const getBridgingRecordsToUpdateMinted = (allBridgings) => {
  * @param {string} txnHash - Transaction hash to update
  * @param {string} newStatus - New status to set
  */
-const updateOffchainBridgingStatus = (allBridgings, txnHash, newStatus) => {
+const updateOffchainBridgingStatus = async (allBridgings, txnHash, newStatus) => {
   const index = allBridgings.findIndex(b => b.txn_hash === txnHash);
   if (index !== -1) {
     allBridgings[index].status = newStatus;
@@ -160,11 +160,25 @@ const updateOffchainBridgingStatus = (allBridgings, txnHash, newStatus) => {
  * @param {string} txnHash - Transaction hash to update
  * @param {string} newRemarks - New remarks to set
  */
-const updateOffchainBridgingRemarks = (allBridgings, txnHash, newRemarks) => {
+const updateOffchainBridgingRemarks = async (allBridgings, txnHash, newRemarks) => {
   const index = allBridgings.findIndex(b => b.txn_hash === txnHash);
   if (index !== -1) {
     allBridgings[index].remarks = newRemarks;
     console.log(`[updateOffchainBridgingRemarks] Updated remarks for bridging ${txnHash} to ${newRemarks}`);
+  }
+};
+
+/**
+ * Updates the minted transaction hash of a bridging record in the array
+ * @param {Array} allBridgings - Array of bridging records
+ * @param {string} txnHash - Transaction hash to update
+ * @param {string} mintedTxnHash - New minted transaction hash to set
+ */
+const updateOffchainBridgingMintedTxnHash = async (allBridgings, txnHash, mintedTxnHash) => {
+  const index = allBridgings.findIndex(b => b.txn_hash === txnHash);
+  if (index !== -1) {
+    allBridgings[index].dest_txn_hash = mintedTxnHash;
+    console.log(`[updateOffchainBridgingMintedTxnHash] Updated minted transaction hash for bridging ${txnHash} to ${mintedTxnHash}`);
   }
 };
 
@@ -175,4 +189,5 @@ module.exports = {
   getBridgingRecordsToUpdateMinted,
   updateOffchainBridgingStatus,
   updateOffchainBridgingRemarks,
+  updateOffchainBridgingMintedTxnHash,
 };

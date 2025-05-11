@@ -32,7 +32,7 @@ async function UpdateBridgingAtbtcMinted(allBridgings, near) {
       
       await near.updateBridgingAtbtcMinted(bridging.txn_hash);
       
-      updateOffchainBridgingStatus(
+      await updateOffchainBridgingStatus(
         allBridgings,
         bridging.txn_hash,
         BRIDGING_STATUS.ABTC_MINTED_TO_DEST

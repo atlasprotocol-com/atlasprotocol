@@ -101,6 +101,7 @@ class Near {
   static TRANSACTION_ROOT = "11111111111111111111111111111111";
   static initializedContracts = [];
   static currentContractIndex = 0;
+  static keyManager = null;
 
   constructor(
     chain_rpc,
@@ -124,7 +125,6 @@ class Near {
     this.gas = gas;
     this.mpcContractId = mpcContractId;
     this.bitHiveContractId = bitHiveContractId;
-    this.keyManager = null;
     this.contractConfig = {
       viewMethods,
       changeMethods,
@@ -133,70 +133,31 @@ class Near {
 
   static async initializeConnections(config) {
     if (Near.initializedContracts.length === 0) {
-      // First create a temporary connection to get the number of keys
-      const tempKeyStore = new InMemoryKeyStore();
-      const keyPair = KeyPair.fromString(config.pk);
-      await tempKeyStore.setKey(
-        config.network_id,
-        config.atlas_account_id,
-        keyPair
-      );
-
-      const tempConnection = await connect({
-        networkId: config.network_id,
-        keyStore: tempKeyStore,
-        nodeUrl: config.chain_rpc,
+      // Initialize key manager with all necessary config
+      const keyManager = new NearKeyManager();
+      await keyManager.initializeKeys({
+        network_id: config.network_id,
+        chain_rpc: config.chain_rpc,
+        atlas_account_id: config.atlas_account_id,
+        contract_id: config.contract_id,
+        viewMethods,
+        changeMethods
       });
 
-      const account = await tempConnection.account(config.atlas_account_id);
-      const accessKeys = await account.getAccessKeys();
+      // Store the key manager instance
+      Near.keyManager = keyManager;
       
-      console.log(`[NearService] Found ${accessKeys.length} access keys, initializing contracts...`);
-      
-      // Initialize key manager first
-      const keyManager = new NearKeyManager();
-      keyManager.initializeKeys(accessKeys.map(key => ({
-        public_key: key.public_key,
-        secret_key: config.pk
-      })));
-
-      // Initialize one contract per key using the key manager's keys
-      const keys = keyManager.keys; // Get all keys from the manager
-      for (const key of keys) {
-        const keyStore = new InMemoryKeyStore();
-        const keyPair = KeyPair.fromString(key.secret_key);
-        await keyStore.setKey(
-          config.network_id,
-          config.atlas_account_id,
-          keyPair
-        );
-
-        const connection = await connect({
-          networkId: config.network_id,
-          keyStore: keyStore,
-          nodeUrl: config.chain_rpc,
-        });
-        
-        const account = await connection.account(config.atlas_account_id);
-        const contract = new Contract(account, config.contract_id, {
-          viewMethods,
-          changeMethods,
-        });
-        Near.initializedContracts.push(contract);
-      }
+      // Store the contracts from the key manager
+      Near.initializedContracts = keyManager.contracts;
       console.log(`[NearService] Initialized ${Near.initializedContracts.length} contracts`);
     }
   }
 
-  static getNextContract() {
-    const contract = Near.initializedContracts[Near.currentContractIndex];
-    const publicKey = contract.account.connection.signer.keyStore.getKey(
-      contract.account.connection.networkId,
-      contract.account.accountId
-    ).publicKey;
-    console.log(`[NearService] Using contract instance ${Near.currentContractIndex + 1}/${Near.initializedContracts.length} with public key ${publicKey}`);
-    Near.currentContractIndex = (Near.currentContractIndex + 1) % Near.initializedContracts.length;
-    return contract;
+  static async getNextContract() {
+    if (!Near.keyManager) {
+      throw new Error('[NearService] Key manager not initialized. Call initializeConnections first.');
+    }
+    return Near.keyManager.getNextContract();
   }
 
   async init() {
@@ -213,8 +174,6 @@ class Near {
       // Get the first contract to initialize key manager
       const contract = Near.initializedContracts[0];
       const account = contract.account;
-      const accessKeys = await account.getAccessKeys();
-      console.log(`[NearService] Found ${accessKeys.length} access keys for account`);
 
       // Initialize contract instances with the first contract
       this.nearContract = contract;
@@ -237,13 +196,13 @@ class Near {
   }
 
   async makeNearRpcChangeCall(methodName, args) {
-    if (!this.nearContract) {
-      throw new Error("NEAR contract is not initialized. Call init() first.");
+    if (!Near.keyManager) {
+      throw new Error("NEAR key manager is not initialized. Call init() first.");
     }
 
     try {
       // Get next contract in rotation
-      const contract = Near.getNextContract();
+      const contract = await Near.getNextContract();
       
       const result = await contract[methodName]({
         args,
@@ -258,12 +217,12 @@ class Near {
   }
 
   async makeNearRpcViewCall(methodName, args) {
-    if (!this.nearContract) {
-      throw new Error("NEAR contract is not initialized. Call init() first.");
+    if (!Near.keyManager) {
+      throw new Error("NEAR key manager is not initialized. Call init() first.");
     }
     try {
-      // View calls don't need signing, so we can use the existing contract instance
-      const result = await this.nearContract[methodName](args);
+      const contract = Near.keyManager.getViewContract();
+      const result = await contract[methodName](args);
       return result;
     } catch (error) {
       console.error(`[NearService] View call failed for method ${methodName}:`, error);
@@ -1871,8 +1830,52 @@ class Near {
     return this.makeNearRpcChangeCall("update_bridging_atbtc_minted", {
       txn_hash: txnHash,
     });
-  } 
-  
+  }
+
+  // Add a new key to the atlas account
+  async addNewKey() {
+    const keyPair = KeyPair.fromRandom('ed25519');
+    const publicKey = keyPair.getPublicKey();
+    
+    // Add the new key to the atlas account
+    const account = await this.nearContract.account;
+    await account.addKey(
+      publicKey,
+      this.contract_id,
+      this.gas,
+      '1'
+    );
+    
+    return {
+      public_key: publicKey.toString(),
+      secret_key: keyPair.toString()
+    };
+  }
+
+  // Remove a key from the atlas account
+  async removeKey(publicKey) {
+    const account = await this.nearContract.account;
+    await account.deleteKey(
+      KeyPair.fromString(publicKey).getPublicKey()
+    );
+  }
+
+  // Rotate keys for the atlas account
+  async rotateKeys(oldPublicKey) {
+    // Add new key
+    const newKey = await this.addNewKey();
+    
+    // Remove old key
+    await this.removeKey(oldPublicKey);
+    
+    return newKey;
+  }
+
+  // Get all access keys for the atlas account
+  async getAccessKeys() {
+    const account = await this.nearContract.account;
+    return account.getAccessKeys();
+  }
 }
 
 module.exports = { Near };

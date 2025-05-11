@@ -1,7 +1,7 @@
 const { getConstants } = require("../constants");
 const { Ethereum } = require("../services/ethereum");
 const address = require("../services/address");
-const { getBridgingRecordsToBridge, updateOffchainBridgingStatus, updateOffchainBridgingRemarks } = require("../helpers/bridgingHelper");
+const { getBridgingRecordsToBridge, updateOffchainBridgingStatus, updateOffchainBridgingRemarks, updateOffchainBridgingMintedTxnHash } = require("../helpers/bridgingHelper");
 
 const { getChainConfig } = require("./network.chain.config");
 const { flagsBatch } = require("./batchFlags");
@@ -103,8 +103,14 @@ async function MintBridgeABtcToDestChain(allBridgings, near) {
                 const evmTransactionHash = matchingEvent.transactionHash;
                 console.log(`Event found for txn hash ${txnHash}: EVM transaction hash ${evmTransactionHash}`);
                 // Update the bridging record with the EVM transaction hash
+                
                 await near.updateBridgingMintedTxnHash(txnHash, evmTransactionHash);
-                updateOffchainBridgingStatus(
+                await updateOffchainBridgingMintedTxnHash(
+                  allBridgings,
+                  txnHash,
+                  evmTransactionHash
+                );
+                await updateOffchainBridgingStatus(
                   allBridgings,
                   txnHash,
                   BRIDGING_STATUS.ABTC_PENDING_BRIDGE_FROM_ORIGIN_TO_DEST
@@ -151,7 +157,7 @@ async function MintBridgeABtcToDestChain(allBridgings, near) {
                 `${batchName} Processed Txn: Bridge aBTC with txn hash ${txnHash}, bridgeStatus = ${status}`,
               );
 
-              updateOffchainBridgingStatus(
+              await updateOffchainBridgingStatus(
                 allBridgings,
                 txnHash,
                 BRIDGING_STATUS.ABTC_PENDING_BRIDGE_FROM_ORIGIN_TO_DEST
@@ -161,7 +167,7 @@ async function MintBridgeABtcToDestChain(allBridgings, near) {
                 let remarks = `Error ${batchName} processing Txn with txn hash ${txnHash}: Transaction relayer return with error`;
                 console.error(remarks);
                 await near.updateBridgingRemarks(txnHash, remarks);
-                updateOffchainBridgingRemarks(
+                await updateOffchainBridgingRemarks(
                   allBridgings,
                   txnHash,
                   remarks
@@ -172,7 +178,7 @@ async function MintBridgeABtcToDestChain(allBridgings, near) {
               console.error(remarks);
               if (!error.message.includes("Gas price is less than base fee per gas")) {
                 await near.updateBridgingRemarks(txnHash, remarks);
-                updateOffchainBridgingRemarks(
+                await updateOffchainBridgingRemarks(
                   allBridgings,
                   txnHash,
                   remarks
@@ -214,15 +220,13 @@ async function MintBridgeABtcToDestChain(allBridgings, near) {
                 max_priority_fee_per_gas: 0,
               };
 
-              console.log("payloadHeader:", payloadHeader);
-
               // Create payload to deploy the contract
               console.log(`Bridging aBTC on NEAR...`);
               const { nonce, signed } = await near.createMintBridgeABtcSignedTx(payloadHeader);
 
               console.log(signed);
 
-              updateOffchainBridgingStatus(
+              await updateOffchainBridgingStatus(
                 allBridgings,
                 txnHash,
                 BRIDGING_STATUS.ABTC_PENDING_BRIDGE_FROM_ORIGIN_TO_DEST
@@ -233,7 +237,7 @@ async function MintBridgeABtcToDestChain(allBridgings, near) {
               console.error(remarks);
               if (!error.message.includes("Gas price is less than base fee per gas")) {
                 await near.updateBridgingRemarks(txnHash, remarks);
-                updateOffchainBridgingRemarks(
+                await updateOffchainBridgingRemarks(
                   allBridgings,
                   txnHash,
                   remarks

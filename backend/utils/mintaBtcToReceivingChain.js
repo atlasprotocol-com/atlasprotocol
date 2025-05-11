@@ -125,7 +125,7 @@ async function MintaBtcToReceivingChain(allDeposits, near) {
                 // Update the deposit record with the EVM transaction hash
                 await near.updateDepositMintedTxnHash(btcTxnHash, transactionHash);
       
-                updateOffchainDepositStatus(allDeposits, btcTxnHash, DEPOSIT_STATUS.BTC_PENDING_MINTED_INTO_ABTC);
+                await updateOffchainDepositStatus(allDeposits, btcTxnHash, DEPOSIT_STATUS.BTC_PENDING_MINTED_INTO_ABTC);
       
                 continue;
               } else {
@@ -152,7 +152,7 @@ async function MintaBtcToReceivingChain(allDeposits, near) {
               }
 
               // Relay the transaction to EVM
-              // console.log(`Relay transaction to EVM...`);
+              console.log(`Relay transaction to EVM...`);
 
               const { txnHash, status } =
               await ethereum.relayTransaction(nonce, sender, signed);
@@ -161,20 +161,20 @@ async function MintaBtcToReceivingChain(allDeposits, near) {
                 `Processed Txn: Mint aBTC with BTC txn hash ${btcTxnHash}, mintStatus = ${status}`,
               );
 
-              updateOffchainDepositStatus(allDeposits, btcTxnHash, DEPOSIT_STATUS.BTC_PENDING_MINTED_INTO_ABTC);
+              await updateOffchainDepositStatus(allDeposits, btcTxnHash, DEPOSIT_STATUS.BTC_PENDING_MINTED_INTO_ABTC);
 
               if (status===false) {
                 let remarks = `Error ${batchName} processing Txn with BTC txn hash ${btcTxnHash}: Transaction relayer return with error`;
                 console.error(remarks);
                 await near.updateDepositRemarks(btcTxnHash, remarks);
-                updateOffchainDepositRemarks(allDeposits, btcTxnHash, remarks);
+                await updateOffchainDepositRemarks(allDeposits, btcTxnHash, remarks);
               }
             } catch (error) {
               let remarks = `Error ${batchName} processing Txn with BTC txn hash ${btcTxnHash}: ${error}`;
               console.error(remarks);
               if (!error.message.includes("Gas price is less than base fee per gas")) {
                 await near.updateDepositRemarks(btcTxnHash, remarks);
-                updateOffchainDepositRemarks(allDeposits, btcTxnHash, remarks);
+                await updateOffchainDepositRemarks(allDeposits, btcTxnHash, remarks);
               }
               continue
             }
@@ -219,14 +219,12 @@ async function MintaBtcToReceivingChain(allDeposits, near) {
                 max_priority_fee_per_gas: 0,
               };
 
-              console.log("payloadHeader:", payloadHeader);
-
               // Create payload to deploy the contract
               console.log(`Minting aBTC on NEAR...`);
               const signedTransaction =
                 await near.createMintaBtcSignedTx(payloadHeader);
               
-              updateOffchainDepositStatus(allDeposits, btcTxnHash, DEPOSIT_STATUS.BTC_PENDING_MINTED_INTO_ABTC);
+                await updateOffchainDepositStatus(allDeposits, btcTxnHash, DEPOSIT_STATUS.BTC_PENDING_MINTED_INTO_ABTC);
 
               console.log(signedTransaction);
 
@@ -235,7 +233,7 @@ async function MintaBtcToReceivingChain(allDeposits, near) {
               console.error(remarks);
               if (!error.message.includes("Gas price is less than base fee per gas")) {
                 await near.updateDepositRemarks(btcTxnHash, remarks);
-                updateOffchainDepositRemarks(allDeposits, btcTxnHash, remarks);
+                await updateOffchainDepositRemarks(allDeposits, btcTxnHash, remarks);
               }
               continue;
             }

@@ -131,8 +131,8 @@ async function StakeToYieldProvider(allDeposits, near, bitcoinInstance) {
           console.log("Updating Yield provider txn hash");
 
           await near.updateYieldProviderTxnHash(btcTxnHash, txHash);
-          updateOffchainDepositStatus(allDeposits, btcTxnHash, DEPOSIT_STATUS.BTC_PENDING_YIELD_PROVIDER_DEPOSIT);
-          updateOffchainYieldProviderTxnHash(allDeposits, btcTxnHash, txHash);
+          await updateOffchainDepositStatus(allDeposits, btcTxnHash, DEPOSIT_STATUS.BTC_PENDING_YIELD_PROVIDER_DEPOSIT);
+          await updateOffchainYieldProviderTxnHash(allDeposits, btcTxnHash, txHash);
 
           console.log("Yield provider txn hash updated");
 
@@ -155,17 +155,17 @@ async function StakeToYieldProvider(allDeposits, near, bitcoinInstance) {
             console.log("spendingTxs: ", spendingTxs);
             if (spendingTxs) {
               await near.updateYieldProviderTxnHash(btcTxnHash, spendingTxs);
-              updateOffchainDepositStatus(allDeposits, btcTxnHash, DEPOSIT_STATUS.BTC_PENDING_YIELD_PROVIDER_DEPOSIT);
-              updateOffchainYieldProviderTxnHash(allDeposits, btcTxnHash, spendingTxs); 
+              await updateOffchainDepositStatus(allDeposits, btcTxnHash, DEPOSIT_STATUS.BTC_PENDING_YIELD_PROVIDER_DEPOSIT);
+              await updateOffchainYieldProviderTxnHash(allDeposits, btcTxnHash, spendingTxs); 
             }
             else {
               await near.updateDepositRemarks(btcTxnHash, remarks);
-              updateOffchainDepositRemarks(allDeposits, btcTxnHash, remarks);
+              await updateOffchainDepositRemarks(allDeposits, btcTxnHash, remarks);
             }
           }
           else {
             await near.updateDepositRemarks(btcTxnHash, remarks);
-            updateOffchainDepositRemarks(allDeposits, btcTxnHash, remarks);
+            await updateOffchainDepositRemarks(allDeposits, btcTxnHash, remarks);
           }
         }
       }

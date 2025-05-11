@@ -42,7 +42,7 @@ async function UpdateAtlasAbtcMinted(allDeposits, near) {
           deposit.btc_txn_hash,
           deposit.minted_txn_hash,
         );
-        updateOffchainDepositStatus(allDeposits, deposit.btc_txn_hash, DEPOSIT_STATUS.BTC_MINTED_INTO_ABTC);
+        await updateOffchainDepositStatus(allDeposits, deposit.btc_txn_hash, DEPOSIT_STATUS.BTC_MINTED_INTO_ABTC);
         console.log(
           `Updated deposit status to DEP_BTC_MINTED_INTO_ABTC for btc_txn_hash: ${deposit.btc_txn_hash} with minted_txn_hash: ${deposit.minted_txn_hash}`,
         );

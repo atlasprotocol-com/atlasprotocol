@@ -65,7 +65,7 @@ async function UpdateYieldProviderStaked(allDeposits, bithiveRecords, near) {
           }
 
           await near.updateDepositYieldProviderDeposited(txn.btc_txn_hash);
-          updateOffchainDepositStatus(allDeposits, txn.btc_txn_hash, DEPOSIT_STATUS.BTC_YIELD_PROVIDER_DEPOSITED);
+          await updateOffchainDepositStatus(allDeposits, txn.btc_txn_hash, DEPOSIT_STATUS.BTC_YIELD_PROVIDER_DEPOSITED);
 
         } catch (error) {
           let remarks = error.toString();
@@ -74,7 +74,7 @@ async function UpdateYieldProviderStaked(allDeposits, bithiveRecords, near) {
             remarks,
           );
           await near.updateDepositRemarks(txn.btc_txn_hash, remarks.toString());
-          updateOffchainDepositRemarks(allDeposits, txn.btc_txn_hash, remarks.toString());
+          await updateOffchainDepositRemarks(allDeposits, txn.btc_txn_hash, remarks.toString());
 
         }
       }
