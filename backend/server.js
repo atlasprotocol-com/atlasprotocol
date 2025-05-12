@@ -786,12 +786,12 @@ app.get("/api/v1/process-new-bridging", async (req, res) => {
 
     res.json({
       success: true,
-      message: `Successfully processed redemption for transaction ${txnHash}`,
+      message: `Successfully processed bridging for transaction ${txnHash}`,
     });
   } catch (error) {
-    console.error("Error processing new redemption:", error);
+    console.error("Error processing new bridging:", error);
     res.status(500).json({
-      error: "Failed to process new redemption",
+      error: "Failed to process new bridging",
       details: error.message,
     });
   }
@@ -942,143 +942,143 @@ app.listen(PORT, async () => {
 
   console.log(`Server is running on port ${PORT} | ${process.env.NEAR_CONTRACT_ID}`);
 
-  setInterval(async () => {
-    if (!flagsBatch.RetrieveAndProcessPastEventsRunning) {
-      flagsBatch.RetrieveAndProcessPastEventsRunning = true;
-      try {
-        await RetrieveAndProcessPastEvmEvents(near, deposits, redemptions, bridgings);
-        await RetrieveAndProcessPastNearEvents(
-          near,
-          deposits,
-          redemptions,
-          bridgings
-        );
-      } catch (error) {
-        console.error("Error processing past events:", error);
-      } finally {
-        flagsBatch.RetrieveAndProcessPastEventsRunning = false;
-      }
-    }
-  }, 5000);
-
-  // Function to poll Near Atlas deposit records
-  setInterval(async () => {
-    const result = await getAllDepositHistory(near);
-    if (result) {
-      deposits = result;
-    }
-  }, 5000);
-  
-  // Function to poll Near Atlas redemption records
-  setInterval(async () => {
-    const result = await getAllRedemptionHistory(near);
-    if (result) {
-      redemptions = result;
-    }
-  }, 10000);
-
-  // Function to poll Near Atlas bridging records
-  setInterval(async () => {
-    const result = await getAllBridgingHistory(near);
-    if (result) {
-      bridgings = result;
-    }
-  }, 10000);
-
-  setInterval(async () => {
-    await computeStats();
-  }, 10000);
-
-  setInterval(async () => {
-    await getBtcMempoolRecords();
-    await UpdateAtlasBtcDeposits(
-      btcMempool,
-      btcAtlasDepositAddress,
-      globalParams.atlasTreasuryAddress,
-      near,
-      bitcoin,
-    );
-  }, 10000); // 1 minute
-
-  setInterval(async () => {
-    await UpdateAtlasBtcDeposited(deposits, near, bitcoin);
-  }, 1800000); // 30 minutes
-  //}, 10000);
-
-  setInterval(async () => {
-    await StakeToYieldProvider(deposits, near, bitcoin);
-  }, 10000);
-
-  setInterval(async () => {
-    await getBithiveRecords();
-    await UpdateYieldProviderStaked(deposits, bithiveRecords, near);
-  //}, 1800000); // 30 minutes
-  }, 10000);
-
-
-  setInterval(async () => {
-    if (!flagsBatch.MintingEventsRunning) {
-      flagsBatch.MintingEventsRunning = true;
-      try {
-        await MintaBtcToReceivingChain(deposits, near);
-        await MintBridgeABtcToDestChain(bridgings, near);
-      } catch (error) {
-        console.error("Error processing minting events:", error);
-      } finally {
-        flagsBatch.MintingEventsRunning = false;
-      }
-    }
-  }, 10000);
-
-  setInterval(async () => {
-    await UpdateAtlasAbtcMinted(deposits, near);
-  }, 10000);
-
-  
-  // Add the unstaking and withdrawal process to the job scheduler
   // setInterval(async () => {
-  //   try {
-  //     await processUnstakingAndWithdrawal(
-  //       near,
-  //       bitcoin,
-  //       redemptions,
-  //       bridgings,
-  //       globalParams.atlasTreasuryAddress,
-  //     );
-  //   } catch (error) {
-  //     console.error("Error in unstaking and withdrawal process:", error);
+  //   if (!flagsBatch.RetrieveAndProcessPastEventsRunning) {
+  //     flagsBatch.RetrieveAndProcessPastEventsRunning = true;
+  //     try {
+  //       await RetrieveAndProcessPastEvmEvents(near, deposits, redemptions, bridgings);
+  //       await RetrieveAndProcessPastNearEvents(
+  //         near,
+  //         deposits,
+  //         redemptions,
+  //         bridgings
+  //       );
+  //     } catch (error) {
+  //       console.error("Error processing past events:", error);
+  //     } finally {
+  //       flagsBatch.RetrieveAndProcessPastEventsRunning = false;
+  //     }
   //   }
-  // }, 60000); // Run every 1 minute
+  // }, 5000);
+
+  // // Function to poll Near Atlas deposit records
+  // setInterval(async () => {
+  //   const result = await getAllDepositHistory(near);
+  //   if (result) {
+  //     deposits = result;
+  //   }
+  // }, 5000);
   
+  // // Function to poll Near Atlas redemption records
   // setInterval(async () => {
-  //   await UpdateAtlasBtcWithdrawingFromYieldProvider(
-  //     redemptions,
-  //     bridgings,
+  //   const result = await getAllRedemptionHistory(near);
+  //   if (result) {
+  //     redemptions = result;
+  //   }
+  // }, 10000);
+
+  // // Function to poll Near Atlas bridging records
+  // setInterval(async () => {
+  //   const result = await getAllBridgingHistory(near);
+  //   if (result) {
+  //     bridgings = result;
+  //   }
+  // }, 10000);
+
+  // setInterval(async () => {
+  //   await computeStats();
+  // }, 10000);
+
+  // setInterval(async () => {
+  //   await getBtcMempoolRecords();
+  //   await UpdateAtlasBtcDeposits(
+  //     btcMempool,
+  //     btcAtlasDepositAddress,
+  //     globalParams.atlasTreasuryAddress,
   //     near,
+  //     bitcoin,
   //   );
+  // }, 10000); // 1 minute
+
+  // setInterval(async () => {
+  //   await UpdateAtlasBtcDeposited(deposits, near, bitcoin);
+  // }, 1800000); // 30 minutes
+  // //}, 10000);
+
+  // setInterval(async () => {
+  //   await StakeToYieldProvider(deposits, near, bitcoin);
   // }, 10000);
 
   // setInterval(async () => {
-  //   await UpdateAtlasBtcWithdrawnFromYieldProvider(
-  //     redemptions,
-  //     near,
-  //     bithiveRecords,
-  //   );
+  //   await getBithiveRecords();
+  //   await UpdateYieldProviderStaked(deposits, bithiveRecords, near);
+  // //}, 1800000); // 30 minutes
+  // }, 10000);
+
+
+  // setInterval(async () => {
+  //   if (!flagsBatch.MintingEventsRunning) {
+  //     flagsBatch.MintingEventsRunning = true;
+  //     try {
+  //       await MintaBtcToReceivingChain(deposits, near);
+  //       await MintBridgeABtcToDestChain(bridgings, near);
+  //     } catch (error) {
+  //       console.error("Error processing minting events:", error);
+  //     } finally {
+  //       flagsBatch.MintingEventsRunning = false;
+  //     }
+  //   }
   // }, 10000);
 
   // setInterval(async () => {
-  //   await SendBtcBackToUser(near, redemptions, bitcoin);
+  //   await UpdateAtlasAbtcMinted(deposits, near);
   // }, 10000);
+
+  
+  // // Add the unstaking and withdrawal process to the job scheduler
+  // // setInterval(async () => {
+  // //   try {
+  // //     await processUnstakingAndWithdrawal(
+  // //       near,
+  // //       bitcoin,
+  // //       redemptions,
+  // //       bridgings,
+  // //       globalParams.atlasTreasuryAddress,
+  // //     );
+  // //   } catch (error) {
+  // //     console.error("Error in unstaking and withdrawal process:", error);
+  // //   }
+  // // }, 60000); // Run every 1 minute
+  
+  // // setInterval(async () => {
+  // //   await UpdateAtlasBtcWithdrawingFromYieldProvider(
+  // //     redemptions,
+  // //     bridgings,
+  // //     near,
+  // //   );
+  // // }, 10000);
+
+  // // setInterval(async () => {
+  // //   await UpdateAtlasBtcWithdrawnFromYieldProvider(
+  // //     redemptions,
+  // //     near,
+  // //     bithiveRecords,
+  // //   );
+  // // }, 10000);
+
+  // // setInterval(async () => {
+  // //   await SendBtcBackToUser(near, redemptions, bitcoin);
+  // // }, 10000);
+
+  // // setInterval(async () => {
+  // //   await UpdateAtlasRedemptionPendingBtcMempool(near, redemptions);
+  // // }, 10000);
+
+  // // setInterval(async () => {
+  // //   await UpdateAtlasBtcBackToUser(redemptions, near, bitcoin);
+  // // }, 10000);
 
   // setInterval(async () => {
-  //   await UpdateAtlasRedemptionPendingBtcMempool(near, redemptions);
+  //   await UpdateBridgingAtbtcMinted(bridgings, near);
   // }, 10000);
-
-  // setInterval(async () => {
-  //   await UpdateAtlasBtcBackToUser(redemptions, near, bitcoin);
-  // }, 10000);
-
-  setInterval(async () => {
-    await UpdateBridgingAtbtcMinted(bridgings, near);
-  }, 10000);
 });

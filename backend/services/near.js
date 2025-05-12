@@ -1712,27 +1712,33 @@ class Near {
       
       const timestamp = Math.floor(block.header.timestamp / 1000000000);
 
-      // Get first receipt from transaction result
-      const receipt = txResult.receipts_outcome[0];
-      
-      // Find first event log
-      const eventLog = receipt.outcome.logs[0];
-      if (!eventLog) {
-        console.log("No event logs found");
+      // Loop through all receipts to find matching event
+      let eventJson = null;
+      for (const receipt of txResult.receipts_outcome) {
+        // Check each log in the receipt
+        for (const log of receipt.outcome.logs) {
+          try {
+            const parsedEvent = JSON.parse(log.replace("EVENT_JSON:", ""));
+            if (parsedEvent.event === eventName) {
+              eventJson = parsedEvent;
+              break;
+            }
+          } catch (e) {
+            continue;
+          }
+        }
+        if (eventJson) break;
+      }
+
+      if (!eventJson) {
+        console.log(`No ${eventName} event found in logs`);
         return null;
       }
 
-      // Parse event JSON
-      const eventJson = JSON.parse(eventLog.replace("EVENT_JSON:", ""));
-      console.log("Testing: Parsed eventJson:", JSON.stringify(eventJson, null, 2));
+      console.log("eventJson:", JSON.stringify(eventJson, null, 2));
 
       // Process event based on type
       let processedEvent = null;
-
-      if (eventJson.event !== eventName) {
-        console.log("Event name mismatch");
-        return null;
-      }
 
       switch (eventJson.event) {
         case "ft_mint":
