@@ -82,8 +82,8 @@ async function MintaBtcToReceivingChain(allDeposits, near) {
             derivationPath,
           );
 
-          const events = await ethereum.getEventsByType("MintDeposit");
-          console.log(`Found ${events.length} MintDeposit events for chain ${chainId}`);
+          // const events = await ethereum.getEventsByType("MintDeposit");
+          // console.log(`Found ${events.length} MintDeposit events for chain ${chainId}`);
     
           let totalRecords = chainTransactions.length;
           let currentIndex = 0;
@@ -115,22 +115,22 @@ async function MintaBtcToReceivingChain(allDeposits, near) {
               }
 
               // Find the event with matching BTC transaction hash
-              const matchingEvent = events.find(event => 
-                event.args.btcTxnHash.toLowerCase() === btcTxnHash.toLowerCase()
-              );
+              // const matchingEvent = events.find(event => 
+              //   event.args.btcTxnHash.toLowerCase() === btcTxnHash.toLowerCase()
+              // );
   
-              if (matchingEvent) {
-                const evmTransactionHash = matchingEvent.transactionHash;
-                console.log(`Event found for BTC txn hash ${btcTxnHash}: EVM transaction hash ${evmTransactionHash}`);
-                // Update the deposit record with the EVM transaction hash
-                await near.updateDepositMintedTxnHash(btcTxnHash, transactionHash);
+              // if (matchingEvent) {
+              //   const evmTransactionHash = matchingEvent.transactionHash;
+              //   console.log(`Event found for BTC txn hash ${btcTxnHash}: EVM transaction hash ${evmTransactionHash}`);
+              //   // Update the deposit record with the EVM transaction hash
+              //   await near.updateDepositMintedTxnHash(btcTxnHash, transactionHash);
       
-                await updateOffchainDepositStatus(allDeposits, btcTxnHash, DEPOSIT_STATUS.BTC_PENDING_MINTED_INTO_ABTC);
+              //   await updateOffchainDepositStatus(allDeposits, btcTxnHash, DEPOSIT_STATUS.BTC_PENDING_MINTED_INTO_ABTC);
       
-                continue;
-              } else {
-                console.log(`No event found for BTC txn hash ${btcTxnHash}`);
-              } 
+              //   continue;
+              // } else {
+              //   console.log(`No event found for BTC txn hash ${btcTxnHash}`);
+              // } 
 
               console.log(`Minter and sender address: ${sender}`);
 

@@ -68,8 +68,8 @@ async function MintBridgeABtcToDestChain(allBridgings, near) {
             derivationPath,
           );
           
-          const events = await ethereum.getEventsByType("MintBridge");
-          console.log(`Found ${events.length} MintBridge events for chain ${chainId}`);
+          // const events = await ethereum.getEventsByType("MintBridge");
+          // console.log(`Found ${events.length} MintBridge events for chain ${chainId}`);
     
           let totalRecords = chainTransactions.length;
           let currentIndex = 0;
@@ -95,30 +95,30 @@ async function MintBridgeABtcToDestChain(allBridgings, near) {
               }
 
               // Find the event with matching transaction hash
-              const matchingEvent = events.find(event => 
-                event.args.originTxnHash.toLowerCase() === txnHash.split(",")[1].toLowerCase()
-              );
+              // const matchingEvent = events.find(event => 
+              //   event.args.originTxnHash.toLowerCase() === txnHash.split(",")[1].toLowerCase()
+              // );
   
-              if (matchingEvent) {
-                const evmTransactionHash = matchingEvent.transactionHash;
-                console.log(`Event found for txn hash ${txnHash}: EVM transaction hash ${evmTransactionHash}`);
-                // Update the bridging record with the EVM transaction hash
+              // if (matchingEvent) {
+              //   const evmTransactionHash = matchingEvent.transactionHash;
+              //   console.log(`Event found for txn hash ${txnHash}: EVM transaction hash ${evmTransactionHash}`);
+              //   // Update the bridging record with the EVM transaction hash
                 
-                await near.updateBridgingMintedTxnHash(txnHash, evmTransactionHash);
-                await updateOffchainBridgingMintedTxnHash(
-                  allBridgings,
-                  txnHash,
-                  evmTransactionHash
-                );
-                await updateOffchainBridgingStatus(
-                  allBridgings,
-                  txnHash,
-                  BRIDGING_STATUS.ABTC_PENDING_BRIDGE_FROM_ORIGIN_TO_DEST
-                );
-                continue;
-              } else {
-                console.log(`No event found for txn hash ${txnHash}`);
-              }
+              //   await near.updateBridgingMintedTxnHash(txnHash, evmTransactionHash);
+              //   await updateOffchainBridgingMintedTxnHash(
+              //     allBridgings,
+              //     txnHash,
+              //     evmTransactionHash
+              //   );
+              //   await updateOffchainBridgingStatus(
+              //     allBridgings,
+              //     txnHash,
+              //     BRIDGING_STATUS.ABTC_PENDING_BRIDGE_FROM_ORIGIN_TO_DEST
+              //   );
+              //   continue;
+              // } else {
+              //   console.log(`No event found for txn hash ${txnHash}`);
+              // }
 
               console.log(`${batchName} Processing EVM Chain signatures`);
               console.log(`${batchName} Minter and sender address: ${sender}`);

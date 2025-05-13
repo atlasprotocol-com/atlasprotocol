@@ -83,6 +83,10 @@ const {
   UpdateAtlasRedemptionPendingBtcMempool,
 } = require("./utils/updateAtlasRedemptionPendingBtcMempool");
 
+// const {
+//   withdrawBtcFromYieldProvider,
+// } = require("./utils/withdrawBtcFromYieldProvider");
+
 const {
   UpdateBridgingAtbtcMinted,
 } = require("./utils/updateBridgingAtbtcMinted");
@@ -1049,6 +1053,20 @@ app.listen(PORT, async () => {
   //     console.error("Error in unstaking and withdrawal process:", error);
   //   }
   // }, 60000); // Run every 1 minute
+
+  // setInterval(async () => {
+  //   try {
+  //     await withdrawBtcFromYieldProvider(
+  //       near,
+  //       bitcoin,
+  //       redemptions,
+  //       bridgings,
+  //       globalParams.atlasTreasuryAddress,
+  //     );
+  //   } catch (error) {
+  //     console.error("Error withdraw from yield provider:", error);
+  //   }
+  // }, 10000); // Run every 10 seconds
   
   // setInterval(async () => {
   //   await UpdateAtlasBtcWithdrawingFromYieldProvider(
