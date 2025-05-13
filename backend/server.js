@@ -1024,7 +1024,6 @@ app.listen(PORT, async () => {
     if (!flagsBatch.MintingEventsRunning) {
       flagsBatch.MintingEventsRunning = true;
       try {
-        await StakeToYieldProvider(deposits, near, bitcoin);
         await MintaBtcToReceivingChain(deposits, near);
         await MintBridgeABtcToDestChain(bridgings, near);
       } catch (error) {
