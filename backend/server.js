@@ -1009,9 +1009,9 @@ app.listen(PORT, async () => {
   }, 1800000); // 30 minutes
   //}, 10000);
 
-  setInterval(async () => {
-    await StakeToYieldProvider(deposits, near, bitcoin);
-  }, 10000);
+  // setInterval(async () => {
+  //   await StakeToYieldProvider(deposits, near, bitcoin);
+  // }, 10000);
 
   setInterval(async () => {
     await getBithiveRecords();
@@ -1020,19 +1020,19 @@ app.listen(PORT, async () => {
   }, 10000);
 
 
-  // setInterval(async () => {
-  //   if (!flagsBatch.MintingEventsRunning) {
-  //     flagsBatch.MintingEventsRunning = true;
-  //     try {
-  //       await MintaBtcToReceivingChain(deposits, near);
-  //       await MintBridgeABtcToDestChain(bridgings, near);
-  //     } catch (error) {
-  //       console.error("Error processing minting events:", error);
-  //     } finally {
-  //       flagsBatch.MintingEventsRunning = false;
-  //     }
-  //   }
-  // }, 10000);
+  setInterval(async () => {
+    if (!flagsBatch.MintingEventsRunning) {
+      flagsBatch.MintingEventsRunning = true;
+      try {
+        await MintaBtcToReceivingChain(deposits, near);
+        await MintBridgeABtcToDestChain(bridgings, near);
+      } catch (error) {
+        console.error("Error processing minting events:", error);
+      } finally {
+        flagsBatch.MintingEventsRunning = false;
+      }
+    }
+  }, 10000);
 
   setInterval(async () => {
     await UpdateAtlasAbtcMinted(deposits, near);
