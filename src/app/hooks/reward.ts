@@ -156,6 +156,8 @@ export function useCheckReward({
       method: "get_summary",
     });
 
+    console.log(`[getSummary] ${account}`, result);
+
     return result;
   }
 
@@ -171,6 +173,18 @@ export function useCheckReward({
         limit: 10,
       },
     });
+
+    console.log(
+      JSON.stringify({
+        contractId: contract,
+        method: "can_claim_rewards",
+        args: {
+          account,
+          offset: 0,
+          limit: 10,
+        },
+      }),
+    );
 
     return result;
   }
@@ -191,6 +205,8 @@ export function useCheckReward({
         canClaimRewards(contract),
       ]);
 
+      console.log("[getReward]", result);
+      console.log("[getSummary]", summary);
       console.log("[canClaim]", canClaim);
 
       return {

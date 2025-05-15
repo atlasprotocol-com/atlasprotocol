@@ -1,7 +1,3 @@
-import { utils } from "near-api-js";
-import { useMemo, useState } from "react";
-import { toast } from "react-toastify";
-
 import { useAppContext } from "@/app/context/app";
 import {
   useBindReward,
@@ -13,6 +9,9 @@ import {
 import { useConnectMultiChain } from "@/app/hooks/useConnectMultiChain";
 import { ChainConfig } from "@/app/types/chainConfig";
 import { useGetChainConfig } from "@/hooks";
+import { utils } from "near-api-js";
+import { useMemo, useState } from "react";
+import { toast } from "react-toastify";
 
 import { Button } from "../Button";
 import { RequireConnectWallet } from "../RequireConnectWallet";
@@ -67,34 +66,12 @@ export function Reward() {
 
   const [isClaiming, setIsClaiming] = useState(false);
 
-  const roundData = useMemo(() => {
-    let totalRounds = 0;
-    let totalReward = BigInt(0);
-
-    reward?.rewards.forEach((round) => {
-      totalRounds += 1;
-      totalReward = totalReward + BigInt(round.amount);
-    });
-
-    return {
-      roundId: reward?.rewards[0]?.roundId,
-      currentRoundReward: reward?.rewards[0]?.amount,
-      currentRoundRewardFormatted: utils.format.formatNearAmount(
-        reward?.rewards[0]?.amount.toString() || "0",
-        6,
-      ),
-      totalRound: totalRounds,
-      totalReward,
-      totalRewardFormatted: utils.format.formatNearAmount(
-        totalReward.toString(),
-        6,
-      ),
-      canClaim: reward?.canClaim?.[0],
-    };
-  }, [reward]);
+  const claimable = (reward?.canClaim || [])
+    .map((can, index) => (can ? reward?.rewards[index] || null : null))
+    .filter((x) => !!x);
 
   async function handleClaimReward() {
-    if (!roundData.canClaim) {
+    if (claimable.length === 0) {
       throw new Error("You cannot claim rewards yet");
     }
 
@@ -121,9 +98,9 @@ export function Reward() {
       await claimReward({
         account: `btc:${btcPublicKeyHex}`,
         contract: Contract,
-        amount: roundData.currentRoundReward || "0",
-        roundId: roundData.roundId || 0,
-        proof: checkBindReward.merkleProof,
+        amount: claimable[0].amount,
+        roundId: claimable[0].roundId,
+        proof: claimable[0].merkleProof,
       });
     } catch (error) {
       toast.error("Failed to claim reward");
@@ -134,6 +111,7 @@ export function Reward() {
   }
 
   const isLoading = isCheckingBindReward || isGettingReward;
+  const hasClaimableReward = claimable.length > 0;
 
   return (
     <RequireConnectWallet
@@ -142,20 +120,23 @@ export function Reward() {
       description="Please connect your NEAR wallet to earn rewards"
       renderContent={
         <div className="flex flex-col items-center justify-center gap-4">
-          {!isLoading && (
-            <p>You have total {roundData.totalRewardFormatted} Near rewards</p>
+          {!isLoading && hasClaimableReward && (
+            <p>
+              You have total{" "}
+              {utils.format.formatNearAmount(claimable[0].amount)} Near rewards
+            </p>
           )}
           <div className="flex justify-center">
             <Button
               className="min-w-[200px]"
-              disabled={isLoading || isClaiming || !roundData.canClaim}
+              disabled={isLoading || isClaiming || claimable.length === 0}
               onClick={handleClaimReward}
             >
               {isLoading
                 ? "Checking reward..."
-                : !roundData.canClaim
-                  ? "You cannot claim rewards yet"
-                  : "Claim current reward"}
+                : hasClaimableReward
+                  ? "Claim current reward"
+                  : "You cannot claim rewards yet"}
             </Button>
           </div>
         </div>
