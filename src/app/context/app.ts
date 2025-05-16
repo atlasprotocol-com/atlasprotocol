@@ -9,6 +9,7 @@ export interface AppContextType {
   btcWallet: WalletProvider | undefined;
   btcAddress: string | undefined;
   btcPublicKeyNoCoord: string | undefined;
+  btcPublicKeyHex: string | undefined;
   btcNetwork: Network | undefined;
   btcRefreshBalance: () => void;
   btcManualMinusBalance: (balance: number) => void;
@@ -25,6 +26,7 @@ export const defaultAppContext: AppContextType = {
   btcWallet: undefined,
   btcAddress: undefined,
   btcPublicKeyNoCoord: undefined,
+  btcPublicKeyHex: undefined,
   btcNetwork: undefined,
   btcRefreshBalance: emptyFunction,
   btcManualMinusBalance: emptyFunction,

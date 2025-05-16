@@ -1,3 +1,4 @@
+import base64ToHex from "@/utils/base642hex";
 import {
   getFundingUTXOs,
   getNetworkFees,
@@ -12,7 +13,11 @@ export const unisatProvider = "unisat";
 export class UnisatWallet extends WalletProvider {
   readonly id = "unisat";
   readonly name: string = "Unisat";
-  readonly networks: Network[] = [Network.MAINNET, Network.TESTNET, Network.TESTNET4];
+  readonly networks: Network[] = [
+    Network.MAINNET,
+    Network.TESTNET,
+    Network.TESTNET4,
+  ];
   public homepage = "https://unisat.io";
   public balance: { confirmed: number; unconfirmed: number; total: number } = {
     confirmed: 0,
@@ -97,7 +102,7 @@ export class UnisatWallet extends WalletProvider {
   async getBalance(): Promise<number> {
     const balance = await this.unisat.getBalance();
     this.balance = balance; // Update local balance state
-    return balance.total; // Assuming total balance is returned
+    return balance?.total || 0; // Assuming total balance is returned
   }
 
   async getNetwork(): Promise<Network> {
@@ -129,7 +134,8 @@ export class UnisatWallet extends WalletProvider {
   }
 
   async signMessageBIP322(message: string): Promise<string> {
-    return this.unisat.signMessage(message);
+    const signature = await this.unisat.signMessage(message);
+    return base64ToHex(signature);
   }
 
   getBTCTipHeight = async (): Promise<number> => {

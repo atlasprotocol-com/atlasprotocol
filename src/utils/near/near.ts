@@ -194,7 +194,7 @@ export class Wallet {
 
     // Get the transaction hash from the outcome
     let txHash = "";
-    if (outcome && typeof outcome === 'object' && 'transaction' in outcome) {
+    if (outcome && typeof outcome === "object" && "transaction" in outcome) {
       txHash = outcome.transaction.hash;
       console.log("[near] transaction hash:", txHash);
     }
@@ -202,7 +202,7 @@ export class Wallet {
     // Return both the transaction result and the transaction hash
     return {
       result: providers.getTransactionLastResult(outcome as any),
-      transaction_hash: txHash
+      transaction_hash: txHash,
     };
   };
 
@@ -380,11 +380,11 @@ export function useNearAbtcBridge({ contract }: { contract?: string } = {}) {
       });
 
       console.log("[useNearAbtcBridge] Result:", result);
-      
+
       // Get the transaction hash from the result
       const txHash = result.transaction_hash || `${Date.now()}`;
       console.log("[useNearAbtcBridge] Transaction hash:", txHash);
-      
+
       // Return an object with the transaction hash
       return { transaction_hash: txHash };
     },
@@ -418,11 +418,11 @@ export function useNearAbtcBurnRedeem({
       });
 
       console.log("[useNearAbtcBurnRedeem] Result:", result);
-      
+
       // Get the transaction hash from the result
       const txHash = result.transaction_hash || `${Date.now()}`;
       console.log("[useNearAbtcBurnRedeem] Transaction hash:", txHash);
-      
+
       // Return an object with the transaction hash
       return { transaction_hash: txHash };
     },

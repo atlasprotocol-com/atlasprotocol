@@ -53,6 +53,10 @@ const LazyBridge = React.lazy(() =>
 //   import("./components/Points").then((mod) => ({ default: mod.Points })),
 // );
 
+const LazyReward = React.lazy(() =>
+  import("./components/Reward").then((mod) => ({ default: mod.Reward })),
+);
+
 const LazyStakeHistory = React.lazy(() =>
   import("./components/History").then((mod) => ({ default: mod.StakeHistory })),
 );
@@ -74,6 +78,7 @@ const Home: React.FC<HomeProps> = () => {
   const {
     address,
     publicKeyNoCoord,
+    publicKeyHex,
     btcWallet,
     btcWalletBalanceSat,
     btcWalletNetwork,
@@ -142,6 +147,7 @@ const Home: React.FC<HomeProps> = () => {
         btcWallet,
         btcAddress: address,
         btcPublicKeyNoCoord: publicKeyNoCoord,
+        btcPublicKeyHex: publicKeyHex,
         btcNetwork: btcWalletNetwork,
         btcRefreshBalance: refetchBalance,
         btcManualMinusBalance: manualMinusBalance,
@@ -179,6 +185,7 @@ const Home: React.FC<HomeProps> = () => {
                           <TabsTrigger value="stake">Stake</TabsTrigger>
                           <TabsTrigger value="redeem">Redeem</TabsTrigger>
                           <TabsTrigger value="bridging">Bridge</TabsTrigger>
+                          <TabsTrigger value="reward">Reward</TabsTrigger>
                           {/* <TabsTrigger value="points">Points</TabsTrigger> */}
                         </TabsList>
                         <Suspense fallback={<LoadingSection />}>
@@ -207,6 +214,13 @@ const Home: React.FC<HomeProps> = () => {
                         </Suspense>
                         <TabsContent value="bridging">
                           <LazyBridge />
+                        </TabsContent>
+                        <TabsContent value="reward">
+                          <RequireConnectWallet
+                            required={!address}
+                            onConnect={handleConnectModal}
+                            renderContent={<LazyReward />}
+                          />
                         </TabsContent>
                         {/* <TabsContent value="points">
                         <LazyPoints />

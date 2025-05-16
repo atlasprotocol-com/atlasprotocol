@@ -13,9 +13,11 @@ import { useTokenBalance } from "./evm";
 export function useConnectMultiChain({
   selectedChain,
   onRequireEvmWallet,
+  lazyConnect = false,
 }: {
   selectedChain?: ChainConfig | undefined;
   onRequireEvmWallet?: () => void;
+  lazyConnect?: boolean;
 }) {
   const { addFeedback } = useAddFeedback();
 
@@ -75,8 +77,10 @@ export function useConnectMultiChain({
   );
 
   useEffect(() => {
-    handleChainChange(selectedChain);
-  }, [handleChainChange, selectedChain]);
+    if (!lazyConnect) {
+      handleChainChange(selectedChain);
+    }
+  }, [handleChainChange, lazyConnect, selectedChain]);
 
   const disconnectAsync = useCallback(async () => {
     if (selectedChain?.networkType === "EVM") {
@@ -87,10 +91,15 @@ export function useConnectMultiChain({
     }
   }, [nearWallet, rawDisconnectAsync, selectedChain?.networkType]);
 
+  const connect = useCallback(async () => {
+    handleChainChange(selectedChain);
+  }, [handleChainChange, selectedChain]);
+
   return {
     address,
     isDisconnecting,
     disconnectAsync,
+    connect,
   };
 }
 

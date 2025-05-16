@@ -4,7 +4,7 @@ const bitcoinMessage = require("bitcoinjs-message");
 async function unisat(data) {
   const message = new bitcorelib.Message(data.message);
   const signature = bitcorelib.crypto.Signature.fromCompact(
-    Buffer.from(data.signature, "base64"),
+    Buffer.from(data.signature, "hex"),
   );
   const hash = message.magicHash();
   // recover the public key
