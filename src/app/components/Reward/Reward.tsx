@@ -1,3 +1,7 @@
+import { utils } from "near-api-js";
+import { useMemo, useState } from "react";
+import { toast } from "react-toastify";
+
 import { useAppContext } from "@/app/context/app";
 import {
   useBindReward,
@@ -9,14 +13,12 @@ import {
 import { useConnectMultiChain } from "@/app/hooks/useConnectMultiChain";
 import { ChainConfig } from "@/app/types/chainConfig";
 import { useGetChainConfig } from "@/hooks";
-import { utils } from "near-api-js";
-import { useMemo, useState } from "react";
-import { toast } from "react-toastify";
 
 import { Button } from "../Button";
 import { RequireConnectWallet } from "../RequireConnectWallet";
 
-const Contract = "rewards-incent2.bithive.testnet";
+const Contract =
+  process.env.NEXT_BITHIVE_REWARD_CONTRACT || "rewards-incent2.bithive.testnet";
 
 export function Reward() {
   const { btcPublicKeyHex, btcWallet } = useAppContext();
