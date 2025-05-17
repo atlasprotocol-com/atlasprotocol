@@ -98,8 +98,11 @@ async function main() {
     console.log("-----------1");
     console.log(hexcode);
 
-    const { txnHash, status } =
-      await ethereum.relayTransaction(signedTransaction);
+    const { txnHash, status } = await ethereum.relayTransaction(
+      null,
+      null,
+      signedTransaction,
+    );
 
     console.log("-----------2");
     console.log(txnHash);
