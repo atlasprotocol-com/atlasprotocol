@@ -440,9 +440,9 @@ class Ethereum {
       //console.log("[relayTransaction] serializedTx: ", serializedTx);
       
       // Verify serializedTx format - should be a long hex string starting with 0x02f9
-      if (!serializedTx.startsWith('0x02f9') || !/^0x[0-9a-fA-F]+$/.test(serializedTx)) {
-        throw new Error('Invalid transaction format - must be EIP-1559 transaction starting with 0x02f9');
-      }
+      // if (!serializedTx.startsWith('0x02f9') || !/^0x[0-9a-fA-F]+$/.test(serializedTx)) {
+      //   throw new Error('Invalid transaction format - must be EIP-1559 transaction starting with 0x02f9');
+      // }
 
       // Create a new ethers provider
       const provider = new ethers.JsonRpcProvider(this.rpcUrl);
