@@ -16,6 +16,7 @@ export const StepThree: React.FC<StepThreeProps> = ({
 }) => {
   const [email, setEmail] = useState("");
   const [emailError, setEmailError] = useState("");
+  const [inviteCode, setInviteCode] = useState(["", "", "", "", "", ""]);
 
   const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -28,6 +29,32 @@ export const StepThree: React.FC<StepThreeProps> = ({
 
     if (emailError && validateEmail(value)) {
       setEmailError("");
+    }
+  };
+
+  const handleInviteCodeChange = (index: number, value: string) => {
+    // Only allow single characters/digits
+    if (value.length <= 1) {
+      const newCode = [...inviteCode];
+      newCode[index] = value.toUpperCase();
+      setInviteCode(newCode);
+
+      // Auto-focus next input if current is filled
+      if (value && index < 5) {
+        const nextInput = document.getElementById(`invite-code-${index + 1}`);
+        nextInput?.focus();
+      }
+    }
+  };
+
+  const handleKeyDown = (
+    index: number,
+    e: React.KeyboardEvent<HTMLInputElement>,
+  ) => {
+    // Handle backspace to focus previous input
+    if (e.key === "Backspace" && !inviteCode[index] && index > 0) {
+      const prevInput = document.getElementById(`invite-code-${index - 1}`);
+      prevInput?.focus();
     }
   };
 
@@ -52,25 +79,39 @@ export const StepThree: React.FC<StepThreeProps> = ({
       <div className="mb-8 text-center">
         <h2 className="text-2xl font-bold mb-4">Enter Invite code</h2>
 
-        {/* Crossed out invite code section */}
+        {/* Crossed out invite code section with 6 input boxes */}
         <div className="mb-6 p-4 border border-neutral-5 dark:border-neutral-8 rounded-lg relative">
           <div className="relative">
-            <div className="absolute inset-0 flex items-center justify-center">
+            <div className="absolute inset-0 flex items-center justify-center z-10">
               <div className="w-full h-0.5 bg-red-500"></div>
             </div>
-            <p className="text-neutral-4 dark:text-neutral-6 line-through">
-              (I don&apos;t receive invite from community)
-            </p>
+            <div className="flex justify-center gap-2">
+              {inviteCode.map((digit, index) => (
+                <input
+                  key={index}
+                  id={`invite-code-${index}`}
+                  type="text"
+                  value={digit}
+                  onChange={(e) =>
+                    handleInviteCodeChange(index, e.target.value)
+                  }
+                  onKeyDown={(e) => handleKeyDown(index, e)}
+                  className="w-10 h-10 text-center border border-neutral-5 dark:border-neutral-8 rounded-md bg-neutral-2 dark:bg-neutral-9 text-neutral-8 dark:text-neutral-2 font-mono text-lg focus:outline-none focus:border-primary disabled:opacity-50"
+                  maxLength={1}
+                  disabled
+                />
+              ))}
+            </div>
           </div>
         </div>
 
-        <p className="text-neutral-6 dark:text-neutral-4 mb-6">
+        <p className="text-neutral-6 dark:text-neutral-4">
           Skipped for Testnet, press &apos;Access Atlas&apos; below to enter.
         </p>
 
         <div className="mb-6">
-          <p className="text-sm text-neutral-6 dark:text-neutral-4 mb-2">Or</p>
-          <p className="text-sm text-neutral-6 dark:text-neutral-4 mb-4">
+          <p className="text-sm text-neutral-6 dark:text-neutral-4 mb-2">OR</p>
+          <p className="text-neutral-6 dark:text-neutral-4 mb-4">
             Get notified via email
           </p>
         </div>

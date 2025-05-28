@@ -35,7 +35,7 @@ export const StepOne: React.FC<StepOneProps> = ({
       <div className="mb-8">
         <h2 className="text-2xl font-bold mb-4">Welcome to Atlas</h2>
         <p className="text-neutral-6 dark:text-neutral-4 mb-2">
-          I have ledger wallet for Phantom or Solflare
+          Please connect wallet to start using Atlas
         </p>
       </div>
 

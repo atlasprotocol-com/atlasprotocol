@@ -92,19 +92,33 @@ class OnboardingApiService {
       },
     };
 
-    // Mark as completed
+    // Mark onboarding as completed
     currentStatus.completedSteps.emailSubmitted = true;
+    currentStatus.completedSteps.socialTasksCompleted = true; // Ensure social tasks are marked as completed
     currentStatus.isCompleted = true;
-    currentStatus.email = email;
+
+    // Only set email if provided (user clicked Subscribe vs Access Atlas)
+    if (email.trim()) {
+      currentStatus.email = email;
+    }
+
     currentStatus.completedAt = new Date().toISOString();
 
     allStatuses[address] = currentStatus;
     localStorage.setItem(this.storageKey, JSON.stringify(allStatuses));
+
+    console.log("Onboarding completion saved to localStorage:", currentStatus);
   }
 
   // Clear onboarding data (for testing)
   async clearOnboardingData(): Promise<void> {
     localStorage.removeItem(this.storageKey);
+  }
+
+  // Debug method to check current localStorage data
+  getStoredData(): Record<string, OnboardingStatus> {
+    const storedData = localStorage.getItem(this.storageKey);
+    return storedData ? JSON.parse(storedData) : {};
   }
 }
 

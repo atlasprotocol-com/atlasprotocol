@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
 import { FaDiscord, FaRetweet, FaTwitter } from "react-icons/fa";
 
 import { Button } from "@/app/components/Button";
+
 import { SocialTasks } from "../services/onboardingApi";
 
 interface StepTwoProps {
@@ -12,12 +12,12 @@ interface StepTwoProps {
   onNext: () => void;
   loading: boolean;
   allTasksCompleted: boolean;
+  address?: string;
 }
 
 interface SocialTaskProps {
   icon: React.ReactNode;
   title: string;
-  description: string;
   actionText: string;
   doneText: string;
   completed: boolean;
@@ -29,7 +29,6 @@ interface SocialTaskProps {
 const SocialTask: React.FC<SocialTaskProps> = ({
   icon,
   title,
-  description,
   actionText,
   doneText,
   completed,
@@ -37,13 +36,12 @@ const SocialTask: React.FC<SocialTaskProps> = ({
   onMarkDone,
   actionUrl,
 }) => {
-  const [hasClicked, setHasClicked] = useState(false);
-
   const handleAction = () => {
     if (actionUrl) {
       window.open(actionUrl, "_blank");
     }
-    setHasClicked(true);
+    // Auto-mark as done immediately after action
+    onMarkDone();
     onAction();
   };
 
@@ -55,27 +53,27 @@ const SocialTask: React.FC<SocialTaskProps> = ({
         </div>
         <div>
           <h3 className="font-semibold">{title}</h3>
-          <p className="text-sm text-neutral-6 dark:text-neutral-4">
-            {description}
-          </p>
         </div>
       </div>
 
       <div className="flex gap-2">
-        {!completed && !hasClicked && (
-          <Button
-            onClick={handleAction}
-            intent="outline"
-            className="px-3 py-1 text-sm"
-          >
-            {actionText}
-          </Button>
-        )}
-
-        {hasClicked && !completed && (
-          <Button onClick={onMarkDone} className="px-3 py-1 text-sm">
-            {doneText}
-          </Button>
+        {!completed && (
+          <>
+            {actionUrl && (
+              <Button
+                onClick={handleAction}
+                intent="outline"
+                className="px-3 py-1 text-sm"
+              >
+                {actionText}
+              </Button>
+            )}
+            {!actionUrl && (
+              <Button onClick={onMarkDone} className="px-3 py-1 text-sm">
+                {doneText}
+              </Button>
+            )}
+          </>
         )}
 
         {completed && (
@@ -94,13 +92,13 @@ export const StepTwo: React.FC<StepTwoProps> = ({
   onNext,
   loading,
   allTasksCompleted,
+  address,
 }) => {
   const socialTasksConfig = [
     {
       key: "followedX" as keyof SocialTasks,
       icon: <FaTwitter className="text-blue-500" size={20} />,
       title: "Follow @AtlasProtocol X account",
-      description: "Follow @tobyxbt X account",
       actionText: "Follow",
       doneText: "Done",
       actionUrl: "https://x.com/_atlasprotocol",
@@ -108,17 +106,15 @@ export const StepTwo: React.FC<StepTwoProps> = ({
     {
       key: "joinedDiscord" as keyof SocialTasks,
       icon: <FaDiscord className="text-indigo-500" size={20} />,
-      title: "Join @toby on Discord",
-      description: "Join @toby on Discord",
+      title: "Join @atlasprotocol on Discord",
       actionText: "Join Discord",
       doneText: "Done",
-      actionUrl: undefined, // Empty for now as per requirements
+      actionUrl: "https://discord.com/invite/atlasprotocol",
     },
     {
       key: "retweetedPost" as keyof SocialTasks,
       icon: <FaRetweet className="text-green-500" size={20} />,
-      title: "Retweet our Testnet Announcement[Optional]",
-      description: "Retweet our Testnet Announcement[Optional]",
+      title: "Retweet our Testnet Announcement",
       actionText: "Retweet",
       doneText: "Done",
       actionUrl: "https://x.com/_atlasprotocol/status/1922955202916909078",
@@ -129,6 +125,16 @@ export const StepTwo: React.FC<StepTwoProps> = ({
     <div className="max-w-2xl mx-auto">
       <div className="mb-8 text-center">
         <h2 className="text-2xl font-bold mb-4">Connect social</h2>
+        {address && (
+          <div className="mb-4">
+            <p className="text-sm text-neutral-6 dark:text-neutral-4">
+              Connected wallet:{" "}
+              <span className="text-primary font-mono text-xs">
+                {address.slice(0, 8)}...{address.slice(-8)}
+              </span>
+            </p>
+          </div>
+        )}
         <p className="text-neutral-6 dark:text-neutral-4">
           Complete these social tasks to continue
         </p>
@@ -140,7 +146,6 @@ export const StepTwo: React.FC<StepTwoProps> = ({
             key={task.key}
             icon={task.icon}
             title={task.title}
-            description={task.description}
             actionText={task.actionText}
             doneText={task.doneText}
             completed={socialTasks[task.key]}

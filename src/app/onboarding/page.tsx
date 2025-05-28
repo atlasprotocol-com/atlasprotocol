@@ -15,6 +15,11 @@ export default function OnboardingPage() {
     },
   });
 
+  // Get address directly from wallet if useConnectBTCWallet doesn't provide it
+  const walletAddress =
+    address ||
+    (typeof window !== "undefined" && (window as any).unisat?.address);
+
   const {
     currentStep,
     loading,
@@ -24,7 +29,17 @@ export default function OnboardingPage() {
     handleWalletConnected,
     handleSocialTasksComplete,
     handleCompleteOnboarding,
-  } = useOnboarding({ address });
+  } = useOnboarding({ address: walletAddress });
+
+  // Debug logging
+  console.log("OnboardingPage - address from hook:", address);
+  console.log("OnboardingPage - walletAddress:", walletAddress);
+  console.log("OnboardingPage - currentStep:", currentStep);
+  console.log("OnboardingPage - socialTasks:", socialTasks);
+  console.log(
+    "OnboardingPage - allSocialTasksCompleted:",
+    allSocialTasksCompleted,
+  );
 
   const renderCurrentStep = () => {
     switch (currentStep) {
@@ -44,6 +59,7 @@ export default function OnboardingPage() {
             onNext={handleSocialTasksComplete}
             loading={loading}
             allTasksCompleted={allSocialTasksCompleted}
+            address={walletAddress}
           />
         );
       case 3:
