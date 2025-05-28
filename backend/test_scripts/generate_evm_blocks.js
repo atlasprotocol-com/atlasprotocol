@@ -47,8 +47,8 @@ const CONFIG = {
     ERROR_OUTPUT_FILE: "deposits-quest2_errors.txt",  // File to log wallet address for quest 2 errors
     BATCH_SIZE: 10,                     // Number of rows to process in parallel
     SAVE_INTERVAL: 10,                 // Save file every N rows processed
-    START_INDEX: 4469,                 // Starting row index (0-based, excluding header)
-    END_INDEX: null,                     // Ending row index (null for all rows)
+    START_INDEX: 3979,                 // Starting row index (0-based, excluding header)
+    END_INDEX: 4001,                     // Ending row index (null for all rows)
   },
   
   PUBKEY: {
@@ -134,9 +134,9 @@ const CONFIG = {
     RUN_LOCAL: true,                    // Set to true to run locally using PowerShell
     SERVER_API_ENDPOINT: "https://testnet.atlasprotocol.com/api/v1/process-new-redemption",  // API endpoint for processing redemptions
     LOCAL_API_ENDPOINT: "http://localhost:3001/api/v1/process-new-redemption",  // API endpoint for processing redemptions
-    START_INDEX: 5120,  // Starting index for processing redemptions via events (null for all rows)
+    START_INDEX: null,  // Starting index for processing redemptions via events (null for all rows)
     END_INDEX: null,  // Ending index for processing redemptions via events (null for all rows)
-    READ_FROM_LATEST: false,  // If true, process from the latest row to the earliest
+    READ_FROM_LATEST: true,  // If true, process from the latest row to the earliest
     COLUMNS: {
       NEAR_TXN_HASH: 4,         // Column index for Near Txn Hash in nearblocks_redeem.xlsx
       EVM_TXN_HASH: 4,         // Column index for EVM Txn Hash in evmblocks_<chain_id>_events.xlsx
@@ -2786,13 +2786,18 @@ async function processAndExportEvmBlocks() {
         // Calculate batch end block, but don't exceed the configured endBlock
         const batchEndBlock = Math.min(startBlock + CONFIG.EVM.BLOCKS_PER_THREAD - 1, endBlock);
 
-        // If END_BLOCK is null, wait for enough new blocks
-        if (CONFIG.EVM.END_BLOCK[chain.chain_id] === null) {
-          if (currentBlock < batchEndBlock) {
-            console.log(`⏳ Waiting for blocks to finalize... Latest finalized: ${currentBlock}, Needed: ${batchEndBlock}`);
-            await delay(5000); // Wait 5 seconds before checking again
+        // If we've reached the end of a batch or endBlock is null, wait and check for new blocks
+        if (CONFIG.EVM.END_BLOCK[chain.chain_id] === null || startBlock >= batchEndBlock) {                    
+          const nextBatchEnd = startBlock + CONFIG.EVM.BLOCKS_PER_THREAD - 1;
+          if (currentBlock < nextBatchEnd) {
+            console.log(`⏳ Not enough new blocks yet... Latest finalized: ${currentBlock}, Needed: ${nextBatchEnd}`);
+            console.log("Waiting 5 seconds before checking for new blocks...");
+            await delay(5000); // Wait 5 seconds
             continue;
           }
+        } else if (startBlock > endBlock) {
+          // If we've reached the configured end block, break the loop
+          break;
         }
 
         console.log(`Processing EVM chain_id ${chain.chain_id} from block ${startBlock} to ${batchEndBlock}`);
@@ -2838,7 +2843,7 @@ async function processAndExportEvmBlocks() {
         }
 
         // Add delay before processing next batch
-        console.log("Waiting 0.5 seconds before checking for new blocks...");
+        console.log("Waiting 0.5 seconds before processing next batch of blocks...");
         await delay(500);
       }
     }
