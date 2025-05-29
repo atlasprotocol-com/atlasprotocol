@@ -13,6 +13,7 @@ const { globalParams, updateGlobalParams } = require("./config/globalParams");
 const { getTransactionsAndComputeStats } = require("./utils/transactionStats");
 const { flagsBatch } = require("./utils/batchFlags");
 const googleSheets = require("./services/googleSheets");
+const db = require("./services/db");
 const {
   UpdateAtlasBtcDeposits,
   processNewDeposit,
@@ -1141,13 +1142,15 @@ app.post("/api/v1/onboarding/submit-email", async (req, res) => {
 
 app.post("/api/v1/onboarding/update-status", async (req, res) => {
   try {
-    const { email, status } = req.body;
+    const { walletAddress, status } = req.body;
 
-    if (!email || !status) {
-      return res.status(400).json({ error: "Email and status are required" });
+    if (!walletAddress || !status) {
+      return res
+        .status(400)
+        .json({ error: "Wallet address and status are required" });
     }
 
-    await googleSheets.updateOnboardingStatus(email, status);
+    await db.updateOnboardingStatus(walletAddress, status);
     res.json({
       success: true,
       message: "Onboarding status updated successfully",
@@ -1156,21 +1159,22 @@ app.post("/api/v1/onboarding/update-status", async (req, res) => {
     console.error("Error updating onboarding status:", error);
     res.status(500).json({
       error: "Failed to update onboarding status",
+      details: error.message,
     });
   }
 });
 
 app.get("/api/v1/onboarding/status", async (req, res) => {
   try {
-    const { email } = req.query;
+    const { walletAddress } = req.query;
 
-    if (!email) {
-      return res.status(400).json({ error: "Email is required" });
+    if (!walletAddress) {
+      return res.status(400).json({ error: "Wallet address is required" });
     }
 
-    const status = await googleSheets.getOnboardingStatus(email);
+    const status = await db.getOnboardingStatus(walletAddress);
     if (!status) {
-      return res.status(404).json({ error: "Email not found" });
+      return res.status(404).json({ error: "Wallet address not found" });
     }
 
     res.json({ data: status });
@@ -1178,6 +1182,7 @@ app.get("/api/v1/onboarding/status", async (req, res) => {
     console.error("Error getting onboarding status:", error);
     res.status(500).json({
       error: "Failed to get onboarding status",
+      details: error.message,
     });
   }
 });
