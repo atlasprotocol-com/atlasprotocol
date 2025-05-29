@@ -6,6 +6,8 @@ import { Button } from "@/app/components/Button";
 
 import { SocialTasks } from "../services/onboardingApi";
 
+import { WalletDisplay } from "./WalletDisplay";
+
 interface StepTwoProps {
   socialTasks: SocialTasks;
   onUpdateTask: (task: keyof SocialTasks, completed: boolean) => void;
@@ -13,6 +15,7 @@ interface StepTwoProps {
   loading: boolean;
   allTasksCompleted: boolean;
   address?: string;
+  onLogout: () => void;
 }
 
 interface SocialTaskProps {
@@ -93,6 +96,7 @@ export const StepTwo: React.FC<StepTwoProps> = ({
   loading,
   allTasksCompleted,
   address,
+  onLogout,
 }) => {
   const socialTasksConfig = [
     {
@@ -125,16 +129,7 @@ export const StepTwo: React.FC<StepTwoProps> = ({
     <div className="max-w-2xl mx-auto">
       <div className="mb-8 text-center">
         <h2 className="text-2xl font-bold mb-4">Connect social</h2>
-        {address && (
-          <div className="mb-4">
-            <p className="text-sm text-neutral-6 dark:text-neutral-4">
-              Connected wallet:{" "}
-              <span className="text-primary font-mono text-xs">
-                {address.slice(0, 8)}...{address.slice(-8)}
-              </span>
-            </p>
-          </div>
-        )}
+        {address && <WalletDisplay address={address} onLogout={onLogout} />}
         <p className="text-neutral-6 dark:text-neutral-4">
           Complete these social tasks to continue
         </p>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { onboardingApi, SocialTasks } from "../services/onboardingApi";
 
@@ -23,9 +23,33 @@ export const useOnboarding = ({ address }: UseOnboardingProps) => {
     retweetedPost: false,
   });
 
+  // Auto-advance to step 2 when wallet becomes connected
+  useEffect(() => {
+    if (address && currentStep === 1) {
+      console.log("Auto-advancing to step 2 - wallet connected:", address);
+      setCurrentStep(2);
+    }
+  }, [address, currentStep]);
+
   const handleWalletConnected = useCallback(() => {
     setCurrentStep(2);
   }, []);
+
+  const handleWalletDisconnected = useCallback(() => {
+    // Reset to step 1 when wallet is disconnected
+    setCurrentStep(1);
+    // Reset social tasks
+    setSocialTasks({
+      followedX: false,
+      joinedDiscord: false,
+      retweetedPost: false,
+    });
+    // Clear any stored onboarding progress for this specific address
+    if (address) {
+      onboardingApi.clearOnboardingDataForAddress(address).catch(console.error);
+    }
+    console.log("Wallet disconnected - reset to step 1");
+  }, [address]);
 
   const updateSocialTask = useCallback(
     async (task: keyof SocialTasks, completed: boolean) => {
@@ -97,6 +121,7 @@ export const useOnboarding = ({ address }: UseOnboardingProps) => {
     allSocialTasksCompleted,
     updateSocialTask,
     handleWalletConnected,
+    handleWalletDisconnected,
     handleSocialTasksComplete,
     handleCompleteOnboarding,
   };

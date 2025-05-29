@@ -115,6 +115,21 @@ class OnboardingApiService {
     localStorage.removeItem(this.storageKey);
   }
 
+  // Clear onboarding data for a specific address
+  async clearOnboardingDataForAddress(address: string): Promise<void> {
+    const storedData = localStorage.getItem(this.storageKey);
+    const allStatuses: Record<string, OnboardingStatus> = storedData
+      ? JSON.parse(storedData)
+      : {};
+
+    // Remove only the specific address
+    delete allStatuses[address];
+
+    // Save back to localStorage
+    localStorage.setItem(this.storageKey, JSON.stringify(allStatuses));
+    console.log("Cleared onboarding data for address:", address);
+  }
+
   // Debug method to check current localStorage data
   getStoredData(): Record<string, OnboardingStatus> {
     const storedData = localStorage.getItem(this.storageKey);

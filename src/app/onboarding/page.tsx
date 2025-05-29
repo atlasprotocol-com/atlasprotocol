@@ -9,11 +9,12 @@ import { StepTwo } from "./components/StepTwo";
 import { useOnboarding } from "./hooks/useOnboarding";
 
 export default function OnboardingPage() {
-  const { address, handleConnectBTC } = useConnectBTCWallet({
-    onSuccessfulConnect: () => {
-      console.log("Wallet connected successfully");
-    },
-  });
+  const { address, handleConnectBTC, handleDisconnectBTC } =
+    useConnectBTCWallet({
+      onSuccessfulConnect: () => {
+        console.log("Wallet connected successfully");
+      },
+    });
 
   // Get address directly from wallet if useConnectBTCWallet doesn't provide it
   const walletAddress =
@@ -29,6 +30,7 @@ export default function OnboardingPage() {
     handleWalletConnected,
     handleSocialTasksComplete,
     handleCompleteOnboarding,
+    handleWalletDisconnected,
   } = useOnboarding({ address: walletAddress });
 
   // Debug logging
@@ -41,6 +43,11 @@ export default function OnboardingPage() {
     allSocialTasksCompleted,
   );
 
+  const handleLogout = () => {
+    handleDisconnectBTC();
+    handleWalletDisconnected();
+  };
+
   const renderCurrentStep = () => {
     switch (currentStep) {
       case 1:
@@ -49,6 +56,7 @@ export default function OnboardingPage() {
             onConnect={handleConnectBTC}
             onWalletConnected={handleWalletConnected}
             connectDisabled={!!address}
+            address={walletAddress}
           />
         );
       case 2:
@@ -60,11 +68,17 @@ export default function OnboardingPage() {
             loading={loading}
             allTasksCompleted={allSocialTasksCompleted}
             address={walletAddress}
+            onLogout={handleLogout}
           />
         );
       case 3:
         return (
-          <StepThree onComplete={handleCompleteOnboarding} loading={loading} />
+          <StepThree
+            onComplete={handleCompleteOnboarding}
+            loading={loading}
+            address={walletAddress}
+            onLogout={handleLogout}
+          />
         );
       default:
         return null;

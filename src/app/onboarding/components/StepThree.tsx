@@ -5,14 +5,20 @@ import { useState } from "react";
 import { Button } from "@/app/components/Button";
 import { Input } from "@/app/components/Input";
 
+import { WalletDisplay } from "./WalletDisplay";
+
 interface StepThreeProps {
   onComplete: (email: string) => void;
   loading: boolean;
+  address?: string;
+  onLogout: () => void;
 }
 
 export const StepThree: React.FC<StepThreeProps> = ({
   onComplete,
   loading,
+  address,
+  onLogout,
 }) => {
   const [email, setEmail] = useState("");
   const [emailError, setEmailError] = useState("");
@@ -78,6 +84,8 @@ export const StepThree: React.FC<StepThreeProps> = ({
     <div className="max-w-md mx-auto">
       <div className="mb-8 text-center">
         <h2 className="text-2xl font-bold mb-4">Enter Invite code</h2>
+
+        {address && <WalletDisplay address={address} onLogout={onLogout} />}
 
         {/* Crossed out invite code section with 6 input boxes */}
         <div className="mb-6 p-4 border border-neutral-5 dark:border-neutral-8 rounded-lg relative">
