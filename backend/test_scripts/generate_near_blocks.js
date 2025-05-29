@@ -1775,7 +1775,7 @@ async function processNearBatch(startBlock, endBlock, threadCount, blocksPerThre
           allErrors          
             .map(error => {
               // Extract block number from error message
-              const blockMatch = error.match(/Block (\d+)/);
+              const blockMatch = error.match(/block (\d+)/i);
               return blockMatch ? blockMatch[1] : null;
             })
             .filter(blockNumber => blockNumber !== null)
@@ -2719,7 +2719,7 @@ async function processAndExportEvmBlocks() {
               threadErrors          
                 .map(error => {
                   // Extract block number from error message
-                  const blockMatch = error.match(/block (\d+)/);
+                  const blockMatch = error.match(/block (\d+)/i);
                   return blockMatch ? blockMatch[1] : null;
                 })
                 .filter(blockNumber => blockNumber !== null)

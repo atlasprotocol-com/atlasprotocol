@@ -1,5 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { SelectValue } from "@radix-ui/react-select";
+import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { useLocalStorage } from "usehooks-ts";
@@ -305,6 +306,8 @@ export function Bridge() {
     }
   }, [gas?.gasLimit, previewToggle.value]);
 
+  const queryClient = useQueryClient();
+
   const onConfirm = async () => {
     try {
       if (!previewData) {
@@ -389,6 +392,7 @@ export function Bridge() {
       previewToggle.toggle();
       setReviewData(undefined);
       refetchABTCBalance();
+      queryClient.invalidateQueries({ queryKey: ["stats"] });
     } catch (error: Error | any) {
       console.error(error);
       addFeedback({

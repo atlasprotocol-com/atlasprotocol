@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { utils } from "near-api-js";
 import { useMemo, useState } from "react";
 import { toast } from "react-toastify";
@@ -66,6 +67,8 @@ export function Reward() {
     connect();
   };
 
+  const queryClient = useQueryClient();
+
   const [isClaiming, setIsClaiming] = useState(false);
 
   const claimable = (reward?.canClaim || [])
@@ -104,6 +107,8 @@ export function Reward() {
         roundId: claimable[0].roundId,
         proof: claimable[0].merkleProof,
       });
+
+      queryClient.invalidateQueries({ queryKey: ["stats"] });
     } catch (error) {
       toast.error("Failed to claim reward");
       console.error(error);

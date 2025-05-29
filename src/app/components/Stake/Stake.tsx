@@ -29,6 +29,7 @@ import { SelectValue } from "../Select";
 import { SelectField } from "../SelectField";
 
 import { StakePreview } from "./StakePreview";
+import { useQueryClient } from "@tanstack/react-query";
 
 const stakeFormSchema = z.object({
   amount: z.coerce.number().positive().nonnegative(),
@@ -239,6 +240,8 @@ export function Stake({ formattedBalance }: StakeProps) {
     }
   };
 
+  const queryClient = useQueryClient();
+
   const handleConfirm = async () => {
     try {
       if (!previewData) {
@@ -324,6 +327,7 @@ export function Stake({ formattedBalance }: StakeProps) {
       refetchAccountUTXOs();
       refetchMempoolFeeRates();
       btcRefreshBalance();
+      queryClient.invalidateQueries({ queryKey: ["stats"] });
     } catch (error: Error | any) {
       console.error(error);
       addFeedback({
