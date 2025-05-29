@@ -23,9 +23,9 @@ const CONFIG = {
   GENERATE_DEPOSITS_STATUS_21_XLSX: false,     // Set to true to process deposits with status 21
   GENERATE_REDEMPTIONS_XLSX: false,      // Set to true to enable redemptions.xlsx generation
   GENERATE_REDEMPTIONS_VIA_EVENTS: false,  // Generate redemptions via events from Excel
-  GENERATE_EVM_BLOCKS_XLSX: true,      // Set to true to enable evmblocks.xlsx generation
+  GENERATE_EVM_BLOCKS_XLSX: false,      // Set to true to enable evmblocks.xlsx generation
   GENERATE_BRIDGINGS_XLSX: false,       // Set to true to enable bridgings.xlsx generation
-  GENERATE_BRIDGINGS_VIA_EVENTS: false,  // Generate bridgings via events from Excel
+  GENERATE_BRIDGINGS_VIA_EVENTS: true,  // Generate bridgings via events from Excel
   
   DEPOSITS: {
     OUTPUT_FILE: "deposits.xlsx",       // Output filename for deposits batch
@@ -188,7 +188,7 @@ const CONFIG = {
     SERVER_API_ENDPOINT: "https://testnet.atlasprotocol.com/api/v1/process-new-bridging",  // Server API endpoint for processing new bridging    
     LOCAL_API_ENDPOINT: "http://localhost:3001/api/v1/process-new-bridging",  // Local API endpoint for processing new bridging    
     READ_FROM_LATEST: false,             // Set to true to read from latest, false to read from start
-    START_INDEX: 2380,                  // Set to null to use READ_FROM_LATEST, or specify start index
+    START_INDEX: 4180,                  // Set to null to use READ_FROM_LATEST, or specify start index
     END_INDEX: null,                    // Set to null to use READ_FROM_LATEST, or specify end index
     COLUMNS: {
       NEAR_TXN_HASH: 4,         // Column index for Near Txn Hash in nearblocks_bridge.xlsx
@@ -1799,7 +1799,7 @@ async function processNearBatch(startBlock, endBlock, threadCount, blocksPerThre
           allErrors          
             .map(error => {
               // Extract block number from error message
-              const blockMatch = error.match(/Block (\d+)/);
+              const blockMatch = error.match(/block (\d+)/i);
               return blockMatch ? blockMatch[1] : null;
             })
             .filter(blockNumber => blockNumber !== null)
@@ -2811,7 +2811,7 @@ async function processAndExportEvmBlocks() {
               threadErrors          
                 .map(error => {
                   // Extract block number from error message
-                  const blockMatch = error.match(/block (\d+)/);
+                  const blockMatch = error.match(/block (\d+)/i);
                   return blockMatch ? blockMatch[1] : null;
                 })
                 .filter(blockNumber => blockNumber !== null)
