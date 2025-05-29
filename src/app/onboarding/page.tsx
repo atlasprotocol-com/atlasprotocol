@@ -33,16 +33,6 @@ export default function OnboardingPage() {
     handleWalletDisconnected,
   } = useOnboarding({ address: walletAddress });
 
-  // Debug logging
-  console.log("OnboardingPage - address from hook:", address);
-  console.log("OnboardingPage - walletAddress:", walletAddress);
-  console.log("OnboardingPage - currentStep:", currentStep);
-  console.log("OnboardingPage - socialTasks:", socialTasks);
-  console.log(
-    "OnboardingPage - allSocialTasksCompleted:",
-    allSocialTasksCompleted,
-  );
-
   const handleLogout = () => {
     handleDisconnectBTC();
     handleWalletDisconnected();

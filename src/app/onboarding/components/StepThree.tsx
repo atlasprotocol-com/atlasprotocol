@@ -23,6 +23,7 @@ export const StepThree: React.FC<StepThreeProps> = ({
   const [email, setEmail] = useState("");
   const [emailError, setEmailError] = useState("");
   const [inviteCode, setInviteCode] = useState(["", "", "", "", "", ""]);
+  const [subscribeSuccess, setSubscribeSuccess] = useState(false);
 
   const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -77,6 +78,7 @@ export const StepThree: React.FC<StepThreeProps> = ({
       return;
     }
 
+    setSubscribeSuccess(true);
     onComplete(email);
   };
 
@@ -91,9 +93,9 @@ export const StepThree: React.FC<StepThreeProps> = ({
         <div className="mb-6 p-4 border border-neutral-5 dark:border-neutral-8 rounded-lg relative">
           <div className="relative">
             <div className="absolute inset-0 flex items-center justify-center z-10">
-              <div className="w-full h-0.5 bg-red-500"></div>
+              <div className="w-[90%] h-0.5 bg-red-500"></div>
             </div>
-            <div className="flex justify-center gap-2">
+            <div className="flex justify-center gap-3">
               {inviteCode.map((digit, index) => (
                 <input
                   key={index}
@@ -138,11 +140,17 @@ export const StepThree: React.FC<StepThreeProps> = ({
           {emailError && (
             <p className="text-red-500 text-sm mt-1">{emailError}</p>
           )}
+          {subscribeSuccess && (
+            <p className="text-green-500 text-sm mt-2 text-center">
+              Thank you for subscribing, you may 'Access Atlas' below
+            </p>
+          )}
         </div>
 
         <div className="space-y-3">
           <Button
             type="submit"
+            intent="outline"
             disabled={loading || !email.trim()}
             className="w-full"
           >
@@ -151,7 +159,6 @@ export const StepThree: React.FC<StepThreeProps> = ({
 
           <Button
             type="button"
-            intent="outline"
             onClick={() => onComplete("")}
             disabled={loading}
             className="w-full"
