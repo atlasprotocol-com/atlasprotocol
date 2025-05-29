@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Button } from "@/app/components/Button";
 import { Input } from "@/app/components/Input";
 
+import { onboardingApi } from "../services/onboardingApi";
 import { WalletDisplay } from "./WalletDisplay";
 
 interface StepThreeProps {
@@ -24,6 +25,7 @@ export const StepThree: React.FC<StepThreeProps> = ({
   const [emailError, setEmailError] = useState("");
   const [inviteCode, setInviteCode] = useState(["", "", "", "", "", ""]);
   const [subscribeSuccess, setSubscribeSuccess] = useState(false);
+  const [subscribeLoading, setSubscribeLoading] = useState(false);
 
   const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -65,7 +67,7 @@ export const StepThree: React.FC<StepThreeProps> = ({
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubscribeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!email.trim()) {
@@ -78,8 +80,29 @@ export const StepThree: React.FC<StepThreeProps> = ({
       return;
     }
 
-    setSubscribeSuccess(true);
-    onComplete(email);
+    setSubscribeLoading(true);
+    setEmailError("");
+
+    try {
+      // Call API to submit email
+      await onboardingApi.submitEmail(email);
+      setSubscribeSuccess(true);
+      console.log("Email subscription successful for:", email);
+    } catch (error) {
+      console.error("Failed to subscribe email:", error);
+      setEmailError(
+        error instanceof Error
+          ? error.message
+          : "Failed to submit email. Please try again.",
+      );
+    } finally {
+      setSubscribeLoading(false);
+    }
+  };
+
+  const handleAccessAtlas = () => {
+    // Complete onboarding without email (empty string)
+    onComplete("");
   };
 
   return (
@@ -127,7 +150,7 @@ export const StepThree: React.FC<StepThreeProps> = ({
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubscribeSubmit} className="space-y-6">
         <div>
           <Input
             type="email"
@@ -151,19 +174,19 @@ export const StepThree: React.FC<StepThreeProps> = ({
           <Button
             type="submit"
             intent="outline"
-            disabled={loading || !email.trim()}
+            disabled={subscribeLoading || !email.trim()}
             className="w-full"
           >
-            {loading ? "Processing..." : "Subscribe"}
+            {subscribeLoading ? "Processing..." : "Subscribe"}
           </Button>
 
           <Button
             type="button"
-            onClick={() => onComplete("")}
+            onClick={handleAccessAtlas}
             disabled={loading}
             className="w-full"
           >
-            Access Atlas
+            {loading ? "Processing..." : "Access Atlas"}
           </Button>
         </div>
       </form>
