@@ -22,6 +22,7 @@ import { useEstimateAbtcMintGas } from "@/utils/getEstimateAbtcMintGas";
 import { getStakingHistoriesLocalStorageKey } from "@/utils/local_storage/getStakingHistoriesLocalStorageKey";
 import { validateBlockchainAddress } from "@/utils/validateAddress";
 import { WalletProvider } from "@/utils/wallet/wallet_provider";
+import { useQueryClient } from "@tanstack/react-query";
 
 import { Button } from "../Button";
 import { InputField } from "../InputField";
@@ -29,7 +30,6 @@ import { SelectValue } from "../Select";
 import { SelectField } from "../SelectField";
 
 import { StakePreview } from "./StakePreview";
-import { useQueryClient } from "@tanstack/react-query";
 
 const stakeFormSchema = z.object({
   amount: z.coerce.number().positive().nonnegative(),
