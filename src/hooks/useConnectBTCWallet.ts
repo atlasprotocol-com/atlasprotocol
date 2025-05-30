@@ -43,7 +43,6 @@ export function useConnectBTCWallet({
 
   const handleConnectBTC = useCallback(
     async (walletProvider: WalletProvider) => {
-      console.log("walletProvider", walletProvider);
       setIsConnecting(true);
       try {
         await walletProvider.connectWallet();
@@ -137,7 +136,6 @@ export function useConnectBTCWallet({
 
   useEffect(() => {
     if (btcWallet) {
-      console.log("btcWallet", btcWallet);
       let once = false;
       btcWallet.on("accountChanged", () => {
         if (!once) {

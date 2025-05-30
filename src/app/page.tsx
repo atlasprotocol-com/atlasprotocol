@@ -151,8 +151,6 @@ const Home: React.FC<HomeProps> = () => {
       return;
     }
 
-    console.log("🔄 Address changed:", address);
-
     const checkOnboarding = async () => {
       // If no wallet is connected, redirect to onboarding
       if (!address) {
@@ -164,7 +162,6 @@ const Home: React.FC<HomeProps> = () => {
         // Check if this address has completed onboarding
         const status = await onboardingApi.checkOnboardingStatus(address);
 
-        console.log("🔄 Onboarding status:", status);
         if (!status.isCompleted) {
           router.push("/onboarding");
         }

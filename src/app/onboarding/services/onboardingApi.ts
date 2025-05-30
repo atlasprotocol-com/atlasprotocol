@@ -102,7 +102,6 @@ class OnboardingApiService {
   async submitEmail(email: string): Promise<void> {
     try {
       await this.makeApiCall("POST", "/onboarding/submit-email", { email });
-      console.log("Email submitted successfully:", email);
     } catch (error) {
       console.error("Failed to submit email:", error);
       throw error;
@@ -119,7 +118,6 @@ class OnboardingApiService {
         walletAddress: address,
         status,
       });
-      console.log("Onboarding status updated successfully:", address, status);
     } catch (error) {
       console.error("Failed to update onboarding status:", error);
       throw error;
@@ -164,8 +162,6 @@ class OnboardingApiService {
 
       // Always update the onboarding status to complete
       await this.updateOnboardingStatus(address, "complete");
-
-      console.log("Onboarding completed successfully for address:", address);
     } catch (error) {
       console.error("Failed to complete onboarding:", error);
       throw error;
@@ -189,7 +185,6 @@ class OnboardingApiService {
 
     // Save back to localStorage
     localStorage.setItem(this.storageKey, JSON.stringify(allStatuses));
-    console.log("Cleared onboarding data for address:", address);
   }
 
   // Debug method to check current localStorage data

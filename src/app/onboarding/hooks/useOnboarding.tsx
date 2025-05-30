@@ -26,7 +26,6 @@ export const useOnboarding = ({ address }: UseOnboardingProps) => {
   // Auto-advance to step 2 when wallet becomes connected
   useEffect(() => {
     if (address && currentStep === 1) {
-      console.log("Auto-advancing to step 2 - wallet connected:", address);
       setCurrentStep(2);
     }
   }, [address, currentStep]);
@@ -48,18 +47,15 @@ export const useOnboarding = ({ address }: UseOnboardingProps) => {
     if (address) {
       onboardingApi.clearOnboardingDataForAddress(address).catch(console.error);
     }
-    console.log("Wallet disconnected - reset to step 1");
   }, [address]);
 
   const updateSocialTask = useCallback(
     async (task: keyof SocialTasks, completed: boolean) => {
-      console.log("updateSocialTask called:", task, completed);
       setSocialTasks((prev) => {
         const newTasks = {
           ...prev,
           [task]: completed,
         };
-        console.log("updateSocialTask - new state:", newTasks);
 
         // Update API with new social tasks state
         if (address) {
@@ -89,7 +85,6 @@ export const useOnboarding = ({ address }: UseOnboardingProps) => {
       try {
         // Call the actual API service to complete onboarding
         await onboardingApi.completeOnboarding(address, email);
-        console.log("Onboarding completed successfully for address:", address);
 
         // Navigate to home page
         router.replace("/");
@@ -107,12 +102,6 @@ export const useOnboarding = ({ address }: UseOnboardingProps) => {
     socialTasks.followedX &&
     socialTasks.joinedDiscord &&
     socialTasks.retweetedPost;
-
-  console.log("useOnboarding - socialTasks:", socialTasks);
-  console.log(
-    "useOnboarding - allSocialTasksCompleted:",
-    allSocialTasksCompleted,
-  );
 
   return {
     currentStep,
