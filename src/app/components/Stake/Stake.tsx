@@ -1,4 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { useLocalStorage } from "usehooks-ts";
@@ -29,7 +30,6 @@ import { SelectValue } from "../Select";
 import { SelectField } from "../SelectField";
 
 import { StakePreview } from "./StakePreview";
-import { useQueryClient } from "@tanstack/react-query";
 
 const stakeFormSchema = z.object({
   amount: z.coerce.number().positive().nonnegative(),

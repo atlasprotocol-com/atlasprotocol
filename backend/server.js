@@ -12,6 +12,8 @@ dotenv.config({ path: envFile });
 const { globalParams, updateGlobalParams } = require("./config/globalParams");
 const { getTransactionsAndComputeStats } = require("./utils/transactionStats");
 const { flagsBatch } = require("./utils/batchFlags");
+const googleSheets = require("./services/googleSheets");
+const db = require("./services/db");
 const {
   UpdateAtlasBtcDeposits,
   processNewDeposit,
@@ -957,101 +959,101 @@ app.listen(PORT, async () => {
     `Server is running on port ${PORT} | ${process.env.NEAR_CONTRACT_ID}`,
   );
 
-  setInterval(async () => {
-    if (!flagsBatch.RetrieveAndProcessPastEventsRunning) {
-      flagsBatch.RetrieveAndProcessPastEventsRunning = true;
-      try {
-        await RetrieveAndProcessPastEvmEvents(
-          near,
-          deposits,
-          redemptions,
-          bridgings,
-        );
-        await RetrieveAndProcessPastNearEvents(
-          near,
-          deposits,
-          redemptions,
-          bridgings,
-        );
-      } catch (error) {
-        console.error("Error processing past events:", error);
-      } finally {
-        flagsBatch.RetrieveAndProcessPastEventsRunning = false;
-      }
-    }
-  }, 5000);
+  // setInterval(async () => {
+  //   if (!flagsBatch.RetrieveAndProcessPastEventsRunning) {
+  //     flagsBatch.RetrieveAndProcessPastEventsRunning = true;
+  //     try {
+  //       await RetrieveAndProcessPastEvmEvents(
+  //         near,
+  //         deposits,
+  //         redemptions,
+  //         bridgings,
+  //       );
+  //       await RetrieveAndProcessPastNearEvents(
+  //         near,
+  //         deposits,
+  //         redemptions,
+  //         bridgings,
+  //       );
+  //     } catch (error) {
+  //       console.error("Error processing past events:", error);
+  //     } finally {
+  //       flagsBatch.RetrieveAndProcessPastEventsRunning = false;
+  //     }
+  //   }
+  // }, 5000);
 
-  // Function to poll Near Atlas deposit records
-  setInterval(async () => {
-    const result = await getAllDepositHistory(near);
-    if (result) {
-      deposits = result;
-    }
-  }, 5000);
+  // // Function to poll Near Atlas deposit records
+  // setInterval(async () => {
+  //   const result = await getAllDepositHistory(near);
+  //   if (result) {
+  //     deposits = result;
+  //   }
+  // }, 5000);
 
-  // Function to poll Near Atlas redemption records
-  setInterval(async () => {
-    const result = await getAllRedemptionHistory(near);
-    if (result) {
-      redemptions = result;
-    }
-  }, 10000);
+  // // Function to poll Near Atlas redemption records
+  // setInterval(async () => {
+  //   const result = await getAllRedemptionHistory(near);
+  //   if (result) {
+  //     redemptions = result;
+  //   }
+  // }, 10000);
 
-  // Function to poll Near Atlas bridging records
-  setInterval(async () => {
-    const result = await getAllBridgingHistory(near);
-    if (result) {
-      bridgings = result;
-    }
-  }, 10000);
+  // // Function to poll Near Atlas bridging records
+  // setInterval(async () => {
+  //   const result = await getAllBridgingHistory(near);
+  //   if (result) {
+  //     bridgings = result;
+  //   }
+  // }, 10000);
 
-  setInterval(async () => {
-    await computeStats();
-  }, 10000);
+  // setInterval(async () => {
+  //   await computeStats();
+  // }, 10000);
 
-  setInterval(async () => {
-    await getBtcMempoolRecords();
-    await UpdateAtlasBtcDeposits(
-      btcMempool,
-      btcAtlasDepositAddress,
-      globalParams.atlasTreasuryAddress,
-      near,
-      bitcoin,
-    );
-  }, 30000); // 1 minute
+  // setInterval(async () => {
+  //   await getBtcMempoolRecords();
+  //   await UpdateAtlasBtcDeposits(
+  //     btcMempool,
+  //     btcAtlasDepositAddress,
+  //     globalParams.atlasTreasuryAddress,
+  //     near,
+  //     bitcoin,
+  //   );
+  // }, 30000); // 1 minute
 
-  setInterval(async () => {
-    await UpdateAtlasBtcDeposited(deposits, near, bitcoin);
-  }, 1800000); // 30 minutes
-  //}, 10000);
+  // setInterval(async () => {
+  //   await UpdateAtlasBtcDeposited(deposits, near, bitcoin);
+  // }, 1800000); // 30 minutes
+  // //}, 10000);
 
-  setInterval(async () => {
-    await StakeToYieldProvider(deposits, near, bitcoin);
-  }, 30000);
+  // setInterval(async () => {
+  //   await StakeToYieldProvider(deposits, near, bitcoin);
+  // }, 30000);
 
-  setInterval(async () => {
-    await getBithiveRecords();
-    await UpdateYieldProviderStaked(deposits, bithiveRecords, near);
-    //}, 1800000); // 30 minutes
-  }, 10000);
+  // setInterval(async () => {
+  //   await getBithiveRecords();
+  //   await UpdateYieldProviderStaked(deposits, bithiveRecords, near);
+  //   //}, 1800000); // 30 minutes
+  // }, 10000);
 
-  setInterval(async () => {
-    if (!flagsBatch.MintingEventsRunning) {
-      flagsBatch.MintingEventsRunning = true;
-      try {
-        await MintaBtcToReceivingChain(deposits, near);
-        await MintBridgeABtcToDestChain(bridgings, near);
-      } catch (error) {
-        console.error("Error processing minting events:", error);
-      } finally {
-        flagsBatch.MintingEventsRunning = false;
-      }
-    }
-  }, 10000);
+  // setInterval(async () => {
+  //   if (!flagsBatch.MintingEventsRunning) {
+  //     flagsBatch.MintingEventsRunning = true;
+  //     try {
+  //       await MintaBtcToReceivingChain(deposits, near);
+  //       await MintBridgeABtcToDestChain(bridgings, near);
+  //     } catch (error) {
+  //       console.error("Error processing minting events:", error);
+  //     } finally {
+  //       flagsBatch.MintingEventsRunning = false;
+  //     }
+  //   }
+  // }, 10000);
 
-  setInterval(async () => {
-    await UpdateAtlasAbtcMinted(deposits, near);
-  }, 10000);
+  // setInterval(async () => {
+  //   await UpdateAtlasAbtcMinted(deposits, near);
+  // }, 10000);
 
   // Add the unstaking and withdrawal process to the job scheduler
   // setInterval(async () => {
@@ -1110,7 +1112,77 @@ app.listen(PORT, async () => {
   //   await UpdateAtlasBtcBackToUser(redemptions, near, bitcoin);
   // }, 10000);
 
-  setInterval(async () => {
-    await UpdateBridgingAtbtcMinted(bridgings, near);
-  }, 10000);
+  // setInterval(async () => {
+  //   await UpdateBridgingAtbtcMinted(bridgings, near);
+  // }, 10000);
+});
+
+app.post("/api/v1/onboarding/submit-email", async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ error: "Email is required" });
+    }
+
+    const result = await googleSheets.insertEmail(email);
+    res.json({
+      success: true,
+      message: result
+        ? "Email registered successfully"
+        : "Email already registered",
+    });
+  } catch (error) {
+    console.error("Error submitting email:", error);
+    res.status(500).json({
+      error: "Failed to submit email",
+    });
+  }
+});
+
+app.post("/api/v1/onboarding/update-status", async (req, res) => {
+  try {
+    const { walletAddress, status } = req.body;
+
+    if (!walletAddress || !status) {
+      return res
+        .status(400)
+        .json({ error: "Wallet address and status are required" });
+    }
+
+    await db.updateOnboardingStatus(walletAddress, status);
+    res.json({
+      success: true,
+      message: "Onboarding status updated successfully",
+    });
+  } catch (error) {
+    console.error("Error updating onboarding status:", error);
+    res.status(500).json({
+      error: "Failed to update onboarding status",
+      details: error.message,
+    });
+  }
+});
+
+app.get("/api/v1/onboarding/status", async (req, res) => {
+  try {
+    const { walletAddress } = req.query;
+
+    if (!walletAddress) {
+      return res.status(400).json({ error: "Wallet address is required" });
+    }
+
+    const status = await db.getOnboardingStatus(walletAddress);
+    if (!status) {
+      return res.status(404).json({ error: "Wallet address not found" });
+    }
+
+    res.json({ data: status });
+  } catch (error) {
+    console.error("Error getting onboarding status:", error);
+    res.status(500).json({
+      error: "Failed to get onboarding status",
+      details: error.message,
+    });
+  }
 });
