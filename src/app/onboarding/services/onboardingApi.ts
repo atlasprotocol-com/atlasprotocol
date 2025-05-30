@@ -67,7 +67,7 @@ class OnboardingApiService {
         { walletAddress: address },
       );
 
-      const data = response.data;
+      const data = response.data.data;
 
       // Map API response to our interface
       const isCompleted = data.status === "complete";

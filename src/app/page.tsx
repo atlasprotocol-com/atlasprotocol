@@ -89,6 +89,7 @@ const Home: React.FC<HomeProps> = () => {
     formattedBalance,
     refetchBalance,
     manualMinusBalance,
+    isConnecting,
   } = useConnectBTCWallet({
     onSuccessfulConnect: () => {
       setConnectModalOpen(false);
@@ -146,6 +147,12 @@ const Home: React.FC<HomeProps> = () => {
 
   // Check onboarding status when address changes
   useEffect(() => {
+    if (isConnecting) {
+      return;
+    }
+
+    console.log("🔄 Address changed:", address);
+
     const checkOnboarding = async () => {
       // If no wallet is connected, redirect to onboarding
       if (!address) {
@@ -156,6 +163,8 @@ const Home: React.FC<HomeProps> = () => {
       try {
         // Check if this address has completed onboarding
         const status = await onboardingApi.checkOnboardingStatus(address);
+
+        console.log("🔄 Onboarding status:", status);
         if (!status.isCompleted) {
           router.push("/onboarding");
         }
@@ -166,8 +175,10 @@ const Home: React.FC<HomeProps> = () => {
       }
     };
 
-    checkOnboarding();
-  }, [address, router]);
+    if (!isConnecting) {
+      checkOnboarding();
+    }
+  }, [address, router, isConnecting]);
 
   return (
     <AppContext.Provider
