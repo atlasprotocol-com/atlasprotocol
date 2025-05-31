@@ -35,6 +35,7 @@ export function useConnectBTCWallet({
   const [publicKeyHex, setPublicKeyHex] = useState<string>("");
   const [address, setAddress] = useState<string>("");
   const { showError } = useError();
+  const [isConnecting, setIsConnecting] = useState<boolean>(true);
 
   const currentBalance = useMemo(() => {
     return btcManualMinusBalance ? btcManualMinusBalance : btcWalletBalanceSat;
@@ -42,7 +43,7 @@ export function useConnectBTCWallet({
 
   const handleConnectBTC = useCallback(
     async (walletProvider: WalletProvider) => {
-      console.log("walletProvider", walletProvider);
+      setIsConnecting(true);
       try {
         await walletProvider.connectWallet();
         const address = await walletProvider.getAddress();
@@ -101,6 +102,8 @@ export function useConnectBTCWallet({
           },
           retryAction: () => handleConnectBTC(walletProvider),
         });
+      } finally {
+        setIsConnecting(false);
       }
     },
     [onSuccessfulConnectRef, showError],
@@ -123,6 +126,8 @@ export function useConnectBTCWallet({
       );
       if (connectedWallet && wallet) {
         handleConnectBTC(new wallet.wallet());
+      } else {
+        setIsConnecting(false);
       }
     } catch (error) {
       console.error(error);
@@ -182,5 +187,6 @@ export function useConnectBTCWallet({
     refetchBalance,
     btcManualMinusBalance,
     manualMinusBalance,
+    isConnecting,
   };
 }

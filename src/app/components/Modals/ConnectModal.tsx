@@ -161,10 +161,14 @@ export const ConnectModal: React.FC<ConnectModalProps> = ({
                       "cursor-pointer h-16 p-3 bg:neutral-3 dark:bg-neutral-10 rounded-lg border border-neutral-5 dark:border-neutral-10 justify-start items-center inline-flex gap-4",
                       selected && "border-primary dark:border-primary",
                     )}
-                    onClick={() => walletAvailable && setSelectedWallet(name)}
+                    onClick={
+                      walletAvailable
+                        ? () => setSelectedWallet(name)
+                        : undefined
+                    }
                     href={!walletAvailable ? linkToDocs : undefined}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    target={!walletAvailable ? "_blank" : undefined}
+                    rel={!walletAvailable ? "noopener noreferrer" : undefined}
                   >
                     <div className="flex flex-1 items-center gap-2">
                       <div className="flex h-10 w-10 items-center justify-center rounded-full bg-neutral-3 dark:bg-white p-2">

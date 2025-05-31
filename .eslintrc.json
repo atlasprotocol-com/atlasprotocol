@@ -22,8 +22,9 @@
           }
         ],
         "pathGroupsExcludedImportTypes": ["builtin", "external"],
-        "newlines-between": "always"
+        "newlines-between": "always",
       }
-    ]
+    ],
+    "react/no-unescaped-entities": "off"
   }
 }
