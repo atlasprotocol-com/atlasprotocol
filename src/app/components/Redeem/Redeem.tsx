@@ -294,7 +294,9 @@ export function Redeem({ btcAddress }: RedeemProps) {
       setValue("amount", 0);
       previewToggle.toggle();
       setReviewData(undefined);
-      queryClient.invalidateQueries({ queryKey: ["stats"] });
+      queryClient.invalidateQueries({
+        queryKey: ["stats", "stakingHistories", "redemptionHistories"],
+      });
     } catch (error: Error | any) {
       console.error(error);
       addFeedback({

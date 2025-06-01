@@ -76,7 +76,8 @@ export function Holdings({ balanceSat }: { balanceSat: number }) {
 
     if (stakingHistories) {
       totalStakedSat = stakingHistories.stakingHistories.reduce(
-        (accumulator: number, item) => accumulator + item?.btcAmount - item?.yieldProviderGasFee,
+        (accumulator: number, item) =>
+          accumulator + item?.btcAmount - item?.yieldProviderGasFee,
         0,
       );
     }
@@ -87,14 +88,23 @@ export function Holdings({ balanceSat }: { balanceSat: number }) {
         0,
       );
     }
+
+    const totalStakedSats = satoshiToBtc(totalStakedSat);
+    const totalRedeemedSats = satoshiToBtc(totalRedeemedSat);
+
     return {
       totalStakedSat,
-      formattedTotalStaked: maxDecimals(satoshiToBtc(totalStakedSat), 8),
+      formattedTotalStaked: maxDecimals(totalStakedSats, 8),
       totalRedeemedSat,
-      formattedTotalRedeemed: maxDecimals(satoshiToBtc(totalRedeemedSat), 8),
-      formattedBalance: maxDecimals(satoshiToBtc(balanceSat), 8),
+      formattedTotalRedeemed: maxDecimals(totalRedeemedSats, 8),
+      formattedBalance: maxDecimals(
+        Math.max(0, totalStakedSats - totalRedeemedSats),
+        8,
+      ),
     };
   }, [stakingHistories, redemptionHistories, balanceSat]);
+
+  console.log("HOLDING ------------> ", JSON.stringify(data));
 
   return (
     <Card className="h-full">
