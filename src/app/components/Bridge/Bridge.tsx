@@ -392,7 +392,15 @@ export function Bridge() {
       previewToggle.toggle();
       setReviewData(undefined);
       refetchABTCBalance();
-      queryClient.invalidateQueries({ queryKey: ["stats"] });
+      queryClient.invalidateQueries({
+        queryKey: ["stats"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["stakingHistories"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["redemptionHistories"],
+      });
     } catch (error: Error | any) {
       console.error(error);
       addFeedback({

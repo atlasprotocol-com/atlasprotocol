@@ -327,7 +327,16 @@ export function Stake({ formattedBalance }: StakeProps) {
       refetchAccountUTXOs();
       refetchMempoolFeeRates();
       btcRefreshBalance();
-      queryClient.invalidateQueries({ queryKey: ["stats"] });
+
+      queryClient.invalidateQueries({
+        queryKey: ["stats"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["stakingHistories"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["redemptionHistories"],
+      });
     } catch (error: Error | any) {
       console.error(error);
       addFeedback({

@@ -112,7 +112,15 @@ export function Reward() {
         proof: claimable[0].merkleProof,
       });
 
-      queryClient.invalidateQueries({ queryKey: ["stats"] });
+      queryClient.invalidateQueries({
+        queryKey: ["stats"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["stakingHistories"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["redemptionHistories"],
+      });
     } catch (error) {
       toast.error("Failed to claim reward");
       console.error(error);

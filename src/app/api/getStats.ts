@@ -27,6 +27,7 @@ interface StatsAPI {
 }
 
 export const getStats = async (): Promise<StakingStats> => {
+  console.log("getStats");
   const response = await apiWrapper(
     "GET",
     "/api/v1/stats",

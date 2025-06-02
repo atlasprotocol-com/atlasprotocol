@@ -295,7 +295,13 @@ export function Redeem({ btcAddress }: RedeemProps) {
       previewToggle.toggle();
       setReviewData(undefined);
       queryClient.invalidateQueries({
-        queryKey: ["stats", "stakingHistories", "redemptionHistories"],
+        queryKey: ["stats"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["stakingHistories"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["redemptionHistories"],
       });
     } catch (error: Error | any) {
       console.error(error);
