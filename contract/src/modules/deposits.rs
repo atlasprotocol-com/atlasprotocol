@@ -279,7 +279,8 @@ impl Atlas {
 
             if let Some(chain_config) = self.chain_configs.get_chain_config(chain_id.clone()) {
                 // Check all specified conditions
-                if (deposit.status == DEP_BTC_PENDING_MINTED_INTO_ABTC || deposit.status == DEP_BTC_YIELD_PROVIDER_DEPOSITED)
+                if (deposit.status == DEP_BTC_PENDING_MINTED_INTO_ABTC
+                    || deposit.status == DEP_BTC_YIELD_PROVIDER_DEPOSITED)
                     && deposit.verified_count >= chain_config.validators_threshold
                     && deposit.remarks.is_empty()
                     && deposit.minted_txn_hash.is_empty()
@@ -287,12 +288,24 @@ impl Atlas {
                     // All conditions are met, proceed to update the minted transaction hash
                     deposit.status = DEP_BTC_PENDING_MINTED_INTO_ABTC;
                     deposit.minted_txn_hash = minted_txn_hash.clone();
+
+                    // Calculate the amount before moving deposit
+                    let amount = deposit.btc_amount
+                        - deposit.minting_fee
+                        - deposit.protocol_fee
+                        - deposit.yield_provider_gas_fee;
+
+                    let receiving_address = deposit.receiving_address.clone();
+                    let receiving_chain_id = deposit.receiving_chain_id.clone();
+
                     self.deposits.insert(btc_txn_hash.clone(), deposit);
                     log!(
                         "minted txn hash: {} updated for btc_txn_hash: {}",
                         minted_txn_hash,
                         btc_txn_hash
                     );
+
+                    self.update_balance(receiving_address, receiving_chain_id, amount);
                 } else {
                     // Log a message if conditions are not met
                     log!(
@@ -1156,17 +1169,18 @@ impl Atlas {
         // Check if the deposit exists for the given btc_txn_hash
         if let Some(mut deposit) = self.deposits.get(&btc_txn_hash).cloned() {
             // Update the yield_provider_txn_hash
-            if deposit.status == DEP_BTC_DEPOSITED_INTO_ATLAS 
-                && deposit.yield_provider_txn_hash == "" 
-                && deposit.remarks == "" {
-                    deposit.status = DEP_BTC_PENDING_YIELD_PROVIDER_DEPOSIT;
-                    deposit.yield_provider_txn_hash = yield_provider_txn_hash;
-                    self.deposits.insert(btc_txn_hash.clone(), deposit);
-                    log!(
-                        "Yield provider transaction hash updated for btc_txn_hash: {}",
-                        btc_txn_hash);
-            }
-            else {
+            if deposit.status == DEP_BTC_DEPOSITED_INTO_ATLAS
+                && deposit.yield_provider_txn_hash == ""
+                && deposit.remarks == ""
+            {
+                deposit.status = DEP_BTC_PENDING_YIELD_PROVIDER_DEPOSIT;
+                deposit.yield_provider_txn_hash = yield_provider_txn_hash;
+                self.deposits.insert(btc_txn_hash.clone(), deposit);
+                log!(
+                    "Yield provider transaction hash updated for btc_txn_hash: {}",
+                    btc_txn_hash
+                );
+            } else {
                 env::panic_str("Deposit record not in valid conditions");
             }
         } else {

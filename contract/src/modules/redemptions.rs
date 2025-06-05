@@ -73,7 +73,17 @@ impl Atlas {
             btc_txn_hash_verified_count: 0,
         };
 
+        let abtc_redemption_address = record.abtc_redemption_address.clone();
+        let abtc_redemption_chain_id = record.abtc_redemption_chain_id.clone();
+        let abtc_amount = record.abtc_amount;
+
         self.redemptions.insert(txn_hash, record);
+
+        self.update_balance(
+            abtc_redemption_address,
+            abtc_redemption_chain_id,
+            0 - abtc_amount,
+        );
     }
 
     pub fn get_redemption_by_txn_hash(&self, txn_hash: String) -> Option<RedemptionRecord> {

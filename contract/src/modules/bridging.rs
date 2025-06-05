@@ -75,7 +75,14 @@ impl Atlas {
             minted_txn_hash_verified_count: 0,
         };
 
+        // Clone fields before moving record
+        let origin_chain_address = record.origin_chain_address.clone();
+        let origin_chain_id = record.origin_chain_id.clone();
+        let abtc_amount = record.abtc_amount;
+
         self.bridgings.insert(txn_hash, record);
+
+        self.update_balance(origin_chain_address, origin_chain_id, 0 - abtc_amount);
     }
 
     pub fn get_bridging_by_txn_hash(&self, txn_hash: String) -> Option<BridgingRecord> {
@@ -207,19 +214,34 @@ impl Atlas {
         self.assert_admin();
         if let Some(mut bridging) = self.bridgings.get(&txn_hash).cloned() {
             // Check that remarks is empty and status is pending bridge
-            if bridging.remarks == "" && 
-                bridging.status == BRG_ABTC_PENDING_BRIDGE_FROM_ORIGIN_TO_DEST &&
-                bridging.origin_chain_id != "" &&
-                bridging.origin_chain_address != "" &&
-                bridging.dest_chain_id != "" &&
-                bridging.dest_chain_address != "" &&
-                bridging.dest_txn_hash == "" 
+            if bridging.remarks == ""
+                && bridging.status == BRG_ABTC_PENDING_BRIDGE_FROM_ORIGIN_TO_DEST
+                && bridging.origin_chain_id != ""
+                && bridging.origin_chain_address != ""
+                && bridging.dest_chain_id != ""
+                && bridging.dest_chain_address != ""
+                && bridging.dest_txn_hash == ""
             {
-                log!("Updating bridging minted txn hash for txn_hash: {}", txn_hash);
+                log!(
+                    "Updating bridging minted txn hash for txn_hash: {}",
+                    txn_hash
+                );
 
                 bridging.dest_txn_hash = dest_txn_hash;
                 bridging.timestamp = timestamp;
+
+                let dest_chain_address = bridging.dest_chain_address.clone();
+                let dest_chain_id = bridging.dest_chain_id.clone();
+                let abtc_amount = bridging.abtc_amount
+                    - bridging.protocol_fee
+                    - bridging.minting_fee_sat
+                    - bridging.bridging_gas_fee_sat
+                    - bridging.actual_gas_fee_sat
+                    - bridging.yield_provider_gas_fee;
+
                 self.bridgings.insert(txn_hash, bridging);
+
+                self.update_balance(dest_chain_address, dest_chain_id, abtc_amount);
             } else {
                 // Log message if conditions not met
                 log!(
@@ -1396,39 +1418,34 @@ impl Atlas {
                 false
             }
         } else {
-            log!(
-                "Bridging record not found for txn_hash: {}.",
-                &txn_hash
-            );
+            log!("Bridging record not found for txn_hash: {}.", &txn_hash);
             false
         }
     }
 
-    pub fn update_bridging_atbtc_minted(
-        &mut self,
-        txn_hash: String
-    ){
+    pub fn update_bridging_atbtc_minted(&mut self, txn_hash: String) {
         self.assert_not_paused();
         self.assert_admin();
 
         // Validate input parameters
         assert!(!txn_hash.is_empty(), "Transaction hash cannot be empty");
-        
+
         if let Some(mut bridging) = self.bridgings.get(&txn_hash).cloned() {
-            if (bridging.status == BRG_ABTC_BURNT ||
-                bridging.status == BRG_ABTC_PENDING_BRIDGE_FROM_ORIGIN_TO_DEST) &&
-                bridging.origin_chain_id != "" &&
-                bridging.origin_chain_address != "" &&
-                bridging.dest_chain_id != "" &&
-                bridging.dest_chain_address != "" &&
-                bridging.dest_txn_hash != "" &&
-                bridging.remarks == "" 
+            if (bridging.status == BRG_ABTC_BURNT
+                || bridging.status == BRG_ABTC_PENDING_BRIDGE_FROM_ORIGIN_TO_DEST)
+                && bridging.origin_chain_id != ""
+                && bridging.origin_chain_address != ""
+                && bridging.dest_chain_id != ""
+                && bridging.dest_chain_address != ""
+                && bridging.dest_txn_hash != ""
+                && bridging.remarks == ""
             {
                 if let Some(chain_config) = self
                     .chain_configs
                     .get_chain_config(bridging.dest_chain_id.clone())
                 {
-                    if bridging.minted_txn_hash_verified_count >= chain_config.validators_threshold {
+                    if bridging.minted_txn_hash_verified_count >= chain_config.validators_threshold
+                    {
                         bridging.status = BRG_ABTC_MINTED_TO_DEST;
                         bridging.timestamp = env::block_timestamp() / 1_000_000_000;
                         self.bridgings.insert(txn_hash.clone(), bridging);
@@ -1438,7 +1455,5 @@ impl Atlas {
         } else {
             log!("Bridging record not found for txn_hash: {}", txn_hash);
         }
-        
-
     }
 }
