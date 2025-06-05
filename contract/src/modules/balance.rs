@@ -1,13 +1,7 @@
 use crate::atlas::Atlas;
-use crate::{AtBTCBalance, AtlasExt};
-use near_sdk::borsh::BorshSerialize;
+use crate::{AtBTCBalance, AtlasExt, StorageKey};
+use near_sdk::near_bindgen;
 use near_sdk::store::Vector;
-use near_sdk::{near_bindgen, BorshStorageKey};
-
-#[derive(BorshStorageKey, BorshSerialize)]
-pub enum StorageKey {
-    Balance { key: String },
-}
 
 #[near_bindgen]
 impl Atlas {

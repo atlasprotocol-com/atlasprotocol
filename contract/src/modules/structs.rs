@@ -1,16 +1,22 @@
 use crate::chain_configs::ChainConfigs;
 use crate::global_params::GlobalParams;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::near_bindgen;
 use near_sdk::store::{IterableMap, LookupMap, Vector};
 use near_sdk::AccountId;
 use near_sdk::PanicOnDefault;
+use near_sdk::{near_bindgen, BorshStorageKey};
 use serde::{Deserialize, Serialize};
 
 #[derive(BorshDeserialize, BorshSerialize, Clone, Debug)]
 pub struct AtBTCBalance {
     pub chain_id: String,
     pub balance: u64,
+}
+
+#[derive(BorshStorageKey, BorshSerialize)]
+pub enum StorageKey {
+    Balances(String),
+    Balance { key: String },
 }
 
 #[near_bindgen]
@@ -167,20 +173,4 @@ pub struct CreatePayloadResult {
 pub struct BtcAddressPubKeyRecord {
     pub btc_address: String,
     pub public_key: String,
-}
-
-#[derive(BorshDeserialize, BorshSerialize, Debug)]
-pub(crate) enum StateVersion {
-    V1,
-    V2,
-}
-
-impl StateVersion {
-    pub fn try_from_slice(data: &[u8]) -> Result<Self, String> {
-        match data {
-            b"V1" => Ok(StateVersion::V1),
-            b"V2" => Ok(StateVersion::V2),
-            _ => Err("Unknown state version".to_string()),
-        }
-    }
 }

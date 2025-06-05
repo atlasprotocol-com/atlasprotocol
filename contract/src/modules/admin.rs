@@ -3,12 +3,12 @@ use crate::chain_configs::ChainConfigs;
 use crate::constants::near_gas::*;
 use crate::global_params::GlobalParams;
 use crate::modules::signer::*;
-use crate::AtlasExt;
+use crate::{AtlasExt, StorageKey};
 use hex::FromHex;
 use near_sdk::env::keccak256;
 use near_sdk::{
-    env, log, near_bindgen, store::IterableMap, AccountId, Gas, NearToken, Promise, PromiseError,
-    PromiseOrValue,
+    env, log, near_bindgen, store::IterableMap, store::LookupMap, AccountId, Gas, NearToken,
+    Promise, PromiseError, PromiseOrValue,
 };
 use omni_transaction::evm::evm_transaction::EVMTransaction;
 use omni_transaction::evm::types::Signature as OmniSignature;
@@ -70,7 +70,7 @@ impl Atlas {
             paused: false,
             production_mode: production_mode,
             btc_pubkey: IterableMap::new(b"p"),
-            atbtc_balances: IterableMap::new(b"a"),
+            atbtc_balances: LookupMap::new(StorageKey::Balances("atbtc_balances".to_string())),
         }
     }
 
