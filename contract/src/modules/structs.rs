@@ -7,7 +7,7 @@ use near_sdk::PanicOnDefault;
 use near_sdk::{near_bindgen, BorshStorageKey};
 use serde::{Deserialize, Serialize};
 
-#[derive(BorshDeserialize, BorshSerialize, Clone, Debug)]
+#[derive(BorshDeserialize, BorshSerialize, Clone, Debug, Serialize, Deserialize)]
 pub struct AtBTCBalance {
     pub chain_id: String,
     pub balance: u64,

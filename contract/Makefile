@@ -13,11 +13,11 @@ redeploy-all: redeploy redeploy-near-ft
 redeploy:
 	./build.sh
 
-	# near call $(CONTRACT_ID).velar.testnet clear_all_validators --accountId velar.testnet;
-	# near call $(CONTRACT_ID).velar.testnet clear_all_verifications --accountId velar.testnet;
-	# near call $(CONTRACT_ID).velar.testnet clear_all_chain_configs --accountId velar.testnet;
+	near call $(CONTRACT_ID).velar.testnet clear_all_validators --accountId velar.testnet;
+	near call $(CONTRACT_ID).velar.testnet clear_all_verifications --accountId velar.testnet;
+	near call $(CONTRACT_ID).velar.testnet clear_all_chain_configs --accountId velar.testnet;
 	
-	# near delete-account $(CONTRACT_ID).velar.testnet velar.testnet;
+	near delete-account $(CONTRACT_ID).velar.testnet velar.testnet;
 	near create-account $(CONTRACT_ID).velar.testnet --masterAccount velar.testnet --initialBalance 20;
 
 	sleep 10;
