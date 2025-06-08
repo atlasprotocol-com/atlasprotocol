@@ -50,6 +50,7 @@ impl Atlas {
             panic!("Migration already prepared");
         }
 
+        log!("MIGRATION::READING ...");
         let old_state: V2 = env::state_read().expect("Failed to read old state");
         log!("MIGRATION::DEPOSITS --> {}", old_state.deposits.len());
         log!("MIGRATION::REDEMPTIONS --> {}", old_state.redemptions.len());
@@ -62,7 +63,7 @@ impl Atlas {
 
         let data = match borsh::to_vec(&old_state) {
             Ok(serialized) => serialized,
-            Err(_) => env::panic_str("Cannot serialize the contract state."),
+            Err(_) => env::panic_str("Oops, cannot serialize the contract state."),
         };
         env::storage_write(STATE_V2, &data);
     }

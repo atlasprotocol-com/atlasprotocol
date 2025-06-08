@@ -1,5 +1,5 @@
-CONTRACT_ID ?= atlas_testnet4_20250517
-FT_CONTRACT_ID ?= atbtc_testnet4_20250517
+CONTRACT_ID ?= atlas_testnet4_20250608
+FT_CONTRACT_ID ?= atbtc_testnet4_20250608
 
 
 migrate: 
