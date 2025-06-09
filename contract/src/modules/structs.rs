@@ -1,23 +1,11 @@
 use crate::chain_configs::ChainConfigs;
 use crate::global_params::GlobalParams;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::store::{IterableMap, LookupMap, Vector};
+use near_sdk::near_bindgen;
+use near_sdk::store::IterableMap;
 use near_sdk::AccountId;
 use near_sdk::PanicOnDefault;
-use near_sdk::{near_bindgen, BorshStorageKey};
 use serde::{Deserialize, Serialize};
-
-#[derive(BorshDeserialize, BorshSerialize, Clone, Debug, Serialize, Deserialize)]
-pub struct AtBTCBalance {
-    pub chain_id: String,
-    pub balance: u64,
-}
-
-#[derive(BorshStorageKey, BorshSerialize)]
-pub enum StorageKey {
-    Balances(String),
-    Balance { key: String },
-}
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
@@ -36,7 +24,7 @@ pub struct Atlas {
     pub paused: bool,
     pub production_mode: bool,
     pub btc_pubkey: IterableMap<String, BtcAddressPubKeyRecord>,
-    pub atbtc_balances: LookupMap<String, Vector<AtBTCBalance>>,
+    pub atbtc_balances: IterableMap<String, u64>,
 }
 
 #[derive(BorshDeserialize, BorshSerialize, Deserialize, Serialize, Clone)]

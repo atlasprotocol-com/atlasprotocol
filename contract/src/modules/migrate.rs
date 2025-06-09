@@ -1,13 +1,12 @@
 use crate::chain_configs::ChainConfigs;
 use crate::global_params::GlobalParams;
 use crate::modules::structs::{BridgingRecord, DepositRecord, RedemptionRecord};
-use crate::{Atlas, StorageKey};
+use crate::Atlas;
 use crate::{AtlasExt, BtcAddressPubKeyRecord};
-use base64;
 use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::log;
 use near_sdk::{borsh::to_vec, env};
-use near_sdk::{near_bindgen, store::IterableMap, store::LookupMap, AccountId};
+use near_sdk::{near_bindgen, store::IterableMap, AccountId};
 
 const MIGRATION_BATCH_CURSOR: &[u8] = b"BATCH_CURSOR.v2";
 
@@ -23,6 +22,7 @@ pub(crate) fn state_cursor_write(cursor: usize) {
 }
 
 const STATE_V2: &[u8] = b"state.v2";
+const ATBTC_BALANCES: &[u8] = b"atbtc_balances.v3";
 
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct V2 {
@@ -44,43 +44,51 @@ pub struct V2 {
 
 #[near_bindgen]
 impl Atlas {
+    pub fn migrate_prepare_v2(&mut self) {
+        // This function is a placeholder for migration preparation logic.
+        // It can be used to set up the state or perform any necessary checks before migration.
+        log!("Migration preparation for v2 is not implemented yet.");
+    }
+
     pub fn migrate_prepare(&mut self) {
-        self.assert_owner();
+        // log!("MIGRATION::PREPARING ...");
+        // panic!("Migration is not supported yet");
 
-        if env::storage_has_key(STATE_V2) {
-            panic!("Migration already prepared");
-        }
+        // self.assert_owner();
 
-        log!("MIGRATION::PREPARING ...");
-        env::storage_read(b"STATE").map(|data| {
-            let encoded = base64::encode(&data);
-            log!("MIGRATION::READING OLD STATE ...");
-            log!("MIGRATION::OLD STATE ENCODED --> {}", encoded);
+        // if env::storage_has_key(STATE_V2) {
+        //     panic!("Migration already prepared");
+        // }
 
-            V2::try_from_slice(&data).unwrap_or_else(|err| {
-                env::panic_str(&format!(
-                    "Cannot deserialize the contract state -----------: {}",
-                    err
-                ))
-            })
-        });
+        // env::storage_read(b"STATE").map(|data| {
+        //     let encoded = base64::encode(&data);
+        //     log!("MIGRATION::READING OLD STATE ...");
+        //     log!("MIGRATION::OLD STATE ENCODED --> {}", encoded);
 
-        log!("MIGRATION::READING ...");
-        let old_state: V2 = env::state_read().expect("Failed to read old state");
-        log!("MIGRATION::DEPOSITS --> {}", old_state.deposits.len());
-        log!("MIGRATION::REDEMPTIONS --> {}", old_state.redemptions.len());
-        log!("MIGRATION::BRIDGINGS --> {}", old_state.bridgings.len());
-        log!("MIGRATION::VALIDATORS --> {}", old_state.validators.len());
-        log!(
-            "MIGRATION::VERIFICATIONS --> {}",
-            old_state.verifications.len()
-        );
+        //     V2::try_from_slice(&data).unwrap_or_else(|err| {
+        //         env::panic_str(&format!(
+        //             "Cannot deserialize the contract state -----------: {}",
+        //             err
+        //         ))
+        //     })
+        // });
 
-        let data = match borsh::to_vec(&old_state) {
-            Ok(serialized) => serialized,
-            Err(_) => env::panic_str("Oops, cannot serialize the contract state."),
-        };
-        env::storage_write(STATE_V2, &data);
+        // log!("MIGRATION::READING ...");
+        // let old_state: V2 = env::state_read().expect("Failed to read old state");
+        // log!("MIGRATION::DEPOSITS --> {}", old_state.deposits.len());
+        // log!("MIGRATION::REDEMPTIONS --> {}", old_state.redemptions.len());
+        // log!("MIGRATION::BRIDGINGS --> {}", old_state.bridgings.len());
+        // log!("MIGRATION::VALIDATORS --> {}", old_state.validators.len());
+        // log!(
+        //     "MIGRATION::VERIFICATIONS --> {}",
+        //     old_state.verifications.len()
+        // );
+
+        // let data = match borsh::to_vec(&old_state) {
+        //     Ok(serialized) => serialized,
+        //     Err(_) => env::panic_str("Oops, cannot serialize the contract state."),
+        // };
+        // env::storage_write(STATE_V2, &data);
     }
 
     #[private]
@@ -107,7 +115,7 @@ impl Atlas {
             paused: old_state.paused,
             production_mode: old_state.production_mode,
             btc_pubkey: old_state.btc_pubkey,
-            atbtc_balances: LookupMap::new(StorageKey::Balances("atbtc_balances".to_string())), // Initialize with an empty LookupMap
+            atbtc_balances: IterableMap::new(ATBTC_BALANCES),
         }
     }
 
