@@ -78,11 +78,12 @@ impl Atlas {
         // Clone fields before moving record
         let origin_chain_address = record.origin_chain_address.clone();
         let origin_chain_id = record.origin_chain_id.clone();
-        let abtc_amount = record.abtc_amount;
+        let amount = record.abtc_amount;
+        let neg_amount = 0u64.saturating_sub(amount);
 
         self.bridgings.insert(txn_hash, record);
 
-        self.update_balance(origin_chain_address, origin_chain_id, 0 - abtc_amount);
+        self.update_balance(origin_chain_address, origin_chain_id, neg_amount);
     }
 
     pub fn get_bridging_by_txn_hash(&self, txn_hash: String) -> Option<BridgingRecord> {
@@ -232,16 +233,16 @@ impl Atlas {
 
                 let dest_chain_address = bridging.dest_chain_address.clone();
                 let dest_chain_id = bridging.dest_chain_id.clone();
-                let abtc_amount = bridging.abtc_amount
-                    - bridging.protocol_fee
-                    - bridging.minting_fee_sat
-                    - bridging.bridging_gas_fee_sat
-                    - bridging.actual_gas_fee_sat
-                    - bridging.yield_provider_gas_fee;
+                let mut dest_amount = bridging.abtc_amount;
+                dest_amount = dest_amount.saturating_sub(bridging.protocol_fee);
+                dest_amount = dest_amount.saturating_sub(bridging.minting_fee_sat);
+                dest_amount = dest_amount.saturating_sub(bridging.bridging_gas_fee_sat);
+                dest_amount = dest_amount.saturating_sub(bridging.actual_gas_fee_sat);
+                dest_amount = dest_amount.saturating_sub(bridging.yield_provider_gas_fee);
 
                 self.bridgings.insert(txn_hash, bridging);
 
-                self.update_balance(dest_chain_address, dest_chain_id, abtc_amount);
+                self.update_balance(dest_chain_address, dest_chain_id, dest_amount);
             } else {
                 // Log message if conditions not met
                 log!(

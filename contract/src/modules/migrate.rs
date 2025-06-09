@@ -116,14 +116,6 @@ impl Atlas {
             amount = amount.saturating_sub(deposit.minting_fee);
             amount = amount.saturating_sub(deposit.protocol_fee);
             amount = amount.saturating_sub(deposit.yield_provider_gas_fee);
-            log!(
-                "{} - {} - {} - {} = {}",
-                deposit.btc_amount,
-                deposit.minting_fee,
-                deposit.protocol_fee,
-                deposit.yield_provider_gas_fee,
-                amount
-            );
 
             self.update_balance(
                 deposit.receiving_address.clone(),

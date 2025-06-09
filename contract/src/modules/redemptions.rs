@@ -75,14 +75,15 @@ impl Atlas {
 
         let abtc_redemption_address = record.abtc_redemption_address.clone();
         let abtc_redemption_chain_id = record.abtc_redemption_chain_id.clone();
-        let abtc_amount = record.abtc_amount;
+        let amount = abtc_amount;
+        let neg_amount = 0u64.saturating_sub(amount);
 
         self.redemptions.insert(txn_hash, record);
 
         self.update_balance(
             abtc_redemption_address,
             abtc_redemption_chain_id,
-            0 - abtc_amount,
+            neg_amount,
         );
     }
 

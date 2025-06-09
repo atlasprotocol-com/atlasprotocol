@@ -290,10 +290,10 @@ impl Atlas {
                     deposit.minted_txn_hash = minted_txn_hash.clone();
 
                     // Calculate the amount before moving deposit
-                    let amount = deposit.btc_amount
-                        - deposit.minting_fee
-                        - deposit.protocol_fee
-                        - deposit.yield_provider_gas_fee;
+                    let mut amount = deposit.btc_amount;
+                    amount = amount.saturating_sub(deposit.minting_fee);
+                    amount = amount.saturating_sub(deposit.protocol_fee);
+                    amount = amount.saturating_sub(deposit.yield_provider_gas_fee);
 
                     let receiving_address = deposit.receiving_address.clone();
                     let receiving_chain_id = deposit.receiving_chain_id.clone();
