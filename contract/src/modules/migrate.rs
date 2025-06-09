@@ -3,6 +3,7 @@ use crate::global_params::GlobalParams;
 use crate::modules::structs::{BridgingRecord, DepositRecord, RedemptionRecord};
 use crate::Atlas;
 use crate::{AtlasExt, BtcAddressPubKeyRecord};
+use borsh::de;
 use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::log;
 use near_sdk::{borsh::to_vec, env};
@@ -44,62 +45,19 @@ pub struct V2 {
 
 #[near_bindgen]
 impl Atlas {
-    pub fn migrate_prepare_v2(&mut self) {
-        // This function is a placeholder for migration preparation logic.
-        // It can be used to set up the state or perform any necessary checks before migration.
-        log!("Migration preparation for v2 is not implemented yet.");
-    }
-
-    pub fn migrate_prepare(&mut self) {
-        // log!("MIGRATION::PREPARING ...");
-        // panic!("Migration is not supported yet");
-
-        // self.assert_owner();
-
-        // if env::storage_has_key(STATE_V2) {
-        //     panic!("Migration already prepared");
-        // }
-
-        // env::storage_read(b"STATE").map(|data| {
-        //     let encoded = base64::encode(&data);
-        //     log!("MIGRATION::READING OLD STATE ...");
-        //     log!("MIGRATION::OLD STATE ENCODED --> {}", encoded);
-
-        //     V2::try_from_slice(&data).unwrap_or_else(|err| {
-        //         env::panic_str(&format!(
-        //             "Cannot deserialize the contract state -----------: {}",
-        //             err
-        //         ))
-        //     })
-        // });
-
-        // log!("MIGRATION::READING ...");
-        // let old_state: V2 = env::state_read().expect("Failed to read old state");
-        // log!("MIGRATION::DEPOSITS --> {}", old_state.deposits.len());
-        // log!("MIGRATION::REDEMPTIONS --> {}", old_state.redemptions.len());
-        // log!("MIGRATION::BRIDGINGS --> {}", old_state.bridgings.len());
-        // log!("MIGRATION::VALIDATORS --> {}", old_state.validators.len());
-        // log!(
-        //     "MIGRATION::VERIFICATIONS --> {}",
-        //     old_state.verifications.len()
-        // );
-
-        // let data = match borsh::to_vec(&old_state) {
-        //     Ok(serialized) => serialized,
-        //     Err(_) => env::panic_str("Oops, cannot serialize the contract state."),
-        // };
-        // env::storage_write(STATE_V2, &data);
-    }
-
     #[private]
     #[init(ignore_state)]
     pub fn migrate_init() -> Self {
-        if !env::storage_has_key(STATE_V2) {
-            panic!("call migrate_prepare first");
-        }
+        let old_state: V2 = env::state_read().expect("Failed to read old state");
+
+        let data = match borsh::to_vec(&old_state) {
+            Ok(serialized) => serialized,
+            Err(_) => env::panic_str("Oops, cannot serialize the contract state."),
+        };
+        env::storage_write(STATE_V2, &data);
+
         state_cursor_write(0);
 
-        let old_state: V2 = env::state_read().expect("Failed to read old state");
         Atlas {
             deposits: old_state.deposits,
             redemptions: old_state.redemptions,
@@ -154,13 +112,23 @@ impl Atlas {
         for (tx, deposit) in to_migrate_deposits.iter() {
             log!("OLD_DEPOSIT_TX --> {}", tx.clone());
 
+            let mut amount = deposit.btc_amount;
+            amount = amount.saturating_sub(deposit.minting_fee);
+            amount = amount.saturating_sub(deposit.protocol_fee);
+            amount = amount.saturating_sub(deposit.yield_provider_gas_fee);
+            log!(
+                "{} - {} - {} - {} = {}",
+                deposit.btc_amount,
+                deposit.minting_fee,
+                deposit.protocol_fee,
+                deposit.yield_provider_gas_fee,
+                amount
+            );
+
             self.update_balance(
                 deposit.receiving_address.clone(),
                 deposit.receiving_chain_id.clone(),
-                deposit.btc_amount
-                    - deposit.minting_fee
-                    - deposit.protocol_fee
-                    - deposit.yield_provider_gas_fee,
+                amount,
             );
         }
 
@@ -209,10 +177,14 @@ impl Atlas {
         for (tx, redemption) in to_migrate_redemptions.iter() {
             log!("OLD_REDEMPTION_TX --> {}", tx.clone());
 
+            // Use checked_sub to avoid overflow, and negate if possible, else use 0
+            let amount = redemption.abtc_amount;
+            let neg_amount = 0u64.saturating_sub(amount);
+
             self.update_balance(
                 redemption.abtc_redemption_address.clone(),
                 redemption.abtc_redemption_chain_id.clone(),
-                0 - redemption.abtc_amount,
+                neg_amount,
             );
         }
 
@@ -258,21 +230,25 @@ impl Atlas {
         for (tx, bridging) in to_migrate_bridgings.iter() {
             log!("OLD_BRIDGING_TX --> {}", tx.clone());
 
+            let neg_amount = 0u64.saturating_sub(bridging.abtc_amount);
+
             self.update_balance(
                 bridging.origin_chain_address.clone(),
                 bridging.origin_chain_id.clone(),
-                0 - bridging.abtc_amount,
+                neg_amount,
             );
+
+            let mut dest_amount = bridging.abtc_amount;
+            dest_amount = dest_amount.saturating_sub(bridging.protocol_fee);
+            dest_amount = dest_amount.saturating_sub(bridging.minting_fee_sat);
+            dest_amount = dest_amount.saturating_sub(bridging.bridging_gas_fee_sat);
+            dest_amount = dest_amount.saturating_sub(bridging.actual_gas_fee_sat);
+            dest_amount = dest_amount.saturating_sub(bridging.yield_provider_gas_fee);
 
             self.update_balance(
                 bridging.dest_chain_address.clone(),
                 bridging.dest_chain_id.clone(),
-                bridging.abtc_amount
-                    - bridging.protocol_fee
-                    - bridging.minting_fee_sat
-                    - bridging.bridging_gas_fee_sat
-                    - bridging.actual_gas_fee_sat
-                    - bridging.yield_provider_gas_fee,
+                dest_amount,
             );
         }
 
