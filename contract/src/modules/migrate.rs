@@ -3,6 +3,7 @@ use crate::global_params::GlobalParams;
 use crate::modules::structs::{BridgingRecord, DepositRecord, RedemptionRecord};
 use crate::{Atlas, StorageKey};
 use crate::{AtlasExt, BtcAddressPubKeyRecord};
+use base64;
 use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::log;
 use near_sdk::{borsh::to_vec, env};
@@ -49,6 +50,20 @@ impl Atlas {
         if env::storage_has_key(STATE_V2) {
             panic!("Migration already prepared");
         }
+
+        log!("MIGRATION::PREPARING ...");
+        env::storage_read(b"STATE").map(|data| {
+            let encoded = base64::encode(&data);
+            log!("MIGRATION::READING OLD STATE ...");
+            log!("MIGRATION::OLD STATE ENCODED --> {}", encoded);
+
+            V2::try_from_slice(&data).unwrap_or_else(|err| {
+                env::panic_str(&format!(
+                    "Cannot deserialize the contract state -----------: {}",
+                    err
+                ))
+            })
+        });
 
         log!("MIGRATION::READING ...");
         let old_state: V2 = env::state_read().expect("Failed to read old state");
