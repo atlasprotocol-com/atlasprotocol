@@ -3,23 +3,20 @@ use crate::global_params::GlobalParams;
 use crate::modules::structs::{BridgingRecord, DepositRecord, RedemptionRecord};
 use crate::Atlas;
 use crate::{AtlasExt, BtcAddressPubKeyRecord};
-use borsh::de;
 use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::log;
 use near_sdk::{borsh::to_vec, env};
 use near_sdk::{near_bindgen, store::IterableMap, AccountId};
 
-const MIGRATION_BATCH_CURSOR: &[u8] = b"BATCH_CURSOR.v2";
-
-fn state_cursor_read() -> usize {
-    env::storage_read(MIGRATION_BATCH_CURSOR)
+fn state_cursor_read(key: String) -> usize {
+    env::storage_read(key.as_bytes())
         .map(|data| usize::try_from_slice(&data).expect("Cannot deserialize the contract state."))
         .unwrap_or(0)
 }
 
-pub(crate) fn state_cursor_write(cursor: usize) {
+pub(crate) fn state_cursor_write(key: String, cursor: usize) {
     let data = to_vec(&cursor).expect("Cannot serialize the contract state.");
-    env::storage_write(MIGRATION_BATCH_CURSOR, &data);
+    env::storage_write(key.as_bytes(), &data);
 }
 
 const STATE_V2: &[u8] = b"state.v2";
@@ -56,7 +53,9 @@ impl Atlas {
         };
         env::storage_write(STATE_V2, &data);
 
-        state_cursor_write(0);
+        state_cursor_write("migrate.deposits".to_string(), 0);
+        state_cursor_write("migrate.redemptions".to_string(), 0);
+        state_cursor_write("migrate.bridgings".to_string(), 0);
 
         Atlas {
             deposits: old_state.deposits,
@@ -90,13 +89,13 @@ impl Atlas {
                     .unwrap_or_else(|_| env::panic_str("Cannot deserialize the contract state."))
             })
             .expect("Failed to read v2 state");
-        let cursor = state_cursor_read();
+        let cursor = state_cursor_read("migrate.deposits".to_string());
 
         log!("CURSOR --> {}", cursor);
         log!("MIGRATING_DEPOSITS_COUNT --> {}", old_state.deposits.len());
 
         if cursor >= old_state.deposits.len().try_into().unwrap() {
-            state_cursor_write(0);
+            state_cursor_write("migrate.deposits".to_string(), 0);
             log!("DONE");
             return;
         }
@@ -125,7 +124,7 @@ impl Atlas {
         }
 
         let new_cursor = cursor + to_migrate_deposits.len();
-        state_cursor_write(new_cursor);
+        state_cursor_write("migrate.deposits".to_string(), new_cursor);
     }
 
     pub fn migrate_redemption(&mut self, size: Option<u64>) {
@@ -141,7 +140,7 @@ impl Atlas {
                     .unwrap_or_else(|_| env::panic_str("Cannot deserialize the contract state."))
             })
             .expect("Failed to read v2 state");
-        let cursor = state_cursor_read();
+        let cursor = state_cursor_read("migrate.redemptions".to_string());
 
         log!("CURSOR --> {}", cursor);
         log!(
@@ -150,7 +149,7 @@ impl Atlas {
         );
 
         if cursor >= old_state.redemptions.len().try_into().unwrap() {
-            state_cursor_write(0);
+            state_cursor_write("migrate.redemptions".to_string(), 0);
             log!("DONE");
             return;
         }
@@ -181,7 +180,7 @@ impl Atlas {
         }
 
         let new_cursor = cursor + to_migrate_redemptions.len();
-        state_cursor_write(new_cursor);
+        state_cursor_write("migrate.redemptions".to_string(), new_cursor);
     }
 
     pub fn migrate_bridge(&mut self, size: Option<u64>) {
@@ -197,13 +196,13 @@ impl Atlas {
                     .unwrap_or_else(|_| env::panic_str("Cannot deserialize the contract state."))
             })
             .expect("Failed to read v2 state");
-        let cursor = state_cursor_read();
+        let cursor = state_cursor_read("migrate.bridgings".to_string());
 
         log!("CURSOR --> {}", cursor);
         log!("MIGRATING_BRIDGES_COUNT --> {}", old_state.bridgings.len());
 
         if cursor >= old_state.bridgings.len().try_into().unwrap() {
-            state_cursor_write(0);
+            state_cursor_write("migrate.bridgings".to_string(), 0);
             log!("DONE");
             return;
         }
@@ -245,7 +244,7 @@ impl Atlas {
         }
 
         let new_cursor = cursor + to_migrate_bridgings.len();
-        state_cursor_write(new_cursor);
+        state_cursor_write("migrate.bridgings".to_string(), new_cursor);
     }
 
     pub fn migrate_cleanup(&mut self) {
