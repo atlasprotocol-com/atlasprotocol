@@ -521,6 +521,7 @@ class Bitcoin {
   // Function which returns the txn's sender address
   async getBtcSenderAddress(txn) {
     const output = txn.vin[0].prevout.scriptpubkey_address;
+    console.log("output: ", output);
     return output;
   }
 
@@ -536,6 +537,8 @@ class Bitcoin {
     
     const outputValue = output ? output.value : 0;
     const treasuryValue = treasuryOutput ? treasuryOutput.value : 0;
+
+    console.log("outputValue: ", outputValue);
 
     return {
       btcAmount: outputValue,
@@ -556,12 +559,21 @@ class Bitcoin {
       for (const vout of txn.vout) {
         const scriptPubKey = Buffer.from(vout.scriptpubkey, "hex");
         const chunks = bitcoin.script.decompile(scriptPubKey);
+       
         if (chunks[0] === bitcoin.opcodes.OP_RETURN) {
           const embeddedData = chunks[1];
-
+          console.log("embeddedData: ", embeddedData);
+          
+          // Skip processing if embeddedData contains "bithive"
+          if (embeddedData.toString().toLowerCase().includes("bithive")) {
+            console.log("Skipping transaction with bithive in embedded data");
+            throw new Error("Transaction contains bithive data - skipping");
+          }
+          
           try {
             // First try the new compressed format
             const decoded = await this.decodeOpReturnData(embeddedData);
+            console.log("decoded: ", decoded);
             return {
               chain: decoded.n,
               address: decoded.a,
@@ -571,6 +583,7 @@ class Bitcoin {
               remarks,
             };
           } catch (decodeError) {
+            console.log("decodeError: ", decodeError);
             // If decoding fails, try the old comma-separated format
             const dataStr = embeddedData.toString("utf-8");
             [chain, address, yieldProviderGasFee, protocolFee, mintingFee] = dataStr.split(",");
@@ -988,8 +1001,10 @@ class Bitcoin {
 
   // Decoding functions
   async decodeOpReturnData(buffer) {
+    console.log("buffer: ", buffer);
     const decompressed = zlib.inflateSync(buffer); // Decompress first
     const messageRaw = borshDeserialize(schema, decompressed);
+    console.log("messageRaw: ", messageRaw);
     return new OpReturnData({
         n: messageRaw.n,
         a: messageRaw.a,

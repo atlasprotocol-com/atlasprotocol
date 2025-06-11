@@ -1443,22 +1443,34 @@ class Near {
                               case "ft_mint":
                                 processedEvent = {
                                   type: "mint_deposit",
-                                  btcTxnHash: memo.btc_txn_hash,
-                                  receiptId: receipt.id,
+                                  returnValues: {
+                                    amount: event.data[0].amount,
+                                    address: memo.address,
+                                    btcTxnHash: memo.btc_txn_hash,
+                                  },
                                   transactionHash,
+                                  receiptId: receipt.id,
+                                  blockNumber: blockHeight,
+                                  timestamp,
+                                  status: true,
                                 };
                                 break;
 
                               case "ft_mint_bridge":
                                 processedEvent = {
                                   type: "mint_bridge",
-                                  address: memo.address,
-                                  originChainId: memo.originChainId,
-                                  originChainAddress: memo.originChainAddress,
-                                  originTxnHash: memo.originTxnHash,
+                                  returnValues: {
+                                    amount: event.data[0].amount,
+                                    wallet: memo.address,
+                                    originChainId: memo.originChainId,
+                                    originChainAddress: memo.originChainAddress,
+                                    originTxnHash: memo.originTxnHash,
+                                  },
                                   transactionHash,
                                   receiptId: receipt.id,
+                                  blockNumber: blockHeight,
                                   timestamp,
+                                  status: true,
                                 };
                                 break;
 
@@ -1758,10 +1770,12 @@ class Near {
           const bridgeMemo = JSON.parse(eventJson.data[0].memo);
           processedEvent = {
             type: "mint_bridge",
-            address: bridgeMemo.address,
-            originChainId: bridgeMemo.originChainId,
-            originChainAddress: bridgeMemo.originChainAddress,
-            originTxnHash: bridgeMemo.originTxnHash,
+            returnValues: {
+              address: bridgeMemo.address,
+              originChainId: bridgeMemo.originChainId,
+              originChainAddress: bridgeMemo.originChainAddress,
+              originTxnHash: bridgeMemo.originTxnHash,
+            },
             transactionHash: txnHash,
             receiptId: foundReceipt.id,  // Use foundReceipt instead of receipt
             timestamp
@@ -1776,7 +1790,7 @@ class Near {
             type: "burn_redemption",
             returnValues: {
               amount: eventJson.data[0].amount,
-              wallet: redeemMemo.address,
+              address: redeemMemo.address,
               btcAddress: redeemMemo.btcAddress
             },
             transactionHash: txnHash,
@@ -1793,7 +1807,7 @@ class Near {
             type: "burn_bridging",
             returnValues: {
               amount: eventJson.data[0].amount,
-              wallet: burnBridgeMemo.address,
+              address: burnBridgeMemo.address,
               destChainId: burnBridgeMemo.destChainId,
               destChainAddress: burnBridgeMemo.destChainAddress,
               mintingFeeSat: burnBridgeMemo.mintingFeeSat,

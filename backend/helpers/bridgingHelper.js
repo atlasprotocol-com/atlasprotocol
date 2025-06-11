@@ -182,6 +182,14 @@ const updateOffchainBridgingMintedTxnHash = async (allBridgings, txnHash, minted
   }
 };
 
+const getBridgingFeesForUnstake = (allBridgings) => { 
+  const { BRIDGING_STATUS } = getConstants();
+  return allBridgings.filter((bridging) => {
+    return bridging.status === BRIDGING_STATUS.ABTC_PENDING_BRIDGE_FROM_ORIGIN_TO_DEST;
+  });
+};
+
+
 module.exports = {
   getAllBridgingHistory,
   getBridgingRecordsToBridge,
@@ -190,4 +198,5 @@ module.exports = {
   updateOffchainBridgingStatus,
   updateOffchainBridgingRemarks,
   updateOffchainBridgingMintedTxnHash,
+  getBridgingFeesForUnstake,
 };

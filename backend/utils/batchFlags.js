@@ -32,6 +32,8 @@ const flagsBatch = {
   RetrieveAndProcessPastEventsRunning: false,
   MintingEventsRunning: false,
   WithdrawBtcFromYieldProviderRunning: false,
+  UnstakeBtcFromYieldProviderRunning: false,
+  NearChainScannerRunning: false,
 };
 
 function blockRange(block, start = 1000, end = 2000) {

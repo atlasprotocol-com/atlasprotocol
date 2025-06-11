@@ -55,6 +55,8 @@ const {
   getBithiveDeposits,
 } = require("./utils/stakeToYieldProvider");
 
+const { withdrawBtcFromYieldProvider } = require("./utils/withdrawBtcFromYieldProvider");
+
 const {
   UpdateAtlasBtcWithdrawnFromYieldProvider,
 } = require("./utils/updateAtlasBtcWithdrawnFromYieldProvider");
@@ -77,21 +79,14 @@ const { UpdateAtlasBtcDeposited } = require("./utils/updateAtlasBtcDeposited");
 const {
   RetrieveAndProcessPastEvmEvents,
 } = require("./utils/retrieveAndProcessPastEvmEvents");
-const {
-  UpdateAtlasBtcWithdrawingFromYieldProvider,
-} = require("./utils/updateAtlasBtcWithdrawingFromYieldProvider");
 
-const {
-  UpdateAtlasRedemptionPendingBtcMempool,
-} = require("./utils/updateAtlasRedemptionPendingBtcMempool");
-
-// const {
-//   withdrawBtcFromYieldProvider,
-// } = require("./utils/withdrawBtcFromYieldProvider");
+const { unstakeBtcFromYieldProvider } = require("./utils/unstakeBtcFromYieldProvider");
 
 const {
   UpdateBridgingAtbtcMinted,
 } = require("./utils/updateBridgingAtbtcMinted");
+
+const { nearChainScanner } = require("./utils/nearChainScanner");
 
 const useDepositAPIs = require("./apis/deposit");
 
@@ -734,7 +729,7 @@ app.get("/api/v1/process-new-bridging", async (req, res) => {
       await processBurnBridgeEvent(
         {
           returnValues: {
-            wallet: event.returnValues.wallet,
+            address: event.returnValues.wallet,
             destChainId: event.returnValues.destChainId,
             destChainAddress: event.returnValues.destChainAddress,
             amount: event.returnValues.amount,
@@ -960,6 +955,24 @@ app.listen(PORT, async () => {
   );
 
   setInterval(async () => {
+    if (!flagsBatch.NearChainScannerRunning) {
+      flagsBatch.NearChainScannerRunning = true;
+      try {
+        await nearChainScanner(
+          near,
+          deposits,
+          redemptions,
+          bridgings,
+        );
+      } catch (error) {
+        console.error("Error processing near chain scanner:", error);
+      } finally {
+        flagsBatch.NearChainScannerRunning = false;
+      }
+    }
+  }, 5000);
+
+  setInterval(async () => {
     if (!flagsBatch.RetrieveAndProcessPastEventsRunning) {
       flagsBatch.RetrieveAndProcessPastEventsRunning = true;
       try {
@@ -983,7 +996,7 @@ app.listen(PORT, async () => {
     }
   }, 5000);
 
-  // Function to poll Near Atlas deposit records
+  //Function to poll Near Atlas deposit records
   setInterval(async () => {
     const result = await getAllDepositHistory(near);
     if (result) {
@@ -1055,20 +1068,9 @@ app.listen(PORT, async () => {
     await UpdateAtlasAbtcMinted(deposits, near);
   }, 10000);
 
-  // Add the unstaking and withdrawal process to the job scheduler
   setInterval(async () => {
-    try {
-      await processUnstakingAndWithdrawal(
-        near,
-        bitcoin,
-        redemptions,
-        bridgings,
-        globalParams.atlasTreasuryAddress,
-      );
-    } catch (error) {
-      console.error("Error in unstaking and withdrawal process:", error);
-    }
-  }, 60000); // Run every 1 minute
+    await unstakeBtcFromYieldProvider(near, bitcoin, redemptions, bridgings);
+  }, 10000);
 
   setInterval(async () => {
     try {
@@ -1085,14 +1087,6 @@ app.listen(PORT, async () => {
   }, 10000); // Run every 10 seconds
 
   setInterval(async () => {
-    await UpdateAtlasBtcWithdrawingFromYieldProvider(
-      redemptions,
-      bridgings,
-      near,
-    );
-  }, 10000);
-
-  setInterval(async () => {
     await UpdateAtlasBtcWithdrawnFromYieldProvider(
       redemptions,
       near,
@@ -1102,10 +1096,6 @@ app.listen(PORT, async () => {
 
   setInterval(async () => {
     await SendBtcBackToUser(near, redemptions, bitcoin);
-  }, 10000);
-
-  setInterval(async () => {
-    await UpdateAtlasRedemptionPendingBtcMempool(near, redemptions);
   }, 10000);
 
   setInterval(async () => {

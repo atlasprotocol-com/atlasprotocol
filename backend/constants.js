@@ -30,7 +30,7 @@ async function fetchAndSetConstants(near) {
           fetchedConstants.deposit_status.DEP_BTC_PENDING_MEMPOOL,
         BTC_DEPOSITED_INTO_ATLAS:
           fetchedConstants.deposit_status.DEP_BTC_DEPOSITED_INTO_ATLAS,
-          BTC_PENDING_YIELD_PROVIDER_DEPOSIT:
+        BTC_PENDING_YIELD_PROVIDER_DEPOSIT:
           fetchedConstants.deposit_status.DEP_BTC_PENDING_YIELD_PROVIDER_DEPOSIT,
         BTC_YIELD_PROVIDER_DEPOSITED:
           fetchedConstants.deposit_status.DEP_BTC_YIELD_PROVIDER_DEPOSITED,
@@ -49,7 +49,7 @@ async function fetchAndSetConstants(near) {
         BTC_PENDING_REDEMPTION_FROM_ATLAS_TO_USER:
           fetchedConstants.redemption_status
             .RED_BTC_PENDING_REDEMPTION_FROM_ATLAS_TO_USER,
-            BTC_PENDING_YIELD_PROVIDER_UNSTAKE:
+          BTC_PENDING_YIELD_PROVIDER_UNSTAKE:
             fetchedConstants.redemption_status
               .RED_BTC_PENDING_YIELD_PROVIDER_UNSTAKE,
           BTC_YIELD_PROVIDER_UNSTAKE_PROCESSING:

@@ -1,6 +1,6 @@
 const { getConstants } = require("../constants");
+const { getRedemptionsToBeProcessedToRedeemed, updateOffchainRedemptionStatus } = require("../helpers/redemptionHelper");
 
-const { getChainConfig } = require("./network.chain.config");
 const { flagsBatch } = require("./batchFlags");
 
 async function UpdateAtlasBtcBackToUser(allRedemptions, near, bitcoinInstance) {
@@ -17,25 +17,8 @@ async function UpdateAtlasBtcBackToUser(allRedemptions, near, bitcoinInstance) {
     console.log(`${batchName}. Start run ...`);
     flagsBatch.UpdateAtlasBtcBackToUserRunning = true;
 
-    // Filter redemptions where status = BTC_PENDING_MEMPOOL_CONFIRMATION or BTC_PENDING_REDEMPTION_FROM_ATLAS_TO_USER
-    const filteredTxns = allRedemptions.filter((redemption) => {
-      try {
-        const chainConfig = getChainConfig(redemption.abtc_redemption_chain_id);
-  
-        return redemption.abtc_redemption_address !== "" &&
-          redemption.abtc_redemption_chain_id !== "" &&
-          redemption.btc_receiving_address !== "" &&
-          redemption.status === REDEMPTION_STATUS.BTC_PENDING_MEMPOOL_CONFIRMATION &&
-          redemption.remarks === "" &&
-          redemption.yield_provider_txn_hash !== "" &&
-          redemption.yield_provider_gas_fee !== 0 &&
-          redemption.btc_txn_hash_verified_count >= chainConfig.validators_threshold;
-      } catch (error) {
-        const remarks = `Chain config not found for chain ID: ${redemption.abtc_redemption_chain_id}`;
-        console.log(remarks);
-        return false;
-      }
-    });
+    // Filter redemptions using the helper function
+    const filteredTxns = getRedemptionsToBeProcessedToRedeemed(allRedemptions);
 
     for (const txn of filteredTxns) {
       try {
@@ -49,6 +32,7 @@ async function UpdateAtlasBtcBackToUser(allRedemptions, near, bitcoinInstance) {
 
         if (ok) {
             await near.updateRedemptionRedeemed(txn.txn_hash);
+            updateOffchainRedemptionStatus(allRedemptions, txn.txn_hash, REDEMPTION_STATUS.BTC_REDEEMED_BACK_TO_USER);
             console.log(
               `Processed record: Updated Redemption for txn hash ${txn.txn_hash} and BTC txn hash ${txn.btc_txn_hash}`,
             );

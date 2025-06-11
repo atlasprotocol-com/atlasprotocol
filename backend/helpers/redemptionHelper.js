@@ -1,4 +1,27 @@
 const { flagsBatch } = require("../utils/batchFlags");
+const { getChainConfig } = require("../utils/network.chain.config");
+const { getConstants } = require("../constants");
+
+/**
+ * Validates common redemption record fields
+ * @param {Object} redemption - Redemption record to validate
+ * @returns {Object} Object containing validation result and chain config if valid
+ */
+const validateCommonRedemptionFields = (redemption) => {
+  try {
+    const chainConfig = getChainConfig(redemption.abtc_redemption_chain_id);
+
+    const isValid =
+      redemption.remarks === "" &&
+      redemption.verified_count >= chainConfig.validators_threshold;
+
+    return { isValid, chainConfig };
+  } catch (error) {
+    const remarks = `[validateCommonRedemptionFields] Chain config not found for chain ID: ${redemption.abtc_redemption_chain_id}`;
+    console.log(remarks);
+    return { isValid: false, chainConfig: null };
+  }
+};
 
 /**
  * Fetches all redemption history from NEAR with pagination and concurrent request limiting
@@ -98,8 +121,114 @@ const updateOffchainRedemptionRemarks = (allRedemptions, txnHash, newRemarks) =>
   }
 };
 
+const getPendingRedemptionsForWithdrawal = (allRedemptions) => {
+  const { REDEMPTION_STATUS } = getConstants();
+  
+  return allRedemptions.filter(redemption => {
+    const { isValid } = validateCommonRedemptionFields(redemption);
+
+    return isValid && 
+      redemption.status === REDEMPTION_STATUS.BTC_YIELD_PROVIDER_UNSTAKE_PROCESSING && 
+      redemption.yield_provider_txn_hash === "";
+  });
+};
+
+const getWithdrawingFromYieldProvider = (allRedemptions) => {
+  const { REDEMPTION_STATUS } = getConstants();
+
+  return allRedemptions.filter(redemption => {
+    const { isValid } = validateCommonRedemptionFields(redemption);
+
+    return isValid && 
+      redemption.status === REDEMPTION_STATUS.BTC_YIELD_PROVIDER_WITHDRAWING && 
+      redemption.yield_provider_txn_hash !== "" && 
+      redemption.yield_provider_gas_fee !== 0;  
+  });
+};
+
+/**
+ * Get redemptions that are pending unstaking from yield provider
+ * @param {Array} redemptions - Array of redemption records
+ * @returns {Array} Array of redemptions eligible for unstaking
+ */
+async function getPendingRedemptionsForUnstake(redemptions) {
+  const { REDEMPTION_STATUS } = getConstants();
+
+  try {
+    // Filter redemptions that are in ABTC_BURNT status and have no remarks
+    const pendingRedemptions = redemptions.filter(redemption => {
+      try {
+        // Use the common validation helper
+        const { isValid } = validateCommonRedemptionFields(redemption);
+        
+        // Additional criteria specific to unstaking:
+        // 1. Status is ABTC_BURNT
+        // 2. Amount is greater than minimum threshold
+        return (
+          isValid &&
+          redemption.status === REDEMPTION_STATUS.ABTC_BURNT &&
+          redemption.yield_provider_txn_hash === ""
+        );
+      } catch (error) {
+        console.error(`[getPendingRedemptionsForUnstake] Error processing redemption ${redemption.txn_hash}:`, error);
+        return false;
+      }
+    });
+
+    return pendingRedemptions;
+  } catch (error) {
+    console.error("[getPendingRedemptionsForUnstake] Error:", error);
+    return [];
+  }
+}
+
+const getWithdrawRedemptions = (allRedemptions) => {
+  const { REDEMPTION_STATUS } = getConstants();
+
+  return allRedemptions.filter(redemption => {
+    const { isValid } = validateCommonRedemptionFields(redemption);
+
+    return isValid && 
+      redemption.status === REDEMPTION_STATUS.BTC_YIELD_PROVIDER_WITHDRAWN && 
+      redemption.yield_provider_txn_hash !== "" && 
+      redemption.yield_provider_gas_fee > 0;  
+  });
+};
+
+/**
+ * Filters redemptions that are ready for processing
+ * @param {Array} allRedemptions - Array of redemption records
+ * @returns {Array} Filtered redemptions ready for processing
+ */
+const getRedemptionsToBeProcessedToRedeemed = (allRedemptions) => {
+  const { REDEMPTION_STATUS } = getConstants();
+  
+  const filteredTxns = allRedemptions.filter((redemption) => {
+    try {
+      const { isValid, chainConfig } = validateCommonRedemptionFields(redemption);
+
+      return isValid &&
+        redemption.status === REDEMPTION_STATUS.BTC_PENDING_MEMPOOL_CONFIRMATION &&
+        redemption.yield_provider_txn_hash !== "" &&
+        redemption.yield_provider_gas_fee !== 0 &&
+        redemption.btc_txn_hash_verified_count >= chainConfig.validators_threshold;
+    } catch (error) {
+      const remarks = `Chain config not found for chain ID: ${redemption.abtc_redemption_chain_id}`;
+      console.log(remarks);
+      return false;
+    }
+  });
+  
+  return filteredTxns;
+};
+
 module.exports = {
   getAllRedemptionHistory,
   updateOffchainRedemptionStatus,
   updateOffchainRedemptionRemarks,
-}; 
+  getPendingRedemptionsForWithdrawal,
+  getPendingRedemptionsForUnstake,
+  getWithdrawingFromYieldProvider,
+  getWithdrawRedemptions,
+  getRedemptionsToBeProcessedToRedeemed
+};  

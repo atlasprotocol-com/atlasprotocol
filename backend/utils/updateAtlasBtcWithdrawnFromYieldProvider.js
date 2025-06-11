@@ -1,5 +1,5 @@
 const { getConstants } = require("../constants");
-const WithdrawalFromYieldProviderHelper = require("../helpers/withdrawalFromYieldProviderHelper");
+const redemptionHelper = require("../helpers/redemptionHelper");
 
 const { flagsBatch } = require("./batchFlags");
 
@@ -26,73 +26,52 @@ async function UpdateAtlasBtcWithdrawnFromYieldProvider(
     console.log(`${batchName}. Start run ...`);
     flagsBatch.UpdateAtlasBtcWithdrawnFromYieldProviderRunning = true;
 
-    let lastWithdrawalData = await WithdrawalFromYieldProviderHelper.getLastWithdrawalData();
-
-    if (lastWithdrawalData.readySendToUser) {
-      console.log("[UpdateAtlasBtcWithdrawnFromYieldProvider] Already ready to send to user for yield provider txn hash:", lastWithdrawalData.lastWithdrawalTxHash);
-      return;
-    }
-
-    if (!lastWithdrawalData.lastWithdrawalTxHash) {
-      console.log("[UpdateAtlasBtcWithdrawnFromYieldProvider] No last withdrawal tx hash found");
-      return;
-    }
-    
-    const withdrawal = bithiveRecords.find(
-      record => record.withdrawTxHash === lastWithdrawalData.lastWithdrawalTxHash
-    );
-
-    if (!withdrawal) {
-      console.log("[UpdateAtlasBtcWithdrawnFromYieldProvider] No bithive record found for yield provider txn hash", lastWithdrawalData.lastWithdrawalTxHash);
-      return;
-    }
-
-    if (![
-      BITHIVE_STATUS.WITHDRAW_CONFIRMED,
-      BITHIVE_STATUS.DEPOSIT_CONFIRMED,
-      BITHIVE_STATUS.DEPOSIT_CONFIRMED_INVALID
-    ].includes(withdrawal.status)) {
-      console.log("[UpdateAtlasBtcWithdrawnFromYieldProvider] Withdrawal status not confirmed yet:", withdrawal.status);
-      return;
-    }
-
-    if (allRedemptions.filter(redemption => 
-      redemption.status === REDEMPTION_STATUS.BTC_YIELD_PROVIDER_WITHDRAWN &&
-      redemption.remarks === "" &&
-      redemption.yield_provider_txn_hash === lastWithdrawalData.lastWithdrawalTxHash
-    ).length === lastWithdrawalData.totalRecords) {
-      console.log("[UpdateAtlasBtcWithdrawnFromYieldProvider] All redemptions have been withdrawn from yield provider");
-      // Update readySendToUser to true since all redemptions are withdrawn
-      await WithdrawalFromYieldProviderHelper.updateLastWithdrawalData({
-        readySendToUser: true
-      });
-      console.log("[UpdateAtlasBtcWithdrawnFromYieldProvider] Updated readySendToUser to true");
-      return;
-    }
-
     // Filter valid redemptions that are in withdrawing state
     // Must have valid addresses, non-empty yield provider txn hash, and gas fee
-    const filteredTxns = allRedemptions.filter(
-      (redemption) =>
-        redemption.abtc_redemption_address !== "" &&
-        redemption.abtc_redemption_chain_id !== "" &&
-        redemption.btc_receiving_address !== "" &&
-        redemption.status ===
-          REDEMPTION_STATUS.BTC_YIELD_PROVIDER_WITHDRAWING &&
-        redemption.remarks === "" &&
-        redemption.yield_provider_txn_hash === lastWithdrawalData.lastWithdrawalTxHash &&
-        redemption.yield_provider_gas_fee !== 0,
-    );
+    // const filteredTxns = allRedemptions.filter(
+    //   (redemption) =>
+    //     redemption.abtc_redemption_address !== "" &&
+    //     redemption.abtc_redemption_chain_id !== "" &&
+    //     redemption.btc_receiving_address !== "" &&
+    //     redemption.status ===
+    //       REDEMPTION_STATUS.BTC_YIELD_PROVIDER_WITHDRAWING &&
+    //     redemption.remarks === "" &&
+    //     redemption.yield_provider_txn_hash === lastWithdrawalData.lastWithdrawalTxHash &&
+    //     redemption.yield_provider_gas_fee !== 0,
+    // );
 
+    const filteredTxns = redemptionHelper.getWithdrawingFromYieldProvider(allRedemptions);
+    console.log(`[UpdateAtlasBtcWithdrawnFromYieldProvider] Found ${filteredTxns.length} redemptions to update`);
     for (const redemption of filteredTxns) {
+      const withdrawal = bithiveRecords.find(
+        record => record.withdrawTxHash === redemption.yield_provider_txn_hash
+      );
+  
+      if (!withdrawal) {
+        console.log("[UpdateAtlasBtcWithdrawnFromYieldProvider] No bithive record found for yield provider txn hash", redemption.yield_provider_txn_hash);
+        return;
+      }
+  
+      if (![
+        BITHIVE_STATUS.WITHDRAW_CONFIRMED,
+        BITHIVE_STATUS.DEPOSIT_CONFIRMED,
+        BITHIVE_STATUS.DEPOSIT_CONFIRMED_INVALID
+      ].includes(withdrawal.status)) {
+        console.log("[UpdateAtlasBtcWithdrawnFromYieldProvider] Withdrawal status not confirmed yet:", withdrawal.status);
+        return;
+      }
+
       await near.updateRedemptionWithdrawnFromYieldProvider(
         redemption.txn_hash,
       );
+
+      redemptionHelper.updateOffchainRedemptionStatus(allRedemptions, redemption.txn_hash, REDEMPTION_STATUS.BTC_YIELD_PROVIDER_WITHDRAWN);
+
       // Update status in allRedemptions array
-      const redemptionToUpdate = allRedemptions.find(r => r.txn_hash === redemption.txn_hash);
-      if (redemptionToUpdate) {
-        redemptionToUpdate.status = REDEMPTION_STATUS.BTC_YIELD_PROVIDER_WITHDRAWN;
-      }
+      // const redemptionToUpdate = allRedemptions.find(r => r.txn_hash === redemption.txn_hash);
+      // if (redemptionToUpdate) {
+      //   redemptionToUpdate.status = REDEMPTION_STATUS.BTC_YIELD_PROVIDER_WITHDRAWN;
+      // }
     }
 
     console.log(`${batchName} completed successfully.`);

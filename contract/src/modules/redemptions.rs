@@ -605,7 +605,7 @@ impl Atlas {
                 if !redemption.abtc_redemption_address.is_empty()
                     && !redemption.abtc_redemption_chain_id.is_empty()
                     && !redemption.btc_receiving_address.is_empty()
-                //&& !redemption.remarks.is_empty()
+                    && !redemption.remarks.is_empty()
                 {
                     match redemption.status {
                         RED_BTC_PENDING_YIELD_PROVIDER_UNSTAKE => {

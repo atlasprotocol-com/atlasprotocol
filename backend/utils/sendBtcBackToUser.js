@@ -1,8 +1,9 @@
 const btc = require("bitcoinjs-lib");
 
-const { getConstants } = require("../constants");
 const { getChainConfig } = require("../utils/network.chain.config");
-const WithdrawalFromYieldProviderHelper = require("../helpers/withdrawalFromYieldProviderHelper");
+const { getWithdrawRedemptions } = require("../helpers/redemptionHelper");
+const { getConstants } = require("../constants");
+const redemptionHelper = require("../helpers/redemptionHelper");
 
 const { flagsBatch } = require("./batchFlags");
 
@@ -19,84 +20,21 @@ async function SendBtcBackToUser(near, redemptions, bitcoinInstance) {
     console.log(`${batchName}. Start run...`);
     flagsBatch.SendBtcBackToUserRunning = true;
 
-    const { REDEMPTION_STATUS } = getConstants();
-    
-    // Check if ready to send BTC back to users
-    const { readySendToUser, sendToUserBtcTxnHash, lastWithdrawalTxHash, totalRecords } = await WithdrawalFromYieldProviderHelper.getLastWithdrawalData();
-    const recordCount = await WithdrawalFromYieldProviderHelper.getRecordCount();
-    
+    const withdrawnRecords = getWithdrawRedemptions(redemptions);
 
-    if (!readySendToUser) {
-      console.log("[SendBtcBackToUser] Not ready to send BTC back to users yet");
+    if (withdrawnRecords.length === 0) {
+      console.log(`${batchName} No records to process.`);
       return;
     }
-
-    // Count records with BTC_PENDING_MEMPOOL_CONFIRMATION status and matching withdrawal hash
-    const pendingMempoolCount = redemptions.filter(redemption => 
-      redemption.status === REDEMPTION_STATUS.BTC_PENDING_MEMPOOL_CONFIRMATION &&
-      redemption.yield_provider_txn_hash === lastWithdrawalTxHash
-    ).length;
-
-    if (totalRecords === pendingMempoolCount) {
-      console.log("[SendBtcBackToUser] No records found to process");
-      await WithdrawalFromYieldProviderHelper.clearLastWithdrawalData();
-      await WithdrawalFromYieldProviderHelper.clearAllRecords();
-      return;
-    }
-
-    if (sendToUserBtcTxnHash !== '' || recordCount > 0) {
-      console.log("[SendBtcBackToUser] BTC already sent back to users");
-      return;
-    }
-
-    // Get records with BTC_YIELD_PROVIDER_WITHDRAWN status, empty remarks, and meeting threshold
-    // First filter records with BTC_YIELD_PROVIDER_WITHDRAWN status
-    const withdrawnRecords = redemptions.filter(redemption => {
-      try {
-        const chainConfig = getChainConfig(redemption.abtc_redemption_chain_id);
-        return redemption.status === REDEMPTION_STATUS.BTC_YIELD_PROVIDER_WITHDRAWN &&
-          redemption.remarks === "" &&
-          redemption.verified_count >= chainConfig.validators_threshold;
-      } catch (error) {
-        const remarks = `Chain config not found for chain ID: ${redemption.abtc_redemption_chain_id}`;
-        near.updateRedemptionRemarks(redemption.txn_hash, remarks);
-        return false;
-      }
-    }).sort((a, b) => a.txn_hash.localeCompare(b.txn_hash));
-
-    // Filter records matching the first yield provider transaction hash
-    // Calculate page size based on total records and max descendants
-    //const maxBtcDescendants = process.env.MAX_BTC_DESCENDANTS;
-    const minBtcTxn = process.env.MIN_BTC_TXN;
-    //const pageSize = Math.max(Math.ceil(totalRecords / maxBtcDescendants), minBtcTxn);
-
-    // console.log("[SendBtcBackToUser] Total records:", totalRecords);
-    // console.log("[SendBtcBackToUser] Page size:", pageSize);
-    // console.log("[SendBtcBackToUser] Withdrawal provider txn hash:", lastWithdrawalTxHash);
-
-    // Filter records matching first yield provider txn hash and take pageSize amount
-    const recordsForYieldTxn = lastWithdrawalTxHash ? 
-      withdrawnRecords
-        .filter(record => record.yield_provider_txn_hash === lastWithdrawalTxHash)
-        .slice(0, minBtcTxn) 
-      : [];
-
-    console.log("[SendBtcBackToUser] Records for yield txn:", recordsForYieldTxn);
-    console.log("[SendBtcBackToUser] Records for yield txn length:", recordsForYieldTxn.length);
     
-    // Write txn_hash records using helper
-    try {
-      const records = recordsForYieldTxn.map(record => ({
-        txn_hash: record.txn_hash,
-        btc_receiving_address: record.btc_receiving_address,
-        amount: record.abtc_amount - record.btc_redemption_fee - record.yield_provider_gas_fee - record.protocol_fee
-      }));
-      await WithdrawalFromYieldProviderHelper.writeRecordsToFile(records);
-    } catch (error) {
-      console.error('[SendBtcBackToUser] Error writing txn_hash records:', error);
+    
+    console.log(withdrawnRecords);
+    console.log(`${batchName} Found ${withdrawnRecords.length} records to process.`);
+    
+    for (const redemption of withdrawnRecords) {
+      const withdrawalTxHash = redemption.yield_provider_txn_hash;
+      await processSendBtcBackToUser(near, [redemption], bitcoinInstance, withdrawalTxHash);
     }
-
-    await processSendBtcBackToUser(near, recordsForYieldTxn, bitcoinInstance, lastWithdrawalTxHash);
 
     console.log(`${batchName} completed successfully.`);
   } catch (error) {
@@ -107,8 +45,9 @@ async function SendBtcBackToUser(near, redemptions, bitcoinInstance) {
 }
 
 // Helper function to process a batch of redemption transactions
-async function processSendBtcBackToUser(near, redemptionsToProcess, bitcoinInstance, lastWithdrawalTxHash) {
+async function processSendBtcBackToUser(near, redemptionsToProcess, bitcoinInstance, withdrawalTxHash) {
   try {
+    const { REDEMPTION_STATUS } = getConstants();
     const txnHashes = redemptionsToProcess
       .map((redemption) => redemption.txn_hash)
       .sort();
@@ -116,13 +55,24 @@ async function processSendBtcBackToUser(near, redemptionsToProcess, bitcoinInsta
     const { address, publicKey } = await bitcoinInstance.deriveBTCAddress(near);
     console.log(`BTC sender address: ${address}`);
 
+    console.log(txnHashes);
+    
+    // Check if withdrawal transaction is already spent
+    const status = await bitcoinInstance.fetchTxSpentByTxnID(withdrawalTxHash, address);
+    if (status.spent) {
+      console.log(`Withdrawal transaction ${withdrawalTxHash} is already spent. Skipping processing.`);
+      await near.updateRedemptionPendingBtcMempool(redemptionsToProcess[0].txn_hash, status.txid);
+      redemptionHelper.updateOffchainRedemptionStatus(redemptionsToProcess, redemptionsToProcess[0].txn_hash, REDEMPTION_STATUS.BTC_PENDING_MEMPOOL_CONFIRMATION);
+      return;
+    }
+
     try {
       // Create payload only once
       const payload = await bitcoinInstance.createPayload(
         near,
         address,
         txnHashes,
-        lastWithdrawalTxHash,
+        withdrawalTxHash,
         true,
       );
 
@@ -147,13 +97,11 @@ async function processSendBtcBackToUser(near, redemptionsToProcess, bitcoinInsta
       console.log("Signed Transaction:", signedTransaction);
 
       // Relay the signed transaction
-      const relayedtxHash =
-        await bitcoinInstance.relayTransaction(signedTransaction);
+      const relayedtxHash = await bitcoinInstance.relayTransaction(signedTransaction);
+      near.updateRedemptionYieldProviderRemarks(redemptionsToProcess[0].txn_hash, `Relayed tx hash: ${relayedtxHash}`);
       console.log("Relayed tx hash:", relayedtxHash);
 
-      await WithdrawalFromYieldProviderHelper.updateLastWithdrawalData({
-        sendToUserBtcTxnHash: relayedtxHash,
-      });
+      await near.updateRedemptionPendingBtcMempool(redemptionsToProcess[0].txn_hash, relayedtxHash);
 
     } catch (error) {
       console.error("Error in processSendBtcBackToUser:", error);

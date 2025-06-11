@@ -1,4 +1,32 @@
 const { flagsBatch } = require("../utils/batchFlags");
+const { getChainConfig } = require("../utils/network.chain.config");
+const { getConstants } = require("../constants");
+
+/**
+ * Validates common redemption record fields
+ * @param {Object} redemption - Redemption record to validate
+ * @returns {Object} Object containing validation result and chain config if valid
+ */
+const validateCommonDepositFields = (deposit) => {
+  try {
+    const chainConfig = getChainConfig(deposit.receiving_chain_id);
+    
+    const isValid =
+      deposit.remarks === "" &&
+      deposit.minted_txn_hash === "" &&
+      deposit.btc_sender_address && // non-empty check
+      deposit.receiving_chain_id &&
+      deposit.receiving_address &&
+      deposit.btc_amount > 0 &&
+      deposit.date_created > 0;
+
+    return { isValid, chainConfig };
+  } catch (error) {
+    const remarks = `[validateCommonDepositFields] Chain config not found for chain ID: ${deposit.receiving_chain_id}`;
+    console.log(remarks);
+    return { isValid: false, chainConfig: null };
+  }
+};
 
 /**
  * Updates the status of a deposit record in the array
@@ -112,9 +140,21 @@ const getAllDepositHistory = async (near, limit = 1000, concurrentLimit = 5) => 
   }
 };
 
+const getDepositsToBeMinted = async (allDeposits) => {
+  const { DEPOSIT_STATUS } = getConstants();
+
+  const depositsToBeMinted = allDeposits.filter(deposit => {
+    const { isValid } = validateCommonDepositFields(deposit);
+
+    return isValid && (deposit.status === DEPOSIT_STATUS.BTC_YIELD_PROVIDER_DEPOSITED);
+  });
+  return depositsToBeMinted;
+};
+
 module.exports = {
   getAllDepositHistory,
   updateOffchainDepositStatus,
   updateOffchainDepositRemarks,
   updateOffchainYieldProviderTxnHash,
+  getDepositsToBeMinted
 }; 
