@@ -16,6 +16,7 @@ export const buttonVariants = cva(
       },
       size: {
         default: ["text-base"],
+        sm: ["text-sm", "px-2", "py-0.5", "rounded-[30px]", "h-8"],
         icon: ["text-sm"],
       },
     },
@@ -45,6 +46,7 @@ export const Button = forwardRef<
     className,
     type = "button",
     startIcon,
+    size = "default",
     ...others
   } = props;
   const tag = href ? "a" : "button";
@@ -56,6 +58,7 @@ export const Button = forwardRef<
       className={twMerge(
         buttonVariants({
           intent,
+          size,
         }),
         className,
       )}

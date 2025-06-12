@@ -15,6 +15,7 @@ import { getStakingHistoriesLocalStorageKey } from "@/utils/local_storage/getSta
 import { maxDecimals } from "@/utils/maxDecimals";
 import { trim } from "@/utils/trim";
 
+import { Button } from "../Button";
 import { Card } from "../Card";
 import { LoadingTableList } from "../Loading/Loading";
 import {
@@ -434,16 +435,22 @@ export function StakeHistory() {
                                 <span className=" px-2 py-0.5 bg-secondary-200 dark:bg-secondary-900 text-secondary-800 dark:text-secondary-700 rounded-[30px] justify-center items-center gap-px inline-flex text-[12px] font-semibold">
                                   {getStatusMessage(stakingHistory.status)}
                                 </span>
-                                {stakingHistory.remarks && (
-                                  <button
-                                    className="ml-1 text-primary hover:underline text-sm"
-                                    onClick={async () =>
-                                      setRetryDialogOpen(stakingHistory)
-                                    }
-                                  >
-                                    Retry
-                                  </button>
-                                )}
+
+                                {stakingHistory.remarks &&
+                                  [
+                                    DepositStatus.BTC_DEPOSITED_INTO_ATLAS,
+                                    DepositStatus.BTC_PENDING_YIELD_PROVIDER_DEPOSIT,
+                                  ].includes(stakingHistory.status) && (
+                                    <Button
+                                      size="sm"
+                                      className="ml-1 min-w-20"
+                                      onClick={async () =>
+                                        setRetryDialogOpen(stakingHistory)
+                                      }
+                                    >
+                                      Retry
+                                    </Button>
+                                  )}
                               </div>
                             </TableCell>
                           </TableRow>
