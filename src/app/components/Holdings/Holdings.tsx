@@ -1,12 +1,16 @@
 import { useMemo } from "react";
 import { FaBitcoin } from "react-icons/fa";
 import { twMerge } from "tailwind-merge";
+import { useAccount } from "wagmi";
 
 import { useAppContext } from "@/app/context/app";
 import {
   useGetRedemptionHistory,
   useGetStakingHistory,
 } from "@/app/hooks/history";
+import { useGetAtlasBTCBalanceMultiChain } from "@/app/hooks/useConnectMultiChain";
+import { ChainConfig } from "@/app/types/chainConfig";
+import { useGetChainConfig } from "@/hooks";
 import { satoshiToBtc } from "@/utils/btcConversions";
 import { maxDecimals } from "@/utils/maxDecimals";
 import { trim } from "@/utils/trim";
@@ -24,7 +28,7 @@ function Holding({
   address?: string;
   type?: "balance";
 }) {
-  const { BTC_TOKEN } = useAppContext();
+  const { BTC_TOKEN, ATLAS_BTC_TOKEN } = useAppContext();
   return (
     <div
       className={twMerge(
@@ -44,7 +48,10 @@ function Holding({
             type === "balance" && "text-primary",
           )}
         >
-          {value} <span className="font-normal">{BTC_TOKEN}</span>
+          {value}{" "}
+          <span className="font-normal">
+            {type === "balance" ? ATLAS_BTC_TOKEN : BTC_TOKEN}
+          </span>
         </p>
       </div>
       {address && (
@@ -104,7 +111,30 @@ export function Holdings({ balanceSat }: { balanceSat: number }) {
     };
   }, [stakingHistories, redemptionHistories, balanceSat]);
 
-  console.log("HOLDING ------------> ", JSON.stringify(data));
+  const { chainId } = useAccount();
+
+  const { data: chainConfigs = {} } = useGetChainConfig();
+
+  const selectedChain = useMemo(() => {
+    return {
+      EVM: chainId
+        ? (chainConfigs[chainId] as ChainConfig | undefined)
+        : undefined,
+      NEAR: chainConfigs["NEAR"] || chainConfigs["NEAR_TESTNET"],
+    };
+  }, [chainConfigs, chainId]);
+
+  const { result: aBTCBalanceEVM } = useGetAtlasBTCBalanceMultiChain({
+    selectedChain: selectedChain.EVM,
+  });
+
+  const { result: aBTCBalanceNEAR } = useGetAtlasBTCBalanceMultiChain({
+    selectedChain: selectedChain.NEAR,
+  });
+
+  const totalBalance = useMemo(() => {
+    return Number(aBTCBalanceEVM.formatted) + Number(aBTCBalanceNEAR.formatted);
+  }, [aBTCBalanceEVM, aBTCBalanceNEAR]);
 
   return (
     <Card className="h-full">
@@ -114,7 +144,7 @@ export function Holdings({ balanceSat }: { balanceSat: number }) {
         <Holding label="Total Redeemed" value={data.formattedTotalRedeemed} />
         <Holding
           label="Balance"
-          value={data.formattedBalance}
+          value={totalBalance}
           address={trim(btcAddress || "")}
           type="balance"
         />
