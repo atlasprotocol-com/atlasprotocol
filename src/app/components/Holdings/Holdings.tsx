@@ -28,10 +28,11 @@ function Holding({
   label: string;
   value: string | number;
   address?: string;
-  type?: "balance";
+  type?: "balance" | "balance_btc";
   address2?: string;
 }) {
-  const { ATLAS_BTC_TOKEN } = useAppContext();
+  const { BTC_TOKEN, ATLAS_BTC_TOKEN } = useAppContext();
+  const unit = type === "balance_btc" ? BTC_TOKEN : ATLAS_BTC_TOKEN;
   return (
     <div
       className={twMerge(
@@ -51,7 +52,7 @@ function Holding({
             type === "balance" && "text-primary",
           )}
         >
-          {value} <span className="font-normal">{ATLAS_BTC_TOKEN}</span>
+          {value} <span className="font-normal">{unit}</span>
         </p>
       </div>
       {address && (
@@ -151,6 +152,12 @@ export function Holdings({ balanceSat }: { balanceSat: number }) {
       <div className="flex flex-col gap-4 mt-4">
         <Holding label="Total Staked" value={data.formattedTotalStaked} />
         <Holding label="Total Redeemed" value={data.formattedTotalRedeemed} />
+        <Holding
+          label="BTC Balance"
+          value={data.formattedBalance}
+          address={trim(btcAddress || "")}
+          type="balance_btc"
+        />
         <Holding
           label="Balance"
           value={totalBalance}
