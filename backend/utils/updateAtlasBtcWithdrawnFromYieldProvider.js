@@ -26,21 +26,7 @@ async function UpdateAtlasBtcWithdrawnFromYieldProvider(
     console.log(`${batchName}. Start run ...`);
     flagsBatch.UpdateAtlasBtcWithdrawnFromYieldProviderRunning = true;
 
-    // Filter valid redemptions that are in withdrawing state
-    // Must have valid addresses, non-empty yield provider txn hash, and gas fee
-    // const filteredTxns = allRedemptions.filter(
-    //   (redemption) =>
-    //     redemption.abtc_redemption_address !== "" &&
-    //     redemption.abtc_redemption_chain_id !== "" &&
-    //     redemption.btc_receiving_address !== "" &&
-    //     redemption.status ===
-    //       REDEMPTION_STATUS.BTC_YIELD_PROVIDER_WITHDRAWING &&
-    //     redemption.remarks === "" &&
-    //     redemption.yield_provider_txn_hash === lastWithdrawalData.lastWithdrawalTxHash &&
-    //     redemption.yield_provider_gas_fee !== 0,
-    // );
-
-    const filteredTxns = redemptionHelper.getWithdrawingFromYieldProvider(allRedemptions);
+    const filteredTxns = await redemptionHelper.getWithdrawingFromYieldProvider(allRedemptions);
     console.log(`[UpdateAtlasBtcWithdrawnFromYieldProvider] Found ${filteredTxns.length} redemptions to update`);
     for (const redemption of filteredTxns) {
       const withdrawal = bithiveRecords.find(
@@ -65,13 +51,8 @@ async function UpdateAtlasBtcWithdrawnFromYieldProvider(
         redemption.txn_hash,
       );
 
-      redemptionHelper.updateOffchainRedemptionStatus(allRedemptions, redemption.txn_hash, REDEMPTION_STATUS.BTC_YIELD_PROVIDER_WITHDRAWN);
+      await redemptionHelper.updateOffchainRedemptionStatus(allRedemptions, redemption.txn_hash, REDEMPTION_STATUS.BTC_YIELD_PROVIDER_WITHDRAWN);
 
-      // Update status in allRedemptions array
-      // const redemptionToUpdate = allRedemptions.find(r => r.txn_hash === redemption.txn_hash);
-      // if (redemptionToUpdate) {
-      //   redemptionToUpdate.status = REDEMPTION_STATUS.BTC_YIELD_PROVIDER_WITHDRAWN;
-      // }
     }
 
     console.log(`${batchName} completed successfully.`);

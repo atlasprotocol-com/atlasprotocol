@@ -1105,6 +1105,14 @@ app.listen(PORT, async () => {
   setInterval(async () => {
     await UpdateBridgingAtbtcMinted(bridgings, near);
   }, 10000);
+
+  setInterval(async () => {
+    await UpdateAtlasBtcBridgingYieldProviderWithdrawn(
+      bridgings,
+      near,
+      bithiveRecords,
+    );
+  }, 10000);
 });
 
 app.post("/api/v1/onboarding/submit-email", async (req, res) => {

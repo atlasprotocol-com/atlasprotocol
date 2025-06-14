@@ -721,6 +721,9 @@ impl Atlas {
                     BRG_ABTC_YIELD_PROVIDER_WITHDRAWN => {
                         bridging.yield_provider_remarks.clear();
                     }
+                    BRG_ABTC_YIELD_PROVIDER_WITHDRAWING => {
+                        bridging.yield_provider_remarks.clear();
+                    }
                     BRG_ABTC_YIELD_PROVIDER_FEE_SENDING_TO_TREASURY => {
                         bridging.yield_provider_status = BRG_ABTC_YIELD_PROVIDER_WITHDRAWN;
                         bridging.yield_provider_remarks.clear();
@@ -856,7 +859,8 @@ impl Atlas {
 
         if let Some(bridging) = self.bridgings.get(&txn_hash) {
             // Check if bridging record meets requirements
-            if bridging.yield_provider_status == BRG_ABTC_PENDING_YIELD_PROVIDER_UNSTAKE
+            if bridging.yield_provider_status == BRG_ABTC_BURNT
+                && bridging.status == BRG_ABTC_MINTED_TO_DEST
                 && bridging.yield_provider_remarks.is_empty()
             {
                 // Get chain config and verify threshold
@@ -953,7 +957,8 @@ impl Atlas {
 
         if let Some(bridging) = self.bridgings.get(&txn_hash) {
             // Check if bridging record meets requirements
-            if bridging.yield_provider_status == BRG_ABTC_PENDING_YIELD_PROVIDER_WITHDRAW
+            if bridging.yield_provider_status == BRG_ABTC_YIELD_PROVIDER_UNSTAKE_PROCESSING
+                && bridging.status == BRG_ABTC_MINTED_TO_DEST
                 && bridging.yield_provider_remarks.is_empty()
             {
                 // Get chain config and verify threshold

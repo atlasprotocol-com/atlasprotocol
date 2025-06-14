@@ -1,17 +1,14 @@
-const { createRelayerClient } = require("@bithive/relayer-api");
-
 const { getConstants } = require("../constants");
+const bridgingHelper = require("../helpers/bridgingHelper");
 
 const { flagsBatch } = require("./batchFlags");
 
 async function UpdateAtlasBtcBridgingYieldProviderWithdrawn(
   allBridgings,
   near,
-  bitcoinInstance,
+  bithiveRecords
 ) {
   const batchName = `Batch J UpdateAtlasBtcBridgingYieldProviderWithdrawn`;
-
-  const relayer = createRelayerClient({ url: process.env.BITHIVE_RELAYER_URL });
 
   const { BRIDGING_STATUS, BITHIVE_STATUS } = getConstants(); // Access constants dynamically
 
@@ -22,32 +19,19 @@ async function UpdateAtlasBtcBridgingYieldProviderWithdrawn(
     console.log(`${batchName}. Start run ...`);
     flagsBatch.UpdateAtlasBtcBridgingYieldProviderWithdrawnRunning = true;
 
-    // Filter redemptions where status = BTC_YIELD_PROVIDER_WITHDRAWING
-    const filteredTxns = allBridgings.filter(
-      (bridging) =>
-        bridging.origin_chain_id !== "" &&
-        bridging.origin_chain_address !== "" &&
-        bridging.dest_chain_id !== "" &&
-        bridging.dest_chain_address !== "" &&
-        bridging.yield_provider_status === BRIDGING_STATUS.ABTC_YIELD_PROVIDER_WITHDRAWING &&
-        bridging.yield_provider_remarks === "" &&
-        bridging.yield_provider_txn_hash !== "" &&
-        bridging.yield_provider_gas_fee !== 0
-    );
-  
-    const { publicKey } = await bitcoinInstance.deriveBTCAddress(near);
-    const publicKeyString = publicKey.toString("hex");
-    let i = 0;
+    const filteredTxns = await bridgingHelper.getPendingBridgingFeesWithdrawing(allBridgings);
 
-    filteredTxns.forEach(async (txn) => {
+    for (let j = 0; j < filteredTxns.length; j++) {
+      const txn = filteredTxns[j];
       try {
-        i++;
-        console.log(`\nProcessing ${i} of ${filteredTxns.length} txns...`);
+        console.log(`\nProcessing ${j} of ${filteredTxns.length} txns...`);
         
-        const { deposit } = await relayer.user.getDeposit({
-          publicKey: publicKeyString,
-          txHash: txn.yield_provider_txn_hash,
-        });
+        const bithiveRecord = bithiveRecords.find((record) => record.withdrawTxHash === txn.yield_provider_txn_hash);
+
+        if (!bithiveRecord) {
+          console.log(`Bithive record not found for txn hash ${txn.yield_provider_txn_hash}`);
+          continue;
+        }
 
         if (
           [
@@ -55,24 +39,29 @@ async function UpdateAtlasBtcBridgingYieldProviderWithdrawn(
             BITHIVE_STATUS.DEPOSIT_CONFIRMED,
             BITHIVE_STATUS.DEPOSIT_CONFIRMED_INVALID
           ].includes(
-            deposit.status,
+            bithiveRecord.status,
           )
         ) {
           await near.updateBridgingFeesYieldProviderWithdrawn(
             txn.txn_hash,
           );
+          await bridgingHelper.updateOffchainBridgingYieldProviderStatus( 
+            allBridgings,
+            txn.txn_hash,
+            BRIDGING_STATUS.ABTC_YIELD_PROVIDER_WITHDRAWN,
+          );
           console.log(
-            `Processed record ${i}: Updated Bridging yield provider withdrawn for txn hash ${txn.txn_hash}`
+            `[UpdateAtlasBtcBridgingYieldProviderWithdrawn] Processed record ${j}: Updated Bridging yield provider withdrawn for txn hash ${txn.txn_hash}`
           );
         }
-      }  catch (error) {
+      } catch (error) {
         
         const errorMessage = error.body && error.body.error_message 
             ? error.body.error_message 
             : error.toString();
 
         console.error(
-          `Error processing record ${i} for txn hash ${txn.txn_hash}: `,
+          `[UpdateAtlasBtcBridgingYieldProviderWithdrawn] Error processing record ${j} for txn hash ${txn.txn_hash}: `,
           errorMessage,
         );
         await near.updateBridgingFeesYieldProviderRemarks(
@@ -81,9 +70,9 @@ async function UpdateAtlasBtcBridgingYieldProviderWithdrawn(
         );
 
         // Skip to the next iteration if an error occurs
-        return;
+        continue;
       }
-    });
+    }
 
     console.log(`${batchName} completed successfully.`);
   } catch (error) {
