@@ -20,20 +20,27 @@ async function SendBtcBackToUser(near, redemptions, bitcoinInstance) {
     console.log(`${batchName}. Start run...`);
     flagsBatch.SendBtcBackToUserRunning = true;
 
-    const withdrawnRecords = getWithdrawRedemptions(redemptions);
+    const withdrawnRecords = await getWithdrawRedemptions(redemptions);
 
     if (withdrawnRecords.length === 0) {
       console.log(`${batchName} No records to process.`);
       return;
     }
-    
-    
+
     console.log(withdrawnRecords);
-    console.log(`${batchName} Found ${withdrawnRecords.length} records to process.`);
-    
+    console.log(
+      `${batchName} Found ${withdrawnRecords.length} records to process.`,
+    );
+
     for (const redemption of withdrawnRecords) {
       const withdrawalTxHash = redemption.yield_provider_txn_hash;
-      await processSendBtcBackToUser(near, [redemption], bitcoinInstance, withdrawalTxHash);
+      await processSendBtcBackToUser(
+        near,
+        [redemption],
+        bitcoinInstance,
+        withdrawalTxHash,
+        redemptions,
+      );
     }
 
     console.log(`${batchName} completed successfully.`);
@@ -45,7 +52,13 @@ async function SendBtcBackToUser(near, redemptions, bitcoinInstance) {
 }
 
 // Helper function to process a batch of redemption transactions
-async function processSendBtcBackToUser(near, redemptionsToProcess, bitcoinInstance, withdrawalTxHash) {
+async function processSendBtcBackToUser(
+  near,
+  redemptionsToProcess,
+  bitcoinInstance,
+  withdrawalTxHash,
+  redemptions,
+) {
   try {
     const { REDEMPTION_STATUS } = getConstants();
     const txnHashes = redemptionsToProcess
@@ -56,13 +69,25 @@ async function processSendBtcBackToUser(near, redemptionsToProcess, bitcoinInsta
     console.log(`BTC sender address: ${address}`);
 
     console.log(txnHashes);
-    
+
     // Check if withdrawal transaction is already spent
-    const status = await bitcoinInstance.fetchTxSpentByTxnID(withdrawalTxHash, address);
+    const status = await bitcoinInstance.fetchTxSpentByTxnID(
+      withdrawalTxHash,
+      address,
+    );
     if (status.spent) {
-      console.log(`Withdrawal transaction ${withdrawalTxHash} is already spent. Skipping processing.`);
-      await near.updateRedemptionPendingBtcMempool(redemptionsToProcess[0].txn_hash, status.txid);
-      redemptionHelper.updateOffchainRedemptionStatus(redemptionsToProcess, redemptionsToProcess[0].txn_hash, REDEMPTION_STATUS.BTC_PENDING_MEMPOOL_CONFIRMATION);
+      console.log(
+        `Withdrawal transaction ${withdrawalTxHash} is already spent. Skipping processing.`,
+      );
+      await near.updateRedemptionPendingBtcMempool(
+        redemptionsToProcess[0].txn_hash,
+        status.txid,
+      );
+      await redemptionHelper.updateOffchainRedemptionStatus(
+        redemptions,
+        redemptionsToProcess[0].txn_hash,
+        REDEMPTION_STATUS.BTC_PENDING_MEMPOOL_CONFIRMATION,
+      );
       return;
     }
 
@@ -97,17 +122,24 @@ async function processSendBtcBackToUser(near, redemptionsToProcess, bitcoinInsta
       console.log("Signed Transaction:", signedTransaction);
 
       // Relay the signed transaction
-      const relayedtxHash = await bitcoinInstance.relayTransaction(signedTransaction);
-      near.updateRedemptionYieldProviderRemarks(redemptionsToProcess[0].txn_hash, `Relayed tx hash: ${relayedtxHash}`);
+      const relayedtxHash =
+        await bitcoinInstance.relayTransaction(signedTransaction);
+
       console.log("Relayed tx hash:", relayedtxHash);
 
-      await near.updateRedemptionPendingBtcMempool(redemptionsToProcess[0].txn_hash, relayedtxHash);
-
+      await near.updateRedemptionPendingBtcMempool(
+        redemptionsToProcess[0].txn_hash,
+        relayedtxHash,
+      );
+      await redemptionHelper.updateOffchainRedemptionStatus(
+        redemptions,
+        redemptionsToProcess[0].txn_hash,
+        REDEMPTION_STATUS.BTC_PENDING_MEMPOOL_CONFIRMATION,
+      );
     } catch (error) {
       console.error("Error in processSendBtcBackToUser:", error);
       throw error;
     }
-      
   } catch (error) {
     console.error("Error in SendBtcBackToUser:", error);
     throw error;

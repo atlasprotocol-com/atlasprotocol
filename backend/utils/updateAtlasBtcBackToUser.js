@@ -18,7 +18,7 @@ async function UpdateAtlasBtcBackToUser(allRedemptions, near, bitcoinInstance) {
     flagsBatch.UpdateAtlasBtcBackToUserRunning = true;
 
     // Filter redemptions using the helper function
-    const filteredTxns = getRedemptionsToBeProcessedToRedeemed(allRedemptions);
+    const filteredTxns = await getRedemptionsToBeProcessedToRedeemed(allRedemptions);
 
     for (const txn of filteredTxns) {
       try {
@@ -32,7 +32,7 @@ async function UpdateAtlasBtcBackToUser(allRedemptions, near, bitcoinInstance) {
 
         if (ok) {
             await near.updateRedemptionRedeemed(txn.txn_hash);
-            updateOffchainRedemptionStatus(allRedemptions, txn.txn_hash, REDEMPTION_STATUS.BTC_REDEEMED_BACK_TO_USER);
+            await updateOffchainRedemptionStatus(allRedemptions, txn.txn_hash, REDEMPTION_STATUS.BTC_REDEEMED_BACK_TO_USER);
             console.log(
               `Processed record: Updated Redemption for txn hash ${txn.txn_hash} and BTC txn hash ${txn.btc_txn_hash}`,
             );

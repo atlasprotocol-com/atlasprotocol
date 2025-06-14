@@ -21,7 +21,7 @@ async function UpdateBridgingAtbtcMinted(allBridgings, near) {
     const { BRIDGING_STATUS } = getConstants();
 
     // Filter deposits that need to be processed
-    const filteredTxns = getBridgingRecordsToUpdateMinted(allBridgings);
+    const filteredTxns = await getBridgingRecordsToUpdateMinted(allBridgings);
 
     console.log(`${batchName} Found ${filteredTxns.length} deposits to process.`);
 
