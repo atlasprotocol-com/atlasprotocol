@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useContext, useMemo } from "react";
 import { FaBitcoin } from "react-icons/fa";
 import { twMerge } from "tailwind-merge";
 import { useAccount } from "wagmi";
@@ -13,6 +13,7 @@ import { ChainConfig } from "@/app/types/chainConfig";
 import { useGetChainConfig } from "@/hooks";
 import { satoshiToBtc } from "@/utils/btcConversions";
 import { maxDecimals } from "@/utils/maxDecimals";
+import { NearContext } from "@/utils/near";
 import { trim } from "@/utils/trim";
 
 import { Card } from "../Card";
@@ -22,13 +23,15 @@ function Holding({
   value,
   address,
   type,
+  address2,
 }: {
   label: string;
   value: string | number;
   address?: string;
   type?: "balance";
+  address2?: string;
 }) {
-  const { BTC_TOKEN, ATLAS_BTC_TOKEN } = useAppContext();
+  const { ATLAS_BTC_TOKEN } = useAppContext();
   return (
     <div
       className={twMerge(
@@ -48,16 +51,20 @@ function Holding({
             type === "balance" && "text-primary",
           )}
         >
-          {value}{" "}
-          <span className="font-normal">
-            {type === "balance" ? ATLAS_BTC_TOKEN : BTC_TOKEN}
-          </span>
+          {value} <span className="font-normal">{ATLAS_BTC_TOKEN}</span>
         </p>
       </div>
       {address && (
         <div className="flex justify-end mt-1">
           <div className="text-secondary-100 dark:text-secondary-700 px-1 py-0.5 bg-secondary-700 dark:bg-secondary-900 rounded-[30px] justify-center items-center gap-px inline-flex text-[12px]">
             {address}
+          </div>
+        </div>
+      )}
+      {address2 && (
+        <div className="flex justify-end mt-1">
+          <div className="text-secondary-100 dark:text-secondary-700 px-1 py-0.5 bg-secondary-700 dark:bg-secondary-900 rounded-[30px] justify-center items-center gap-px inline-flex text-[12px]">
+            {address2}
           </div>
         </div>
       )}
@@ -111,9 +118,11 @@ export function Holdings({ balanceSat }: { balanceSat: number }) {
     };
   }, [stakingHistories, redemptionHistories, balanceSat]);
 
-  const { chainId } = useAccount();
+  const { chainId, address: evmAddress } = useAccount();
 
   const { data: chainConfigs = {} } = useGetChainConfig();
+
+  const { signedAccountId: nearAccountId } = useContext(NearContext);
 
   const selectedChain = useMemo(() => {
     return {
@@ -145,8 +154,9 @@ export function Holdings({ balanceSat }: { balanceSat: number }) {
         <Holding
           label="Balance"
           value={totalBalance}
-          address={trim(btcAddress || "")}
+          address={trim(evmAddress || "", 12)}
           type="balance"
+          address2={nearAccountId}
         />
       </div>
       {/* <div className="mt-4 flex justify-center p-2">
