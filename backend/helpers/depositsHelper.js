@@ -11,7 +11,7 @@ const { getConstants } = require("../constants");
 /**
  * Validates common deposit record fields to ensure data integrity
  * Checks for required fields, proper formatting, and valid chain configuration
- * 
+ *
  * @param {Object} deposit - Deposit record object to validate
  * @param {string} deposit.remarks - Remarks field (should be empty for new deposits)
  * @param {string} deposit.minted_txn_hash - Minted transaction hash (should be empty for new deposits)
@@ -32,12 +32,12 @@ const validateCommonDepositFields = (deposit) => {
     // Validate all required fields and their constraints
     const isValid =
       deposit.remarks === "" && // Remarks should be empty for new deposits
-      deposit.minted_txn_hash === "" && // Minted txn hash should be empty for new deposits
       deposit.btc_sender_address && // BTC sender address must exist and be non-empty
       deposit.receiving_chain_id && // Receiving chain ID is required
       deposit.receiving_address && // Receiving address is required
       deposit.btc_amount > 0 && // BTC amount must be positive
-      deposit.date_created > 0; // Creation timestamp must be valid
+      deposit.date_created > 0 && 
+      deposit.verified_count >= chainConfig.validators_threshold; // Must meet validator threshold
 
     return { isValid, chainConfig };
   } catch (error) {
@@ -48,11 +48,37 @@ const validateCommonDepositFields = (deposit) => {
   }
 };
 
+const getDepositsToBeStaked = async (allDeposits) => {
+  const { DEPOSIT_STATUS } = getConstants();
+  const depositsToBeStaked = allDeposits.filter((deposit) => {
+    const { isValid } = validateCommonDepositFields(deposit);
+    return (
+      isValid &&
+      deposit.status === DEPOSIT_STATUS.BTC_DEPOSITED_INTO_ATLAS &&
+      deposit.minted_txn_hash === ""
+    );
+  });
+  return Promise.resolve(depositsToBeStaked);
+};
+
+const getDepositsToUpdateYieldProviderDeposited = async (allDeposits) => {
+  const { DEPOSIT_STATUS } = getConstants();
+  const depositsToUpdateYieldProviderDeposited = allDeposits.filter((deposit) => {
+    const { isValid } = validateCommonDepositFields(deposit);
+    return (
+      isValid &&
+      deposit.status === DEPOSIT_STATUS.BTC_PENDING_YIELD_PROVIDER_DEPOSIT &&
+      deposit.yield_provider_txn_hash !== ""
+    );
+  });
+  return Promise.resolve(depositsToUpdateYieldProviderDeposited);
+};
+
 /**
  * Updates the status of a specific deposit record in the provided array
  * This function modifies the deposit array in-place by finding the deposit
  * with the matching transaction hash and updating its status field
- * 
+ *
  * @param {Array<Object>} allDeposits - Array of deposit records to search through
  * @param {string} txnHash - Bitcoin transaction hash to identify the deposit
  * @param {string} newStatus - New status value to assign to the deposit
@@ -61,16 +87,36 @@ const validateCommonDepositFields = (deposit) => {
 const updateOffchainDepositStatus = async (allDeposits, txnHash, newStatus) => {
   // Find the index of the deposit with matching transaction hash
   const index = allDeposits.findIndex((d) => d.btc_txn_hash === txnHash);
-  
+
   if (index !== -1) {
     // Update the status if deposit is found
     allDeposits[index].status = newStatus;
+    allDeposits[index].timestamp = Math.floor(Date.now() / 1000);
     console.log(
       `[updateOffchainDepositStatus] Updated status for deposit ${txnHash} to ${newStatus}`,
     );
   }
-  
+
   // Explicitly return to make async behavior intentional
+  return Promise.resolve();
+};
+
+const updateOffchainDepositMintedTxnHash = async (
+  allDeposits,
+  txnHash,
+  newStatus,
+  mintedTxnHash,
+) => {
+  const index = allDeposits.findIndex((d) => d.btc_txn_hash === txnHash);
+  if (index !== -1) {
+    allDeposits[index].status = newStatus;
+    allDeposits[index].minted_txn_hash = mintedTxnHash;
+    allDeposits[index].timestamp = Math.floor(Date.now() / 1000);
+    console.log(
+      `[updateOffchainDepositMintedTxnHash] Updated minted txn hash for deposit ${txnHash} to ${mintedTxnHash}`,
+    );
+  }
+
   return Promise.resolve();
 };
 
@@ -78,7 +124,7 @@ const updateOffchainDepositStatus = async (allDeposits, txnHash, newStatus) => {
  * Updates the remarks field of a specific deposit record in the provided array
  * This function modifies the deposit array in-place by finding the deposit
  * with the matching transaction hash and updating its remarks field
- * 
+ *
  * @param {Array<Object>} allDeposits - Array of deposit records to search through
  * @param {string} txnHash - Bitcoin transaction hash to identify the deposit
  * @param {string} newRemarks - New remarks to assign to the deposit
@@ -91,15 +137,16 @@ const updateOffchainDepositRemarks = async (
 ) => {
   // Find the index of the deposit with matching transaction hash
   const index = allDeposits.findIndex((d) => d.btc_txn_hash === txnHash);
-  
+
   if (index !== -1) {
     // Update the remarks if deposit is found
     allDeposits[index].remarks = newRemarks;
+    allDeposits[index].timestamp = Math.floor(Date.now() / 1000);
     console.log(
       `[updateOffchainDepositRemarks] Updated remarks for deposit ${txnHash} to ${newRemarks}`,
     );
   }
-  
+
   // Explicitly return to make async behavior intentional
   return Promise.resolve();
 };
@@ -108,7 +155,7 @@ const updateOffchainDepositRemarks = async (
  * Updates the yield provider transaction hash of a specific deposit record
  * This function modifies the deposit array in-place by finding the deposit
  * with the matching transaction hash and updating its yield provider transaction hash
- * 
+ *
  * @param {Array<Object>} allDeposits - Array of deposit records to search through
  * @param {string} txnHash - Original Bitcoin transaction hash to identify the deposit
  * @param {string} yieldProviderTxnHash - New yield provider transaction hash to assign
@@ -117,19 +164,22 @@ const updateOffchainDepositRemarks = async (
 const updateOffchainYieldProviderTxnHash = async (
   allDeposits,
   txnHash,
+  newStatus,
   yieldProviderTxnHash,
 ) => {
   // Find the index of the deposit with matching transaction hash
   const index = allDeposits.findIndex((d) => d.btc_txn_hash === txnHash);
-  
+
   if (index !== -1) {
     // Update the yield provider transaction hash if deposit is found
+    allDeposits[index].status = newStatus;
     allDeposits[index].yield_provider_txn_hash = yieldProviderTxnHash;
+    allDeposits[index].timestamp = Math.floor(Date.now() / 1000);
     console.log(
       `[updateOffchainYieldProviderTxnHash] Updated yield provider txn hash for deposit ${txnHash} to ${yieldProviderTxnHash}`,
     );
   }
-  
+
   // Explicitly return to make async behavior intentional
   return Promise.resolve();
 };
@@ -138,14 +188,14 @@ const updateOffchainYieldProviderTxnHash = async (
  * Fetches all deposit history from NEAR blockchain with optimized pagination and concurrency control
  * This function implements a sophisticated batching strategy to efficiently retrieve large datasets
  * while preventing memory issues and API rate limiting
- * 
+ *
  * Features:
  * - Prevents concurrent executions using a global flag
  * - Implements pagination with configurable batch sizes
  * - Limits concurrent requests to prevent API overload
  * - Handles empty datasets gracefully
  * - Provides progress logging and error handling
- * 
+ *
  * @param {Object} near - NEAR blockchain instance with getAllDeposits and getTotalDepositsCount methods
  * @param {number} [limit=1000] - Number of records to fetch per batch (default: 1000)
  * @param {number} [concurrentLimit=5] - Maximum number of concurrent batch requests (default: 5)
@@ -232,7 +282,7 @@ const getAllDepositHistory = async (
  * This function applies validation and status checks to identify deposits
  * that have been successfully deposited to the yield provider and are
  * ready for the minting process
- * 
+ *
  * @param {Array<Object>} allDeposits - Array of all deposit records to filter
  * @returns {Promise<Array<Object>>} Promise that resolves to array of deposits ready for minting
  */
@@ -250,9 +300,100 @@ const getDepositsToBeMinted = async (allDeposits) => {
       isValid && deposit.status === DEPOSIT_STATUS.BTC_YIELD_PROVIDER_DEPOSITED
     );
   });
-  
+
   // Explicitly return the filtered deposits as a Promise
   return Promise.resolve(depositsToBeMinted);
+};
+
+const getDepositsPendingMintedIntoAbtc = async (allDeposits) => {
+  const { DEPOSIT_STATUS } = getConstants();
+  const depositsPendingMintedIntoAbtc = allDeposits.filter((deposit) => {
+    const { isValid } = validateCommonDepositFields(deposit);
+    return (
+      isValid &&
+      deposit.status === DEPOSIT_STATUS.BTC_PENDING_MINTED_INTO_ABTC &&
+      deposit.minted_txn_hash !== ""
+    );
+  });
+
+  return Promise.resolve(depositsPendingMintedIntoAbtc);
+};
+/**
+ * Merges deposit records from blockchain with local records based on timestamps
+ * Retains newer records in local array and includes updated/new records from blockchain
+ * @param {Array} localDeposits - Current local deposit records
+ * @param {Array} blockchainDeposits - Deposit records from blockchain
+ * @returns {Array} Merged deposit records
+ */
+const mergeDepositRecords = (localDeposits, blockchainDeposits) => {
+  if (!blockchainDeposits || blockchainDeposits.length === 0) {
+    return localDeposits;
+  }
+
+  if (!localDeposits || localDeposits.length === 0) {
+    return blockchainDeposits;
+  }
+
+  // Create a map of existing local deposits by btc_txn_hash for quick lookup
+  const localDepositsMap = new Map();
+  localDeposits.forEach((deposit) => {
+    localDepositsMap.set(deposit.btc_txn_hash, deposit);
+  });
+
+  // Create a map of blockchain deposits by btc_txn_hash
+  const blockchainDepositsMap = new Map();
+  blockchainDeposits.forEach((deposit) => {
+    blockchainDepositsMap.set(deposit.btc_txn_hash, deposit);
+  });
+
+  const mergedDeposits = [];
+
+  // Process all local deposits
+  localDeposits.forEach((localDeposit) => {
+    const blockchainDeposit = blockchainDepositsMap.get(
+      localDeposit.btc_txn_hash,
+    );
+
+    if (blockchainDeposit) {
+      // Record exists in both - keep the one with newer timestamp
+      if (blockchainDeposit.timestamp > localDeposit.timestamp) {
+        mergedDeposits.push(blockchainDeposit);
+        // console.log(
+        //   `[mergeDepositRecords] Updated deposit ${localDeposit.btc_txn_hash} with newer blockchain data`,
+        // );
+      } else {
+        mergedDeposits.push(localDeposit);
+        // console.log(
+        //   `[mergeDepositRecords] Kept local deposit ${localDeposit.btc_txn_hash} (newer timestamp)`,
+        // );
+      }
+    } else {
+      // Record only exists locally - keep it
+      mergedDeposits.push(localDeposit);
+      // console.log(
+      //   `[mergeDepositRecords] Kept local-only deposit ${localDeposit.btc_txn_hash}`,
+      // );
+    }
+  });
+
+  // Add new records from blockchain that don't exist locally
+  blockchainDeposits.forEach((blockchainDeposit) => {
+    if (!localDepositsMap.has(blockchainDeposit.btc_txn_hash)) {
+      mergedDeposits.push(blockchainDeposit);
+      // console.log(
+      //   `[mergeDepositRecords] Added new deposit ${blockchainDeposit.btc_txn_hash} from blockchain`,
+      // );
+    }
+  });
+
+  // Sort by timestamp (newest first)
+  mergedDeposits.sort((a, b) => b.timestamp - a.timestamp);
+
+  // console.log(
+  //   `[mergeDepositRecords] Merged ${localDeposits.length} local + ${blockchainDeposits.length} blockchain = ${mergedDeposits.length} total deposits`,
+  // );
+
+  return mergedDeposits;
 };
 
 // Export all helper functions for use in other modules
@@ -262,4 +403,9 @@ module.exports = {
   updateOffchainDepositRemarks,
   updateOffchainYieldProviderTxnHash,
   getDepositsToBeMinted,
+  mergeDepositRecords,
+  getDepositsToBeStaked,
+  getDepositsToUpdateYieldProviderDeposited,
+  getDepositsPendingMintedIntoAbtc,
+  updateOffchainDepositMintedTxnHash
 };

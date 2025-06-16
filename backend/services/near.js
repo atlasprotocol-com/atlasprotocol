@@ -33,10 +33,7 @@ const viewMethods = [
   "get_first_valid_redemption",
   "get_bridging_by_txn_hash",
   "get_all_bridgings",
-  "get_first_valid_bridging_chain_config",
   "get_first_valid_user_redemption",
-  "get_first_valid_bridging_fees_unstake",
-  "get_first_valid_bridging_fees_unstaked",
   "get_redemptions_for_yield_provider_by_status_and_timestamp",
   "get_bridgings_for_yield_provider_by_status_and_timestamp",
   "get_redemptions_to_send_btc",
@@ -1183,8 +1180,7 @@ class Near {
 
   async updateBridgingBtcBridged(txnHash, timestamp) {
     return this.makeNearRpcChangeCall("update_bridging_btc_bridged", {
-      txn_hash: txnHash,
-      timestamp: timestamp,
+      txn_hash: txnHash
     });
   }
 
@@ -1201,14 +1197,6 @@ class Near {
       txn_hash: txnHash,
       remarks: remarks,
     });
-  }
-
-  async getFirstValidBridgingChainConfig() {
-    return this.makeNearRpcViewCall("get_first_valid_bridging_chain_config");
-  }
-
-  async getFirstValidBridgingFeesUnstake() {
-    return this.makeNearRpcViewCall("get_first_valid_bridging_fees_unstake");
   }
 
   async updateBridgingFeesPendingYieldProviderUnstake(txnHash) {
@@ -1236,13 +1224,6 @@ class Near {
       {
         txn_hash: txnHash,
       },
-    );
-  }
-
-  async getFirstValidBridgingFeesUnstaked() {
-    return this.makeNearRpcViewCall(
-      "get_first_valid_bridging_fees_unstaked",
-      {},
     );
   }
 

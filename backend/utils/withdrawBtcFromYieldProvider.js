@@ -103,6 +103,11 @@ async function withdrawBtcFromYieldProvider(
     // Sum up amounts from redemptions
     for (const redemption of pendingRedemptions) {
       try {
+        const redemptionRecord = await near.getRedemptionByTxnHash(redemption.txn_hash);
+        if (redemptionRecord.status !== REDEMPTION_STATUS.BTC_YIELD_PROVIDER_UNSTAKE_PROCESSING) {
+          console.log("[WithdrawBtcFromYieldProvider] Redemption already not in unstake processing:", redemption.txn_hash);
+          continue;
+        }
         // Get fee rate and limit
         const feeRate = (await bitcoinInstance.fetchFeeRate()) + 1;
         const feeLimit = process.env.MAX_BTC_FEE_LIMIT || 10000;
@@ -182,10 +187,12 @@ async function withdrawBtcFromYieldProvider(
           yieldProviderWithdrawalTxHash,
           withdrawalFee,
         );
-        await redemptionHelper.updateOffchainRedemptionStatus(
+        await redemptionHelper.updateOffchainYieldProviderWithdrawing(
           redemptions,
           redemption.txn_hash,
           REDEMPTION_STATUS.BTC_YIELD_PROVIDER_WITHDRAWING,
+          yieldProviderWithdrawalTxHash,
+          withdrawalFee,
         );
       } catch (error) {
         const remarks = `[withdrawBtcFromYieldProvider] Error in withdrawal process: ${error.message || error}`;

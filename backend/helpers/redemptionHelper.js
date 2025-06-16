@@ -145,10 +145,36 @@ const updateOffchainRedemptionStatus = async (allRedemptions, txnHash, newStatus
   if (index !== -1) {
     // Update the status if redemption is found
     allRedemptions[index].status = newStatus;
+    allRedemptions[index].timestamp = Math.floor(Date.now() / 1000);
     console.log(`[updateOffchainRedemptionStatus] Updated status for redemption ${txnHash} to ${newStatus}`);
   }
   
   // Explicitly return to make async behavior intentional
+  return Promise.resolve();
+};
+
+const updateOffchainYieldProviderWithdrawing = async (allRedemptions, txnHash, newStatus, yieldProviderWithdrawalTxHash, withdrawalFee) => {
+  const index = allRedemptions.findIndex(r => r.txn_hash === txnHash);
+  if (index !== -1) {
+    allRedemptions[index].status = newStatus;
+    allRedemptions[index].yield_provider_txn_hash = yieldProviderWithdrawalTxHash;
+    allRedemptions[index].yield_provider_gas_fee = withdrawalFee;
+    allRedemptions[index].timestamp = Math.floor(Date.now() / 1000);
+    console.log(`[updateOffchainYieldProviderWithdrawing] Updated status for redemption ${txnHash} to ${newStatus}`);
+  }
+
+  return Promise.resolve();
+};
+
+const updateOffPendingBtcMempool = async (allRedemptions, txnHash, newStatus, btcTxnHash) => {
+  const index = allRedemptions.findIndex(r => r.txn_hash === txnHash);
+  if (index !== -1) {
+    allRedemptions[index].status = newStatus;
+    allRedemptions[index].btc_txn_hash = btcTxnHash;
+    allRedemptions[index].timestamp = Math.floor(Date.now() / 1000);
+    console.log(`[updateOffPendingBtcMempool] Updated status for redemption ${txnHash} to ${newStatus}`);
+  }
+
   return Promise.resolve();
 };
 
@@ -169,6 +195,7 @@ const updateOffchainRedemptionRemarks = async (allRedemptions, txnHash, newRemar
   if (index !== -1) {
     // Update the remarks if redemption is found
     allRedemptions[index].remarks = newRemarks;
+    allRedemptions[index].timestamp = Math.floor(Date.now() / 1000);
     console.log(`[updateOffchainRedemptionRemarks] Updated remarks for redemption ${txnHash} to ${newRemarks}`);
   }
   
@@ -338,6 +365,72 @@ const getRedemptionsToBeProcessedToRedeemed = async (allRedemptions) => {
   return Promise.resolve(filteredTxns);
 };
 
+/**
+ * Merges redemption records from blockchain with local records based on timestamps
+ * Retains newer records in local array and includes updated/new records from blockchain
+ * @param {Array} localRedemptions - Current local redemption records
+ * @param {Array} blockchainRedemptions - Redemption records from blockchain
+ * @returns {Array} Merged redemption records
+ */
+const mergeRedemptionRecords = (localRedemptions, blockchainRedemptions) => {
+  if (!blockchainRedemptions || blockchainRedemptions.length === 0) {
+    return localRedemptions;
+  }
+
+  if (!localRedemptions || localRedemptions.length === 0) {
+    return blockchainRedemptions;
+  }
+
+  // Create a map of existing local redemptions by txn_hash for quick lookup
+  const localRedemptionsMap = new Map();
+  localRedemptions.forEach(redemption => {
+    localRedemptionsMap.set(redemption.txn_hash, redemption);
+  });
+
+  // Create a map of blockchain redemptions by txn_hash
+  const blockchainRedemptionsMap = new Map();
+  blockchainRedemptions.forEach(redemption => {
+    blockchainRedemptionsMap.set(redemption.txn_hash, redemption);
+  });
+
+  const mergedRedemptions = [];
+
+  // Process all local redemptions
+  localRedemptions.forEach(localRedemption => {
+    const blockchainRedemption = blockchainRedemptionsMap.get(localRedemption.txn_hash);
+    
+    if (blockchainRedemption) {
+      // Record exists in both - keep the one with newer timestamp
+      if (blockchainRedemption.timestamp > localRedemption.timestamp) {
+        mergedRedemptions.push(blockchainRedemption);
+        // console.log(`[mergeRedemptionRecords] Updated redemption ${localRedemption.txn_hash} with newer blockchain data`);
+      } else {
+        mergedRedemptions.push(localRedemption);
+        // console.log(`[mergeRedemptionRecords] Kept local redemption ${localRedemption.txn_hash} (newer timestamp)`);
+      }
+    } else {
+      // Record only exists locally - keep it
+      mergedRedemptions.push(localRedemption);
+      // console.log(`[mergeRedemptionRecords] Kept local-only redemption ${localRedemption.txn_hash}`);
+    }
+  });
+
+  // Add new records from blockchain that don't exist locally
+  blockchainRedemptions.forEach(blockchainRedemption => {
+    if (!localRedemptionsMap.has(blockchainRedemption.txn_hash)) {
+      mergedRedemptions.push(blockchainRedemption);
+      // console.log(`[mergeRedemptionRecords] Added new redemption ${blockchainRedemption.txn_hash} from blockchain`);
+    }
+  });
+
+  // Sort by timestamp (newest first)
+  mergedRedemptions.sort((a, b) => b.timestamp - a.timestamp);
+
+  // console.log(`[mergeRedemptionRecords] Merged ${localRedemptions.length} local + ${blockchainRedemptions.length} blockchain = ${mergedRedemptions.length} total redemptions`);
+  
+  return mergedRedemptions;
+};
+
 // Export all helper functions for use in other modules
 module.exports = {
   getAllRedemptionHistory,
@@ -347,5 +440,8 @@ module.exports = {
   getPendingRedemptionsForUnstake,
   getWithdrawingFromYieldProvider,
   getWithdrawRedemptions,
-  getRedemptionsToBeProcessedToRedeemed
+  getRedemptionsToBeProcessedToRedeemed,
+  mergeRedemptionRecords,
+  updateOffchainYieldProviderWithdrawing,
+  updateOffPendingBtcMempool
 };  

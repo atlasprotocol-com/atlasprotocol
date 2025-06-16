@@ -222,6 +222,7 @@ const updateOffchainBridgingStatus = async (
   if (index !== -1) {
     // Update the status if bridging is found
     allBridgings[index].status = newStatus;
+    allBridgings[index].timestamp = Math.floor(Date.now() / 1000);
     console.log(
       `[updateOffchainBridgingStatus] Updated status for bridging ${txnHash} to ${newStatus}`,
     );
@@ -252,6 +253,7 @@ const updateOffchainBridgingRemarks = async (
   if (index !== -1) {
     // Update the remarks if bridging is found
     allBridgings[index].remarks = newRemarks;
+    allBridgings[index].timestamp = Math.floor(Date.now() / 1000);
     console.log(
       `[updateOffchainBridgingRemarks] Updated remarks for bridging ${txnHash} to ${newRemarks}`,
     );
@@ -282,6 +284,7 @@ const updateOffchainBridgingMintedTxnHash = async (
   if (index !== -1) {
     // Update the destination transaction hash if bridging is found
     allBridgings[index].dest_txn_hash = mintedTxnHash;
+    allBridgings[index].timestamp = Math.floor(Date.now() / 1000);
     console.log(
       `[updateOffchainBridgingMintedTxnHash] Updated minted transaction hash for bridging ${txnHash} to ${mintedTxnHash}`,
     );
@@ -364,11 +367,78 @@ const updateOffchainBridgingYieldProviderStatus = async (allBridgings, txnHash, 
   const index = allBridgings.findIndex((b) => b.txn_hash === txnHash);
   if (index !== -1) {
     allBridgings[index].yield_provider_status = newStatus;
+    allBridgings[index].timestamp = Math.floor(Date.now() / 1000);
     console.log(
       `[updateOffchainBridgingYieldProviderStatus] Updated yield provider status for bridging ${txnHash} to ${newStatus}`,
     );
   }
   return Promise.resolve();
+};
+
+/**
+ * Merges bridging records from blockchain with local records based on timestamps
+ * Retains newer records in local array and includes updated/new records from blockchain
+ * @param {Array} localBridgings - Current local bridging records
+ * @param {Array} blockchainBridgings - Bridging records from blockchain
+ * @returns {Array} Merged bridging records
+ */
+const mergeBridgingRecords = (localBridgings, blockchainBridgings) => {
+  if (!blockchainBridgings || blockchainBridgings.length === 0) {
+    return localBridgings;
+  }
+
+  if (!localBridgings || localBridgings.length === 0) {
+    return blockchainBridgings;
+  }
+
+  // Create a map of existing local bridgings by txn_hash for quick lookup
+  const localBridgingsMap = new Map();
+  localBridgings.forEach(bridging => {
+    localBridgingsMap.set(bridging.txn_hash, bridging);
+  });
+
+  // Create a map of blockchain bridgings by txn_hash
+  const blockchainBridgingsMap = new Map();
+  blockchainBridgings.forEach(bridging => {
+    blockchainBridgingsMap.set(bridging.txn_hash, bridging);
+  });
+
+  const mergedBridgings = [];
+
+  // Process all local bridgings
+  localBridgings.forEach(localBridging => {
+    const blockchainBridging = blockchainBridgingsMap.get(localBridging.txn_hash);
+    
+    if (blockchainBridging) {
+      // Record exists in both - keep the one with newer timestamp
+      if (blockchainBridging.timestamp > localBridging.timestamp) {
+        mergedBridgings.push(blockchainBridging);
+        // console.log(`[mergeBridgingRecords] Updated bridging ${localBridging.txn_hash} with newer blockchain data`);
+      } else {
+        mergedBridgings.push(localBridging);
+        // console.log(`[mergeBridgingRecords] Kept local bridging ${localBridging.txn_hash} (newer timestamp)`);
+      }
+    } else {
+      // Record only exists locally - keep it
+      mergedBridgings.push(localBridging);
+      //console.log(`[mergeBridgingRecords] Kept local-only bridging ${localBridging.txn_hash}`);
+    }
+  });
+
+  // Add new records from blockchain that don't exist locally
+  blockchainBridgings.forEach(blockchainBridging => {
+    if (!localBridgingsMap.has(blockchainBridging.txn_hash)) {
+      mergedBridgings.push(blockchainBridging);
+      // console.log(`[mergeBridgingRecords] Added new bridging ${blockchainBridging.txn_hash} from blockchain`);
+    }
+  });
+
+  // Sort by timestamp (newest first)
+  mergedBridgings.sort((a, b) => b.timestamp - a.timestamp);
+
+  // console.log(`[mergeBridgingRecords] Merged ${localBridgings.length} local + ${blockchainBridgings.length} blockchain = ${mergedBridgings.length} total bridgings`);
+  
+  return mergedBridgings;
 };
 
 // Export all helper functions for use in other modules
@@ -384,4 +454,5 @@ module.exports = {
   getPendingBridgingFeesForWithdrawal,
   getPendingBridgingFeesWithdrawing,
   updateOffchainBridgingYieldProviderStatus,
+  mergeBridgingRecords,
 };

@@ -553,11 +553,9 @@ impl Atlas {
                         redemption.remarks.clear();
                     }
                     RED_BTC_YIELD_PROVIDER_UNSTAKE_PROCESSING => {
-                        redemption.status = RED_ABTC_BURNT;
                         redemption.remarks.clear();
                     }
                     RED_BTC_YIELD_PROVIDER_UNSTAKED => {
-                        redemption.status = RED_ABTC_BURNT;
                         redemption.remarks.clear();
                     }
                     RED_BTC_PENDING_REDEMPTION_FROM_ATLAS_TO_USER => {
@@ -584,7 +582,7 @@ impl Atlas {
                         // No action needed for other statuses
                     }
                 }
-
+                redemption.timestamp = env::block_timestamp() / 1_000_000_000;
                 // Update the redemption record in the map
                 self.redemptions.insert(txn_hash, redemption);
             }
@@ -1022,7 +1020,7 @@ impl Atlas {
 
                 // Increment the verified count
                 redemption.verified_count += 1;
-
+                redemption.timestamp = env::block_timestamp() / 1_000_000_000;
                 // Update the redemption record in the map
                 self.redemptions
                     .insert(mempool_redemption.txn_hash.clone(), redemption);
@@ -1101,7 +1099,7 @@ impl Atlas {
                 if redemption.txn_hash == txn_hash && redemption.btc_txn_hash == btc_txn_hash {
                     // Increment the btc_txn_hash_verified_count
                     redemption.btc_txn_hash_verified_count += 1;
-
+                    redemption.timestamp = env::block_timestamp() / 1_000_000_000;
                     // Update the redemption record in the map
                     self.redemptions.insert(txn_hash.clone(), redemption);
 

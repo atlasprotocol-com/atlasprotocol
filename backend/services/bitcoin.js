@@ -4,11 +4,8 @@ const bitcoin = require("bitcoinjs-lib");
 const ecc = require("@bitcoinerlab/secp256k1");
 const { BorshSchema, borshSerialize, borshDeserialize } = require('borsher');
 const zlib = require('zlib');
-const fs = require('fs');
-const path = require('path');
-const WithdrawalFromYieldProviderHelper = require('../helpers/withdrawalFromYieldProviderHelper');
-const { MemoryCache } = require("../cache");
 
+const { MemoryCache } = require("../cache");
 const {
   derivep2wpkhChildPublicKey,
   najPublicKeyStrToUncompressedHexPoint,
@@ -840,20 +837,9 @@ class Bitcoin {
   async mpcSignYieldProviderPsbt(near, psbtHex) {
     // Try to load existing PSBT if available
     let psbt;
-    try {
-      const savedPsbtHex = await WithdrawalFromYieldProviderHelper.loadPartiallySignedPsbt();
-      if (savedPsbtHex) {
-        psbt = bitcoin.Psbt.fromHex(savedPsbtHex, {network: this.network});
-        console.log('Loaded existing partially signed PSBT');
-      } else {
-        psbt = bitcoin.Psbt.fromHex(psbtHex, {network: this.network});
-        console.log('Created new PSBT');
-      }
-    } catch (error) {
-      console.error('Error loading PSBT:', error);
-      psbt = bitcoin.Psbt.fromHex(psbtHex, {network: this.network});
-    }
 
+    psbt = bitcoin.Psbt.fromHex(psbtHex, {network: this.network});
+    
     const { publicKey } = await this.deriveBTCAddress(near);
     const sign = async (tx) => {
       const btcPayload = Array.from(ethers.getBytes(tx));
@@ -882,12 +868,7 @@ class Bitcoin {
         try {
           console.log(`Signing input ${i}/${totalInputs}:`, psbt.data.inputs[i]);
           await psbt.signInputAsync(i, { publicKey, sign });
-          lastSuccessfulIndex = i;
-          
-          // Save progress after each successful signature
-          await WithdrawalFromYieldProviderHelper.savePartiallySignedPsbt(psbt.toHex());
-          console.log(`Saved PSBT progress after signing input ${i}`);
-          
+          lastSuccessfulIndex = i;          
         } catch (error) {
           console.error(`Error signing input ${i}:`, error);
           // Return partial progress if there's an error
@@ -901,10 +882,6 @@ class Bitcoin {
           };
         }
       }
-
-      // If we get here, all inputs were signed successfully
-      // Clean up the PSBT file since we're done
-      await WithdrawalFromYieldProviderHelper.clearPartiallySignedPsbt();
 
       return {
         psbt,

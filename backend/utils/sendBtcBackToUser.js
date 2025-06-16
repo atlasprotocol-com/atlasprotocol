@@ -83,10 +83,11 @@ async function processSendBtcBackToUser(
         redemptionsToProcess[0].txn_hash,
         status.txid,
       );
-      await redemptionHelper.updateOffchainRedemptionStatus(
+      await redemptionHelper.updateOffPendingBtcMempool(
         redemptions,
         redemptionsToProcess[0].txn_hash,
         REDEMPTION_STATUS.BTC_PENDING_MEMPOOL_CONFIRMATION,
+        status.txid,
       );
       return;
     }

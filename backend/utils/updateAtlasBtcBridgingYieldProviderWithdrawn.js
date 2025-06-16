@@ -24,7 +24,7 @@ async function UpdateAtlasBtcBridgingYieldProviderWithdrawn(
     for (let j = 0; j < filteredTxns.length; j++) {
       const txn = filteredTxns[j];
       try {
-        console.log(`\nProcessing ${j} of ${filteredTxns.length} txns...`);
+        //console.log(`\nProcessing ${j} of ${filteredTxns.length} txns...`);
         
         const bithiveRecord = bithiveRecords.find((record) => record.withdrawTxHash === txn.yield_provider_txn_hash);
 

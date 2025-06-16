@@ -25,7 +25,6 @@ const flagsBatch = {
   ProcessUnstakingAndWithdrawalRunning: false,
   SendBridgingFeesToTreasuryRunning: false,
   UpdateAtlasBtcDepositedRunning: false,
-  UpdateAtlasBtcWithdrawingFromYieldProviderRunning: false,
   UpdateAtlasRedemptionPendingBtcMempoolRunning: false,
   UpdateBridgingAtbtcMintedRunning: false,
   GetAllBridgingHistoryRunning: false,

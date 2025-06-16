@@ -287,6 +287,7 @@ impl Atlas {
                 {
                     // All conditions are met, proceed to update the minted transaction hash
                     deposit.status = DEP_BTC_PENDING_MINTED_INTO_ABTC;
+                    deposit.timestamp = env::block_timestamp() / 1_000_000_000;
                     deposit.minted_txn_hash = minted_txn_hash.clone();
 
                     // Calculate the amount before moving deposit
@@ -748,7 +749,7 @@ impl Atlas {
                         // No action needed for other statuses
                     }
                 }
-
+                deposit.timestamp = env::block_timestamp() / 1_000_000_000;
                 // Update the deposit record in the map
                 self.deposits.insert(btc_txn_hash, deposit);
             }
@@ -1117,7 +1118,7 @@ impl Atlas {
 
                 // Increment the verified count
                 deposit.verified_count += 1;
-
+                deposit.timestamp = env::block_timestamp() / 1_000_000_000;
                 // Clone deposit before inserting it to avoid moving it
                 let cloned_deposit = deposit.clone();
 
@@ -1235,7 +1236,7 @@ impl Atlas {
                 {
                     // Increment the minted_txn_hash_verified_count
                     deposit.minted_txn_hash_verified_count += 1;
-
+                    deposit.timestamp = env::block_timestamp() / 1_000_000_000;
                     // Update the deposit record in the map
                     self.deposits.insert(btc_txn_hash.clone(), deposit);
 
