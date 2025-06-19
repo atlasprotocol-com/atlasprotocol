@@ -95,7 +95,7 @@ async function main() {
       .map((byte) => byte.toString(16).padStart(2, "0"))
       .join("");
 
-    console.log("-----------1");
+    console.log(`------------------------------> sender:${sender}`);
     console.log(hexcode);
 
     const { txnHash, status } = await ethereum.relayTransaction(
