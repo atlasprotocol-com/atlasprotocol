@@ -51,8 +51,7 @@ async function UpdateAtlasBtcDeposited(depositRecords, near, bitcoinInstance) {
 
             // Update existing record
             await near.updateDepositBtcDeposited(btcTxnHash, timestamp);
-            await updateOffchainDepositStatus(depositRecords, btcTxnHash, DEPOSIT_STATUS.BTC_DEPOSITED_INTO_ATLAS);
-
+            
             console.log(`[${batchName}] Updated Deposit with BTC txn hash ${btcTxnHash}`);
           }
         }

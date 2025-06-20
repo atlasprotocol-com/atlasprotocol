@@ -218,14 +218,6 @@ impl GlobalParams {
         self.max_retry_count = max_retry_count;
     }
 
-    pub fn get_last_unstaking_time(&self) -> u64 {
-        self.last_unstaking_time
-    }
-
-    pub fn update_last_unstaking_time(&mut self, timestamp: u64) {
-        self.last_unstaking_time = timestamp;
-    }
-
     pub fn owner_id(&self) -> &AccountId {
         &self.owner_id
     }

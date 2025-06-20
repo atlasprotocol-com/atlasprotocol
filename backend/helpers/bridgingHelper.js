@@ -263,6 +263,14 @@ const updateOffchainBridgingRemarks = async (
   return Promise.resolve();
 };
 
+const updateOffchainBridgingYieldProviderRemarks = async (allBridgings, txnHash, newRemarks) => {
+  const index = allBridgings.findIndex((b) => b.txn_hash === txnHash);
+  if (index !== -1) {
+    allBridgings[index].yield_provider_remarks = newRemarks;
+    allBridgings[index].timestamp = Math.floor(Date.now() / 1000);
+  }
+};
+
 /**
  * Updates the minted transaction hash of a specific bridging record
  * This function modifies the bridging array in-place by finding the bridging
@@ -315,7 +323,10 @@ const getBridgingFeesForUnstake = async (allBridgings) => {
     return (
       isValid &&
       bridging.status === BRIDGING_STATUS.ABTC_MINTED_TO_DEST && // Must be minted to destination
-      bridging.yield_provider_status === BRIDGING_STATUS.ABTC_BURNT // Yield provider must be burned
+      bridging.yield_provider_status === BRIDGING_STATUS.ABTC_BURNT && // Yield provider must be burned
+      bridging.yield_provider_remarks === "" &&
+      bridging.yield_provider_txn_hash === "" &&
+      bridging.yield_provider_gas_fee === 0
     );
   });
   
@@ -344,7 +355,10 @@ const getPendingBridgingFeesForWithdrawal = async (allBridgings) => {
     return (
       isValid &&
       bridging.status === BRIDGING_STATUS.ABTC_MINTED_TO_DEST && // Must be minted to destination
-      bridging.yield_provider_status === BRIDGING_STATUS.ABTC_YIELD_PROVIDER_UNSTAKE_PROCESSING // Must be in withdrawing status
+      bridging.yield_provider_status === BRIDGING_STATUS.ABTC_YIELD_PROVIDER_UNSTAKE_PROCESSING &&// Must be in withdrawing status
+      bridging.yield_provider_remarks === "" &&
+      bridging.yield_provider_txn_hash === "" &&
+      bridging.yield_provider_gas_fee === 0
     );
   });
   
@@ -355,10 +369,15 @@ const getPendingBridgingFeesForWithdrawal = async (allBridgings) => {
 const getPendingBridgingFeesWithdrawing = async (allBridgings) => {
   const { BRIDGING_STATUS } = getConstants();
   const filteredBridgings = allBridgings.filter((bridging) => {
-    return bridging.yield_provider_status === BRIDGING_STATUS.ABTC_YIELD_PROVIDER_WITHDRAWING &&
+
+    const { isValid, chainConfig } = validateCommonBridgingFields(bridging);  
+
+    return isValid &&
+    bridging.yield_provider_status === BRIDGING_STATUS.ABTC_YIELD_PROVIDER_WITHDRAWING &&
     bridging.yield_provider_remarks === "" &&
     bridging.yield_provider_txn_hash !== "" &&
-    bridging.yield_provider_gas_fee !== 0;
+    bridging.yield_provider_gas_fee > 0 &&
+    bridging.yield_provider_txn_hash !== "";
   });
   return Promise.resolve(filteredBridgings);
 };
@@ -454,5 +473,6 @@ module.exports = {
   getPendingBridgingFeesForWithdrawal,
   getPendingBridgingFeesWithdrawing,
   updateOffchainBridgingYieldProviderStatus,
-  mergeBridgingRecords,
+  updateOffchainBridgingYieldProviderRemarks,
+  mergeBridgingRecords, 
 };

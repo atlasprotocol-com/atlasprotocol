@@ -147,7 +147,7 @@ async function unstakeBtcFromYieldProvider(
               await near.updateBridgingFeesYieldProviderUnstakeProcessing(
                 bridging.txn_hash,
               );
-              await bridgingHelper.updateOffchainBridgingStatus(
+              await bridgingHelper.updateOffchainBridgingYieldProviderStatus(
                 bridgings,
                 bridging.txn_hash,
                 BRIDGING_STATUS.ABTC_YIELD_PROVIDER_UNSTAKE_PROCESSING,
@@ -159,7 +159,7 @@ async function unstakeBtcFromYieldProvider(
               bridging.txn_hash,
               remarks,
             );
-            await bridgingHelper.updateOffchainBridgingRemarks(
+            await bridgingHelper.updateOffchainBridgingYieldProviderRemarks(
               bridgings,
               bridging.txn_hash,
               remarks,
