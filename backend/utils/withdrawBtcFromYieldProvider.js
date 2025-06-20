@@ -100,6 +100,8 @@ async function withdrawBtcFromYieldProvider(
     const pendingBridgings =
       await bridgingHelper.getPendingBridgingFeesForWithdrawal(bridgings);
 
+    // console.log("pendingRedemptions:", pendingRedemptions);
+    // console.log("pendingBridgings:", pendingBridgings);
     // Sum up amounts from redemptions
     for (const redemption of pendingRedemptions) {
       try {
@@ -313,7 +315,7 @@ async function withdrawBtcFromYieldProvider(
             yieldProviderWithdrawalTxHash,
             feeToUse,
           );
-          await bridgingHelper.updateOffchainBridgingStatus(
+          await bridgingHelper.updateOffchainBridgingYieldProviderStatus(
             bridgings,
             bridging.txn_hash,
             BRIDGING_STATUS.ABTC_YIELD_PROVIDER_WITHDRAWING,
@@ -331,7 +333,7 @@ async function withdrawBtcFromYieldProvider(
             bridging.txn_hash,
             remarks,
           );
-          await bridgingHelper.updateOffchainBridgingRemarks(
+          await bridgingHelper.updateOffchainBridgingYieldProviderRemarks(
             bridgings,
             bridging.txn_hash,
             remarks,

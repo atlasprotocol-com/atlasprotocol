@@ -88,7 +88,6 @@ const {
 const {
   UpdateBridgingAtbtcMinted,
 } = require("./utils/updateBridgingAtbtcMinted");
-const { nearChainScanner } = require("./utils/nearChainScanner");
 
 const useDepositAPIs = require("./apis/deposit");
 
@@ -940,19 +939,6 @@ app.listen(PORT, async () => {
   console.log(
     `Server is running on port ${PORT} | ${process.env.NEAR_CONTRACT_ID}`,
   );
-
-  setInterval(async () => {
-    if (!flagsBatch.NearChainScannerRunning) {
-      flagsBatch.NearChainScannerRunning = true;
-      try {
-        await nearChainScanner(near, deposits, redemptions, bridgings);
-      } catch (error) {
-        console.error("Error processing near chain scanner:", error);
-      } finally {
-        flagsBatch.NearChainScannerRunning = false;
-      }
-    }
-  }, 5000);
 
   setInterval(async () => {
     if (!flagsBatch.RetrieveAndProcessPastEventsRunning) {

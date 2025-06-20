@@ -5,6 +5,13 @@ use crate::AtlasExt;
 
 #[near_bindgen]
 impl Atlas {
+    /// Calculates the protocol fee for redemption operations based on the amount and configured fee rate
+    /// @param amount - The amount in satoshis to calculate the fee for
+    /// @returns u64 - The calculated protocol fee in satoshis (minimum 650 satoshis)
+    /// # Requirements
+    /// * Amount must be greater than zero
+    /// * Fee calculation uses basis points (BPS) from global parameters
+    /// * Minimum fee of 650 satoshis is enforced regardless of percentage calculation
     pub fn get_redemption_protocol_fee(&self, amount: u64) -> u64 {
         assert!(amount > 0, "Amount must be greater than zero");
         let redemption_percentage = self.global_params.get_fee_redemption_bps() as u128;
@@ -21,6 +28,13 @@ impl Atlas {
         }
     }
 
+    /// Calculates the protocol fee for deposit operations based on the amount and configured fee rate
+    /// @param amount - The amount in satoshis to calculate the fee for
+    /// @returns u64 - The calculated protocol fee in satoshis (minimum 650 satoshis)
+    /// # Requirements
+    /// * Amount must be greater than zero
+    /// * Fee calculation uses basis points (BPS) from global parameters
+    /// * Minimum fee of 650 satoshis is enforced regardless of percentage calculation
     pub fn get_deposit_protocol_fee(&self, amount: u64) -> u64 {
         assert!(amount > 0, "Amount must be greater than zero");
         let deposit_percentage = self.global_params.get_fee_deposit_bps() as u128;
@@ -37,6 +51,13 @@ impl Atlas {
         }
     }
 
+    /// Calculates the protocol fee for bridging operations based on the amount and configured fee rate
+    /// @param amount - The amount in satoshis to calculate the fee for
+    /// @returns u64 - The calculated protocol fee in satoshis (minimum 650 satoshis)
+    /// # Requirements
+    /// * Amount must be greater than zero
+    /// * Fee calculation uses basis points (BPS) from global parameters
+    /// * Minimum fee of 650 satoshis is enforced regardless of percentage calculation
     pub fn get_bridging_protocol_fee(&self, amount: u64) -> u64 {
         assert!(amount > 0, "Amount must be greater than zero");
         let bridging_percentage = self.global_params.get_fee_bridging_bps() as u128;

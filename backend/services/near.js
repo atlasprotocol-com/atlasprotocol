@@ -22,27 +22,21 @@ debugBridgeMint = require("debug")("bridge:getPastMintBridgeEventsInBatches");
 debugBridgeBurn = require("debug")("bridge:getPastBurnBridgingEventsInBatches");
 
 const viewMethods = [
-  "get_deposit_by_btc_txn_hash",
-  "get_all_deposits",
-  "get_redemption_by_txn_hash",
-  "get_all_redemptions",
   "get_all_global_params",
   "get_all_chain_configs",
-  "get_all_constants",
   "get_chain_config_by_chain_id",
-  "get_first_valid_redemption",
-  "get_bridging_by_txn_hash",
-  "get_all_bridgings",
-  "get_first_valid_user_redemption",
-  "get_redemptions_for_yield_provider_by_status_and_timestamp",
-  "get_bridgings_for_yield_provider_by_status_and_timestamp",
-  "get_redemptions_to_send_btc",
-  "get_bridging_records_to_send_btc",
+  "get_all_constants",
   "get_pubkey_by_address",
-  "get_deposits_count",
-  "get_redemptions_count",
   "is_production_mode",
   "get_validators_by_txn_hash",
+  "get_deposit_by_btc_txn_hash",
+  "get_all_deposits",
+  "get_deposits_count",
+  "get_redemption_by_txn_hash",
+  "get_all_redemptions",
+  "get_redemptions_count",
+  "get_bridging_by_txn_hash",
+  "get_all_bridgings",
   "get_bridgings_count",
 ];
 
@@ -61,35 +55,27 @@ const changeMethods = [
   "update_redemption_pending_btc_mempool",
   "update_redemption_redeemed",
   "insert_bridging_abtc",
-  "update_bridging_status",
   "update_bridging_btc_bridged",
   "update_bridging_remarks",
   "create_bridging_abtc_signed_tx",
   "update_bridging_minted_txn_hash",
   "update_bridging_atbtc_minted",
   "update_deposit_yield_provider_deposited",
-  "update_deposit_pending_yield_provider_deposit",
   "update_yield_provider_txn_hash",
-  "update_redemption_pending_yield_provider_unstake",
   "update_redemption_yield_provider_unstaked",
   "update_redemption_yield_provider_unstake_processing",
-  "update_redemption_pending_yield_provider_withdraw",
   "update_redemption_yield_provider_withdrawing",
   "update_redemption_yield_provider_withdrawn",
   "update_withdraw_fail_deposit_status",
   "create_abtc_accept_ownership_tx",
   "withdraw_fail_deposit_by_btc_tx_hash",
   "rollback_deposit_status_by_btc_txn_hash",
-  "update_bridging_fees_pending_yield_provider_unstake",
   "update_bridging_fees_yield_provider_unstake_processing",
   "update_bridging_fees_yield_provider_remarks",
   "update_bridging_fees_yield_provider_unstaked",
-  "update_bridging_fees_pending_yield_provider_withdraw",
   "update_bridging_fees_yield_provider_withdrawing",
   "update_bridging_fees_yield_provider_withdrawn",
-  "update_last_unstaking_time",
   "create_send_bridging_fees_transaction",
-  "update_bridging_sending_fee_to_treasury",
   "set_chain_configs_from_json",
   "insert_btc_pubkey",
 ];
@@ -206,6 +192,8 @@ class Near {
         gas: this.gas
       });
 
+      console.log("result:", result);
+      
       return result;
     } catch (error) {
       console.error(`[NearService] Change call failed for method ${methodName}:`, error);
@@ -232,16 +220,6 @@ class Near {
     return this.makeNearRpcViewCall("get_deposits_by_btc_sender_address", {
       btc_sender_address: btcWalletAddress,
     });
-  }
-
-  // Function to get redemption by BTC sender address from NEAR contract
-  async getRedemptionsByBtcAddress(btcWalletAddress) {
-    return this.makeNearRpcViewCall(
-      "get_redemptions_by_btc_receiving_address",
-      {
-        btc_receiving_address: btcWalletAddress,
-      },
-    );
   }
 
   // Function to get all deposits from NEAR contract
@@ -309,14 +287,6 @@ class Near {
     });
   }
 
-  async getFirstValidUserRedemption() {
-    return this.makeNearRpcViewCall("get_first_valid_user_redemption", {});
-  }
-
-  async getFirstValidRedemption() {
-    return this.makeNearRpcViewCall("get_first_valid_redemption", {});
-  }
-
   async updateDepositBtcDeposited(btcTxnHash, timestamp) {
     return this.makeNearRpcChangeCall("update_deposit_btc_deposited", {
       btc_txn_hash: btcTxnHash,
@@ -324,18 +294,9 @@ class Near {
     });
   }
 
-  async updateDepositYieldProviderDeposited(btcTxnHash, timestamp) {
+  async updateDepositYieldProviderDeposited(btcTxnHash) {
     return this.makeNearRpcChangeCall(
       "update_deposit_yield_provider_deposited",
-      {
-        btc_txn_hash: btcTxnHash,
-      },
-    );
-  }
-
-  async updateDepositPendingYieldProviderDeposit(btcTxnHash) {
-    return this.makeNearRpcChangeCall(
-      "update_deposit_pending_yield_provider_deposit",
       {
         btc_txn_hash: btcTxnHash,
       },
@@ -347,15 +308,6 @@ class Near {
       btc_txn_hash,
       refund_txn_id,
     });
-  }
-
-  async updateRedemptionPendingYieldProviderUnstake(txnHash) {
-    return this.makeNearRpcChangeCall(
-      "update_redemption_pending_yield_provider_unstake",
-      {
-        txn_hash: txnHash,
-      },
-    );
   }
 
   async updateRedemptionYieldProviderUnstaked(txnHash) {
@@ -469,15 +421,6 @@ class Near {
   async updateRedemptionYieldProviderUnstakeProcessing(txnHash) {
     return this.makeNearRpcChangeCall(
       "update_redemption_yield_provider_unstake_processing",
-      {
-        txn_hash: txnHash,
-      },
-    );
-  }
-
-  async updateRedemptionPendingYieldProviderWithdraw(txnHash) {
-    return this.makeNearRpcChangeCall(
-      "update_redemption_pending_yield_provider_withdraw",
       {
         txn_hash: txnHash,
       },
@@ -1171,13 +1114,6 @@ class Near {
     });
   }
 
-  async updateBridgingStatus(txnHash, status) {
-    return this.makeNearRpcChangeCall("update_bridging_status", {
-      btc_txn_hash: txnHash,
-      status: status,
-    });
-  }
-
   async updateBridgingBtcBridged(txnHash, timestamp) {
     return this.makeNearRpcChangeCall("update_bridging_btc_bridged", {
       txn_hash: txnHash
@@ -1199,15 +1135,6 @@ class Near {
     });
   }
 
-  async updateBridgingFeesPendingYieldProviderUnstake(txnHash) {
-    return this.makeNearRpcChangeCall(
-      "update_bridging_fees_pending_yield_provider_unstake",
-      {
-        txn_hash: txnHash,
-      },
-    );
-  }
-
   async updateBridgingFeesYieldProviderRemarks(txnHash, remarks) {
     return this.makeNearRpcChangeCall(
       "update_bridging_fees_yield_provider_remarks",
@@ -1221,15 +1148,6 @@ class Near {
   async updateBridgingFeesYieldProviderUnstaked(txnHash) {
     return this.makeNearRpcChangeCall(
       "update_bridging_fees_yield_provider_unstaked",
-      {
-        txn_hash: txnHash,
-      },
-    );
-  }
-
-  async updateBridgingFeesPendingYieldProviderWithdraw(txnHash) {
-    return this.makeNearRpcChangeCall(
-      "update_bridging_fees_pending_yield_provider_withdraw",
       {
         txn_hash: txnHash,
       },
@@ -1251,12 +1169,6 @@ class Near {
     );
   }
 
-  async getRedemptionsToSendBtc(batchSize) {
-    return this.makeNearRpcViewCall("get_redemptions_to_send_btc", {
-      batch_size: batchSize,
-    });
-  }
-
   async updateBridgingFeesYieldProviderWithdrawn(txnHash) {
     return this.makeNearRpcChangeCall(
       "update_bridging_fees_yield_provider_withdrawn",
@@ -1267,7 +1179,7 @@ class Near {
   }
 
   async updateBridgingFeesYieldProviderUnstakeProcessing(txnHash) {
-    return this.makeNearRpcChangeCall(
+    return await this.makeNearRpcChangeCall(
       "update_bridging_fees_yield_provider_unstake_processing",
       {
         txn_hash: txnHash,
@@ -1556,62 +1468,6 @@ class Near {
 
   async getLastUnstakingTime() {
     return this.makeNearRpcViewCall("get_last_unstaking_time", {});
-  }
-
-  async updateLastUnstakingTime(timestamp) {
-    return this.makeNearRpcChangeCall("update_last_unstaking_time", {
-      timestamp: timestamp,
-    });
-  }
-
-  async getRedemptionsForYieldProviderByStatusAndTimestamp(status, timestamp) {
-    console.log("status:", status);
-    console.log("timestamp:", timestamp);
-    return this.makeNearRpcViewCall(
-      "get_redemptions_for_yield_provider_by_status_and_timestamp",
-      {
-        status: status,
-        timestamp: timestamp,
-      },
-    );
-  }
-
-  async getBridgingsForYieldProviderByStatusAndTimestamp(
-    yieldProviderStatus,
-    timestamp,
-  ) {
-    return this.makeNearRpcViewCall(
-      "get_bridgings_for_yield_provider_by_status_and_timestamp",
-      {
-        yield_provider_status: yieldProviderStatus,
-        timestamp: timestamp,
-      },
-    );
-  }
-
-  // Function to get redemptions by status
-  async getRedemptionsForYieldProviderByStatus(status) {
-    return this.makeNearRpcViewCall(
-      "get_redemptions_for_yield_provider_by_status_and_timestamp",
-      {
-        status: status,
-        timestamp: Math.floor(Date.now() / 1000), // Current timestamp in seconds
-      },
-    );
-  }
-
-  async updateBridgingSendingFeeToTreasury(txnHashes, treasuryBtcTxnHash) {
-    return this.makeNearRpcChangeCall(
-      "update_bridging_sending_fee_to_treasury",
-      {
-        txn_hashes: txnHashes,
-        treasury_btc_txn_hash: treasuryBtcTxnHash,
-      },
-    );
-  }
-
-  async getBridgingRecordsToSendBtc() {
-    return this.makeNearRpcViewCall("get_bridging_records_to_send_btc", {});
   }
 
   async set_chain_configs_from_json(params) {

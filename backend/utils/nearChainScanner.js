@@ -25,7 +25,7 @@ async function nearChainScanner(
   const { NETWORK_TYPE } = getConstants();
   const chainConfig = getAllChainConfig();
 
-  const batchSize = 20;
+  const batchSize = 50;
 
   try {
     const chain = Object.values(chainConfig).find(
@@ -44,7 +44,7 @@ async function nearChainScanner(
     
     const startBlock = await getBlockCursor(
       "NearChainScanner",
-      chain.chainID,
+      chain.chainID + "_NearChainScanner",
       endBlock,
     );
     const toBlock = Math.min(startBlock + batchSize, endBlock);
@@ -76,7 +76,7 @@ async function nearChainScanner(
 
     await setBlockCursor(
       "NearChainScanner",
-      chain.chainID,
+      chain.chainID + "_NearChainScanner",
       toBlock,
     );
   } catch (error) {

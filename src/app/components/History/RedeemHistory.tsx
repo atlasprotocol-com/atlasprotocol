@@ -35,14 +35,10 @@ function getStatusTooltipContent(status: any): string {
   switch (status) {
     case RedemptionStatus.ABTC_BURNT:
       return "Your redemption from Atlas is pending.";
-    case RedemptionStatus.BTC_PENDING_YIELD_PROVIDER_UNSTAKE:
-      return "Your BTC is pending untaking from the yield provider.";
     case RedemptionStatus.BTC_YIELD_PROVIDER_UNSTAKE_PROCESSING:
       return "Your BTC is in the process of being unstaked from the yield provider.";
     case RedemptionStatus.BTC_YIELD_PROVIDER_UNSTAKED:
       return "Your BTC has been unstaked from the yield provider.";
-    case RedemptionStatus.BTC_PENDING_YIELD_PROVIDER_WITHDRAW:
-      return "Your BTC has been unstaked and is pending withdrawal from the yield provider.";
     case RedemptionStatus.BTC_YIELD_PROVIDER_WITHDRAWING:
       return "Your BTC is being withdrawn from the yield provider. This provider requires 7 confirmations on BTC Testnet4, so time can vary significantly.";
     case RedemptionStatus.BTC_YIELD_PROVIDER_WITHDRAWN:

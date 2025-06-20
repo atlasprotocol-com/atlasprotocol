@@ -192,7 +192,7 @@ async function MintaBtcToReceivingChain(allDeposits, near) {
           const endBlock = await near.getCurrentBlockNumber();
           const startBlock = await getBlockCursor(
             "NearChainScanner",
-            chainId,
+            chainId + "_NearChainScanner",
             endBlock,
           );
 
