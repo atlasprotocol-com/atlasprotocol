@@ -5,6 +5,7 @@ const {
   updateOffchainDepositStatus,
   updateOffchainDepositRemarks,
   getDepositsToBeMinted,
+  updateOffchainDepositMintedTxnHash,
 } = require("../helpers/depositsHelper");
 const {
   getTxnHashByOriginTxnHashMinted,
@@ -164,7 +165,7 @@ async function MintaBtcToReceivingChain(allDeposits, near) {
               );
               console.log(
                 "\x1b[35m%s\x1b[0m",
-                `Processed Txn: Mint aBTC with BTC txn hash ${btcTxnHash}, mintStatus = ${status}`,
+                `Processed Txn: Mint aBTC with BTC txn hash ${btcTxnHash}, mintStatus = ${status}, evm txn hash = ${txnHash}`,
               );
             } catch (error) {
               let remarks = `Error ${batchName} processing Txn with BTC txn hash ${btcTxnHash}: ${error}`;
