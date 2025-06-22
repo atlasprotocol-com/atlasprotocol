@@ -1315,34 +1315,4 @@ impl Atlas {
             env::panic_str("Deposit record not found");
         }
     }
-
-    /// Updates specific fields of a deposit record identified by its txn_hash
-    pub fn update_deposit(
-        &mut self,
-        txn_hash: String,
-        status: u8,
-        remarks: String,
-        retry_count: u8,
-        verified_count: u8,
-        refund_txn_id: String,
-    ) {
-        // Validate input parameters
-        assert!(!txn_hash.is_empty(), "Transaction hash cannot be empty");
-
-        // Retrieve the deposit record based on txn_hash
-        if let Some(mut deposit) = self.deposits.get(&txn_hash).cloned() {
-            deposit.status = status;
-            deposit.remarks = remarks;
-            deposit.retry_count = retry_count;
-            deposit.verified_count = verified_count;
-            deposit.refund_txn_id = refund_txn_id;
-
-            // Update the deposit record in the map
-            self.deposits.insert(txn_hash.clone(), deposit);
-
-            log!("Deposit updated successfully for txn_hash: {}", txn_hash);
-        } else {
-            env::panic_str("Deposit record not found");
-        }
-    }
 }
