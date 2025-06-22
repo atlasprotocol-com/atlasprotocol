@@ -1,9 +1,9 @@
-require('dotenv').config();
-const { Client } = require('pg');
+require("dotenv").config();
+const { Client } = require("pg");
 
 class PostgresClient {
   constructor() {
-    this.schema = process.env.PGSCHEMA || 'public'; // fallback to public if not set
+    this.schema = process.env.PGSCHEMA || "public"; // fallback to public if not set
     this.client = new Client({
       user: process.env.PGUSER,
       password: process.env.PGPASSWORD,
@@ -35,4 +35,4 @@ class PostgresClient {
   }
 }
 
-module.exports = PostgresClient; 
+module.exports = PostgresClient;
