@@ -122,6 +122,18 @@ impl Atlas {
             .update_btc_min_staking_amount(btc_min_staking_amount);
     }
 
+    pub fn update_atbtc_min_redemption_amount(&mut self, atbtc_min_redemption_amount: u64) {
+        self.assert_not_paused();
+        self.global_params
+            .update_atbtc_min_redemption_amount(atbtc_min_redemption_amount);
+    }
+
+    pub fn update_atbtc_min_bridging_amount(&mut self, atbtc_min_bridging_amount: u64) {
+        self.assert_not_paused();
+        self.global_params
+            .update_atbtc_min_bridging_amount(atbtc_min_bridging_amount);
+    }
+
     pub fn update_treasury_address(&mut self, treasury_address: String) {
         self.assert_not_paused();
         self.global_params.update_treasury_address(treasury_address);
