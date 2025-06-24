@@ -19,8 +19,8 @@ pub(crate) fn state_cursor_write(key: String, cursor: usize) {
     env::storage_write(key.as_bytes(), &data);
 }
 
-const STATE_V2: &[u8] = b"state.v2";
-const ATBTC_BALANCES: &[u8] = b"atbtc_balances.v3";
+const PREVIOUS_STATE: &[u8] = b"state";
+const ATBTC_BALANCES: &[u8] = b"atbtc_balances";
 
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct V2 {
@@ -51,7 +51,7 @@ impl Atlas {
             Ok(serialized) => serialized,
             Err(_) => env::panic_str("Oops, cannot serialize the contract state."),
         };
-        env::storage_write(STATE_V2, &data);
+        env::storage_write(PREVIOUS_STATE, &data);
 
         state_cursor_write("migrate.deposits".to_string(), 0);
         state_cursor_write("migrate.redemptions".to_string(), 0);
@@ -79,11 +79,11 @@ impl Atlas {
     pub fn migrate_deposit(&mut self, size: Option<u64>) {
         self.assert_owner();
 
-        if !env::storage_has_key(STATE_V2) {
+        if !env::storage_has_key(PREVIOUS_STATE) {
             panic!("call migrate_prepare first");
         }
 
-        let old_state = env::storage_read(STATE_V2)
+        let old_state = env::storage_read(PREVIOUS_STATE)
             .map(|data| {
                 V2::try_from_slice(&data)
                     .unwrap_or_else(|_| env::panic_str("Cannot deserialize the contract state."))
@@ -116,11 +116,7 @@ impl Atlas {
             amount = amount.saturating_sub(deposit.protocol_fee);
             amount = amount.saturating_sub(deposit.yield_provider_gas_fee);
 
-            self.update_balance(
-                deposit.receiving_address.clone(),
-                deposit.receiving_chain_id.clone(),
-                amount,
-            );
+            self.update_balance(deposit.receiving_chain_id.clone(), amount);
         }
 
         let new_cursor = cursor + to_migrate_deposits.len();
@@ -130,11 +126,11 @@ impl Atlas {
     pub fn migrate_redemption(&mut self, size: Option<u64>) {
         self.assert_owner();
 
-        if !env::storage_has_key(STATE_V2) {
+        if !env::storage_has_key(PREVIOUS_STATE) {
             panic!("call migrate_prepare first");
         }
 
-        let old_state = env::storage_read(STATE_V2)
+        let old_state = env::storage_read(PREVIOUS_STATE)
             .map(|data| {
                 V2::try_from_slice(&data)
                     .unwrap_or_else(|_| env::panic_str("Cannot deserialize the contract state."))
@@ -172,11 +168,7 @@ impl Atlas {
             let amount = redemption.abtc_amount;
             let neg_amount = 0u64.saturating_sub(amount);
 
-            self.update_balance(
-                redemption.abtc_redemption_address.clone(),
-                redemption.abtc_redemption_chain_id.clone(),
-                neg_amount,
-            );
+            self.update_balance(redemption.abtc_redemption_chain_id.clone(), neg_amount);
         }
 
         let new_cursor = cursor + to_migrate_redemptions.len();
@@ -186,11 +178,11 @@ impl Atlas {
     pub fn migrate_bridge(&mut self, size: Option<u64>) {
         self.assert_owner();
 
-        if !env::storage_has_key(STATE_V2) {
+        if !env::storage_has_key(PREVIOUS_STATE) {
             panic!("call migrate_prepare first");
         }
 
-        let old_state = env::storage_read(STATE_V2)
+        let old_state = env::storage_read(PREVIOUS_STATE)
             .map(|data| {
                 V2::try_from_slice(&data)
                     .unwrap_or_else(|_| env::panic_str("Cannot deserialize the contract state."))
@@ -223,11 +215,7 @@ impl Atlas {
 
             let neg_amount = 0u64.saturating_sub(bridging.abtc_amount);
 
-            self.update_balance(
-                bridging.origin_chain_address.clone(),
-                bridging.origin_chain_id.clone(),
-                neg_amount,
-            );
+            self.update_balance(bridging.origin_chain_id.clone(), neg_amount);
 
             let mut dest_amount = bridging.abtc_amount;
             dest_amount = dest_amount.saturating_sub(bridging.protocol_fee);
@@ -236,11 +224,7 @@ impl Atlas {
             dest_amount = dest_amount.saturating_sub(bridging.actual_gas_fee_sat);
             dest_amount = dest_amount.saturating_sub(bridging.yield_provider_gas_fee);
 
-            self.update_balance(
-                bridging.dest_chain_address.clone(),
-                bridging.dest_chain_id.clone(),
-                dest_amount,
-            );
+            self.update_balance(bridging.dest_chain_id.clone(), dest_amount);
         }
 
         let new_cursor = cursor + to_migrate_bridgings.len();
@@ -250,8 +234,8 @@ impl Atlas {
     pub fn migrate_cleanup(&mut self) {
         self.assert_owner();
 
-        if env::storage_has_key(STATE_V2) {
-            env::storage_remove(STATE_V2);
+        if env::storage_has_key(PREVIOUS_STATE) {
+            env::storage_remove(PREVIOUS_STATE);
         }
     }
 }

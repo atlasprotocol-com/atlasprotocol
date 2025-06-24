@@ -87,18 +87,13 @@ impl Atlas {
             btc_txn_hash_verified_count: 0,
         };
 
-        let abtc_redemption_address = record.abtc_redemption_address.clone();
         let abtc_redemption_chain_id = record.abtc_redemption_chain_id.clone();
         let amount = abtc_amount;
         let neg_amount = 0u64.saturating_sub(amount);
 
         self.redemptions.insert(txn_hash, record);
 
-        self.update_balance(
-            abtc_redemption_address,
-            abtc_redemption_chain_id,
-            neg_amount,
-        );
+        self.update_balance(abtc_redemption_chain_id, neg_amount);
     }
 
     /// Retrieves a redemption record by its transaction hash
@@ -176,9 +171,7 @@ impl Atlas {
                     TESTNET4.to_string()
                 };
 
-                if let Some(_) =
-                    self.chain_configs.get_chain_config(btc_chain_id.clone())
-                {
+                if let Some(_) = self.chain_configs.get_chain_config(btc_chain_id.clone()) {
                     // Check all specified conditions
                     if redemption.status == RED_BTC_YIELD_PROVIDER_WITHDRAWN
                         && redemption.verified_count >= chain_config.validators_threshold

@@ -307,7 +307,6 @@ impl Atlas {
                     amount = amount.saturating_sub(deposit.protocol_fee);
                     amount = amount.saturating_sub(deposit.yield_provider_gas_fee);
 
-                    let receiving_address = deposit.receiving_address.clone();
                     let receiving_chain_id = deposit.receiving_chain_id.clone();
 
                     self.deposits.insert(btc_txn_hash.clone(), deposit);
@@ -317,7 +316,7 @@ impl Atlas {
                         btc_txn_hash
                     );
 
-                    self.update_balance(receiving_address, receiving_chain_id, amount);
+                    self.update_balance(receiving_chain_id, amount);
                 } else {
                     // Log a message if conditions are not met
                     log!(
@@ -541,7 +540,7 @@ impl Atlas {
         if let Some(mut deposit) = self.deposits.get(&btc_txn_hash).cloned() {
             if !deposit.btc_sender_address.is_empty()
                 && !deposit.receiving_chain_id.is_empty()
-                && !deposit.receiving_address.is_empty()            
+                && !deposit.receiving_address.is_empty()
                 && !deposit.remarks.is_empty()
             //&& deposit.retry_count < max_retry_count
             {

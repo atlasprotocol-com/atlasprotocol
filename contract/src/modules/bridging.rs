@@ -94,14 +94,13 @@ impl Atlas {
         };
 
         // Clone fields before moving record
-        let origin_chain_address = record.origin_chain_address.clone();
         let origin_chain_id = record.origin_chain_id.clone();
         let amount = record.abtc_amount;
         let neg_amount = 0u64.saturating_sub(amount);
 
         self.bridgings.insert(txn_hash, record);
 
-        self.update_balance(origin_chain_address, origin_chain_id, neg_amount);
+        self.update_balance(origin_chain_id, neg_amount);
     }
 
     /// Retrieves a bridging record by its transaction hash
@@ -204,7 +203,6 @@ impl Atlas {
                 bridging.dest_txn_hash = dest_txn_hash;
                 bridging.timestamp = timestamp;
 
-                let dest_chain_address = bridging.dest_chain_address.clone();
                 let dest_chain_id = bridging.dest_chain_id.clone();
                 let mut dest_amount = bridging.abtc_amount;
                 dest_amount = dest_amount.saturating_sub(bridging.protocol_fee);
@@ -215,7 +213,7 @@ impl Atlas {
                 bridging.timestamp = env::block_timestamp() / 1_000_000_000;
                 self.bridgings.insert(txn_hash, bridging);
 
-                self.update_balance(dest_chain_address, dest_chain_id, dest_amount);
+                self.update_balance(dest_chain_id, dest_amount);
             } else {
                 // Log message if conditions not met
                 log!(
@@ -960,7 +958,7 @@ impl Atlas {
                         total_minting_fees += bridging.minting_fee_sat;
                         total_bridging_gas_fees += bridging.bridging_gas_fee_sat;
                         total_yield_provider_gas_fees += bridging.yield_provider_gas_fee;
-                        
+
                         txn_hashes_to_process.push(txn_hash.clone());
                     }
                 }

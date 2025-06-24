@@ -12,8 +12,8 @@ impl Atlas {
             .collect()
     }
 
-    pub fn update_balance(&mut self, address: String, chain_id: String, balance: u64) {
-        let key = format!("{}:{}", address, chain_id);
+    pub fn update_balance(&mut self, chain_id: String, balance: u64) {
+        let key = format!("{}", chain_id);
 
         if let Some(current_balance) = self.atbtc_balances.get(&key) {
             self.atbtc_balances.insert(key, current_balance + balance);
@@ -22,8 +22,8 @@ impl Atlas {
         }
     }
 
-    pub fn get_balance(&self, address: String) -> Vec<(String, u64)> {
-        let keys = self.get_atbtc_balance_keys(address.clone());
+    pub fn get_balance(&self, chain_id: String) -> Vec<(String, u64)> {
+        let keys = self.get_atbtc_balance_keys(chain_id.clone());
         let mut result = Vec::new();
 
         for key in keys {
