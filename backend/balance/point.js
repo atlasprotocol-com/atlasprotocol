@@ -1,7 +1,6 @@
-const { format } = require("date-fns");
+const { format, parse } = require("date-fns");
 
-const useNear = require("./near");
-const parser = require("./parser");
+const conf = require("./config");
 const PostgresClient = require("../db/PostgresClient");
 const client = new PostgresClient();
 
@@ -16,11 +15,14 @@ const pointsnapshotsql = `CREATE TABLE IF NOT EXISTS ${client.schema}.point_snap
 
 const HOUR = 60 * 60 * 1000; // 1 hour in milliseconds
 
-async function genSnapshot(start) {
+async function genSnapshot(start, end) {
+  console.log(
+    `${new Date(start).toISOString()} - ${new Date(end).toISOString()}`,
+  );
   const snapshots = [];
 
   const { ts: startts } = getCursor(new Date(Number(start)));
-  const { ts: endcurts } = getCursor(new Date());
+  const { ts: endcurts } = getCursor(new Date(Number(end) || Date.now()));
   for (let cur = endcurts; cur >= startts; cur -= HOUR) {
     const { ts: to } = getCursor(new Date(cur));
     const { ts: from, bucket } = getCursor(new Date(to), -1);
@@ -72,8 +74,13 @@ async function getPoints(from, to) {
 async function main() {
   await client.connect();
   await client.query(pointsnapshotsql);
-  const start = process.argv[2] || "2025-03-01T00:00:00Z";
-  await genSnapshot(new Date(start).getTime());
+  const start = process.argv[2]
+    ? parse(process.argv[2], "yyyyMMddHHmmss", new Date())
+    : "2025-03-01T00:00:00Z";
+  const end = process.argv[3]
+    ? parse(process.argv[3], "yyyyMMddHHmmss", new Date())
+    : Date.now();
+  await genSnapshot(new Date(start).getTime(), new Date(end).getTime());
 }
 if (__filename === require.main.filename) {
   main()
