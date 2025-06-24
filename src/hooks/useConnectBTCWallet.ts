@@ -68,7 +68,7 @@ export function useConnectBTCWallet({
         // Call the API to insert BTC public key
         try {
           await apiWrapper(
-            "GET",
+            "POST",
             "/api/v1/insert-btc-pubkey",
             "Error while capturing BTC public key",
             {

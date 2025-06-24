@@ -104,7 +104,6 @@ app.use(json());
 const { Bitcoin } = require("./services/bitcoin");
 const { Near } = require("./services/near");
 const { Ethereum } = require("./services/ethereum");
-const { getTxsOfNetwork } = require("./services/subquery");
 
 const btcConfig = {
   btcAtlasDepositAddress: process.env.BTC_ATLAS_DEPOSIT_ADDRESS,
@@ -475,18 +474,9 @@ app.get("/api/derived-address", async (req, res) => {
   }
 });
 
-app.get("/subquery", async (req, res) => {
-  const data = {
-    // arbitrum: await getTxsOfNetwork("arbitrum"),
-    // optimism: await getTxsOfNetwork("optimism"),
-    near: await getTxsOfNetwork("near"),
-  };
-  res.json(data);
-});
-
-app.get("/api/v1/process-new-deposit", async (req, res) => {
+app.post("/api/v1/process-new-deposit", async (req, res) => {
   try {
-    const { btcTxnHash } = req.query;
+    const { btcTxnHash } = req.body;
 
     if (!btcTxnHash) {
       return res
@@ -525,9 +515,9 @@ app.get("/api/v1/process-new-deposit", async (req, res) => {
   }
 });
 
-app.get("/api/v1/process-new-redemption", async (req, res) => {
+app.post("/api/v1/process-new-redemption", async (req, res) => {
   try {
-    const { txnHash } = req.query;
+    const { txnHash } = req.body;
 
     if (!txnHash) {
       return res.status(400).json({ error: "Transaction hash is required" });
@@ -656,9 +646,9 @@ app.get("/api/v1/process-new-redemption", async (req, res) => {
   }
 });
 
-app.get("/api/v1/process-new-bridging", async (req, res) => {
+app.post("/api/v1/process-new-bridging", async (req, res) => {
   try {
-    const { txnHash } = req.query;
+    const { txnHash } = req.body;
 
     if (!txnHash) {
       return res.status(400).json({ error: "Transaction hash is required" });
@@ -821,9 +811,9 @@ async function processPubkeyQueue() {
   processPubkeyQueue(); // Process next item in queue
 }
 
-app.get("/api/v1/insert-btc-pubkey", async (req, res) => {
+app.post("/api/v1/insert-btc-pubkey", async (req, res) => {
   try {
-    const { btcAddress, publicKey } = req.query;
+    const { btcAddress, publicKey } = req.body;
     if (!btcAddress || !publicKey) {
       return res.status(400).json({
         error: "Both BTC address and public key are required",
@@ -851,9 +841,9 @@ app.get("/api/v1/insert-btc-pubkey", async (req, res) => {
   }
 });
 
-app.get("/api/v1/check-minted-txn", async (req, res) => {
+app.post("/api/v1/check-minted-txn", async (req, res) => {
   try {
-    const { btcTxnHash, mintedTxnHash } = req.query;
+    const { btcTxnHash, mintedTxnHash } = req.body;
 
     if (!btcTxnHash) {
       return res
@@ -889,32 +879,6 @@ app.get("/api/v1/check-minted-txn", async (req, res) => {
     res.status(500).json({
       error: "Failed to check minted transaction",
       details: error.message,
-    });
-  }
-});
-
-// API endpoint to update BTC transaction hash
-app.get("/api/v1/update-send-to-user-btc-txn-hash", async (req, res) => {
-  try {
-    const result = await updateBtcTxnHash(bitcoin);
-
-    if (result.success) {
-      res.status(200).json({
-        success: true,
-        message: result.message,
-        data: result.data,
-      });
-    } else {
-      res.status(400).json({
-        success: false,
-        message: result.message,
-      });
-    }
-  } catch (error) {
-    console.error("Error in update-send-to-user-btc-txn-hash:", error);
-    res.status(500).json({
-      success: false,
-      message: error.message || "Internal server error",
     });
   }
 });
