@@ -13,6 +13,15 @@ const pointsnapshotsql = `CREATE TABLE IF NOT EXISTS ${client.schema}.point_snap
   PRIMARY KEY (bucket)
 );`;
 
+const pointsweightsql = `CREATE TABLE IF NOT EXISTS ${client.schema}.point_weight (
+  bucket TEXT NOT NULL,
+  start_ts BIGINT NOT NULL,
+  end_ts BIGINT NOT NULL,
+  weight DECIMAL(20,2) NOT NULL DEFAULT 0,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (bucket)
+);`;
+
 const HOUR = 60 * 60 * 1000; // 1 hour in milliseconds
 
 async function genSnapshot(start, end) {
@@ -71,17 +80,28 @@ async function getPoints(from, to) {
   return points;
 }
 
+async function genWeight(from, to) {
+  const { rows: events } = await client.query(
+    `
+    SELECT * FROM atlas_uat.atbtc_events
+    WHERE block_timestamp <= $1
+      AND (block_timestamp >= $2 OR block_timestamp < $2)
+    ORDER BY block_timestamp, block_number ASC
+  `,
+    [Math.floor(to / 1000), Math.floor(from / 1000)],
+  );
+  if (events.length === 0) {
+    console.log("No events found for the given range.");
+    return [];
+  }
+}
+
 async function main() {
   await client.connect();
   await client.query(pointsnapshotsql);
-  const start = process.argv[2]
-    ? parse(process.argv[2], "yyyyMMddHHmmss", new Date())
-    : "2025-03-01T00:00:00Z";
-  const end = process.argv[3]
-    ? parse(process.argv[3], "yyyyMMddHHmmss", new Date())
-    : Date.now();
-  await genSnapshot(new Date(start).getTime(), new Date(end).getTime());
+  await client.query(pointsweightsql);
 }
+
 if (__filename === require.main.filename) {
   main()
     .catch((error) => {

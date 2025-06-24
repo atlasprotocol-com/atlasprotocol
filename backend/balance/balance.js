@@ -1,3 +1,4 @@
+const _ = require("lodash");
 const BigNumber = require("bignumber.js");
 const useNear = require("./near");
 const parser = require("./parser");
@@ -6,77 +7,124 @@ const client = new PostgresClient();
 
 const balancesql = `CREATE TABLE IF NOT EXISTS ${client.schema}.balance (
   bucket TEXT NOT NULL,
-  chain_id TEXT NOT NULL,
   wallet_address TEXT NOT NULL,
+  chain_id TEXT NOT NULL,
   balance TEXT NOT NULL DEFAULT 0,
   created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-  PRIMARY KEY (bucket, chain_id, wallet_address)
+  PRIMARY KEY (bucket, wallet_address, chain_id)
 );`;
 
-async function main() {
+const balancehistorysql = `CREATE TABLE IF NOT EXISTS ${client.schema}.balance_history (
+  transaction_hash TEXT NOT NULL PRIMARY KEY,
+  wallet_address TEXT NOT NULL,
+  chain_id TEXT NOT NULL,
+  amount TEXT NOT NULL DEFAULT 0,
+  block_timestamp BIGINT NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);`;
+
+const MULTIPLIER_MAP = {
+  "0x5448dd0f4c23b4bed107869be9c14ffd7f38c6c3ded0eced40ef6ff7b8f3fc05": 1,
+  "0xb8bdadb84da719b84d72f39a7dabc240534c4575a5ed3fe75269c19caa11aaed": -1,
+  mint_deposit: 1,
+  burn_redemption: -1,
+};
+
+async function main(start, end, size = 10) {
   const { conf } = await useNear();
   await client.connect();
   await client.query(balancesql);
+  await client.query(balancehistorysql);
 
-  const limit = parser.chains(conf).length;
-  const { rows: buckets } = await client.query(
-    `UPDATE ${client.schema}.balance_bucket SET status = 1 
+  const { buckets, from, to } = parser.bucketFromRange(start, end);
+  const chunks = _.chunk(buckets, 30);
+  for (let chunk of chunks) {
+    console.log(`[${from} - ${to}] ${chunk.map((c) => c.bucket)}`);
+
+    const placeholders = chunk.map((_, i) => `$${i + 1}`).join(", ");
+    const params = chunk.flatMap((c) => c.bucket);
+
+    const { rows } = await client.query(
+      `UPDATE ${client.schema}.balance_bucket SET status = 1
      WHERE (bucket, chain_id) IN (
        SELECT bucket, chain_id FROM ${client.schema}.balance_bucket
-       WHERE status = 0 
+       WHERE status = 0 and bucket IN (${placeholders})
        ORDER BY bucket, chain_id 
-       LIMIT $1
        FOR UPDATE
      )
-     RETURNING bucket, chain_id;`,
-    [limit],
-  );
+     RETURNING bucket, chain_id, from_ts, to_ts;`,
+      params,
+    );
 
-  for (let bucket of buckets) {
-    await calculate(bucket);
+    for (let bucket of rows.sort((a, b) => a.bucket.localeCompare(b.bucket))) {
+      await calculate(bucket);
+    }
   }
+
+  await client.disconnect();
 }
 
 async function calculate(bucket) {
-  console.log(`${bucket.bucket} -> ${bucket.chain_id}: ...`);
-
-  const start = Math.floor(parser.bucket2date(bucket.bucket).getTime() / 1000);
-  const end = start + 60 * 60; // 1 hour later
+  console.log(
+    `[${bucket.bucket} - ${bucket.from_ts} : ${bucket.to_ts}] ${bucket.chain_id}:...`,
+  );
 
   const { rows: events } = await client.query(
-    `SELECT chain_id, address AS wallet_address, data
-     FROM atlas_uat.atbtc_events
+    `SELECT transaction_hash, chain_id, address AS wallet_address, data, topics, block_timestamp
+     FROM ${client.schema}.atbtc_events
      WHERE 1=1
         AND chain_id = $1
         AND block_timestamp >= $2 
         AND block_timestamp < $3
     ;`,
-    [bucket.chain_id, start, end],
+    [
+      bucket.chain_id,
+      Math.floor(Number(bucket.from_ts) / 1000),
+      Math.floor(Number(bucket.to_ts) / 1000),
+    ],
   );
+
   if (events.length === 0) {
-    console.log(`${bucket.bucket} -> ${bucket.chain_id}: No events found`);
+    console.log(
+      `[${bucket.bucket} - ${bucket.from_ts} : ${bucket.to_ts}] ${bucket.chain_id}: No events found`,
+    );
     return;
   }
 
   const balances = {};
+  const histories = [];
   for (const event of events) {
-    const { chain_id, wallet_address, data } = event;
+    const { chain_id, wallet_address, data, topics } = event;
 
     // Parse the balance from the "data" column (assuming it's hex-encoded)
     const { amount } = parser.log(data);
 
-    const key = `${chain_id}-${wallet_address}`;
+    const key = `${wallet_address}-${chain_id}`;
     if (!balances[key]) {
       balances[key] = {
-        chain_id,
-        wallet_address,
         bucket: bucket.bucket,
+        wallet_address,
+        chain_id,
         balance: new BigNumber(0),
       };
     }
     balances[key].balance = balances[key].balance.plus(amount);
+
+    const mul = getMultiplier(topics);
+    histories.push({
+      transaction_hash: event.transaction_hash,
+      wallet_address,
+      chain_id,
+      amount: new BigNumber(mul).times(new BigNumber(amount)).toString(),
+      block_timestamp: event.block_timestamp,
+    });
   }
 
+  await inserBalance(balances, bucket, events.length);
+  await inserHistory(histories);
+}
+
+async function inserBalance(balances, bucket, count) {
   const values = Object.values(balances).map((b) => [
     b.bucket,
     b.chain_id,
@@ -100,11 +148,48 @@ async function calculate(bucket) {
     `UPDATE atlas_uat.balance_bucket
      SET tx_count = $1, status = 2
      WHERE bucket = $2 AND chain_id = $3;`,
-    [events.length, bucket.bucket, bucket.chain_id],
+    [count, bucket.bucket, bucket.chain_id],
   );
   console.log(
-    `${bucket.bucket} -> ${bucket.chain_id}: Processed ${events.length} events, updated ${Object.keys(balances).length} balances`,
+    `${bucket.bucket} -> ${bucket.chain_id}: Processed ${count} events, updated ${Object.keys(balances).length} balances`,
   );
+}
+
+async function inserHistory(histories) {
+  const values = histories.map((h) => [
+    h.transaction_hash,
+    h.wallet_address,
+    h.chain_id,
+    h.amount,
+    h.block_timestamp,
+  ]);
+  const placeholders = values
+    .map(
+      (_, i) =>
+        `($${i * 5 + 1}, $${i * 5 + 2}, $${i * 5 + 3}, $${i * 5 + 4}, $${i * 5 + 5})`,
+    )
+    .join(", ");
+
+  const sql = `INSERT INTO ${client.schema}.balance_history (transaction_hash, wallet_address, chain_id, amount, block_timestamp)
+               VALUES ${placeholders}
+               ON CONFLICT (transaction_hash) DO NOTHING;`;
+
+  await client.query(sql, values.flat());
+}
+
+function getMultiplier(topics) {
+  const parts = topics
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  for (const part of parts) {
+    if (MULTIPLIER_MAP[part]) {
+      return MULTIPLIER_MAP[part];
+    }
+  }
+
+  return 0;
 }
 
 module.exports = main;
