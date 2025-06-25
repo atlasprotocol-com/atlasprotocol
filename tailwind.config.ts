@@ -13,7 +13,7 @@ import type { Config } from "tailwindcss";
 // --secondary-950: #312102;
 // 'secondary dark gold/secondary dark gold-950': '#312102' },
 const config: Config = {
-  darkMode: ["selector", '[data-theme="dark"]'],
+  darkMode: ["class"],
   content: [
     "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
@@ -21,28 +21,60 @@ const config: Config = {
   ],
   theme: {
     screens: {
-      sm: "600px",
+      sm: "640px",
       md: "768px",
-      lg: "1000px",
-      xl: "1130px",
-      "2xl": "1350px",
+      lg: "1024px",
+      xl: "1280px",
+      "2xl": "1536px",
     },
     extend: {
+      fontFamily: {
+        sans: ["var(--font-inter)", "Inter", "sans-serif"],
+        display: ["var(--font-rajdhani)", "Rajdhani", "sans-serif"],
+      },
       colors: {
-        primary: "var(--primary)",
-        "primary-50": "var(--primary-50)",
-        "primary-100": "var(--primary-100)",
-        "primary-200": "var(--primary-200)",
-        "primary-300": "var(--primary-300)",
-        "primary-400": "var(--primary-400)",
-        "primary-500": "var(--primary-500)",
-        "primary-600": "var(--primary-600)",
-        "primary-700": "var(--primary-700)",
-        "primary-800": "var(--primary-800)",
-        "primary-900": "var(--primary-900)",
-        "primary-950": "var(--primary-950)",
-        "primary-foreground": "var(--primary-foreground)",
+        // Brand colors
+        brand: {
+          orange: {
+            primary: "var(--brand-orange-primary)",
+            secondary: "var(--brand-orange-secondary)",
+            light: "var(--brand-orange-light)",
+          },
+          yellow: "var(--brand-yellow)",
+          brown: "var(--brand-brown)",
+          white: "var(--brand-white)",
+          "off-white": "var(--brand-off-white)",
+          gray: "var(--brand-gray)",
+          "dark-gray": "var(--brand-dark-gray)",
+          black: "var(--brand-black)",
+        },
+        // System colors
+        background: "var(--background)",
+        foreground: "var(--foreground)",
+        card: {
+          DEFAULT: "var(--card)",
+          foreground: "var(--card-foreground)",
+        },
+        primary: {
+          DEFAULT: "var(--primary)",
+          foreground: "var(--primary-foreground)",
+          // Legacy color scale for backward compatibility
+          50: "var(--primary-50)",
+          100: "var(--primary-100)",
+          200: "var(--primary-200)",
+          300: "var(--primary-300)",
+          400: "var(--primary-400)",
+          500: "var(--primary-500)",
+          600: "var(--primary-600)",
+          700: "var(--primary-700)",
+          800: "var(--primary-800)",
+          900: "var(--primary-900)",
+          950: "var(--primary-950)",
+        },
         secondary: {
+          DEFAULT: "var(--secondary)",
+          foreground: "var(--secondary-foreground)",
+          // Legacy color scale for backward compatibility
           50: "var(--secondary-50)",
           100: "var(--secondary-100)",
           200: "var(--secondary-200)",
@@ -55,6 +87,22 @@ const config: Config = {
           900: "var(--secondary-900)",
           950: "var(--secondary-950)",
         },
+        muted: {
+          DEFAULT: "var(--muted)",
+          foreground: "var(--muted-foreground)",
+        },
+        accent: {
+          DEFAULT: "var(--accent)",
+          foreground: "var(--accent-foreground)",
+        },
+        destructive: {
+          DEFAULT: "var(--destructive)",
+          foreground: "var(--foreground)",
+        },
+        border: "var(--border)",
+        input: "var(--input)",
+        ring: "var(--ring)",
+        // Legacy neutral colors for backward compatibility
         neutral: {
           1: "var(--neutral-1)",
           2: "var(--neutral-2)",
@@ -68,6 +116,7 @@ const config: Config = {
           10: "var(--neutral-10)",
           11: "var(--neutral-11)",
         },
+        // Legacy semantic colors
         danger: "var(--danger)",
         success: "#5cb85c",
         text: "var(--text)",
@@ -78,7 +127,6 @@ const config: Config = {
         "header-border": "var(--header-border)",
         "footer-bg": "var(--footer-bg)",
         "footer-border": "var(--footer-border)",
-        border: "var(--border)",
         "modal-bg": "var(--modal-bg)",
         "tab-list-border": "var(--tab-list-border)",
         "tab-active": {
@@ -86,10 +134,23 @@ const config: Config = {
           text: "var(--tab-text-active)",
           border: "var(--tab-border-active)",
         },
-        input: {
-          bg: "var(--input-bg)",
-          border: "var(--input-border)",
-        },
+        "input-bg": "var(--input-bg)",
+        "input-border": "var(--input-border)",
+      },
+      borderRadius: {
+        sm: "var(--radius-sm)",
+        md: "var(--radius-md)",
+        lg: "var(--radius-lg)",
+        xl: "var(--radius-xl)",
+        DEFAULT: "var(--radius)",
+      },
+      animation: {
+        "fade-in": "fadeIn 0.5s ease-in-out forwards",
+        "slide-up": "slideUp 0.7s ease-out forwards",
+        "slide-in-right": "slideInRight 0.7s ease-out forwards",
+        "scale-in": "scaleIn 0.5s ease-out forwards",
+        float: "float 4s ease-in-out infinite",
+        "pulse-subtle": "pulsate 2s ease-in-out infinite",
       },
       gridTemplateColumns: {
         stakingFinalityProvidersMobile: "2fr 1fr",
@@ -97,5 +158,6 @@ const config: Config = {
       },
     },
   },
+  plugins: [],
 };
 export default config;

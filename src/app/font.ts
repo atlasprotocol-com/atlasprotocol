@@ -1,7 +1,15 @@
-import { Titillium_Web as TitilliumWeb } from "next/font/google";
+import { Inter, Rajdhani } from "next/font/google";
 
-export const titilliumWeb = TitilliumWeb({
-  weight: ["300", "400", "600", "700"],
+export const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
-  variable: "--font-titillium-web",
 });
+
+export const rajdhani = Rajdhani({
+  variable: "--font-rajdhani",
+  weight: ["300", "400", "500", "600", "700"],
+  subsets: ["latin"],
+});
+
+// Keep the old export for backward compatibility during transition
+export const titilliumWeb = inter;

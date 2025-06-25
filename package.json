@@ -73,6 +73,7 @@
     "sats-connect": "^3.2.0",
     "sharp": "0.33.4",
     "tailwind-merge": "2.4.0",
+    "tw-animate-css": "^1.3.4",
     "url-safe-base64": "1.3.0",
     "usehooks-ts": "3.0.2",
     "wagmi": "2.12.5",

@@ -19,12 +19,12 @@ export const Header: React.FC<HeaderProps> = ({
   onDisconnect,
 }) => {
   return (
-    <nav className="border-b border-header-border bg-header-bg shadow-sm py-2 px-4 md:py-6">
-      <div className="container mx-auto flex w-full">
-        <Link href="/">
+    <nav className="border-b border-border bg-background/80 backdrop-blur-sm shadow-sm py-2 px-4 md:py-6 sticky top-0 z-50">
+      <div className="container mx-auto flex w-full max-w-7xl">
+        <Link href="/" className="flex items-center">
           <Logo />
         </Link>
-        <div className="ml-auto flex items-center gap-7">
+        <div className="ml-auto flex items-center gap-6">
           <div className="hidden md:block">
             <ConnectSmall
               onConnect={onConnect}
