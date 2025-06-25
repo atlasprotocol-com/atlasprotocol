@@ -48,7 +48,7 @@ impl Atlas {
     #[init(ignore_state)]
     pub fn migrate_init() -> Self {
         let x = env::storage_read(STATE_KEY).unwrap();
-        env::log_str(hex::encode(&x));
+        env::log_str(&hex::encode(&x).to_string());
         let old_state: V2 = env::state_read().expect("Failed to read old state");
 
         let data = match borsh::to_vec(&old_state) {
