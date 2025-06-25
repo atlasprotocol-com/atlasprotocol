@@ -10,12 +10,12 @@ use near_sdk::{near_bindgen, store::IterableMap, AccountId};
 
 fn state_cursor_read(key: String) -> usize {
     env::storage_read(key.as_bytes())
-        .map(|data| usize::try_from_slice(&data).expect("Cannot deserialize the contract state."))
+        .map(|data| usize::try_from_slice(&data).expect("Unable to read cursor"))
         .unwrap_or(0)
 }
 
 pub(crate) fn state_cursor_write(key: String, cursor: usize) {
-    let data = to_vec(&cursor).expect("Cannot serialize the contract state.");
+    let data = to_vec(&cursor).expect("Unable to write cursor");
     env::storage_write(key.as_bytes(), &data);
 }
 
