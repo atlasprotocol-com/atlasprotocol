@@ -19,6 +19,7 @@ pub(crate) fn state_cursor_write(key: String, cursor: usize) {
     env::storage_write(key.as_bytes(), &data);
 }
 
+const STATE_KEY: &[u8] = b"STATE";
 const PREVIOUS_STATE: &[u8] = b"state";
 const ATBTC_BALANCES: &[u8] = b"atbtc_balances";
 
@@ -45,14 +46,16 @@ impl Atlas {
     #[private]
     #[init(ignore_state)]
     pub fn migrate_init() -> Self {
-        let old_state: V2 = env::state_read().expect("Failed to read old state");
+        // let old_state: V2 = env::state_read().expect("Failed to read old state");
+        let old_state = (env::storage_read(STATE_KEY).map(|data| {
+            V2::try_from_slice(&data)
+                .unwrap_or_else(|err| env::panic_str(&format!("Serialization error: {:?}", err)))
+        }))
+        .expect("fucking stupid");
 
         let data = match borsh::to_vec(&old_state) {
             Ok(serialized) => serialized,
-            Err(err) => {
-                env::log_str(&format!("Serialization error: {:?}", err));
-                env::panic_str(&format!("Serialization error: {:?}", err))
-            }
+            Err(err) => env::panic_str(&format!("Serialization error: {:?}", err)),
         };
         env::storage_write(PREVIOUS_STATE, &data);
 
