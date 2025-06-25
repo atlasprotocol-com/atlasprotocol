@@ -49,7 +49,10 @@ impl Atlas {
 
         let data = match borsh::to_vec(&old_state) {
             Ok(serialized) => serialized,
-            Err(_) => env::panic_str("Oops, cannot serialize the contract state."),
+            Err(err) => {
+                env::log_str(&format!("Serialization error: {:?}", err));
+                env::panic_str("Oops, cannot serialize the contract state.")
+            }
         };
         env::storage_write(PREVIOUS_STATE, &data);
 
