@@ -33,8 +33,6 @@ import { SelectField } from "../SelectField";
 
 import { BridgePreview } from "./BridgePreview";
 
-const MIN_AMOUNT = 0.0001;
-
 const redeemFormSchema = z.object({
   amount: z.coerce.number().positive().nonnegative(),
   fromChainID: z
@@ -90,7 +88,7 @@ export function Bridge() {
 
   const params = useGetGlobalParams();
   const { data: chainConfigs = {} } = useGetChainConfig();
-
+  const MIN_AMOUNT = (params.data?.atbtcMinBridgingAmount || 0) / 100000000;
   const {
     handleSubmit,
     trigger,

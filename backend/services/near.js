@@ -78,6 +78,7 @@ const changeMethods = [
   "create_send_bridging_fees_transaction",
   "set_chain_configs_from_json",
   "insert_btc_pubkey",
+  "set_deposit_timeout",
 ];
 
 class Near {
@@ -1688,6 +1689,12 @@ class Near {
   async updateBridgingAtbtcMinted(txnHash) {
     return this.makeNearRpcChangeCall("update_bridging_atbtc_minted", {
       txn_hash: txnHash,
+    });
+  }
+
+  async setDepositTimeout(btcTxnHash) {
+    return this.makeNearRpcChangeCall("set_deposit_timeout", {
+      btc_txn_hash: btcTxnHash,
     });
   }
 

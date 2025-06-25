@@ -16,6 +16,8 @@ interface GlobalParamsDataResponse {
     deposit_fee_percentage: number;
     treasury_address: string;
     evm_address: string;
+    atbtc_min_redemption_amount: number;
+    atbtc_min_bridging_amount: number;
   }[];
 }
 
@@ -44,5 +46,7 @@ export const getGlobalParams = async (): Promise<GlobalParamsVersion[]> => {
     feeDepositPercentage: v.deposit_fee_percentage,
     treasuryAddress: v.treasury_address,
     evmAtlasAddress: v.evm_address,
+    atbtcMinRedemptionAmount: v.atbtc_min_redemption_amount,
+    atbtcMinBridgingAmount: v.atbtc_min_bridging_amount,
   }));
 };

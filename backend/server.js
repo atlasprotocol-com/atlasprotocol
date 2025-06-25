@@ -88,6 +88,7 @@ const {
 const {
   UpdateBridgingAtbtcMinted,
 } = require("./utils/updateBridgingAtbtcMinted");
+const { UpdateAtlasBtcTimeout } = require("./utils/updateAtlasBtcTimeout");
 
 const useDepositAPIs = require("./apis/deposit");
 
@@ -295,6 +296,8 @@ app.get("/api/v1/global-params", async (req, res) => {
           deposit_fee_percentage: globalParams.atlasDepositFeePercentage,
           treasury_address: globalParams.atlasTreasuryAddress,
           evm_address: evmAtlasAddress,
+          atbtc_min_redemption_amount: globalParams.atbtcMinRedemptionAmount,
+          atbtc_min_bridging_amount: globalParams.atbtcMinBridgingAmount,
         },
       ],
     };
@@ -477,7 +480,7 @@ app.get("/api/derived-address", async (req, res) => {
 app.post("/api/v1/process-new-deposit", async (req, res) => {
   try {
     const { btcTxnHash } = req.body;
-
+    
     if (!btcTxnHash) {
       return res
         .status(400)
@@ -1054,6 +1057,18 @@ app.listen(PORT, async () => {
       near,
       bithiveRecords,
     );
+  }, 10000);
+
+  setInterval(async () => {
+    await UpdateAtlasBtcTimeout(deposits, near);
+  }, 10000);
+  
+  setInterval(async () => {
+    await WithdrawFailDeposits(deposits, near, bitcoin);
+  }, 10000);
+
+  setInterval(async () => {
+    await UpdateWithdrawFailDeposits(deposits, near, bitcoin);
   }, 10000);
 });
 

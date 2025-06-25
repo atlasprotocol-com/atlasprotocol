@@ -1314,4 +1314,81 @@ impl Atlas {
             env::panic_str("Deposit record not found");
         }
     }
+
+    /// Sets a deposit as timed out if it meets the timeout conditions
+    /// @param btc_txn_hash - The Bitcoin transaction hash to check for timeout
+    /// # Requirements
+    /// * Caller must be an admin
+    /// * Contract must not be paused
+    /// * Deposit must exist and meet timeout conditions:
+    ///   - verified_count > validators_threshold
+    ///   - Status 11 with blank yield provider txn hash OR Status 21 with blank minted txn hash
+    ///   - remarks must be blank
+    ///   - timestamp must be > 1 day old
+    pub fn set_deposit_timeout(&mut self, btc_txn_hash: String) {
+        self.assert_not_paused();
+        self.assert_admin();
+
+        // Validate input parameters
+        assert!(
+            !btc_txn_hash.is_empty(),
+            "BTC transaction hash cannot be empty"
+        );
+
+        // Check if the deposit exists for the given btc_txn_hash
+        if let Some(mut deposit) = self.deposits.get(&btc_txn_hash).cloned() {
+            // Fetch chain configuration for the bitcoin deposit
+            let chain_id = if self.is_production_mode() {
+                BITCOIN.to_string()
+            } else {
+                TESTNET4.to_string()
+            };
+
+            if let Some(chain_config) = self.chain_configs.get_chain_config(chain_id.clone()) {
+                // Check timeout conditions
+                let one_day_in_seconds: u64 = 24 * 60 * 60; // 24 hours * 60 minutes * 60 seconds
+                let current_timestamp = env::block_timestamp() / 1_000_000_000;
+                let is_older_than_one_day = current_timestamp > deposit.timestamp + one_day_in_seconds;
+
+                let meets_verified_count = deposit.verified_count >= chain_config.validators_threshold;
+                let has_blank_remarks = deposit.remarks.is_empty();
+
+                // Check status conditions
+                let status_11_with_blank_yield_provider = 
+                    deposit.status == DEP_BTC_PENDING_YIELD_PROVIDER_DEPOSIT && 
+                    deposit.yield_provider_txn_hash.is_empty();
+                
+                let status_21_with_blank_minted = 
+                    deposit.status == DEP_BTC_PENDING_MINTED_INTO_ABTC && 
+                    deposit.minted_txn_hash.is_empty();
+
+                let meets_status_condition = status_11_with_blank_yield_provider || status_21_with_blank_minted;
+
+                if meets_verified_count && meets_status_condition && has_blank_remarks && is_older_than_one_day {
+                    // Update the deposit remarks to indicate timeout
+                    deposit.remarks = "Timeout processing failed".to_string();
+                    deposit.timestamp = current_timestamp;
+                    self.deposits.insert(btc_txn_hash.clone(), deposit);
+                    log!(
+                        "Deposit marked as timed out for btc_txn_hash: {}",
+                        btc_txn_hash
+                    );
+                } else {
+                    log!(
+                        "Deposit does not meet timeout conditions for btc_txn_hash: {}. 
+                         Verified count: {}, Status condition met: {}, Blank remarks: {}, Older than 1 day: {}",
+                        btc_txn_hash,
+                        meets_verified_count,
+                        meets_status_condition,
+                        has_blank_remarks,
+                        is_older_than_one_day
+                    );
+                }
+            } else {
+                env::panic_str("Chain configuration not found for bitcoin deposit");
+            }
+        } else {
+            env::panic_str("Deposit record not found");
+        }
+    }
 }
