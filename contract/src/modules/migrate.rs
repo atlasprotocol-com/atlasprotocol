@@ -46,12 +46,7 @@ impl Atlas {
     #[private]
     #[init(ignore_state)]
     pub fn migrate_init() -> Self {
-        // let old_state: V2 = env::state_read().expect("Failed to read old state");
-        let old_state = (env::storage_read(STATE_KEY).map(|data| {
-            V2::try_from_slice(&data)
-                .unwrap_or_else(|err| env::panic_str(&format!("Serialization error: {:?}", err)))
-        }))
-        .expect("fucking stupid");
+        let old_state: V2 = env::state_read().expect("Failed to read old state");
 
         let data = match borsh::to_vec(&old_state) {
             Ok(serialized) => serialized,
