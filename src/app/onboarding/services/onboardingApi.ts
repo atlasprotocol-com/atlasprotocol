@@ -143,10 +143,10 @@ class OnboardingApiService {
       },
     };
 
-    // Update social tasks completion
-    const allTasksCompleted =
-      tasks.followedX && tasks.joinedDiscord && tasks.retweetedPost;
-    currentStatus.completedSteps.socialTasksCompleted = allTasksCompleted;
+    // Update social tasks completion - only require first two tasks (Follow X and Join Discord)
+    // The RT task is optional
+    const requiredTasksCompleted = tasks.followedX && tasks.joinedDiscord;
+    currentStatus.completedSteps.socialTasksCompleted = requiredTasksCompleted;
 
     allStatuses[address] = currentStatus;
     localStorage.setItem(this.storageKey, JSON.stringify(allStatuses));

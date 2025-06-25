@@ -27,6 +27,7 @@ interface SocialTaskProps {
   onAction: () => void;
   onMarkDone: () => void;
   actionUrl?: string;
+  required: boolean;
 }
 
 const SocialTask: React.FC<SocialTaskProps> = ({
@@ -38,6 +39,7 @@ const SocialTask: React.FC<SocialTaskProps> = ({
   onAction,
   onMarkDone,
   actionUrl,
+  required,
 }) => {
   const handleAction = () => {
     if (actionUrl) {
@@ -55,7 +57,14 @@ const SocialTask: React.FC<SocialTaskProps> = ({
           {icon}
         </div>
         <div>
-          <h3 className="font-semibold">{title}</h3>
+          <h3 className="font-semibold">
+            {title}
+            {!required && (
+              <span className="text-neutral-5 dark:text-neutral-6 text-sm ml-2">
+                (Optional)
+              </span>
+            )}
+          </h3>
         </div>
       </div>
 
@@ -102,37 +111,71 @@ export const StepTwo: React.FC<StepTwoProps> = ({
     {
       key: "followedX" as keyof SocialTasks,
       icon: <FaTwitter className="text-blue-500" size={20} />,
-      title: "Follow @AtlasProtocol X account",
+      title: "Follow @_atlasprotocol on X",
       actionText: "Follow",
       doneText: "Done",
       actionUrl: "https://x.com/_atlasprotocol",
+      required: true,
     },
     {
       key: "joinedDiscord" as keyof SocialTasks,
       icon: <FaDiscord className="text-indigo-500" size={20} />,
-      title: "Join @atlasprotocol on Discord",
+      title: "Join our Atlas Protocol Discord Community",
       actionText: "Join Discord",
       doneText: "Done",
       actionUrl: "https://discord.com/invite/atlasprotocol",
+      required: true,
     },
     {
       key: "retweetedPost" as keyof SocialTasks,
       icon: <FaRetweet className="text-green-500" size={20} />,
-      title: "Retweet our Testnet Announcement",
+      title: "Retweet our Testnet Annoucement [Optional]",
       actionText: "Retweet",
       doneText: "Done",
       actionUrl: "https://x.com/_atlasprotocol/status/1922955202916909078",
+      required: false,
     },
   ];
+
+  // Calculate progress
+  const requiredTasks = socialTasksConfig.filter((task) => task.required);
+  const completedRequiredTasks = requiredTasks.filter(
+    (task) => socialTasks[task.key],
+  );
+  const progressPercentage =
+    (completedRequiredTasks.length / requiredTasks.length) * 100;
 
   return (
     <div className="max-w-2xl mx-auto">
       <div className="mb-8 text-center">
         <h2 className="text-2xl font-bold mb-4">Connect social</h2>
         {address && <WalletDisplay address={address} onLogout={onLogout} />}
-        <p className="text-neutral-6 dark:text-neutral-4">
-          Complete these social tasks to continue
+        <p className="text-neutral-6 dark:text-neutral-4 mb-4">
+          Complete the first two tasks to continue. The retweet task is
+          optional.
         </p>
+
+        {/* Progress indicator */}
+        <div className="max-w-md mx-auto">
+          <div className="flex justify-between text-sm text-neutral-6 dark:text-neutral-4 mb-2">
+            <span>Progress</span>
+            <span>
+              {completedRequiredTasks.length}/{requiredTasks.length} required
+              tasks
+            </span>
+          </div>
+          <div className="w-full bg-neutral-3 dark:bg-neutral-8 rounded-full h-2">
+            <div
+              className="bg-primary h-2 rounded-full transition-all duration-300"
+              style={{ width: `${progressPercentage}%` }}
+            />
+          </div>
+          {allTasksCompleted && (
+            <p className="text-green-600 dark:text-green-400 text-sm mt-2 font-medium">
+              ✓ Ready to proceed to next step!
+            </p>
+          )}
+        </div>
       </div>
 
       <div className="space-y-4 mb-8">
@@ -147,6 +190,7 @@ export const StepTwo: React.FC<StepTwoProps> = ({
             onAction={() => {}} // Just for tracking action click
             onMarkDone={() => onUpdateTask(task.key, true)}
             actionUrl={task.actionUrl}
+            required={task.required}
           />
         ))}
       </div>
