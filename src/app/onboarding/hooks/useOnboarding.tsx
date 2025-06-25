@@ -98,16 +98,20 @@ export const useOnboarding = ({ address }: UseOnboardingProps) => {
     [address, router],
   );
 
-  const allSocialTasksCompleted =
-    socialTasks.followedX &&
-    socialTasks.joinedDiscord &&
-    socialTasks.retweetedPost;
+  // Only require the first two tasks to be completed (Follow X and Join Discord)
+  // The RT task is optional
+  const requiredSocialTasksCompleted =
+    socialTasks.followedX && socialTasks.joinedDiscord;
+
+  // Keep the old name for compatibility but use the new logic
+  const allSocialTasksCompleted = requiredSocialTasksCompleted;
 
   return {
     currentStep,
     loading,
     socialTasks,
     allSocialTasksCompleted,
+    requiredSocialTasksCompleted,
     updateSocialTask,
     handleWalletConnected,
     handleWalletDisconnected,
