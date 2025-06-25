@@ -10,18 +10,17 @@ use near_sdk::{near_bindgen, store::IterableMap, AccountId};
 
 fn state_cursor_read(key: String) -> usize {
     env::storage_read(key.as_bytes())
-        .map(|data| usize::try_from_slice(&data).expect("Unable to read cursor"))
+        .map(|data| usize::try_from_slice(&data).expect("Unable to read cursor."))
         .unwrap_or(0)
 }
 
 pub(crate) fn state_cursor_write(key: String, cursor: usize) {
-    let data = to_vec(&cursor).expect("Unable to write cursor");
+    let data = to_vec(&cursor).expect("Unable to write cursor.");
     env::storage_write(key.as_bytes(), &data);
 }
 
-const STATE_KEY: &[u8] = b"STATE";
-const PREVIOUS_STATE: &[u8] = b"state";
-const ATBTC_BALANCES: &[u8] = b"atbtc_balances";
+const STATE_V2: &[u8] = b"state.v2";
+const ATBTC_BALANCES: &[u8] = b"atbtc_balances.v3";
 
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct V2 {
@@ -51,9 +50,9 @@ impl Atlas {
 
         let data = match borsh::to_vec(&old_state) {
             Ok(serialized) => serialized,
-            Err(err) => env::panic_str(&format!("Serialization error: {:?}", err)),
+            Err(_) => env::panic_str("Oops, cannot serialize the contract state."),
         };
-        env::storage_write(PREVIOUS_STATE, &data);
+        env::storage_write(STATE_V2, &data);
 
         state_cursor_write("migrate.deposits".to_string(), 0);
         state_cursor_write("migrate.redemptions".to_string(), 0);
@@ -81,11 +80,11 @@ impl Atlas {
     pub fn migrate_deposit(&mut self, size: Option<u64>) {
         self.assert_owner();
 
-        if !env::storage_has_key(PREVIOUS_STATE) {
+        if !env::storage_has_key(STATE_V2) {
             panic!("call migrate_prepare first");
         }
 
-        let old_state = env::storage_read(PREVIOUS_STATE)
+        let old_state = env::storage_read(STATE_V2)
             .map(|data| {
                 V2::try_from_slice(&data)
                     .unwrap_or_else(|_| env::panic_str("Cannot deserialize the contract state."))
@@ -128,11 +127,11 @@ impl Atlas {
     pub fn migrate_redemption(&mut self, size: Option<u64>) {
         self.assert_owner();
 
-        if !env::storage_has_key(PREVIOUS_STATE) {
+        if !env::storage_has_key(STATE_V2) {
             panic!("call migrate_prepare first");
         }
 
-        let old_state = env::storage_read(PREVIOUS_STATE)
+        let old_state = env::storage_read(STATE_V2)
             .map(|data| {
                 V2::try_from_slice(&data)
                     .unwrap_or_else(|_| env::panic_str("Cannot deserialize the contract state."))
@@ -180,11 +179,11 @@ impl Atlas {
     pub fn migrate_bridge(&mut self, size: Option<u64>) {
         self.assert_owner();
 
-        if !env::storage_has_key(PREVIOUS_STATE) {
+        if !env::storage_has_key(STATE_V2) {
             panic!("call migrate_prepare first");
         }
 
-        let old_state = env::storage_read(PREVIOUS_STATE)
+        let old_state = env::storage_read(STATE_V2)
             .map(|data| {
                 V2::try_from_slice(&data)
                     .unwrap_or_else(|_| env::panic_str("Cannot deserialize the contract state."))
@@ -236,8 +235,8 @@ impl Atlas {
     pub fn migrate_cleanup(&mut self) {
         self.assert_owner();
 
-        if env::storage_has_key(PREVIOUS_STATE) {
-            env::storage_remove(PREVIOUS_STATE);
+        if env::storage_has_key(STATE_V2) {
+            env::storage_remove(STATE_V2);
         }
     }
 }

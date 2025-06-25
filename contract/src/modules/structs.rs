@@ -13,8 +13,8 @@ pub struct Atlas {
     pub deposits: IterableMap<String, DepositRecord>,
     pub redemptions: IterableMap<String, RedemptionRecord>,
     pub bridgings: IterableMap<String, BridgingRecord>,
-    pub validators: IterableMap<AccountId, Vec<String>>, // list of validators: <AccountId -> Vector of authorised chains (chain_id)>
-    pub verifications: IterableMap<String, Vec<AccountId>>, // list of verifications: <Txn Hash of deposit/redemption/bridging -> Vector of validators (AccountId)>
+    pub validators: IterableMap<AccountId, Vec<String>>,
+    pub verifications: IterableMap<String, Vec<AccountId>>,
     pub owner_id: AccountId,
     pub proposed_owner_id: Option<AccountId>,
     pub admin_id: AccountId,
