@@ -318,6 +318,58 @@ const getDepositsPendingMintedIntoAbtc = async (allDeposits) => {
 
   return Promise.resolve(depositsPendingMintedIntoAbtc);
 };
+
+/**
+ * Filters deposit records to find those that should be marked as timed out
+ * This function identifies deposits that have been pending for more than 1 day
+ * and meet specific status conditions for timeout processing
+ *
+ * @param {Array<Object>} allDeposits - Array of all deposit records to filter
+ * @returns {Promise<Array<Object>>} Promise that resolves to array of deposit records to be timed out
+ */
+const getDepositsToBeTimedOut = async (allDeposits) => {
+  const { DEPOSIT_STATUS } = getConstants();
+  
+  // Calculate 1 day in seconds
+  const oneDayInSeconds = 24 * 60 * 60; // 24 hours * 60 minutes * 60 seconds
+  const currentTimestamp = Math.floor(Date.now() / 1000);
+  
+  const depositsToBeTimedOut = allDeposits.filter((deposit) => {
+    const { isValid, chainConfig } = validateCommonDepositFields(deposit);
+    
+    if (!isValid || !chainConfig) {
+      return false;
+    }
+    
+    // Check if deposit is older than 1 day
+    const isOlderThanOneDay = currentTimestamp > deposit.timestamp + oneDayInSeconds;
+    
+    // Check if verified count meets threshold
+    const meetsVerifiedCount = deposit.verified_count >= chainConfig.validators_threshold;
+    
+    // Check if remarks is blank
+    const hasBlankRemarks = deposit.remarks === "";
+    
+    // Check status conditions
+    const status11WithBlankYieldProvider = 
+      deposit.status === DEPOSIT_STATUS.BTC_PENDING_YIELD_PROVIDER_DEPOSIT && 
+      deposit.yield_provider_txn_hash === "";
+    
+    const status21WithBlankMinted = 
+      deposit.status === DEPOSIT_STATUS.BTC_PENDING_MINTED_INTO_ABTC && 
+      deposit.minted_txn_hash === "";
+    
+    const meetsStatusCondition = status11WithBlankYieldProvider || status21WithBlankMinted;
+    
+    // Return true if all timeout conditions are met
+    return meetsVerifiedCount && meetsStatusCondition && hasBlankRemarks && isOlderThanOneDay;
+  });
+  
+  console.log(`[getDepositsToBeTimedOut] Found ${depositsToBeTimedOut.length} deposits to be timed out`);
+  
+  return Promise.resolve(depositsToBeTimedOut);
+};
+
 /**
  * Merges deposit records from blockchain with local records based on timestamps
  * Retains newer records in local array and includes updated/new records from blockchain
@@ -407,5 +459,6 @@ module.exports = {
   getDepositsToBeStaked,
   getDepositsToUpdateYieldProviderDeposited,
   getDepositsPendingMintedIntoAbtc,
-  updateOffchainDepositMintedTxnHash
+  updateOffchainDepositMintedTxnHash,
+  getDepositsToBeTimedOut
 };

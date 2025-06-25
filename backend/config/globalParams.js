@@ -34,6 +34,8 @@ async function updateGlobalParams(near) {
     globalParams.atlasTreasuryAddress = fetchedParams.treasury_address;
     globalParams.maxRetryCount = fetchedParams.max_retry_count || 1;
     globalParams.lastUnstakingTime = fetchedParams.last_unstaking_time || 0;
+    globalParams.atbtcMinRedemptionAmount = fetchedParams.atbtc_min_redemption_amount;
+    globalParams.atbtcMinBridgingAmount = fetchedParams.atbtc_min_bridging_amount;
 
     //console.log("Global parameters loaded successfully:", globalParams);
   } catch (error) {

@@ -33,6 +33,7 @@ const flagsBatch = {
   WithdrawBtcFromYieldProviderRunning: false,
   UnstakeBtcFromYieldProviderRunning: false,
   NearChainScannerRunning: false,
+  UpdateAtlasBtcTimeoutRunning: false,
 };
 
 function blockRange(block, start = 1000, end = 2000) {
