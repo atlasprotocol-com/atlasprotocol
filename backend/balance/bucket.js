@@ -11,15 +11,12 @@ const bucketsql = `CREATE TABLE IF NOT EXISTS ${client.schema}.balance_bucket (
   tx_count INTEGER NOT NULL DEFAULT 0,
   from_ts BIGINT NOT NULL DEFAULT 0,
   to_ts BIGINT NOT NULL DEFAULT 0,
-  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
   PRIMARY KEY (bucket, chain_id)
 );`;
 
-async function main(start, end) {
+async function calculate(start, end) {
   const { conf } = await useNear();
-  await client.connect();
-  await client.query(bucketsql);
-
   const chainIds = parser.chainIds(conf);
   if (chainIds.length === 0) {
     console.error("No chains found with networkType 'near' or 'evm'");
@@ -54,16 +51,22 @@ async function main(start, end) {
     ON CONFLICT (bucket, chain_id) DO NOTHING;`;
     await client.query(sql, params);
   }
+}
 
-  await client.disconnect();
+async function main(start, end) {
+  try {
+    await client.connect();
+    await client.query(bucketsql);
+    await calculate(start, end);
+  } finally {
+    await client.disconnect();
+  }
 }
 
 module.exports = main;
 
 if (__filename === require.main.filename) {
-  main()
-    .catch((error) => {
-      console.error("backend.balance.bucket: ", error);
-    })
-    .finally(() => client.disconnect());
+  main(process.argv[2], process.argv[3]).catch((error) => {
+    console.error("backend.balance.bucket: ", error);
+  });
 }

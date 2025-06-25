@@ -1,6 +1,6 @@
 const _ = require("lodash");
 const BigNumber = require("bignumber.js");
-const useNear = require("./near");
+const conf = require("./config");
 const parser = require("./parser");
 const PostgresClient = require("../db/PostgresClient");
 const client = new PostgresClient();
@@ -10,17 +10,18 @@ const balancesql = `CREATE TABLE IF NOT EXISTS ${client.schema}.balance (
   wallet_address TEXT NOT NULL,
   chain_id TEXT NOT NULL,
   balance TEXT NOT NULL DEFAULT 0,
-  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
   PRIMARY KEY (bucket, wallet_address, chain_id)
 );`;
 
 const balancehistorysql = `CREATE TABLE IF NOT EXISTS ${client.schema}.balance_history (
   transaction_hash TEXT NOT NULL PRIMARY KEY,
+  bucket TEXT NOT NULL,
   wallet_address TEXT NOT NULL,
   chain_id TEXT NOT NULL,
   amount TEXT NOT NULL DEFAULT 0,
   block_timestamp BIGINT NOT NULL,
-  created_at TIMESTAMP NOT NULL DEFAULT NOW()
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );`;
 
 const MULTIPLIER_MAP = {
@@ -30,12 +31,18 @@ const MULTIPLIER_MAP = {
   burn_redemption: -1,
 };
 
-async function main(start, end, size = 10) {
-  const { conf } = await useNear();
-  await client.connect();
-  await client.query(balancesql);
-  await client.query(balancehistorysql);
+async function main(start, end) {
+  try {
+    await client.connect();
+    await client.query(balancesql);
+    await client.query(balancehistorysql);
+    await calculateAll(start, end);
+  } finally {
+    await client.disconnect();
+  }
+}
 
+async function calculateAll(start, end) {
   const { buckets, from, to } = parser.bucketFromRange(start, end);
   const chunks = _.chunk(buckets, 30);
   for (let chunk of chunks) {
@@ -46,13 +53,13 @@ async function main(start, end, size = 10) {
 
     const { rows } = await client.query(
       `UPDATE ${client.schema}.balance_bucket SET status = 1
-     WHERE (bucket, chain_id) IN (
-       SELECT bucket, chain_id FROM ${client.schema}.balance_bucket
-       WHERE status = 0 and bucket IN (${placeholders})
-       ORDER BY bucket, chain_id 
-       FOR UPDATE
-     )
-     RETURNING bucket, chain_id, from_ts, to_ts;`,
+        WHERE (bucket, chain_id) IN (
+          SELECT bucket, chain_id FROM ${client.schema}.balance_bucket
+          WHERE status = 0 and bucket IN (${placeholders})
+          ORDER BY bucket, chain_id 
+          FOR UPDATE
+        )
+        RETURNING bucket, chain_id, from_ts, to_ts;`,
       params,
     );
 
@@ -60,8 +67,6 @@ async function main(start, end, size = 10) {
       await calculate(bucket);
     }
   }
-
-  await client.disconnect();
 }
 
 async function calculate(bucket) {
@@ -117,6 +122,7 @@ async function calculate(bucket) {
       chain_id,
       amount: new BigNumber(mul).times(new BigNumber(amount)).toString(),
       block_timestamp: event.block_timestamp,
+      bucket: parser.ts2bucket(event.block_timestamp),
     });
   }
 
@@ -162,15 +168,16 @@ async function inserHistory(histories) {
     h.chain_id,
     h.amount,
     h.block_timestamp,
+    h.bucket,
   ]);
   const placeholders = values
     .map(
       (_, i) =>
-        `($${i * 5 + 1}, $${i * 5 + 2}, $${i * 5 + 3}, $${i * 5 + 4}, $${i * 5 + 5})`,
+        `($${i * 6 + 1}, $${i * 6 + 2}, $${i * 6 + 3}, $${i * 6 + 4}, $${i * 6 + 5}, $${i * 6 + 6})`,
     )
     .join(", ");
 
-  const sql = `INSERT INTO ${client.schema}.balance_history (transaction_hash, wallet_address, chain_id, amount, block_timestamp)
+  const sql = `INSERT INTO ${client.schema}.balance_history (transaction_hash, wallet_address, chain_id, amount, block_timestamp, bucket)
                VALUES ${placeholders}
                ON CONFLICT (transaction_hash) DO NOTHING;`;
 
@@ -195,9 +202,7 @@ function getMultiplier(topics) {
 module.exports = main;
 
 if (__filename === require.main.filename) {
-  main()
-    .catch((error) => {
-      console.error("backend.balance.balance: ", error);
-    })
-    .finally(() => client.disconnect());
+  main(process.argv[2], process.argv[3]).catch((error) => {
+    console.error("backend.balance.balance: ", error);
+  });
 }
