@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { titilliumWeb } from "./font";
+import { inter, rajdhani } from "./font";
 import "./globals.css";
 import Providers from "./providers";
 
@@ -15,7 +15,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" className="dark" suppressHydrationWarning>
       <meta name="viewport" content="width=device-width, initial-scale=1.0" />
       <meta property="og:title" content="Atlas Protocol" />
       <meta name="description" content="BTC Staking Dashboard" key="desc" />
@@ -37,7 +37,7 @@ export default function RootLayout({
       <meta name="twitter:image:type" content="image/png" />
       <meta name="twitter:image:width" content="2048" />
       <meta name="twitter:image:height" content="1170" />
-      <body className={titilliumWeb.variable}>
+      <body className={`${inter.variable} ${rajdhani.variable}`}>
         <Providers>{children}</Providers>
       </body>
     </html>

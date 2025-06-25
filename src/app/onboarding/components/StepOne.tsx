@@ -81,7 +81,9 @@ export const StepOne: React.FC<StepOneProps> = ({
   return (
     <div className="flex flex-col items-center justify-center min-h-[400px] text-center">
       <div className="mb-8">
-        <h2 className="text-2xl font-bold mb-4">Welcome to Atlas</h2>
+        <h2 className="font-display text-2xl font-bold mb-4">
+          Welcome to Atlas
+        </h2>
         <p className="text-neutral-6 dark:text-neutral-4 mb-2">
           Please connect wallet to start using Atlas
         </p>
