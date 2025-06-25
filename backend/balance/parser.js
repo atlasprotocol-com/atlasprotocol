@@ -33,7 +33,6 @@ const chainIds = (conf) => ["11155111", "NEAR_TESTNET", "11155420"];
 const bucketFromRange = (start, end) => {
   const from = start ? bucket2date(start) : subHours(new Date(), 25);
   const to = end ? bucket2date(end) : subHours(new Date(), 1);
-  console.log(start, end);
 
   const offset = from.getTimezoneOffset() * 60 * 1000;
 

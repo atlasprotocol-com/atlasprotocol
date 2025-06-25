@@ -26,7 +26,7 @@ async function distribute(start, end) {
         RETURNING bucket, start_ts, end_ts, points;`,
       [bucket.bucket],
     );
-    console.log(snapshots);
+
     if (snapshots.length === 0) {
       console.log(`[${bucket.bucket}] No snapshots found`);
       continue;
@@ -70,12 +70,12 @@ async function distribute(start, end) {
       // Sort events by timestamp
       events.sort((a, b) => a.timestamp - b.timestamp);
       let weight = new BigNumber(0);
-      let lastBalance = new BigNumber(0);
+      let lastBalance = await getLastBalacne(wallet, bucket.bucket);
       let lastTimestamp = bucket.from_ts;
       for (const event of events) {
         const duration = (event.timestamp - lastTimestamp) / 60000; // minutes
         weight = weight.plus(lastBalance.times(duration));
-        lastBalance = event.amount;
+        lastBalance = lastBalance.plus(BigNumber(event.amount));
         lastTimestamp = event.timestamp;
       }
       // Add the last segment until bucket.to_ts
@@ -117,6 +117,19 @@ async function distribute(start, end) {
       [JSON.stringify({ weights })],
     );
   }
+}
+
+async function getLastBalacne(wallet, bucket) {
+  const { rows: balances } = await client.query(
+    `SELECT balance FROM ${client.schema}.balance WHERE wallet_address = $1 and bucket < $2`,
+    [wallet, bucket],
+  );
+  if (balances.length === 0) return BigNumber(0);
+
+  return balances.reduce(
+    (sum, { balance }) => sum.plus(new BigNumber(balance)),
+    new BigNumber(0),
+  );
 }
 
 async function main(start, end) {
