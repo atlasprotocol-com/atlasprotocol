@@ -51,7 +51,7 @@ impl Atlas {
             Ok(serialized) => serialized,
             Err(err) => {
                 env::log_str(&format!("Serialization error: {:?}", err));
-                env::panic_str("Oops, cannot serialize the contract state.")
+                env::panic_str(&format!("Serialization error: {:?}", err))
             }
         };
         env::storage_write(PREVIOUS_STATE, &data);
