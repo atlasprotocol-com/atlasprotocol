@@ -39,6 +39,7 @@ pub struct V2 {
     pub paused: bool,
     pub production_mode: bool,
     pub btc_pubkey: IterableMap<String, BtcAddressPubKeyRecord>,
+    pub atbtc_balances: IterableMap<String, u64>,
 }
 
 #[near_bindgen]
