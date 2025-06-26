@@ -89,11 +89,10 @@ impl Atlas {
 
         let abtc_redemption_chain_id = record.abtc_redemption_chain_id.clone();
         let amount = abtc_amount;
-        let neg_amount = 0u64.saturating_sub(amount);
 
         self.redemptions.insert(txn_hash, record);
 
-        self.update_balance(abtc_redemption_chain_id, neg_amount);
+        self.decrease_balance(abtc_redemption_chain_id, amount);
     }
 
     /// Retrieves a redemption record by its transaction hash

@@ -19,7 +19,6 @@ pub(crate) fn state_cursor_write(key: String, cursor: usize) {
     env::storage_write(key.as_bytes(), &data);
 }
 
-const STATE_KEY: &[u8] = b"STATE";
 const PREVIOUS_STATE: &[u8] = b"state";
 const ATBTC_BALANCES: &[u8] = b"atbtc_balances";
 
@@ -113,12 +112,8 @@ impl Atlas {
         for (tx, deposit) in to_migrate_deposits.iter() {
             log!("OLD_DEPOSIT_TX --> {}", tx.clone());
 
-            let mut amount = deposit.btc_amount;
-            amount = amount.saturating_sub(deposit.minting_fee);
-            amount = amount.saturating_sub(deposit.protocol_fee);
-            amount = amount.saturating_sub(deposit.yield_provider_gas_fee);
-
-            self.update_balance(deposit.receiving_chain_id.clone(), amount);
+            let amount = deposit.btc_amount - deposit.minting_fee - deposit.protocol_fee;
+            self.increase_balance(deposit.receiving_chain_id.clone(), amount);
         }
 
         let new_cursor = cursor + to_migrate_deposits.len();
@@ -168,9 +163,8 @@ impl Atlas {
 
             // Use checked_sub to avoid overflow, and negate if possible, else use 0
             let amount = redemption.abtc_amount;
-            let neg_amount = 0u64.saturating_sub(amount);
 
-            self.update_balance(redemption.abtc_redemption_chain_id.clone(), neg_amount);
+            self.decrease_balance(redemption.abtc_redemption_chain_id.clone(), amount);
         }
 
         let new_cursor = cursor + to_migrate_redemptions.len();
@@ -215,18 +209,15 @@ impl Atlas {
         for (tx, bridging) in to_migrate_bridgings.iter() {
             log!("OLD_BRIDGING_TX --> {}", tx.clone());
 
-            let neg_amount = 0u64.saturating_sub(bridging.abtc_amount);
+            let origin_amount = bridging.abtc_amount;
+            self.decrease_balance(bridging.origin_chain_id.clone(), origin_amount);
 
-            self.update_balance(bridging.origin_chain_id.clone(), neg_amount);
-
-            let mut dest_amount = bridging.abtc_amount;
-            dest_amount = dest_amount.saturating_sub(bridging.protocol_fee);
-            dest_amount = dest_amount.saturating_sub(bridging.minting_fee_sat);
-            dest_amount = dest_amount.saturating_sub(bridging.bridging_gas_fee_sat);
-            dest_amount = dest_amount.saturating_sub(bridging.actual_gas_fee_sat);
-            dest_amount = dest_amount.saturating_sub(bridging.yield_provider_gas_fee);
-
-            self.update_balance(bridging.dest_chain_id.clone(), dest_amount);
+            let dest_amount = bridging.abtc_amount
+                - bridging.minting_fee_sat
+                - bridging.protocol_fee
+                - bridging.bridging_gas_fee_sat
+                - bridging.actual_gas_fee_sat;
+            self.increase_balance(bridging.dest_chain_id.clone(), dest_amount);
         }
 
         let new_cursor = cursor + to_migrate_bridgings.len();

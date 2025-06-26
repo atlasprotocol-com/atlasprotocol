@@ -316,7 +316,7 @@ impl Atlas {
                         btc_txn_hash
                     );
 
-                    self.update_balance(receiving_chain_id, amount);
+                    self.increase_balance(receiving_chain_id, amount);
                 } else {
                     // Log a message if conditions are not met
                     log!(

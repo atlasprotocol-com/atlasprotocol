@@ -96,11 +96,10 @@ impl Atlas {
         // Clone fields before moving record
         let origin_chain_id = record.origin_chain_id.clone();
         let amount = record.abtc_amount;
-        let neg_amount = 0u64.saturating_sub(amount);
 
         self.bridgings.insert(txn_hash, record);
 
-        self.update_balance(origin_chain_id, neg_amount);
+        self.decrease_balance(origin_chain_id, amount);
     }
 
     /// Retrieves a bridging record by its transaction hash
@@ -202,18 +201,17 @@ impl Atlas {
 
                 bridging.dest_txn_hash = dest_txn_hash;
                 bridging.timestamp = timestamp;
+                bridging.timestamp = env::block_timestamp() / 1_000_000_000;
 
                 let dest_chain_id = bridging.dest_chain_id.clone();
-                let mut dest_amount = bridging.abtc_amount;
-                dest_amount = dest_amount.saturating_sub(bridging.protocol_fee);
-                dest_amount = dest_amount.saturating_sub(bridging.minting_fee_sat);
-                dest_amount = dest_amount.saturating_sub(bridging.bridging_gas_fee_sat);
-                dest_amount = dest_amount.saturating_sub(bridging.actual_gas_fee_sat);
-                dest_amount = dest_amount.saturating_sub(bridging.yield_provider_gas_fee);
-                bridging.timestamp = env::block_timestamp() / 1_000_000_000;
+                let dest_amount = bridging.abtc_amount
+                    - bridging.protocol_fee
+                    - bridging.minting_fee_sat
+                    - bridging.bridging_gas_fee_sat
+                    - bridging.actual_gas_fee_sat;
                 self.bridgings.insert(txn_hash, bridging);
 
-                self.update_balance(dest_chain_id, dest_amount);
+                self.increase_balance(dest_chain_id, dest_amount);
             } else {
                 // Log message if conditions not met
                 log!(
