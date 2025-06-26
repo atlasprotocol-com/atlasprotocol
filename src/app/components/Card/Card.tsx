@@ -3,15 +3,15 @@ import { forwardRef } from "react";
 import { twMerge } from "tailwind-merge";
 
 const cardVariants = cva(
-  "rounded-xl border backdrop-blur-sm transition-all duration-200",
+  "rounded-xl backdrop-blur-sm transition-all duration-200",
   {
     variants: {
       variant: {
-        default: "bg-card text-card-foreground border-border/40",
-        elevated: "bg-card text-card-foreground border-border/40 shadow-lg",
-        feature: "bg-card text-card-foreground border-border/40 text-center",
-        glass:
-          "bg-card/60 text-card-foreground border-border/20 backdrop-blur-md",
+        default: "bg-card text-card-foreground",
+        elevated: "bg-card text-card-foreground shadow-lg",
+        feature: "bg-card text-card-foreground text-center",
+        glass: "bg-card/60 text-card-foreground backdrop-blur-md",
+        bordered: "bg-card text-card-foreground border border-border/40",
       },
       size: {
         sm: "p-4",
