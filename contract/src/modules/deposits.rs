@@ -1177,7 +1177,7 @@ impl Atlas {
                 let mut total_input = 0u64;
                 let mut selected_utxos: Vec<UtxoInput> = Vec::new();
                 let mut estimated_fee = 0u64;
-                let satoshis = deposit.btc_amount; // Amount in satoshis
+                let satoshis = deposit.btc_amount - deposit.protocol_fee - deposit.minting_fee; // Amount in satoshis
 
                 // Sort UTXOs by value (ascending order)
                 let mut sorted_utxos = utxos.clone();
@@ -1348,23 +1348,30 @@ impl Atlas {
                 // Check timeout conditions
                 let one_day_in_seconds: u64 = 24 * 60 * 60; // 24 hours * 60 minutes * 60 seconds
                 let current_timestamp = env::block_timestamp() / 1_000_000_000;
-                let is_older_than_one_day = current_timestamp > deposit.timestamp + one_day_in_seconds;
+                let is_older_than_one_day =
+                    current_timestamp > deposit.timestamp + one_day_in_seconds;
 
-                let meets_verified_count = deposit.verified_count >= chain_config.validators_threshold;
+                let meets_verified_count =
+                    deposit.verified_count >= chain_config.validators_threshold;
                 let has_blank_remarks = deposit.remarks.is_empty();
 
                 // Check status conditions
-                let status_11_with_blank_yield_provider = 
-                    deposit.status == DEP_BTC_PENDING_YIELD_PROVIDER_DEPOSIT && 
-                    deposit.yield_provider_txn_hash.is_empty();
-                
-                let status_21_with_blank_minted = 
-                    deposit.status == DEP_BTC_PENDING_MINTED_INTO_ABTC && 
-                    deposit.minted_txn_hash.is_empty();
+                let status_11_with_blank_yield_provider = deposit.status
+                    == DEP_BTC_PENDING_YIELD_PROVIDER_DEPOSIT
+                    && deposit.yield_provider_txn_hash.is_empty();
 
-                let meets_status_condition = status_11_with_blank_yield_provider || status_21_with_blank_minted;
+                let status_21_with_blank_minted = deposit.status
+                    == DEP_BTC_PENDING_MINTED_INTO_ABTC
+                    && deposit.minted_txn_hash.is_empty();
 
-                if meets_verified_count && meets_status_condition && has_blank_remarks && is_older_than_one_day {
+                let meets_status_condition =
+                    status_11_with_blank_yield_provider || status_21_with_blank_minted;
+
+                if meets_verified_count
+                    && meets_status_condition
+                    && has_blank_remarks
+                    && is_older_than_one_day
+                {
                     // Update the deposit remarks to indicate timeout
                     deposit.remarks = "Timeout processing failed".to_string();
                     deposit.timestamp = current_timestamp;
