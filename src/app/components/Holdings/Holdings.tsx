@@ -153,12 +153,6 @@ export function Holdings({ balanceSat }: { balanceSat: number }) {
         <Holding label="Total Staked" value={data.formattedTotalStaked} />
         <Holding label="Total Redeemed" value={data.formattedTotalRedeemed} />
         <Holding
-          label="BTC Balance"
-          value={data.formattedBalance}
-          address={trim(btcAddress || "")}
-          type="balance_btc"
-        />
-        <Holding
           label="Balance"
           value={totalBalance}
           address={trim(evmAddress || "", 12)}
