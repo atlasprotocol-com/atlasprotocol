@@ -110,9 +110,9 @@ impl Atlas {
             .collect();
         log!("TO_MIGRATE_DEPOSIT_COUNT --> {}", to_migrate_deposits.len());
         for (tx, deposit) in to_migrate_deposits.iter() {
-            log!("OLD_DEPOSIT_TX --> {}", tx.clone());
-
             let amount = deposit.btc_amount - deposit.minting_fee - deposit.protocol_fee;
+            log!("DEPOSIT_CHANGE --> {} -> {}", tx.clone(), amount);
+
             self.increase_balance(deposit.receiving_chain_id.clone(), amount);
         }
 
@@ -159,10 +159,9 @@ impl Atlas {
             to_migrate_redemptions.len()
         );
         for (tx, redemption) in to_migrate_redemptions.iter() {
-            log!("OLD_REDEMPTION_TX --> {}", tx.clone());
-
             // Use checked_sub to avoid overflow, and negate if possible, else use 0
             let amount = redemption.abtc_amount;
+            log!("REDEMPTION_CHANGE --> {} -> {}", tx.clone(), amount);
 
             self.decrease_balance(redemption.abtc_redemption_chain_id.clone(), amount);
         }
@@ -207,16 +206,26 @@ impl Atlas {
             to_migrate_bridgings.len()
         );
         for (tx, bridging) in to_migrate_bridgings.iter() {
-            log!("OLD_BRIDGING_TX --> {}", tx.clone());
-
             let origin_amount = bridging.abtc_amount;
             self.decrease_balance(bridging.origin_chain_id.clone(), origin_amount);
+            log!(
+                "BRIDGE -> {} --> {} -> {}",
+                tx.clone(),
+                bridging.origin_chain_id.clone(),
+                origin_amount.clone()
+            );
 
             let dest_amount = bridging.abtc_amount
                 - bridging.minting_fee_sat
                 - bridging.protocol_fee
                 - bridging.bridging_gas_fee_sat
                 - bridging.actual_gas_fee_sat;
+            log!(
+                "BRIDGE -> {} --> {} -> {}",
+                tx.clone(),
+                bridging.dest_chain_id.clone(),
+                dest_amount.clone()
+            );
             self.increase_balance(bridging.dest_chain_id.clone(), dest_amount);
         }
 
