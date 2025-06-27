@@ -170,8 +170,9 @@ impl Atlas {
                 self.decrease_balance(redemption.abtc_redemption_chain_id.clone(), amount);
 
             log!(
-                "REDEMPTION_CHANGE --> {} -> {} -> {}",
+                "REDEMPTION_CHANGE --> {} -> {} -> {} -> {}",
                 redemption.txn_hash.clone(),
+                redemption.abtc_redemption_chain_id.clone(),
                 amount,
                 new_balance
             );
@@ -222,7 +223,7 @@ impl Atlas {
                 self.decrease_balance(bridging.origin_chain_id.clone(), origin_amount);
 
             log!(
-                "BRIDGE -> {} --> {} -> {} -> {}",
+                "BRIDGE_ORIGIN -> {} --> {} -> {} -> {}",
                 tx.clone(),
                 bridging.origin_chain_id.clone(),
                 origin_amount.clone(),
@@ -238,8 +239,8 @@ impl Atlas {
                 self.increase_balance(bridging.dest_chain_id.clone(), dest_amount);
 
             log!(
-                "BRIDGE -> {} --> {} -> {} -> {}",
-                tx.clone(),
+                "BRIDGE_DEST -> {} --> {} -> {} -> {}",
+                bridging.dest_txn_hash.clone(),
                 bridging.dest_chain_id.clone(),
                 dest_amount.clone(),
                 dest_new_balance
