@@ -221,6 +221,11 @@ impl Atlas {
             let origin_amount = bridging.abtc_amount;
             let new_balance_origin =
                 self.decrease_balance(bridging.origin_chain_id.clone(), origin_amount);
+            log!(
+                "BRIDGE -> {} -> {}",
+                bridging.origin_chain_id.clone(),
+                bridging.dest_chain_id.clone(),
+            );
 
             log!(
                 "BRIDGE_ORIGIN -> {} --> {} -> {} -> {}",
