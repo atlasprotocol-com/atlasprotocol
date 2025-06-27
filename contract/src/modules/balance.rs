@@ -1,27 +1,32 @@
 use crate::atlas::Atlas;
 use crate::AtlasExt;
 use near_sdk::near_bindgen;
-use near_sdk::store::IterableMap;
 
 #[near_bindgen]
 impl Atlas {
-    pub fn increase_balance(&mut self, chain_id: String, balance: u64) {
+    pub fn increase_balance(&mut self, chain_id: String, changes: u64) -> u64 {
         let key = format!("{}", chain_id);
 
         if let Some(current_balance) = self.atbtc_balances.get(&key) {
-            self.atbtc_balances.insert(key, current_balance + balance);
+            let balance = current_balance + changes;
+            self.atbtc_balances.insert(key, balance.clone());
+            return balance;
         } else {
-            self.atbtc_balances.insert(key, balance);
+            self.atbtc_balances.insert(key, changes.clone());
+            return changes;
         }
     }
 
-    pub fn decrease_balance(&mut self, chain_id: String, balance: u64) {
+    pub fn decrease_balance(&mut self, chain_id: String, changes: u64) -> u64 {
         let key = format!("{}", chain_id);
 
         if let Some(current_balance) = self.atbtc_balances.get(&key) {
-            self.atbtc_balances.insert(key, current_balance - balance);
+            let balance = current_balance - changes;
+            self.atbtc_balances.insert(key, balance.clone());
+            return balance;
         } else {
-            self.atbtc_balances.insert(key, balance);
+            self.atbtc_balances.insert(key, changes.clone());
+            return changes;
         }
     }
 

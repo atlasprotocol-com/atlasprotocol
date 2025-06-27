@@ -111,9 +111,14 @@ impl Atlas {
         log!("TO_MIGRATE_DEPOSIT_COUNT --> {}", to_migrate_deposits.len());
         for (tx, deposit) in to_migrate_deposits.iter() {
             let amount = deposit.btc_amount - deposit.minting_fee - deposit.protocol_fee;
-            log!("DEPOSIT_CHANGE --> {} -> {}", tx.clone(), amount);
+            let new_balance = self.increase_balance(deposit.receiving_chain_id.clone(), amount);
 
-            self.increase_balance(deposit.receiving_chain_id.clone(), amount);
+            log!(
+                "DEPOSIT_CHANGE --> {} -> {} -> {}",
+                tx.clone(),
+                amount,
+                new_balance
+            );
         }
 
         let new_cursor = cursor + to_migrate_deposits.len();
@@ -158,12 +163,18 @@ impl Atlas {
             "TO_MIGRATE_REDEMPTION_COUNT --> {}",
             to_migrate_redemptions.len()
         );
-        for (tx, redemption) in to_migrate_redemptions.iter() {
+        for (_, redemption) in to_migrate_redemptions.iter() {
             // Use checked_sub to avoid overflow, and negate if possible, else use 0
             let amount = redemption.abtc_amount;
-            log!("REDEMPTION_CHANGE --> {} -> {}", tx.clone(), amount);
+            let new_balance =
+                self.decrease_balance(redemption.abtc_redemption_chain_id.clone(), amount);
 
-            self.decrease_balance(redemption.abtc_redemption_chain_id.clone(), amount);
+            log!(
+                "REDEMPTION_CHANGE --> {} -> {} -> {}",
+                redemption.txn_hash.clone(),
+                amount,
+                new_balance
+            );
         }
 
         let new_cursor = cursor + to_migrate_redemptions.len();
@@ -207,12 +218,15 @@ impl Atlas {
         );
         for (tx, bridging) in to_migrate_bridgings.iter() {
             let origin_amount = bridging.abtc_amount;
-            self.decrease_balance(bridging.origin_chain_id.clone(), origin_amount);
+            let new_balance_origin =
+                self.decrease_balance(bridging.origin_chain_id.clone(), origin_amount);
+
             log!(
-                "BRIDGE -> {} --> {} -> {}",
+                "BRIDGE -> {} --> {} -> {} -> {}",
                 tx.clone(),
                 bridging.origin_chain_id.clone(),
-                origin_amount.clone()
+                origin_amount.clone(),
+                new_balance_origin
             );
 
             let dest_amount = bridging.abtc_amount
@@ -220,13 +234,16 @@ impl Atlas {
                 - bridging.protocol_fee
                 - bridging.bridging_gas_fee_sat
                 - bridging.actual_gas_fee_sat;
+            let dest_new_balance =
+                self.increase_balance(bridging.dest_chain_id.clone(), dest_amount);
+
             log!(
-                "BRIDGE -> {} --> {} -> {}",
+                "BRIDGE -> {} --> {} -> {} -> {}",
                 tx.clone(),
                 bridging.dest_chain_id.clone(),
-                dest_amount.clone()
+                dest_amount.clone(),
+                dest_new_balance
             );
-            self.increase_balance(bridging.dest_chain_id.clone(), dest_amount);
         }
 
         let new_cursor = cursor + to_migrate_bridgings.len();
