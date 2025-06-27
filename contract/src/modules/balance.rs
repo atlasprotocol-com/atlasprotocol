@@ -1,11 +1,13 @@
 use crate::atlas::Atlas;
 use crate::AtlasExt;
-use near_sdk::near_bindgen;
+use near_sdk::{log, near_bindgen};
 
 #[near_bindgen]
 impl Atlas {
     pub fn increase_balance(&mut self, chain_id: String, changes: u64) -> u64 {
         let key = format!("{}", chain_id);
+
+        log!("BALANCE_CHANGE: {} -> {}", chain_id.clone(), changes);
 
         if let Some(current_balance) = self.atbtc_balances.get(&key) {
             let balance = current_balance + changes;
@@ -19,6 +21,8 @@ impl Atlas {
 
     pub fn decrease_balance(&mut self, chain_id: String, changes: u64) -> u64 {
         let key = format!("{}", chain_id);
+
+        log!("BALANCE_CHANGE: {} -> -{}", chain_id.clone(), changes);
 
         if let Some(current_balance) = self.atbtc_balances.get(&key) {
             let balance = current_balance - changes;
