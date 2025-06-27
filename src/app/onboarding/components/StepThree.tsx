@@ -173,7 +173,7 @@ export const StepThree: React.FC<StepThreeProps> = ({
         <div className="space-y-3">
           <Button
             type="submit"
-            intent="outline"
+            variant="outline"
             disabled={subscribeLoading || !email.trim()}
             className="w-full"
           >

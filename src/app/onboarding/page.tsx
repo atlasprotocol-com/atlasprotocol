@@ -15,6 +15,7 @@ export default function OnboardingPage() {
   const router = useRouter();
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
   const [statusCheckError, setStatusCheckError] = useState<string | null>(null);
+  const [isAccessAtlasLoading, setIsAccessAtlasLoading] = useState(false);
 
   const { address, handleConnectBTC, handleDisconnectBTC } =
     useConnectBTCWallet({
@@ -80,6 +81,23 @@ export default function OnboardingPage() {
     setStatusCheckError(null); // Clear any status check errors
   };
 
+  const handleAccessAtlas = async () => {
+    setIsAccessAtlasLoading(true);
+    try {
+      // Add minimum loading time for better UX (prevent flicker)
+      const [_] = await Promise.all([
+        handleCompleteOnboarding(""),
+        new Promise((resolve) => setTimeout(resolve, 800)), // Minimum 800ms loading
+      ]);
+    } catch (error) {
+      console.error("Failed to access Atlas:", error);
+      // Still show minimum loading time even on error
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    } finally {
+      setIsAccessAtlasLoading(false);
+    }
+  };
+
   // Show loading while checking status
   if (isCheckingStatus) {
     return (
@@ -116,7 +134,9 @@ export default function OnboardingPage() {
             socialTasks={socialTasks}
             onUpdateTask={updateSocialTask}
             onNext={handleSocialTasksComplete}
+            onAccessAtlas={handleAccessAtlas}
             loading={loading}
+            accessAtlasLoading={isAccessAtlasLoading}
             allTasksCompleted={allSocialTasksCompleted}
             address={walletAddress}
             onLogout={handleLogout}

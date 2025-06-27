@@ -12,7 +12,9 @@ interface StepTwoProps {
   socialTasks: SocialTasks;
   onUpdateTask: (task: keyof SocialTasks, completed: boolean) => void;
   onNext: () => void;
+  onAccessAtlas: () => void;
   loading: boolean;
+  accessAtlasLoading: boolean;
   allTasksCompleted: boolean;
   address?: string;
   onLogout: () => void;
@@ -74,7 +76,7 @@ const SocialTask: React.FC<SocialTaskProps> = ({
             {actionUrl && (
               <Button
                 onClick={handleAction}
-                intent="outline"
+                variant="outline"
                 className="px-3 py-1 text-sm"
               >
                 {actionText}
@@ -102,7 +104,9 @@ export const StepTwo: React.FC<StepTwoProps> = ({
   socialTasks,
   onUpdateTask,
   onNext,
+  onAccessAtlas,
   loading,
+  accessAtlasLoading,
   allTasksCompleted,
   address,
   onLogout,
@@ -195,13 +199,21 @@ export const StepTwo: React.FC<StepTwoProps> = ({
         ))}
       </div>
 
-      <div className="flex justify-center">
+      <div className="flex justify-center gap-4">
         <Button
           onClick={onNext}
-          disabled={!allTasksCompleted || loading}
+          disabled={!allTasksCompleted || loading || accessAtlasLoading}
           className="px-8"
         >
           {loading ? "Processing..." : "Next"}
+        </Button>
+        <Button
+          onClick={onAccessAtlas}
+          disabled={!allTasksCompleted || loading || accessAtlasLoading}
+          variant="outline"
+          className="px-8"
+        >
+          {accessAtlasLoading ? "Accessing Atlas..." : "Access Atlas"}
         </Button>
       </div>
     </div>
