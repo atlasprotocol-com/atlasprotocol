@@ -150,7 +150,11 @@ export function Holdings({ balanceSat }: { balanceSat: number }) {
     <Card className="h-full">
       <h3 className="text-2xl font-bold">My Holdings</h3>
       <div className="flex flex-col gap-4 mt-4">
-        <Holding label="Total Staked" value={data.formattedTotalStaked} />
+        <Holding
+          label="Total Staked"
+          value={data.formattedTotalStaked}
+          type="balance_btc"
+        />
         <Holding label="Total Redeemed" value={data.formattedTotalRedeemed} />
         <Holding
           label="Balance"
