@@ -143,7 +143,9 @@ export function Holdings({ balanceSat }: { balanceSat: number }) {
   });
 
   const totalBalance = useMemo(() => {
-    return Number(aBTCBalanceEVM.formatted) + Number(aBTCBalanceNEAR.formatted);
+    const balance =
+      Number(aBTCBalanceEVM.formatted) + Number(aBTCBalanceNEAR.formatted);
+    return (balance * 1e8) / 1e8;
   }, [aBTCBalanceEVM, aBTCBalanceNEAR]);
 
   return (
