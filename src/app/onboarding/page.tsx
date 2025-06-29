@@ -1,8 +1,9 @@
 "use client";
 
 import { useConnectBTCWallet } from "@/hooks/useConnectBTCWallet";
+import { NearContext } from "@/utils/near";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 
 import { OnboardingLayout } from "./components/OnboardingLayout";
 import { StepOne } from "./components/StepOne";
@@ -17,17 +18,29 @@ export default function OnboardingPage() {
   const [statusCheckError, setStatusCheckError] = useState<string | null>(null);
   const [isAccessAtlasLoading, setIsAccessAtlasLoading] = useState(false);
 
-  const { address, handleConnectBTC, handleDisconnectBTC } =
-    useConnectBTCWallet({
-      onSuccessfulConnect: () => {
-        console.log("Wallet connected successfully");
-      },
-    });
+  // BTC wallet connection
+  const {
+    address: btcAddress,
+    handleConnectBTC,
+    handleDisconnectBTC,
+  } = useConnectBTCWallet({
+    onSuccessfulConnect: () => {
+      console.log("BTC Wallet connected successfully");
+    },
+  });
 
-  // Get address directly from wallet if useConnectBTCWallet doesn't provide it
-  const walletAddress =
-    address ||
+  // Near wallet connection
+  const { signedAccountId: nearAddress, wallet: nearWallet } =
+    useContext(NearContext);
+
+  // Get BTC address directly from wallet if useConnectBTCWallet doesn't provide it
+  const btcWalletAddress =
+    btcAddress ||
     (typeof window !== "undefined" && (window as any).unisat?.address);
+
+  // Use whichever wallet is connected (prioritize BTC for backward compatibility)
+  const walletAddress = btcWalletAddress || nearAddress;
+  const walletType = btcWalletAddress ? "BTC" : nearAddress ? "NEAR" : null;
 
   const {
     currentStep,
@@ -50,7 +63,12 @@ export default function OnboardingPage() {
       setStatusCheckError(null);
 
       try {
-        console.log("Checking onboarding status for address:", walletAddress);
+        console.log(
+          "Checking onboarding status for address:",
+          walletAddress,
+          "Type:",
+          walletType,
+        );
         const status = await onboardingApi.checkOnboardingStatus(walletAddress);
         console.log("Onboarding status check result:", status);
 
@@ -73,10 +91,14 @@ export default function OnboardingPage() {
     };
 
     checkOnboardingStatus();
-  }, [walletAddress, router]);
+  }, [walletAddress, walletType, router]);
 
   const handleLogout = () => {
-    handleDisconnectBTC();
+    if (walletType === "BTC") {
+      handleDisconnectBTC();
+    } else if (walletType === "NEAR") {
+      nearWallet?.signOut();
+    }
     handleWalletDisconnected();
     setStatusCheckError(null); // Clear any status check errors
   };
@@ -96,6 +118,15 @@ export default function OnboardingPage() {
     } finally {
       setIsAccessAtlasLoading(false);
     }
+  };
+
+  // Create a unified connect handler that can handle both wallet types
+  const handleConnectWallet = (walletProvider: any) => {
+    // For BTC wallets, use the existing BTC connect handler
+    if (walletProvider.id !== "near-wallet") {
+      handleConnectBTC(walletProvider);
+    }
+    // For Near wallets, the connection is handled by the StepOne component directly
   };
 
   // Show loading while checking status
@@ -122,9 +153,9 @@ export default function OnboardingPage() {
       case 1:
         return (
           <StepOne
-            onConnect={handleConnectBTC}
+            onConnect={handleConnectWallet}
             onWalletConnected={handleWalletConnected}
-            connectDisabled={!!address}
+            connectDisabled={!!btcAddress}
             address={walletAddress}
           />
         );
