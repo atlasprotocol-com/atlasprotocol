@@ -54,6 +54,10 @@ const getStatusTooltipContent = (status: any) => {
       return `Your ${ATLAS_BTC_TOKEN} is being minted on the destination chain.`;
     case DepositStatus.BTC_MINTED_INTO_ABTC:
       return `Your ${ATLAS_BTC_TOKEN} can now be found in your destination wallet.`;
+    case DepositStatus.BTC_REFUNDING:
+      return `Your ${ATLAS_BTC_TOKEN} is refunding.`;
+    case DepositStatus.BTC_REFUNDED:
+      return `Your ${ATLAS_BTC_TOKEN} has refunded.`;
     default:
       return "";
   }
