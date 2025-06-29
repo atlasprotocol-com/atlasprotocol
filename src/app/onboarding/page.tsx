@@ -171,6 +171,7 @@ export default function OnboardingPage() {
             allTasksCompleted={allSocialTasksCompleted}
             address={walletAddress}
             onLogout={handleLogout}
+            walletType={walletType}
           />
         );
       case 3:
@@ -180,6 +181,7 @@ export default function OnboardingPage() {
             loading={loading}
             address={walletAddress}
             onLogout={handleLogout}
+            walletType={walletType}
           />
         );
       default:

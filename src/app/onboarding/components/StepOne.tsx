@@ -107,7 +107,7 @@ export const StepOne: React.FC<StepOneProps> = ({
             ✓ Successfully connected
           </p>
           <p className="text-sm text-neutral-6 dark:text-neutral-4 font-mono">
-            {displayAddress.length > 16
+            {displayAddress.length > 24
               ? `${displayAddress.slice(0, 8)}...${displayAddress.slice(-8)}`
               : displayAddress}
           </p>

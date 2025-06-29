@@ -17,7 +17,9 @@ export const WalletDisplay: React.FC<WalletDisplayProps> = ({
             Connected wallet:
           </p>
           <span className="text-primary font-mono text-xs">
-            {address.slice(0, 8)}...{address.slice(-8)}
+            {address.length > 24
+              ? `${address.slice(0, 8)}...${address.slice(-8)}`
+              : address}
           </span>
         </div>
         <button
