@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { PiWalletBold } from "react-icons/pi";
 
 import { Button } from "@/app/components/Button";
 import { ConnectModal } from "@/app/components/Modals/ConnectModal";
 import { ErrorModal } from "@/app/components/Modals/ErrorModal";
 import { useError } from "@/app/context/Error/ErrorContext";
+import { NearContext } from "@/utils/near";
 import { WalletProvider } from "@/utils/wallet/wallet_provider";
 
 interface StepOneProps {
@@ -24,6 +25,7 @@ export const StepOne: React.FC<StepOneProps> = ({
 }) => {
   const [connectModalOpen, setConnectModalOpen] = useState(false);
   const { error, isErrorOpen, hideError, retryErrorAction } = useError();
+  const { signedAccountId: nearAccountId } = useContext(NearContext);
 
   // Auto-trigger onWalletConnected if wallet is already connected
   useEffect(() => {
@@ -36,6 +38,51 @@ export const StepOne: React.FC<StepOneProps> = ({
     }
   }, [address, connectDisabled, onWalletConnected]);
 
+  // Handle Near wallet connections
+  useEffect(() => {
+    if (nearAccountId && !address) {
+      // Create a Near wallet wrapper when Near wallet connects
+      const nearWalletWrapper = {
+        id: "near-wallet",
+        name: "Near Wallet",
+        connectWallet: async () => nearWalletWrapper,
+        getWalletProviderName: async () => "Near Wallet",
+        getAddress: async () => nearAccountId,
+        getPublicKeyHex: async () => "",
+        signPsbt: async () => {
+          throw new Error("PSBT signing not supported for Near wallets");
+        },
+        signPsbts: async () => {
+          throw new Error("PSBT signing not supported for Near wallets");
+        },
+        getNetwork: async () => {
+          throw new Error("Network not applicable for Near wallets");
+        },
+        signMessageBIP322: async () => {
+          throw new Error("BIP322 not supported for Near wallets");
+        },
+        on: () => {},
+        getBalance: async () => 0,
+        getNetworkFees: async () => ({
+          fastestFee: 0,
+          halfHourFee: 0,
+          hourFee: 0,
+          economyFee: 0,
+          minimumFee: 0,
+        }),
+        pushTx: async () => {
+          throw new Error("BTC transaction not supported for Near wallets");
+        },
+        getUtxos: async () => [],
+        getBTCTipHeight: async () => 0,
+      } as WalletProvider;
+
+      // Call onConnect when Near wallet is actually connected
+      onConnect(nearWalletWrapper);
+      onWalletConnected();
+    }
+  }, [nearAccountId, address, onConnect, onWalletConnected]);
+
   const handleConnect = (walletProvider: WalletProvider) => {
     onConnect(walletProvider);
     setConnectModalOpen(false);
@@ -47,7 +94,11 @@ export const StepOne: React.FC<StepOneProps> = ({
   };
 
   // Show different content based on wallet connection status
-  if (connectDisabled && address) {
+  // Check both BTC address and Near account ID
+  const isConnected = (address && connectDisabled) || nearAccountId;
+  const displayAddress = address || nearAccountId;
+
+  if (isConnected && displayAddress) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] text-center">
         <div className="mb-8">
@@ -56,7 +107,12 @@ export const StepOne: React.FC<StepOneProps> = ({
             ✓ Successfully connected
           </p>
           <p className="text-sm text-neutral-6 dark:text-neutral-4 font-mono">
-            {address.slice(0, 8)}...{address.slice(-8)}
+            {displayAddress.length > 16
+              ? `${displayAddress.slice(0, 8)}...${displayAddress.slice(-8)}`
+              : displayAddress}
+          </p>
+          <p className="text-xs text-neutral-5 dark:text-neutral-5 mt-1">
+            {nearAccountId ? "Near Wallet" : "Bitcoin Wallet"}
           </p>
         </div>
 
