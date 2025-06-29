@@ -22,6 +22,8 @@ export enum DepositStatus {
   BTC_YIELD_PROVIDER_DEPOSITED = 20,
   BTC_PENDING_MINTED_INTO_ABTC = 21,
   BTC_MINTED_INTO_ABTC = 30,
+  BTC_REFUNDING = 40,
+  BTC_REFUNDED = 41,
 }
 
 export const Constants = {
@@ -42,7 +44,10 @@ export function getStatusMessage(status: any): string {
       return `Minting ${ATLAS_BTC_TOKEN}`;
     case DepositStatus.BTC_MINTED_INTO_ABTC:
       return `${ATLAS_BTC_TOKEN} Minted`;
-    // Add cases for RedemptionStatus when defined
+    case DepositStatus.BTC_REFUNDING:
+      return `Refunding`;
+    case DepositStatus.BTC_REFUNDED:
+      return `Refunded`;
     default:
       return "Unknown status";
   }
