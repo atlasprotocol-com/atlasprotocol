@@ -50,7 +50,11 @@ export function Reward() {
 
   const { mutateAsync: bindReward } = useBindReward();
 
-  const { address: fromAddress, connect } = useConnectMultiChain({
+  const {
+    address: fromAddress,
+    connect,
+    disconnectAsync,
+  } = useConnectMultiChain({
     selectedChain,
     lazyConnect: true,
   });
@@ -108,7 +112,15 @@ export function Reward() {
         proof: claimable[0].merkleProof,
       });
 
-      queryClient.invalidateQueries({ queryKey: ["stats"] });
+      queryClient.invalidateQueries({
+        queryKey: ["stats"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["stakingHistories"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["redemptionHistories"],
+      });
     } catch (error) {
       toast.error("Failed to claim reward");
       console.error(error);
@@ -127,10 +139,24 @@ export function Reward() {
       description="Please connect your NEAR wallet to earn rewards"
       renderContent={
         <div className="flex flex-col items-center justify-center gap-4">
+          <div className="mt-2 flex items-center gap-2">
+            <p className="text-[13px] text-caption">
+              Near address: <strong>{fromAddress}</strong>
+            </p>
+            <button
+              className="font-semibold text-primary text-[13px]"
+              onClick={() => {
+                disconnectAsync();
+              }}
+            >
+              Disconnect
+            </button>
+          </div>
           {!isLoading && hasClaimableReward && (
             <p>
               You have total{" "}
-              {utils.format.formatNearAmount(claimable[0].amount)} Near rewards
+              {utils.format.formatNearAmount(claimable[0].amount, 6)} Near
+              rewards
             </p>
           )}
           <div className="flex justify-center">

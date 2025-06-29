@@ -25,13 +25,15 @@ const flagsBatch = {
   ProcessUnstakingAndWithdrawalRunning: false,
   SendBridgingFeesToTreasuryRunning: false,
   UpdateAtlasBtcDepositedRunning: false,
-  UpdateAtlasBtcWithdrawingFromYieldProviderRunning: false,
   UpdateAtlasRedemptionPendingBtcMempoolRunning: false,
   UpdateBridgingAtbtcMintedRunning: false,
   GetAllBridgingHistoryRunning: false,
   RetrieveAndProcessPastEventsRunning: false,
   MintingEventsRunning: false,
   WithdrawBtcFromYieldProviderRunning: false,
+  UnstakeBtcFromYieldProviderRunning: false,
+  NearChainScannerRunning: false,
+  UpdateAtlasBtcTimeoutRunning: false,
 };
 
 function blockRange(block, start = 1000, end = 2000) {

@@ -1,14 +1,19 @@
-import { useMemo } from "react";
+import { useContext, useMemo } from "react";
 import { FaBitcoin } from "react-icons/fa";
 import { twMerge } from "tailwind-merge";
+import { useAccount } from "wagmi";
 
 import { useAppContext } from "@/app/context/app";
 import {
   useGetRedemptionHistory,
   useGetStakingHistory,
 } from "@/app/hooks/history";
+import { useGetAtlasBTCBalanceMultiChain } from "@/app/hooks/useConnectMultiChain";
+import { ChainConfig } from "@/app/types/chainConfig";
+import { useGetChainConfig } from "@/hooks";
 import { satoshiToBtc } from "@/utils/btcConversions";
 import { maxDecimals } from "@/utils/maxDecimals";
+import { NearContext } from "@/utils/near";
 import { trim } from "@/utils/trim";
 
 import { Card } from "../Card";
@@ -18,13 +23,16 @@ function Holding({
   value,
   address,
   type,
+  address2,
 }: {
   label: string;
   value: string | number;
   address?: string;
-  type?: "balance";
+  type?: "balance" | "balance_btc";
+  address2?: string;
 }) {
-  const { BTC_TOKEN } = useAppContext();
+  const { BTC_TOKEN, ATLAS_BTC_TOKEN } = useAppContext();
+  const unit = type === "balance_btc" ? BTC_TOKEN : ATLAS_BTC_TOKEN;
   return (
     <div
       className={twMerge(
@@ -44,13 +52,20 @@ function Holding({
             type === "balance" && "text-primary",
           )}
         >
-          {value} <span className="font-normal">{BTC_TOKEN}</span>
+          {value} <span className="font-normal">{unit}</span>
         </p>
       </div>
       {address && (
         <div className="flex justify-end mt-1">
           <div className="text-secondary-100 dark:text-secondary-700 px-1 py-0.5 bg-secondary-700 dark:bg-secondary-900 rounded-[30px] justify-center items-center gap-px inline-flex text-[12px]">
             {address}
+          </div>
+        </div>
+      )}
+      {address2 && (
+        <div className="flex justify-end mt-1">
+          <div className="text-secondary-100 dark:text-secondary-700 px-1 py-0.5 bg-secondary-700 dark:bg-secondary-900 rounded-[30px] justify-center items-center gap-px inline-flex text-[12px]">
+            {address2}
           </div>
         </div>
       )}
@@ -76,7 +91,8 @@ export function Holdings({ balanceSat }: { balanceSat: number }) {
 
     if (stakingHistories) {
       totalStakedSat = stakingHistories.stakingHistories.reduce(
-        (accumulator: number, item) => accumulator + item?.btcAmount - item?.yieldProviderGasFee,
+        (accumulator: number, item) =>
+          accumulator + item?.btcAmount - item?.yieldProviderGasFee,
         0,
       );
     }
@@ -87,26 +103,67 @@ export function Holdings({ balanceSat }: { balanceSat: number }) {
         0,
       );
     }
+
+    const totalStakedSats = satoshiToBtc(totalStakedSat);
+    const totalRedeemedSats = satoshiToBtc(totalRedeemedSat);
+
     return {
       totalStakedSat,
-      formattedTotalStaked: maxDecimals(satoshiToBtc(totalStakedSat), 8),
+      formattedTotalStaked: maxDecimals(totalStakedSats, 8),
       totalRedeemedSat,
-      formattedTotalRedeemed: maxDecimals(satoshiToBtc(totalRedeemedSat), 8),
-      formattedBalance: maxDecimals(satoshiToBtc(balanceSat), 8),
+      formattedTotalRedeemed: maxDecimals(totalRedeemedSats, 8),
+      formattedBalance: maxDecimals(
+        Math.max(0, totalStakedSats - totalRedeemedSats),
+        8,
+      ),
     };
   }, [stakingHistories, redemptionHistories, balanceSat]);
+
+  const { chainId, address: evmAddress } = useAccount();
+
+  const { data: chainConfigs = {} } = useGetChainConfig();
+
+  const { signedAccountId: nearAccountId } = useContext(NearContext);
+
+  const selectedChain = useMemo(() => {
+    return {
+      EVM: chainId
+        ? (chainConfigs[chainId] as ChainConfig | undefined)
+        : undefined,
+      NEAR: chainConfigs["NEAR"] || chainConfigs["NEAR_TESTNET"],
+    };
+  }, [chainConfigs, chainId]);
+
+  const { result: aBTCBalanceEVM } = useGetAtlasBTCBalanceMultiChain({
+    selectedChain: selectedChain.EVM,
+  });
+
+  const { result: aBTCBalanceNEAR } = useGetAtlasBTCBalanceMultiChain({
+    selectedChain: selectedChain.NEAR,
+  });
+
+  const totalBalance = useMemo(() => {
+    const balance =
+      Number(aBTCBalanceEVM.formatted) + Number(aBTCBalanceNEAR.formatted);
+    return (balance * 1e8) / 1e8;
+  }, [aBTCBalanceEVM, aBTCBalanceNEAR]);
 
   return (
     <Card className="h-full">
       <h3 className="text-2xl font-bold">My Holdings</h3>
       <div className="flex flex-col gap-4 mt-4">
-        <Holding label="Total Staked" value={data.formattedTotalStaked} />
+        <Holding
+          label="Total Staked"
+          value={data.formattedTotalStaked}
+          type="balance_btc"
+        />
         <Holding label="Total Redeemed" value={data.formattedTotalRedeemed} />
         <Holding
           label="Balance"
-          value={data.formattedBalance}
-          address={trim(btcAddress || "")}
+          value={totalBalance}
+          address={trim(evmAddress || "", 12)}
           type="balance"
+          address2={nearAccountId}
         />
       </div>
       {/* <div className="mt-4 flex justify-center p-2">

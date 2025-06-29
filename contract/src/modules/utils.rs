@@ -41,10 +41,8 @@ impl Atlas {
             },
             "redemption_status": {
                 "RED_ABTC_BURNT": RED_ABTC_BURNT,
-                "RED_BTC_PENDING_YIELD_PROVIDER_UNSTAKE": RED_BTC_PENDING_YIELD_PROVIDER_UNSTAKE,
                 "RED_BTC_YIELD_PROVIDER_UNSTAKE_PROCESSING": RED_BTC_YIELD_PROVIDER_UNSTAKE_PROCESSING,
                 "RED_BTC_YIELD_PROVIDER_UNSTAKED": RED_BTC_YIELD_PROVIDER_UNSTAKED,
-                "RED_BTC_PENDING_YIELD_PROVIDER_WITHDRAW": RED_BTC_PENDING_YIELD_PROVIDER_WITHDRAW,
                 "RED_BTC_YIELD_PROVIDER_WITHDRAWING": RED_BTC_YIELD_PROVIDER_WITHDRAWING,
                 "RED_BTC_YIELD_PROVIDER_WITHDRAWN": RED_BTC_YIELD_PROVIDER_WITHDRAWN,
                 "RED_BTC_PENDING_REDEMPTION_FROM_ATLAS_TO_USER": RED_BTC_PENDING_REDEMPTION_FROM_ATLAS_TO_USER,
@@ -56,10 +54,8 @@ impl Atlas {
                 "BRG_ABTC_BURNT": BRG_ABTC_BURNT,
                 "BRG_ABTC_PENDING_BRIDGE_FROM_ORIGIN_TO_DEST": BRG_ABTC_PENDING_BRIDGE_FROM_ORIGIN_TO_DEST,
                 "BRG_ABTC_MINTED_TO_DEST": BRG_ABTC_MINTED_TO_DEST,
-                "BRG_ABTC_PENDING_YIELD_PROVIDER_UNSTAKE": BRG_ABTC_PENDING_YIELD_PROVIDER_UNSTAKE,
                 "BRG_ABTC_YIELD_PROVIDER_UNSTAKE_PROCESSING": BRG_ABTC_YIELD_PROVIDER_UNSTAKE_PROCESSING,
                 "BRG_ABTC_YIELD_PROVIDER_UNSTAKED": BRG_ABTC_YIELD_PROVIDER_UNSTAKED,
-                "BRG_ABTC_PENDING_YIELD_PROVIDER_WITHDRAW": BRG_ABTC_PENDING_YIELD_PROVIDER_WITHDRAW,
                 "BRG_ABTC_YIELD_PROVIDER_WITHDRAWING": BRG_ABTC_YIELD_PROVIDER_WITHDRAWING,
                 "BRG_ABTC_YIELD_PROVIDER_WITHDRAWN": BRG_ABTC_YIELD_PROVIDER_WITHDRAWN,
                 "BRG_ABTC_YIELD_PROVIDER_FEE_SENDING_TO_TREASURY": BRG_ABTC_YIELD_PROVIDER_FEE_SENDING_TO_TREASURY,
@@ -126,6 +122,18 @@ impl Atlas {
             .update_btc_min_staking_amount(btc_min_staking_amount);
     }
 
+    pub fn update_atbtc_min_redemption_amount(&mut self, atbtc_min_redemption_amount: u64) {
+        self.assert_not_paused();
+        self.global_params
+            .update_atbtc_min_redemption_amount(atbtc_min_redemption_amount);
+    }
+
+    pub fn update_atbtc_min_bridging_amount(&mut self, atbtc_min_bridging_amount: u64) {
+        self.assert_not_paused();
+        self.global_params
+            .update_atbtc_min_bridging_amount(atbtc_min_bridging_amount);
+    }
+
     pub fn update_treasury_address(&mut self, treasury_address: String) {
         self.assert_not_paused();
         self.global_params.update_treasury_address(treasury_address);
@@ -183,15 +191,6 @@ impl Atlas {
     pub fn accept_chain_configs_owner(&mut self) {
         self.assert_not_paused();
         self.chain_configs.accept_chain_configs_owner();
-    }
-
-    pub fn get_last_unstaking_time(&self) -> u64 {
-        self.global_params.get_last_unstaking_time()
-    }
-
-    pub fn update_last_unstaking_time(&mut self, timestamp: u64) {
-        self.assert_admin();
-        self.global_params.update_last_unstaking_time(timestamp);
     }
 
     pub fn create_atlas_signed_payload(

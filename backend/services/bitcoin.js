@@ -4,11 +4,8 @@ const bitcoin = require("bitcoinjs-lib");
 const ecc = require("@bitcoinerlab/secp256k1");
 const { BorshSchema, borshSerialize, borshDeserialize } = require('borsher');
 const zlib = require('zlib');
-const fs = require('fs');
-const path = require('path');
-const WithdrawalFromYieldProviderHelper = require('../helpers/withdrawalFromYieldProviderHelper');
-const { MemoryCache } = require("../cache");
 
+const { MemoryCache } = require("../cache");
 const {
   derivep2wpkhChildPublicKey,
   najPublicKeyStrToUncompressedHexPoint,
@@ -521,6 +518,7 @@ class Bitcoin {
   // Function which returns the txn's sender address
   async getBtcSenderAddress(txn) {
     const output = txn.vin[0].prevout.scriptpubkey_address;
+    console.log("output: ", output);
     return output;
   }
 
@@ -536,6 +534,8 @@ class Bitcoin {
     
     const outputValue = output ? output.value : 0;
     const treasuryValue = treasuryOutput ? treasuryOutput.value : 0;
+
+    console.log("outputValue: ", outputValue);
 
     return {
       btcAmount: outputValue,
@@ -556,12 +556,21 @@ class Bitcoin {
       for (const vout of txn.vout) {
         const scriptPubKey = Buffer.from(vout.scriptpubkey, "hex");
         const chunks = bitcoin.script.decompile(scriptPubKey);
+       
         if (chunks[0] === bitcoin.opcodes.OP_RETURN) {
           const embeddedData = chunks[1];
-
+          console.log("embeddedData: ", embeddedData);
+          
+          // Skip processing if embeddedData contains "bithive"
+          if (embeddedData.toString().toLowerCase().includes("bithive")) {
+            console.log("Skipping transaction with bithive in embedded data");
+            throw new Error("Transaction contains bithive data - skipping");
+          }
+          
           try {
             // First try the new compressed format
             const decoded = await this.decodeOpReturnData(embeddedData);
+            console.log("decoded: ", decoded);
             return {
               chain: decoded.n,
               address: decoded.a,
@@ -571,6 +580,7 @@ class Bitcoin {
               remarks,
             };
           } catch (decodeError) {
+            console.log("decodeError: ", decodeError);
             // If decoding fails, try the old comma-separated format
             const dataStr = embeddedData.toString("utf-8");
             [chain, address, yieldProviderGasFee, protocolFee, mintingFee] = dataStr.split(",");
@@ -827,20 +837,9 @@ class Bitcoin {
   async mpcSignYieldProviderPsbt(near, psbtHex) {
     // Try to load existing PSBT if available
     let psbt;
-    try {
-      const savedPsbtHex = await WithdrawalFromYieldProviderHelper.loadPartiallySignedPsbt();
-      if (savedPsbtHex) {
-        psbt = bitcoin.Psbt.fromHex(savedPsbtHex, {network: this.network});
-        console.log('Loaded existing partially signed PSBT');
-      } else {
-        psbt = bitcoin.Psbt.fromHex(psbtHex, {network: this.network});
-        console.log('Created new PSBT');
-      }
-    } catch (error) {
-      console.error('Error loading PSBT:', error);
-      psbt = bitcoin.Psbt.fromHex(psbtHex, {network: this.network});
-    }
 
+    psbt = bitcoin.Psbt.fromHex(psbtHex, {network: this.network});
+    
     const { publicKey } = await this.deriveBTCAddress(near);
     const sign = async (tx) => {
       const btcPayload = Array.from(ethers.getBytes(tx));
@@ -869,12 +868,7 @@ class Bitcoin {
         try {
           console.log(`Signing input ${i}/${totalInputs}:`, psbt.data.inputs[i]);
           await psbt.signInputAsync(i, { publicKey, sign });
-          lastSuccessfulIndex = i;
-          
-          // Save progress after each successful signature
-          await WithdrawalFromYieldProviderHelper.savePartiallySignedPsbt(psbt.toHex());
-          console.log(`Saved PSBT progress after signing input ${i}`);
-          
+          lastSuccessfulIndex = i;          
         } catch (error) {
           console.error(`Error signing input ${i}:`, error);
           // Return partial progress if there's an error
@@ -888,10 +882,6 @@ class Bitcoin {
           };
         }
       }
-
-      // If we get here, all inputs were signed successfully
-      // Clean up the PSBT file since we're done
-      await WithdrawalFromYieldProviderHelper.clearPartiallySignedPsbt();
 
       return {
         psbt,
@@ -988,8 +978,10 @@ class Bitcoin {
 
   // Decoding functions
   async decodeOpReturnData(buffer) {
+    console.log("buffer: ", buffer);
     const decompressed = zlib.inflateSync(buffer); // Decompress first
     const messageRaw = borshDeserialize(schema, decompressed);
+    console.log("messageRaw: ", messageRaw);
     return new OpReturnData({
         n: messageRaw.n,
         a: messageRaw.a,

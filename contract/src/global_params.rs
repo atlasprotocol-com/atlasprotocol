@@ -6,19 +6,21 @@ use serde::{Deserialize, Serialize};
 
 #[derive(BorshDeserialize, BorshSerialize, Deserialize, Serialize, PanicOnDefault, Clone)]
 pub struct GlobalParams {
-    mpc_contract: AccountId,
-    fee_deposit_bps: u16,
-    fee_redemption_bps: u16,
-    fee_bridging_bps: u16,
-    fee_yield_provider_rewards_bps: u16,
-    btc_staking_cap: u64,
-    btc_max_staking_amount: u64,
-    btc_min_staking_amount: u64,
-    treasury_address: String,
-    owner_id: AccountId,
-    proposed_owner_id: Option<AccountId>, // Proposed owner for two-step ownership transfer
-    max_retry_count: u8,
-    last_unstaking_time: u64, // Timestamp of the last unstaking operation
+    pub mpc_contract: AccountId,
+    pub fee_deposit_bps: u16,
+    pub fee_redemption_bps: u16,
+    pub fee_bridging_bps: u16,
+    pub fee_yield_provider_rewards_bps: u16,
+    pub btc_staking_cap: u64,
+    pub btc_max_staking_amount: u64,
+    pub btc_min_staking_amount: u64,
+    pub treasury_address: String,
+    pub owner_id: AccountId,
+    pub proposed_owner_id: Option<AccountId>, // Proposed owner for two-step ownership transfer
+    pub max_retry_count: u8,
+    pub last_unstaking_time: u64, // Timestamp of the last unstaking operation
+    pub atbtc_min_redemption_amount: u64,
+    pub atbtc_min_bridging_amount: u64
 }
 
 impl GlobalParams {
@@ -48,6 +50,8 @@ impl GlobalParams {
             proposed_owner_id: None,
             max_retry_count: 3,
             last_unstaking_time: 0, // Initialize with 0 timestamp
+            atbtc_min_redemption_amount: 10000,
+            atbtc_min_bridging_amount: 10000,
         }
     }
 
@@ -203,6 +207,16 @@ impl GlobalParams {
         self.btc_min_staking_amount = btc_min_staking_amount;
     }
 
+    pub fn update_atbtc_min_redemption_amount(&mut self, atbtc_min_redemption_amount: u64) {
+        self.assert_owner();
+        self.atbtc_min_redemption_amount = atbtc_min_redemption_amount;
+    }
+
+    pub fn update_atbtc_min_bridging_amount(&mut self, atbtc_min_bridging_amount: u64) {
+        self.assert_owner();
+        self.atbtc_min_bridging_amount = atbtc_min_bridging_amount;
+    }
+
     pub fn update_treasury_address(&mut self, treasury_address: String) {
         self.assert_owner();
         assert!(!treasury_address.is_empty(), "Invalid treasury address");
@@ -218,15 +232,8 @@ impl GlobalParams {
         self.max_retry_count = max_retry_count;
     }
 
-    pub fn get_last_unstaking_time(&self) -> u64 {
-        self.last_unstaking_time
-    }
-
-    pub fn update_last_unstaking_time(&mut self, timestamp: u64) {
-        self.last_unstaking_time = timestamp;
-    }
-
     pub fn owner_id(&self) -> &AccountId {
         &self.owner_id
     }
 }
+

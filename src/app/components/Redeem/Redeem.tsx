@@ -33,16 +33,10 @@ import { ConnectEvmWalletModal } from "../Modals/ConnectEvmWalletModal";
 import { SelectField } from "../SelectField";
 
 import { RedeemPreview } from "./RedeemPreview";
-const MIN_REDEEM_AMOUNT = 0.0001;
+
 
 const redeemFormSchema = z.object({
-  amount: z.coerce
-    .number()
-    .positive()
-    .nonnegative()
-    .min(MIN_REDEEM_AMOUNT, {
-      message: `Please enter a minimum amount of ${MIN_REDEEM_AMOUNT} ${ATLAS_BTC_TOKEN}`,
-    }),
+  amount: z.coerce.number().positive().nonnegative(),
   chainID: z
     .string({
       required_error: "Please select a chain",
@@ -95,7 +89,7 @@ export function Redeem({ btcAddress }: RedeemProps) {
 
   const params = useGetGlobalParams();
   const { data: chainConfigs = {} } = useGetChainConfig();
-
+  const MIN_REDEEM_AMOUNT = (params.data?.atbtcMinRedemptionAmount || 0) / 100000000;
   const filteredChainConfigs = useMemo(() => {
     return Object.values(chainConfigs || {}).filter(
       (chainConfig) =>
@@ -119,7 +113,18 @@ export function Redeem({ btcAddress }: RedeemProps) {
     defaultValues: {
       address: btcAddress,
     },
-    resolver: zodResolver(redeemFormSchema),
+    resolver: zodResolver(
+      redeemFormSchema.refine(
+        (data) => {
+          if (MIN_REDEEM_AMOUNT === undefined) return true;
+          return data.amount >= MIN_REDEEM_AMOUNT;
+        },
+        {
+          message: `Please enter a minimum amount of ${MIN_REDEEM_AMOUNT} ${ATLAS_BTC_TOKEN}`,
+          path: ["amount"],
+        },
+      ),
+    ),
     mode: "onBlur",
   });
 
@@ -294,7 +299,15 @@ export function Redeem({ btcAddress }: RedeemProps) {
       setValue("amount", 0);
       previewToggle.toggle();
       setReviewData(undefined);
-      queryClient.invalidateQueries({ queryKey: ["stats"] });
+      queryClient.invalidateQueries({
+        queryKey: ["stats"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["stakingHistories"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["redemptionHistories"],
+      });
     } catch (error: Error | any) {
       console.error(error);
       addFeedback({

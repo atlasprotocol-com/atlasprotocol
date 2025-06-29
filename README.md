@@ -42,5 +42,6 @@ Then, to start a development server:
 
 ```bash
 npm install
+node startNearChainScanner.js
 node server.js
 ```

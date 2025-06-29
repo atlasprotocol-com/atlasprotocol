@@ -1,11 +1,11 @@
-CONTRACT_ID ?= atlas_testnet4_20250517
-FT_CONTRACT_ID ?= atbtc_testnet4_20250517
+CONTRACT_ID ?= atlas_testnet4_20250628
+FT_CONTRACT_ID ?= atbtc_testnet4_20250628
 
 
 migrate: 
 	./build.sh
 	near deploy $(CONTRACT_ID).velar.testnet res/atlas_protocol.wasm;
-	near call $(CONTRACT_ID).velar.testnet migrate_prepare {} --accountId velar.testnet
+	near call $(CONTRACT_ID).velar.testnet migrate_23062005 --accountId velar.testnet
 	near call $(CONTRACT_ID).velar.testnet migrate_init {} --accountId velar.testnet
 
 redeploy-all: redeploy redeploy-near-ft
@@ -47,7 +47,7 @@ redeploy:
 
 redeploy-near-ft:
 	cd tokens && ./build.sh
-	cd tokens && near delete-account $(FT_CONTRACT_ID).velar.testnet velar.testnet;
+	# cd tokens && near delete-account $(FT_CONTRACT_ID).velar.testnet velar.testnet;
 	cd tokens && near create-account $(FT_CONTRACT_ID).velar.testnet --masterAccount velar.testnet --initialBalance 10;
 
 	sleep 10;

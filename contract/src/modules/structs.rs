@@ -13,8 +13,8 @@ pub struct Atlas {
     pub deposits: IterableMap<String, DepositRecord>,
     pub redemptions: IterableMap<String, RedemptionRecord>,
     pub bridgings: IterableMap<String, BridgingRecord>,
-    pub validators: IterableMap<AccountId, Vec<String>>, // list of validators: <AccountId -> Vector of authorised chains (chain_id)>
-    pub verifications: IterableMap<String, Vec<AccountId>>, // list of verifications: <Txn Hash of deposit/redemption/bridging -> Vector of validators (AccountId)>
+    pub validators: IterableMap<AccountId, Vec<String>>,
+    pub verifications: IterableMap<String, Vec<AccountId>>,
     pub owner_id: AccountId,
     pub proposed_owner_id: Option<AccountId>,
     pub admin_id: AccountId,
@@ -24,28 +24,7 @@ pub struct Atlas {
     pub paused: bool,
     pub production_mode: bool,
     pub btc_pubkey: IterableMap<String, BtcAddressPubKeyRecord>,
-}
-
-#[derive(BorshDeserialize, BorshSerialize, Deserialize, Serialize, Clone)]
-#[borsh(crate = "near_sdk::borsh")]
-pub struct DepositRecordOld {
-    pub btc_txn_hash: String,
-    pub btc_sender_address: String,
-    pub receiving_chain_id: String,
-    pub receiving_address: String,
-    pub btc_amount: u64,
-    pub protocol_fee: u64,
-    pub minted_txn_hash: String,
-    pub minting_fee: u64,
-    pub timestamp: u64,
-    pub status: u8,
-    pub remarks: String,
-    pub date_created: u64,
-    pub verified_count: u8,
-    pub yield_provider_gas_fee: u64,
-    pub yield_provider_txn_hash: String,
-    pub retry_count: u8,
-    pub minted_txn_hash_verified_count: u8,
+    pub atbtc_balances: IterableMap<String, u64>,
 }
 
 #[derive(BorshDeserialize, BorshSerialize, Deserialize, Serialize, Clone)]
@@ -160,20 +139,4 @@ pub struct CreatePayloadResult {
 pub struct BtcAddressPubKeyRecord {
     pub btc_address: String,
     pub public_key: String,
-}
-
-#[derive(BorshDeserialize, BorshSerialize, Debug)]
-pub(crate) enum StateVersion {
-    V1,
-    V2,
-}
-
-impl StateVersion {
-    pub fn try_from_slice(data: &[u8]) -> Result<Self, String> {
-        match data {
-            b"V1" => Ok(StateVersion::V1),
-            b"V2" => Ok(StateVersion::V2),
-            _ => Err("Unknown state version".to_string()),
-        }
-    }
 }

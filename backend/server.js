@@ -1,13 +1,29 @@
 /* eslint-disable import/order */
 
 const dotenv = require("dotenv");
-const { getAllBridgingHistory } = require("./helpers/bridgingHelper");
-const { getAllDepositHistory } = require("./helpers/depositsHelper");
-const { getAllRedemptionHistory } = require("./helpers/redemptionHelper");
-
 // Load environment variables from .env.local or .env based on NODE_ENV
 const envFile = process.env.NODE_ENV === "production" ? ".env" : ".env.local";
 dotenv.config({ path: envFile });
+
+const {
+  getAllBridgingHistory,
+  mergeBridgingRecords,
+} = require("./helpers/bridgingHelper");
+const {
+  getAllDepositHistory,
+  mergeDepositRecords,
+} = require("./helpers/depositsHelper");
+const {
+  getAllRedemptionHistory,
+  mergeRedemptionRecords,
+} = require("./helpers/redemptionHelper");
+const {
+  checkAndUpdateMintedTxnHash,
+} = require("./helpers/checkAndUpdateMintedTxnHash");
+const {
+  processBurnRedeemEvent,
+  processBurnBridgeEvent,
+} = require("./helpers/eventProcessor");
 
 const { globalParams, updateGlobalParams } = require("./config/globalParams");
 const { getTransactionsAndComputeStats } = require("./utils/transactionStats");
@@ -29,15 +45,8 @@ const {
   MintBridgeABtcToDestChain,
 } = require("./utils/mintBridgeABtcToDestChain");
 const {
-  checkAndUpdateMintedTxnHash,
-} = require("./helpers/checkAndUpdateMintedTxnHash");
-
-const {
   UpdateAtlasBtcBackToUser,
 } = require("./utils/updateAtlasBtcBackToUser");
-// const {
-//   UpdateAtlasAbtcMintedTxnHash,
-// } = require("./utils/updateAtlasAbtcMintedTxnHash");
 const { UpdateAtlasAbtcMinted } = require("./utils/updateAtlasAbtcMinted");
 const {
   UpdateYieldProviderStaked,
@@ -48,13 +57,13 @@ const {
   getChainConfig,
 } = require("./utils/network.chain.config");
 const { fetchAndSetConstants, getConstants } = require("./constants");
-
-// Ensure StakeToYieldProvider is imported or defined
 const {
   StakeToYieldProvider,
   getBithiveDeposits,
 } = require("./utils/stakeToYieldProvider");
-
+const {
+  withdrawBtcFromYieldProvider,
+} = require("./utils/withdrawBtcFromYieldProvider");
 const {
   UpdateAtlasBtcWithdrawnFromYieldProvider,
 } = require("./utils/updateAtlasBtcWithdrawnFromYieldProvider");
@@ -67,31 +76,19 @@ const {
   UpdateAtlasBtcBridgingYieldProviderWithdrawn,
 } = require("./utils/updateAtlasBtcBridgingYieldProviderWithdrawn");
 const {
-  SendBridgingFeesToTreasury,
-} = require("./utils/sendBridgingFeesToTreasury");
-const {
   RetrieveAndProcessPastNearEvents,
 } = require("./utils/retrieveAndProcessPastNearEvents");
 const { UpdateAtlasBtcDeposited } = require("./utils/updateAtlasBtcDeposited");
-
 const {
   RetrieveAndProcessPastEvmEvents,
 } = require("./utils/retrieveAndProcessPastEvmEvents");
 const {
-  UpdateAtlasBtcWithdrawingFromYieldProvider,
-} = require("./utils/updateAtlasBtcWithdrawingFromYieldProvider");
-
-const {
-  UpdateAtlasRedemptionPendingBtcMempool,
-} = require("./utils/updateAtlasRedemptionPendingBtcMempool");
-
-// const {
-//   withdrawBtcFromYieldProvider,
-// } = require("./utils/withdrawBtcFromYieldProvider");
-
+  unstakeBtcFromYieldProvider,
+} = require("./utils/unstakeBtcFromYieldProvider");
 const {
   UpdateBridgingAtbtcMinted,
 } = require("./utils/updateBridgingAtbtcMinted");
+const { UpdateAtlasBtcTimeout } = require("./utils/updateAtlasBtcTimeout");
 
 const useDepositAPIs = require("./apis/deposit");
 
@@ -108,17 +105,6 @@ app.use(json());
 const { Bitcoin } = require("./services/bitcoin");
 const { Near } = require("./services/near");
 const { Ethereum } = require("./services/ethereum");
-const { getTxsOfNetwork } = require("./services/subquery");
-const {
-  processUnstakingAndWithdrawal,
-} = require("./utils/processUnstakingAndWithdrawal");
-
-const UpdateSendToUserBtcTxnHash = require("./helpers/updateSendToUserBtcTxnHash");
-
-const {
-  processBurnRedeemEvent,
-  processBurnBridgeEvent,
-} = require("./helpers/eventProcessor");
 
 const btcConfig = {
   btcAtlasDepositAddress: process.env.BTC_ATLAS_DEPOSIT_ADDRESS,
@@ -157,9 +143,9 @@ let bithiveRecords = [];
 
 const computeStats = async () => {
   atlasStats = await getTransactionsAndComputeStats(
+    near,
     deposits,
     redemptions,
-    btcAtlasDepositAddress,
   );
   //console.log("Computed Atlas Stats:", atlasStats);
 };
@@ -221,12 +207,7 @@ app.get("/api/v1/atlas/address", async (req, res) => {
 
 app.get("/api/v1/stats", async (req, res) => {
   try {
-    // await getBtcMempoolRecords();
-    // await getAllDepositHistory();
-    // await getAllBridgingHistory();
-    // await getAllRedemptionHistory();
     await computeStats();
-
     res.json({ data: { ...atlasStats } });
   } catch (error) {
     console.error(error);
@@ -315,6 +296,8 @@ app.get("/api/v1/global-params", async (req, res) => {
           deposit_fee_percentage: globalParams.atlasDepositFeePercentage,
           treasury_address: globalParams.atlasTreasuryAddress,
           evm_address: evmAtlasAddress,
+          atbtc_min_redemption_amount: globalParams.atbtcMinRedemptionAmount,
+          atbtc_min_bridging_amount: globalParams.atbtcMinBridgingAmount,
         },
       ],
     };
@@ -494,18 +477,9 @@ app.get("/api/derived-address", async (req, res) => {
   }
 });
 
-app.get("/subquery", async (req, res) => {
-  const data = {
-    // arbitrum: await getTxsOfNetwork("arbitrum"),
-    // optimism: await getTxsOfNetwork("optimism"),
-    near: await getTxsOfNetwork("near"),
-  };
-  res.json(data);
-});
-
-app.get("/api/v1/process-new-deposit", async (req, res) => {
+app.post("/api/v1/process-new-deposit", async (req, res) => {
   try {
-    const { btcTxnHash } = req.query;
+    const { btcTxnHash } = req.body;
 
     if (!btcTxnHash) {
       return res
@@ -544,9 +518,9 @@ app.get("/api/v1/process-new-deposit", async (req, res) => {
   }
 });
 
-app.get("/api/v1/process-new-redemption", async (req, res) => {
+app.post("/api/v1/process-new-redemption", async (req, res) => {
   try {
-    const { txnHash } = req.query;
+    const { txnHash } = req.body;
 
     if (!txnHash) {
       return res.status(400).json({ error: "Transaction hash is required" });
@@ -675,9 +649,9 @@ app.get("/api/v1/process-new-redemption", async (req, res) => {
   }
 });
 
-app.get("/api/v1/process-new-bridging", async (req, res) => {
+app.post("/api/v1/process-new-bridging", async (req, res) => {
   try {
-    const { txnHash } = req.query;
+    const { txnHash } = req.body;
 
     if (!txnHash) {
       return res.status(400).json({ error: "Transaction hash is required" });
@@ -734,7 +708,7 @@ app.get("/api/v1/process-new-bridging", async (req, res) => {
       await processBurnBridgeEvent(
         {
           returnValues: {
-            wallet: event.returnValues.wallet,
+            address: event.returnValues.wallet,
             destChainId: event.returnValues.destChainId,
             destChainAddress: event.returnValues.destChainAddress,
             amount: event.returnValues.amount,
@@ -840,9 +814,9 @@ async function processPubkeyQueue() {
   processPubkeyQueue(); // Process next item in queue
 }
 
-app.get("/api/v1/insert-btc-pubkey", async (req, res) => {
+app.post("/api/v1/insert-btc-pubkey", async (req, res) => {
   try {
-    const { btcAddress, publicKey } = req.query;
+    const { btcAddress, publicKey } = req.body;
     if (!btcAddress || !publicKey) {
       return res.status(400).json({
         error: "Both BTC address and public key are required",
@@ -870,9 +844,9 @@ app.get("/api/v1/insert-btc-pubkey", async (req, res) => {
   }
 });
 
-app.get("/api/v1/check-minted-txn", async (req, res) => {
+app.post("/api/v1/check-minted-txn", async (req, res) => {
   try {
-    const { btcTxnHash, mintedTxnHash } = req.query;
+    const { btcTxnHash, mintedTxnHash } = req.body;
 
     if (!btcTxnHash) {
       return res
@@ -912,32 +886,6 @@ app.get("/api/v1/check-minted-txn", async (req, res) => {
   }
 });
 
-// API endpoint to update BTC transaction hash
-app.get("/api/v1/update-send-to-user-btc-txn-hash", async (req, res) => {
-  try {
-    const result = await UpdateSendToUserBtcTxnHash.updateBtcTxnHash(bitcoin);
-
-    if (result.success) {
-      res.status(200).json({
-        success: true,
-        message: result.message,
-        data: result.data,
-      });
-    } else {
-      res.status(400).json({
-        success: false,
-        message: result.message,
-      });
-    }
-  } catch (error) {
-    console.error("Error in update-send-to-user-btc-txn-hash:", error);
-    res.status(500).json({
-      success: false,
-      message: error.message || "Internal server error",
-    });
-  }
-});
-
 app.use("/api/v1/deposits", useDepositAPIs(near, bitcoin));
 
 app.use((err, req, res, next) => {
@@ -959,162 +907,169 @@ app.listen(PORT, async () => {
     `Server is running on port ${PORT} | ${process.env.NEAR_CONTRACT_ID}`,
   );
 
-  // setInterval(async () => {
-  //   if (!flagsBatch.RetrieveAndProcessPastEventsRunning) {
-  //     flagsBatch.RetrieveAndProcessPastEventsRunning = true;
-  //     try {
-  //       await RetrieveAndProcessPastEvmEvents(
-  //         near,
-  //         deposits,
-  //         redemptions,
-  //         bridgings,
-  //       );
-  //       await RetrieveAndProcessPastNearEvents(
-  //         near,
-  //         deposits,
-  //         redemptions,
-  //         bridgings,
-  //       );
-  //     } catch (error) {
-  //       console.error("Error processing past events:", error);
-  //     } finally {
-  //       flagsBatch.RetrieveAndProcessPastEventsRunning = false;
-  //     }
-  //   }
-  // }, 5000);
+  setInterval(async () => {
+    if (!flagsBatch.RetrieveAndProcessPastEventsRunning) {
+      flagsBatch.RetrieveAndProcessPastEventsRunning = true;
+      try {
+        await RetrieveAndProcessPastEvmEvents(
+          near,
+          deposits,
+          redemptions,
+          bridgings,
+        );
+        await RetrieveAndProcessPastNearEvents(
+          near,
+          deposits,
+          redemptions,
+          bridgings,
+        );
+      } catch (error) {
+        console.error("Error processing past events:", error);
+      } finally {
+        flagsBatch.RetrieveAndProcessPastEventsRunning = false;
+      }
+    }
+  }, 5000);
 
-  // // Function to poll Near Atlas deposit records
-  // setInterval(async () => {
-  //   const result = await getAllDepositHistory(near);
-  //   if (result) {
-  //     deposits = result;
-  //   }
-  // }, 5000);
+  //Function to poll Near Atlas deposit records
+  setInterval(async () => {
+    const result = await getAllDepositHistory(near);
+    if (result) {
+      deposits = mergeDepositRecords(deposits, result);
+    }
+  }, 5000);
 
-  // // Function to poll Near Atlas redemption records
-  // setInterval(async () => {
-  //   const result = await getAllRedemptionHistory(near);
-  //   if (result) {
-  //     redemptions = result;
-  //   }
-  // }, 10000);
+  // Function to poll Near Atlas redemption records
+  setInterval(async () => {
+    const result = await getAllRedemptionHistory(near);
+    if (result) {
+      redemptions = mergeRedemptionRecords(redemptions, result);
+    }
+  }, 10000);
 
-  // // Function to poll Near Atlas bridging records
-  // setInterval(async () => {
-  //   const result = await getAllBridgingHistory(near);
-  //   if (result) {
-  //     bridgings = result;
-  //   }
-  // }, 10000);
+  // Function to poll Near Atlas bridging records
+  setInterval(async () => {
+    const result = await getAllBridgingHistory(near);
+    if (result) {
+      bridgings = mergeBridgingRecords(bridgings, result);
+    }
+  }, 10000);
 
-  // setInterval(async () => {
-  //   await computeStats();
-  // }, 10000);
+  setInterval(async () => {
+    await computeStats();
+  }, 10000);
 
-  // setInterval(async () => {
-  //   await getBtcMempoolRecords();
-  //   await UpdateAtlasBtcDeposits(
-  //     btcMempool,
-  //     btcAtlasDepositAddress,
-  //     globalParams.atlasTreasuryAddress,
-  //     near,
-  //     bitcoin,
-  //   );
-  // }, 30000); // 1 minute
+  setInterval(async () => {
+    await getBtcMempoolRecords();
+    await UpdateAtlasBtcDeposits(
+      btcMempool,
+      btcAtlasDepositAddress,
+      globalParams.atlasTreasuryAddress,
+      near,
+      bitcoin,
+    );
+  }, 30000); // 1 minute
 
-  // setInterval(async () => {
-  //   await UpdateAtlasBtcDeposited(deposits, near, bitcoin);
-  // }, 1800000); // 30 minutes
-  // //}, 10000);
+  setInterval(async () => {
+    await UpdateAtlasBtcDeposited(deposits, near, bitcoin);
+  }, 1800000); // 30 minutes
 
-  // setInterval(async () => {
-  //   await StakeToYieldProvider(deposits, near, bitcoin);
-  // }, 30000);
+  setInterval(async () => {
+    await StakeToYieldProvider(deposits, near, bitcoin);
+  }, 30000);
 
-  // setInterval(async () => {
-  //   await getBithiveRecords();
-  //   await UpdateYieldProviderStaked(deposits, bithiveRecords, near);
-  //   //}, 1800000); // 30 minutes
-  // }, 10000);
+  setInterval(async () => {
+    await getBithiveRecords();
+    await UpdateYieldProviderStaked(deposits, bithiveRecords, near);
+    //}, 1800000); // 30 minutes
+  }, 10000);
 
-  // setInterval(async () => {
-  //   if (!flagsBatch.MintingEventsRunning) {
-  //     flagsBatch.MintingEventsRunning = true;
-  //     try {
-  //       await MintaBtcToReceivingChain(deposits, near);
-  //       await MintBridgeABtcToDestChain(bridgings, near);
-  //     } catch (error) {
-  //       console.error("Error processing minting events:", error);
-  //     } finally {
-  //       flagsBatch.MintingEventsRunning = false;
-  //     }
-  //   }
-  // }, 10000);
+  setInterval(async () => {
+    if (!flagsBatch.MintingEventsRunning) {
+      flagsBatch.MintingEventsRunning = true;
+      try {
+        await MintaBtcToReceivingChain(deposits, near);
+        await MintBridgeABtcToDestChain(bridgings, near);
+      } catch (error) {
+        console.error("Error processing minting events:", error);
+      } finally {
+        flagsBatch.MintingEventsRunning = false;
+      }
+    }
+  }, 10000);
 
-  // setInterval(async () => {
-  //   await UpdateAtlasAbtcMinted(deposits, near);
-  // }, 10000);
+  setInterval(async () => {
+    await UpdateAtlasAbtcMinted(deposits, near);
+  }, 10000);
 
-  // Add the unstaking and withdrawal process to the job scheduler
-  // setInterval(async () => {
-  //   try {
-  //     await processUnstakingAndWithdrawal(
-  //       near,
-  //       bitcoin,
-  //       redemptions,
-  //       bridgings,
-  //       globalParams.atlasTreasuryAddress,
-  //     );
-  //   } catch (error) {
-  //     console.error("Error in unstaking and withdrawal process:", error);
-  //   }
-  // }, 60000); // Run every 1 minute
+  setInterval(async () => {
+    if (!flagsBatch.ProcessUnstakingAndWithdrawalRunning) {
+      flagsBatch.ProcessUnstakingAndWithdrawalRunning = true;
+      try {
+        await unstakeBtcFromYieldProvider(
+          near,
+          bitcoin,
+          redemptions,
+          bridgings,
+        );
+        await new Promise((resolve) => setTimeout(resolve, 10000)); // Pause for 10 seconds
+        await withdrawBtcFromYieldProvider(
+          near,
+          bitcoin,
+          redemptions,
+          bridgings,
+          globalParams.atlasTreasuryAddress,
+        );
+      } catch (error) {
+        console.error(
+          "Error processing unstake and withdraw from yield provider:",
+          error,
+        );
+      } finally {
+        flagsBatch.ProcessUnstakingAndWithdrawalRunning = false;
+      }
+    }
+  }, 10000);
 
-  // setInterval(async () => {
-  //   try {
-  //     await withdrawBtcFromYieldProvider(
-  //       near,
-  //       bitcoin,
-  //       redemptions,
-  //       bridgings,
-  //       globalParams.atlasTreasuryAddress,
-  //     );
-  //   } catch (error) {
-  //     console.error("Error withdraw from yield provider:", error);
-  //   }
-  // }, 10000); // Run every 10 seconds
+  setInterval(async () => {
+    await UpdateAtlasBtcWithdrawnFromYieldProvider(
+      redemptions,
+      near,
+      bithiveRecords,
+    );
+  }, 10000);
 
-  // setInterval(async () => {
-  //   await UpdateAtlasBtcWithdrawingFromYieldProvider(
-  //     redemptions,
-  //     bridgings,
-  //     near,
-  //   );
-  // }, 10000);
+  setInterval(async () => {
+    await SendBtcBackToUser(near, redemptions, bitcoin);
+  }, 10000);
 
-  // setInterval(async () => {
-  //   await UpdateAtlasBtcWithdrawnFromYieldProvider(
-  //     redemptions,
-  //     near,
-  //     bithiveRecords,
-  //   );
-  // }, 10000);
+  setInterval(async () => {
+    await UpdateAtlasBtcBackToUser(redemptions, near, bitcoin);
+  }, 10000);
 
-  // setInterval(async () => {
-  //   await SendBtcBackToUser(near, redemptions, bitcoin);
-  // }, 10000);
+  setInterval(async () => {
+    await UpdateBridgingAtbtcMinted(bridgings, near);
+  }, 10000);
 
-  // setInterval(async () => {
-  //   await UpdateAtlasRedemptionPendingBtcMempool(near, redemptions);
-  // }, 10000);
+  setInterval(async () => {
+    await UpdateAtlasBtcBridgingYieldProviderWithdrawn(
+      bridgings,
+      near,
+      bithiveRecords,
+    );
+  }, 10000);
 
-  // setInterval(async () => {
-  //   await UpdateAtlasBtcBackToUser(redemptions, near, bitcoin);
-  // }, 10000);
+  setInterval(async () => {
+    await UpdateAtlasBtcTimeout(deposits, near);
+  }, 10000);
 
-  // setInterval(async () => {
-  //   await UpdateBridgingAtbtcMinted(bridgings, near);
-  // }, 10000);
+  setInterval(async () => {
+    await WithdrawFailDeposits(deposits, near, bitcoin);
+  }, 10000);
+
+  setInterval(async () => {
+    await UpdateWithdrawFailDeposits(deposits, near, bitcoin);
+  }, 10000);
 });
 
 app.post("/api/v1/onboarding/submit-email", async (req, res) => {

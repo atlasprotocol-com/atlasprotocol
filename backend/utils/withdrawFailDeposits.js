@@ -44,8 +44,10 @@ async function WithdrawFailDeposits(allDeposits, near, bitcoin) {
       const utxos = allUTXOs
         .filter((utxo) => utxo.txid === deposit.btc_txn_hash)
         .map((utxo) => ({
-          txHash: utxo.txid,
+          txid: utxo.txid,
           vout: utxo.vout,
+          value: utxo.value,
+          script: "",
         }));
       if (utxos.length === 0) {
         console.error(

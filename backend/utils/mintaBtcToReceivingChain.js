@@ -1,8 +1,17 @@
 const { getConstants } = require("../constants");
 const { Ethereum } = require("../services/ethereum");
 const address = require("../services/address");
-const { updateOffchainDepositStatus, updateOffchainDepositRemarks } = require("../helpers/depositsHelper");
+const {
+  updateOffchainDepositStatus,
+  updateOffchainDepositRemarks,
+  getDepositsToBeMinted,
+  updateOffchainDepositMintedTxnHash,
+} = require("../helpers/depositsHelper");
+const {
+  getTxnHashByOriginTxnHashMinted,
+} = require("../helpers/atbtcEventsHelper");
 
+const { getBlockCursor } = require("./batchTime/lastScannedBlockHelper");
 const { flagsBatch } = require("./batchFlags");
 const { getChainConfig } = require("./network.chain.config");
 
@@ -21,17 +30,7 @@ async function MintaBtcToReceivingChain(allDeposits, near) {
       const { NETWORK_TYPE, DEPOSIT_STATUS } = getConstants(); // Access constants dynamically
 
       // Filter deposits that need to be processed
-      const filteredTxns = allDeposits.filter(
-        (deposit) =>
-          deposit.btc_sender_address && // non-empty check
-          deposit.receiving_chain_id &&
-          deposit.receiving_address &&
-          deposit.status === DEPOSIT_STATUS.BTC_YIELD_PROVIDER_DEPOSITED &&
-          !deposit.remarks && // empty check
-          !deposit.minted_txn_hash &&
-          deposit.btc_amount > 0 &&
-          deposit.date_created > 0,
-      );
+      const filteredTxns = await getDepositsToBeMinted(allDeposits);
 
       if (filteredTxns.length === 0) {
         console.log(`${batchName} No deposits to process.`);
@@ -40,7 +39,7 @@ async function MintaBtcToReceivingChain(allDeposits, near) {
 
       console.log(
         "[mintAtbtcToReceivingChain] records to mint to atBTC: ",
-        filteredTxns.length
+        filteredTxns.length,
       );
 
       // Group transactions by chainID
@@ -54,9 +53,13 @@ async function MintaBtcToReceivingChain(allDeposits, near) {
       }, {});
 
       // Process each chain's transactions
-      for (const [chainId, chainTransactions] of Object.entries(transactionsByChain)) {
-        console.log(`Processing ${chainTransactions.length} transactions for chain ${chainId}`);
-        
+      for (const [chainId, chainTransactions] of Object.entries(
+        transactionsByChain,
+      )) {
+        console.log(
+          `Processing ${chainTransactions.length} transactions for chain ${chainId}`,
+        );
+
         const chainConfig = getChainConfig(chainId);
 
         if (!chainConfig) {
@@ -82,9 +85,6 @@ async function MintaBtcToReceivingChain(allDeposits, near) {
             derivationPath,
           );
 
-          // const events = await ethereum.getEventsByType("MintDeposit");
-          // console.log(`Found ${events.length} MintDeposit events for chain ${chainId}`);
-    
           let totalRecords = chainTransactions.length;
           let currentIndex = 0;
 
@@ -94,44 +94,45 @@ async function MintaBtcToReceivingChain(allDeposits, near) {
             const btcTxnHash = depositRecord.btc_txn_hash;
             currentIndex++;
 
-            if (currentIndex % RECORDS_BEFORE_PAUSE === 0) {
-              console.log(`[mintBridgeABtcToDestChain] Pausing for ${RECORDS_BEFORE_PAUSE} records...`);
-              await new Promise(resolve => setTimeout(resolve, 10000));
+            const onChainDeposit =
+              await near.getDepositByBtcTxnHash(btcTxnHash);
+            if (
+              onChainDeposit.status !==
+              DEPOSIT_STATUS.BTC_YIELD_PROVIDER_DEPOSITED
+            ) {
+              console.log(
+                `[mintAtbtcToReceivingChain] BTC transaction ${btcTxnHash} is not in the correct status, skipping...`,
+              );
+              continue;
             }
 
-            console.log(`[mintAtbtcToReceivingChain] Processing record ${currentIndex} of ${totalRecords} for chain ${chainId}: minting with BTC txn hash ${btcTxnHash}`);
+            // Check if BTC transaction hash already exists in atbtc events
+            const mintedTxnHash =
+              await getTxnHashByOriginTxnHashMinted(btcTxnHash);
+            if (mintedTxnHash) {
+              await near.updateDepositMintedTxnHash(btcTxnHash, mintedTxnHash);
+              await updateOffchainDepositMintedTxnHash(
+                allDeposits,
+                btcTxnHash,
+                DEPOSIT_STATUS.BTC_MINTED_INTO_ABTC,
+                mintedTxnHash,
+              );
+              console.log(
+                `[mintAtbtcToReceivingChain] BTC transaction ${btcTxnHash} has already been minted, updating status to ${DEPOSIT_STATUS.BTC_MINTED_INTO_ABTC}`,
+              );
+              continue;
+            }
+            if (currentIndex % RECORDS_BEFORE_PAUSE === 0) {
+              console.log(
+                `[mintBridgeABtcToDestChain] Pausing for ${RECORDS_BEFORE_PAUSE} records...`,
+              );
+              await new Promise((resolve) => setTimeout(resolve, 10000));
+            }
+
+            console.log(
+              `[mintAtbtcToReceivingChain] Processing record ${currentIndex} of ${totalRecords} for chain ${chainId}: minting with BTC txn hash ${btcTxnHash}`,
+            );
             try {
-              
-              if (depositRecord.verified_count < chainConfig.validators_threshold) {
-                throw new Error(`Verified count is less than validators threshold: ${depositRecord.verified_count} < ${chainConfig.validators_threshold}`);
-              }
-                   
-              if (
-                !address.isValidEthereumAddress(depositRecord.receiving_address)
-              ) {
-                throw new Error(
-                  `Invalid receiving address: ${depositRecord.receiving_address}`,
-                );
-              }
-
-              // Find the event with matching BTC transaction hash
-              // const matchingEvent = events.find(event => 
-              //   event.args.btcTxnHash.toLowerCase() === btcTxnHash.toLowerCase()
-              // );
-  
-              // if (matchingEvent) {
-              //   const evmTransactionHash = matchingEvent.transactionHash;
-              //   console.log(`Event found for BTC txn hash ${btcTxnHash}: EVM transaction hash ${evmTransactionHash}`);
-              //   // Update the deposit record with the EVM transaction hash
-              //   await near.updateDepositMintedTxnHash(btcTxnHash, transactionHash);
-      
-              //   await updateOffchainDepositStatus(allDeposits, btcTxnHash, DEPOSIT_STATUS.BTC_PENDING_MINTED_INTO_ABTC);
-      
-              //   continue;
-              // } else {
-              //   console.log(`No event found for BTC txn hash ${btcTxnHash}`);
-              // } 
-
               console.log(`Minter and sender address: ${sender}`);
 
               // Create payload to deploy the contract
@@ -140,7 +141,10 @@ async function MintaBtcToReceivingChain(allDeposits, near) {
                 near,
                 sender,
                 depositRecord.receiving_address,
-                depositRecord.btc_amount - depositRecord.yield_provider_gas_fee - depositRecord.minting_fee - depositRecord.protocol_fee,
+                depositRecord.btc_amount -
+                  depositRecord.yield_provider_gas_fee -
+                  depositRecord.minting_fee -
+                  depositRecord.protocol_fee,
                 btcTxnHash,
                 depositRecord.minting_fee,
               );
@@ -154,33 +158,52 @@ async function MintaBtcToReceivingChain(allDeposits, near) {
               // Relay the transaction to EVM
               console.log(`Relay transaction to EVM...`);
 
-              const { txnHash, status } =
-              await ethereum.relayTransaction(nonce, sender, signed);
+              const { txnHash, status } = await ethereum.relayTransaction(
+                nonce,
+                sender,
+                signed,
+              );
               console.log(
                 "\x1b[35m%s\x1b[0m",
-                `Processed Txn: Mint aBTC with BTC txn hash ${btcTxnHash}, mintStatus = ${status}`,
+                `Processed Txn: Mint aBTC with BTC txn hash ${btcTxnHash}, mintStatus = ${status}, evm txn hash = ${txnHash}`,
               );
-
-              await updateOffchainDepositStatus(allDeposits, btcTxnHash, DEPOSIT_STATUS.BTC_PENDING_MINTED_INTO_ABTC);
-
-              if (status===false) {
-                let remarks = `Error ${batchName} processing Txn with BTC txn hash ${btcTxnHash}: Transaction relayer return with error`;
-                console.error(remarks);
-                await near.updateDepositRemarks(btcTxnHash, remarks);
-                await updateOffchainDepositRemarks(allDeposits, btcTxnHash, remarks);
-              }
             } catch (error) {
               let remarks = `Error ${batchName} processing Txn with BTC txn hash ${btcTxnHash}: ${error}`;
               console.error(remarks);
-              if (!error.message.includes("Gas price is less than base fee per gas")) {
+              if (
+                !error.message.includes(
+                  "Gas price is less than base fee per gas",
+                )
+              ) {
                 await near.updateDepositRemarks(btcTxnHash, remarks);
-                await updateOffchainDepositRemarks(allDeposits, btcTxnHash, remarks);
+                await updateOffchainDepositRemarks(
+                  allDeposits,
+                  btcTxnHash,
+                  remarks,
+                );
               }
-              continue
+              continue;
             }
           }
         } else if (chainConfig.networkType === NETWORK_TYPE.NEAR) {
           console.log(`Starting NEAR chain processing for chain ${chainId}`);
+
+          // Get current block number to check if chain is too far behind
+          const endBlock = await near.getCurrentBlockNumber();
+          const startBlock = await getBlockCursor(
+            "NearChainScanner",
+            chainId + "_NearChainScanner",
+            endBlock,
+          );
+
+          // Skip processing if too far behind
+          if (startBlock < endBlock - 50) {
+            console.log(
+              `NEAR chain ${chainId} is too far behind (start: ${startBlock}, current: ${endBlock}). Skipping processing.`,
+            );
+            continue;
+          }
+
           let totalRecords = chainTransactions.length;
           let currentIndex = 0;
 
@@ -188,18 +211,51 @@ async function MintaBtcToReceivingChain(allDeposits, near) {
             const btcTxnHash = depositRecord.btc_txn_hash;
             currentIndex++;
 
-            if (currentIndex % RECORDS_BEFORE_PAUSE === 0) {
-              console.log(`[mintBridgeABtcToDestChain] Pausing for ${RECORDS_BEFORE_PAUSE} records...`);
-              await new Promise(resolve => setTimeout(resolve, 10000));
+            const onChainDeposit =
+              await near.getDepositByBtcTxnHash(btcTxnHash);
+            if (
+              onChainDeposit.status !==
+              DEPOSIT_STATUS.BTC_YIELD_PROVIDER_DEPOSITED
+            ) {
+              console.log(
+                `[mintAtbtcToReceivingChain] BTC transaction ${btcTxnHash} is not in the correct status, skipping...`,
+              );
+              continue;
             }
-            
-            console.log(`[mintAtbtcToReceivingChain] Processing record ${currentIndex} of ${totalRecords} for chain ${chainId}: minting with BTC txn hash ${btcTxnHash}`);
-            
+
+            // Check if BTC transaction hash already exists in atbtc events
+            const mintedTxnHash =
+              await getTxnHashByOriginTxnHashMinted(btcTxnHash);
+            if (mintedTxnHash) {
+              await near.updateDepositMintedTxnHash(btcTxnHash, mintedTxnHash);
+              await updateOffchainDepositStatus(
+                allDeposits,
+                btcTxnHash,
+                DEPOSIT_STATUS.BTC_MINTED_INTO_ABTC,
+              );
+              console.log(
+                `[mintAtbtcToReceivingChain] BTC transaction ${btcTxnHash} has already been minted, updating status to ${DEPOSIT_STATUS.BTC_MINTED_INTO_ABTC}`,
+              );
+              continue;
+            }
+
+            if (currentIndex % RECORDS_BEFORE_PAUSE === 0) {
+              console.log(
+                `[mintBridgeABtcToDestChain] Pausing for ${RECORDS_BEFORE_PAUSE} records...`,
+              );
+              await new Promise((resolve) => setTimeout(resolve, 10000));
+            }
+
+            console.log(
+              `[mintAtbtcToReceivingChain] Processing record ${currentIndex} of ${totalRecords} for chain ${chainId}: minting with BTC txn hash ${btcTxnHash}`,
+            );
 
             try {
               console.log("Processing NEAR Chain signatures");
 
-              if (!address.isValidNearAddress(depositRecord.receiving_address)) {
+              if (
+                !address.isValidNearAddress(depositRecord.receiving_address)
+              ) {
                 throw new Error(
                   `Invalid receiving address: ${depositRecord.receiving_address}`,
                 );
@@ -210,7 +266,7 @@ async function MintaBtcToReceivingChain(allDeposits, near) {
                   depositRecord.receiving_address,
                   depositRecord.minting_fee,
                 );
-              
+
               const payloadHeader = {
                 btc_txn_hash: btcTxnHash,
                 nonce: 0,
@@ -223,17 +279,22 @@ async function MintaBtcToReceivingChain(allDeposits, near) {
               console.log(`Minting aBTC on NEAR...`);
               const signedTransaction =
                 await near.createMintaBtcSignedTx(payloadHeader);
-              
-                await updateOffchainDepositStatus(allDeposits, btcTxnHash, DEPOSIT_STATUS.BTC_PENDING_MINTED_INTO_ABTC);
 
               console.log(signedTransaction);
-
             } catch (error) {
               let remarks = `Error ${batchName} processing Txn with BTC txn hash ${btcTxnHash}: ${error}`;
               console.error(remarks);
-              if (!error.message.includes("Gas price is less than base fee per gas")) {
+              if (
+                !error.message.includes(
+                  "Gas price is less than base fee per gas",
+                )
+              ) {
                 await near.updateDepositRemarks(btcTxnHash, remarks);
-                await updateOffchainDepositRemarks(allDeposits, btcTxnHash, remarks);
+                await updateOffchainDepositRemarks(
+                  allDeposits,
+                  btcTxnHash,
+                  remarks,
+                );
               }
               continue;
             }

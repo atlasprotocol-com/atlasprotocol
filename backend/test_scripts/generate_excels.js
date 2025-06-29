@@ -15,7 +15,7 @@ logTime("Script started");
 // Configuration flags for file generation
 const CONFIG = {
   GENERATE_DEPOSITS_XLSX: false,        // Set to true to enable deposits.xlsx generation
-  GENERATE_DEPOSITS_QUEST2_XLSX: false,  // Set to true to enable deposits-quest2.xlsx generation
+  GENERATE_DEPOSITS_QUEST2_XLSX: true,  // Set to true to enable deposits-quest2.xlsx generation
   GENERATE_MISSING_DEPOSITS_UTXOS_XLSX: false,           // Set to true to enable UTXOs.xlsx generation
   GENERATE_PUBKEY_XLSX: false,          // Set to true to enable pubkeys.xlsx generation
   GENERATE_NEAR_BLOCKS_XLSX: false,      // Set to true to enable nearblocks.xlsx generation
@@ -25,7 +25,7 @@ const CONFIG = {
   GENERATE_REDEMPTIONS_VIA_EVENTS: false,  // Generate redemptions via events from Excel
   GENERATE_EVM_BLOCKS_XLSX: false,      // Set to true to enable evmblocks.xlsx generation
   GENERATE_BRIDGINGS_XLSX: false,       // Set to true to enable bridgings.xlsx generation
-  GENERATE_BRIDGINGS_VIA_EVENTS: true,  // Generate bridgings via events from Excel
+  GENERATE_BRIDGINGS_VIA_EVENTS: false,  // Generate bridgings via events from Excel
   
   DEPOSITS: {
     OUTPUT_FILE: "deposits.xlsx",       // Output filename for deposits batch
@@ -45,10 +45,10 @@ const CONFIG = {
   DEPOSITS_QUEST2: {
     INPUT_FILE: "deposits-quest2.xlsx", // Fixed input file to read from and write to
     ERROR_OUTPUT_FILE: "deposits-quest2_errors.txt",  // File to log wallet address for quest 2 errors
-    BATCH_SIZE: 10,                     // Number of rows to process in parallel
-    SAVE_INTERVAL: 10,                 // Save file every N rows processed
-    START_INDEX: 3979,                 // Starting row index (0-based, excluding header)
-    END_INDEX: 4001,                     // Ending row index (null for all rows)
+    BATCH_SIZE: 5,                     // Number of rows to process in parallel
+    SAVE_INTERVAL: 5,                 // Save file every N rows processed
+    START_INDEX: 3500,                 // Starting row index (0-based, excluding header)
+    END_INDEX: null,                     // Ending row index (null for all rows)
   },
   
   PUBKEY: {
@@ -134,9 +134,9 @@ const CONFIG = {
     RUN_LOCAL: true,                    // Set to true to run locally using PowerShell
     SERVER_API_ENDPOINT: "https://testnet.atlasprotocol.com/api/v1/process-new-redemption",  // API endpoint for processing redemptions
     LOCAL_API_ENDPOINT: "http://localhost:3001/api/v1/process-new-redemption",  // API endpoint for processing redemptions
-    START_INDEX: null,  // Starting index for processing redemptions via events (null for all rows)
+    START_INDEX: 6470,  // Starting index for processing redemptions via events (null for all rows)
     END_INDEX: null,  // Ending index for processing redemptions via events (null for all rows)
-    READ_FROM_LATEST: true,  // If true, process from the latest row to the earliest
+    READ_FROM_LATEST: false,  // If true, process from the latest row to the earliest
     COLUMNS: {
       NEAR_TXN_HASH: 4,         // Column index for Near Txn Hash in nearblocks_redeem.xlsx
       EVM_TXN_HASH: 4,         // Column index for EVM Txn Hash in evmblocks_<chain_id>_events.xlsx
@@ -188,7 +188,7 @@ const CONFIG = {
     SERVER_API_ENDPOINT: "https://testnet.atlasprotocol.com/api/v1/process-new-bridging",  // Server API endpoint for processing new bridging    
     LOCAL_API_ENDPOINT: "http://localhost:3001/api/v1/process-new-bridging",  // Local API endpoint for processing new bridging    
     READ_FROM_LATEST: false,             // Set to true to read from latest, false to read from start
-    START_INDEX: 4180,                  // Set to null to use READ_FROM_LATEST, or specify start index
+    START_INDEX: 5498,                  // Set to null to use READ_FROM_LATEST, or specify start index
     END_INDEX: null,                    // Set to null to use READ_FROM_LATEST, or specify end index
     COLUMNS: {
       NEAR_TXN_HASH: 4,         // Column index for Near Txn Hash in nearblocks_bridge.xlsx
@@ -912,50 +912,43 @@ async function checkLPShares(accountId, poolId) {
     const normalizedAccountId = accountId.toLowerCase();
     
     return new Promise((resolve, reject) => {
-      //const command = `near view ref-finance-101.testnet get_pool_shares '{"account_id": "${normalizedAccountId}", "pool_id": ${poolId}}'`;
       const command = `near view ref-finance-101.testnet get_pool_shares "{\\"account_id\\": \\"${normalizedAccountId}\\", \\"pool_id\\": ${poolId}}"`;
       
-      // console.log(`\n🔍 Executing CLI command for ${normalizedAccountId} pool ${poolId}:\n${command}`);
-      
       exec(command, (error, stdout, stderr) => {
-        if (error) {
-          console.error(`Error checking LP shares for ${accountId} pool ${poolId}: ${error.message}`);
-          return reject(error);  // Add return to stop execution
-        }
-        if (stderr) {
-          console.error(`NEAR CLI stderr for ${accountId}: ${stderr}`);
-          return reject(error);  // Add return to stop execution
+        if (error || stderr) {
+          // Handle both error and stderr cases
+          const errorMessage = error ? error.message : stderr;
+          console.error(`Error checking LP shares for ${accountId} pool ${poolId}: ${errorMessage || 'Unknown error'}`);
+          return reject(new Error(errorMessage || 'Unknown error'));
         }
 
         const output = stdout.trim();
-        // console.log(`📄 Raw CLI output for ${normalizedAccountId} pool ${poolId}:\n${output}`);        
         
-        // Get the last line which contains the actual value
-        const lines = output.split('\n');
-        const lastLine = lines[lines.length - 1].trim();
-        
-        // Remove any quotes and convert to number
-        const valueStr = lastLine.replace(/['"]/g, '');
-        const shares = Number(valueStr);
-        
-        // console.log(`📊 LP shares for ${accountId} pool ${poolId}: ${shares} (type: ${typeof shares})`);
-        
-        if (!isNaN(shares) && shares > 0) {
-          // console.log(`📊 Found shares in pool ${poolId}`);
-          return resolve(`${poolId}`);
-        } else {
-          return resolve('');
+        try {
+          // Get the last line which contains the actual value
+          const lines = output.split('\n');
+          const lastLine = lines[lines.length - 1].trim();
+          
+          // Remove any quotes and convert to number
+          const valueStr = lastLine.replace(/['"]/g, '');
+          const shares = Number(valueStr);
+          
+          if (!isNaN(shares) && shares > 0) {
+            return resolve(`${poolId}`);
+          }
+          resolve('');
+        } catch (parseError) {
+          console.error(`Error parsing LP shares for ${accountId} pool ${poolId}:`, parseError?.message || parseError || 'Unknown parsing error');
+          reject(new Error(parseError?.message || parseError || 'Unknown parsing error'));
         }
-        
       });
     });
   } catch (error) {
-    console.error(`Error parsing LP shares for ${accountId} pool ${poolId}:`, error);
-    throw error;
+    console.error(`Error in checkLPShares for ${accountId} pool ${poolId}:`, error?.message || error || 'Unknown error');
+    throw new Error(error?.message || error || 'Unknown error');
   }
 }
 
-// Modify the processDepositsQuest2 function to check multiple pools
 async function processDepositsQuest2() {
   console.log("\n🔍 Processing deposits-quest2.xlsx...");
   
@@ -1061,8 +1054,8 @@ async function processDepositsQuest2() {
                 // console.log(`✅ Updated LP shares for ${receivingAddress}: ${newValue}`);
               }
             } catch (error) {
-              console.error(`Error checking LP shares for ${receivingAddress}: ${error}`);
-              fs.appendFile(path.join(__dirname, CONFIG.DEPOSITS_QUEST2.ERROR_OUTPUT_FILE), `${receivingAddress},`, 'utf8');
+              console.error(`Error checking LP shares for ${receivingAddress}:`, error?.message || error || 'Unknown error');
+              fs.appendFile(path.join(__dirname, CONFIG.DEPOSITS_QUEST2.ERROR_OUTPUT_FILE), `,${receivingAddress}`, 'utf8');
             }
           }
           // else {
@@ -1097,8 +1090,212 @@ async function processDepositsQuest2() {
     await workbook.xlsx.writeFile(filePath);
     console.log(`\n✅ Successfully processed ${totalRecords} records, ${totalUpdated} were updated`);
     
+    // Process error file after final save
+    await processDepositsQuest2ErrorFile(worksheet);
+    
   } catch (error) {
     console.error("❌ Error processing deposits-quest2.xlsx:", error);
+    throw error;
+  }
+}
+
+async function processDepositsQuest2ErrorFile(worksheet) {
+  console.log("\n🔍 Processing Deposits Quest 2 error file...");
+  
+  try {
+    const errorFilePath = path.join(__dirname, CONFIG.DEPOSITS_QUEST2.ERROR_OUTPUT_FILE);
+    const workbook = worksheet.workbook;  // Get the workbook from the worksheet
+    const filePath = path.join(__dirname, CONFIG.DEPOSITS_QUEST2.INPUT_FILE);
+    
+    // Read error file
+    let errorContent = '';
+    try {
+      const buffer = await fs.readFile(errorFilePath);
+      errorContent = buffer.toString('utf8');
+    } catch (error) {
+      console.log("ℹ️ No error file found to process");
+      return;
+    }
+
+    // Split by comma, trim each address, filter out empty strings, and remove duplicates using Set
+    let addresses = [...new Set(errorContent.split(',').map(addr => addr.trim()).filter(addr => addr !== ''))];
+    const totalAddresses = addresses.length; // Store initial total count
+    
+    // Update error file with deduplicated addresses
+    if (addresses.length > 0) {
+      try {
+        await fs.writeFile(errorFilePath, addresses.join(','));
+        console.log(`ℹ️ Removed duplicate addresses from error file. ${totalAddresses} unique addresses remaining.`);
+      } catch (error) {
+        console.error("❌ Error writing to error file:", error?.message || error || 'Unknown error');
+        return;
+      }
+    } else {
+      console.log("ℹ️ No addresses found in error file");
+      return;
+    }
+
+    console.log(`Found ${totalAddresses} unique addresses to process from error file`);
+    
+    const POOL_IDS = [2482, 2483, 2492];
+    let totalUpdated = 0;
+    let currentAddressIndex = 0;
+    
+    // Process each address
+    for (const address of addresses) {
+      currentAddressIndex++;
+      const trimmedAddress = address.trim();
+      if (!trimmedAddress) continue;
+
+      console.log(`\n📝 Processing address ${currentAddressIndex}/${totalAddresses}: ${trimmedAddress}`);
+      
+      // Find the row with this address
+      let foundRow = null;
+      for (let rowNumber = 2; rowNumber <= worksheet.rowCount; rowNumber++) {
+        const row = worksheet.getRow(rowNumber);
+        if (row.getCell(1).text === trimmedAddress) {
+          foundRow = row;
+          break;
+        }
+      }
+
+      if (!foundRow) {
+        console.log(`⚠️ Address ${trimmedAddress} not found in worksheet`);
+        process.exit(1);
+      }
+
+      while (true) {
+        try {
+          let wasUpdated = false;
+          let burrowDataSuccess = false;
+          let lpSharesSuccess = false;
+
+          // Check and update Burrow data
+          const existingBorrowedTokens = foundRow.getCell(2).text.toLowerCase();
+          const existingCollateralTokens = foundRow.getCell(3).text.toLowerCase();
+          
+          const hasExpectedTokens = existingBorrowedTokens.includes('usdc') && 
+                                  existingCollateralTokens.includes('atbtc_v2');
+          
+          if (!hasExpectedTokens) {
+            try {
+              const burrowData = await fetchBurrowAccountData(trimmedAddress);
+              if (burrowData && burrowData.data) {
+                const borrowedTokens = burrowData.data.borrowed?.map(b => b.token_id).join(', ') || '';
+                const collateralTokens = burrowData.data.collateral?.map(c => c.token_id).join(', ') || '';
+                foundRow.getCell(2).value = borrowedTokens;
+                foundRow.getCell(3).value = collateralTokens;
+                wasUpdated = true;
+                burrowDataSuccess = true;
+                //console.log(`✅ Updated Burrow data for ${trimmedAddress}`);
+              } else {
+                //console.log(`⚠️ No valid Burrow data received for ${trimmedAddress}`);
+                burrowDataSuccess = true;
+              }
+            } catch (error) {
+              console.error(`❌ Error fetching Burrow data for ${trimmedAddress}:`, error?.message || error || 'Unknown error');
+              await delay(500);
+              continue;
+            }
+          } else {
+            burrowDataSuccess = true;
+          }
+
+          // Check LP shares
+          const existingLPShares = foundRow.getCell(4).text;
+          
+          if (!existingLPShares.includes('true')) {
+            try {
+              const lpResults = await Promise.all(POOL_IDS.map(poolId => checkLPShares(trimmedAddress, poolId)));
+              const validResults = lpResults.filter(result => result !== '')
+                .map(poolId => `${poolId}: true`);
+              const newValue = validResults.join(', ');
+              
+              if (newValue) {
+                foundRow.getCell(4).value = newValue;
+                wasUpdated = true;
+                lpSharesSuccess = true;
+                //console.log(`✅ Updated LP shares for ${trimmedAddress}: ${newValue}`);
+              } else {
+                lpSharesSuccess = true;
+              }
+            } catch (error) {
+              console.error(`❌ Error checking LP shares for ${trimmedAddress}:`, error?.message || error || 'Unknown error');
+              await delay(500);
+              continue;
+            }
+          } else {
+            lpSharesSuccess = true;
+          }
+
+          // If both operations succeeded or were not needed, we can proceed
+          if (burrowDataSuccess && lpSharesSuccess) {
+            if (wasUpdated) {
+              try {
+                await foundRow.commit();
+                totalUpdated++;
+                
+                // Save both files only after successful processing
+                await workbook.xlsx.writeFile(filePath);
+                console.log(`💾 Saved Excel file after updating ${trimmedAddress}`);
+                
+                // Remove all occurrences of this address from the error file
+                const originalCount = addresses.length;
+                addresses = addresses.filter(addr => addr.trim() !== trimmedAddress);
+                const removedCount = originalCount - addresses.length;
+                
+                // Update the error file
+                await fs.writeFile(errorFilePath, addresses.join(','));
+                console.log(`🗑️ Removed ${removedCount} occurrence(s) of ${trimmedAddress} from error file`);
+                
+                break; // Successfully processed, exit the while loop
+              } catch (saveError) {
+                console.error(`❌ Error saving files after updating ${trimmedAddress}:`, saveError?.message || saveError || 'Unknown error');
+                await delay(500);
+                continue;
+              }
+            } else {
+              // If no updates were needed but processing was successful
+              console.log(`ℹ️ No updates needed for ${trimmedAddress}, all data is current`);
+              
+              // Still remove from error file since it's processed
+              const originalCount = addresses.length;
+              addresses = addresses.filter(addr => addr.trim() !== trimmedAddress);
+              const removedCount = originalCount - addresses.length;
+              try {
+                await fs.writeFile(errorFilePath, addresses.join(','));
+                console.log(`🗑️ Removed ${removedCount} occurrence(s) of ${trimmedAddress} from error file`);
+                break; // Successfully processed, exit the while loop
+              } catch (error) {
+                console.error(`❌ Error updating error file for ${trimmedAddress}:`, error?.message || error || 'Unknown error');
+                await delay(500);
+                continue;
+              }
+            }
+          } else {
+            await delay(500);
+            continue;
+          }
+        } catch (error) {
+          console.error(`❌ Unexpected error during processing for ${trimmedAddress}:`, error?.message || error || 'Unknown error');
+          await delay(500);
+          continue;
+        }
+      }
+
+      // Add a small delay between processing different addresses
+      await delay(500);
+    }
+
+    // Final check - if there are any addresses left in the error file
+    if (addresses.length > 0) {
+      console.log(`\n⚠️ ${addresses.length} addresses remain in error file: ${addresses.join(', ')}`);
+    } else {
+      console.log('\n✨ All addresses have been processed and removed from error file');
+    }
+
+  } catch (error) {
+    console.error("❌ Error processing error file:", error);
     throw error;
   }
 }

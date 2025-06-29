@@ -1,23 +1,13 @@
 const { getConstants } = require("../constants");
 const {
-  detectNetwork,
-  getMintDepositEntities,
-  isEnableSubquery,
-  getBurnRedeemEntities,
-} = require("../services/subquery");
-const {
   processMintDepositEvent,
   processBurnRedeemEvent,
   processBurnBridgeEvent,
   processMintBridgeEvent,
 } = require("../helpers/eventProcessor");
+const { getUnprocessedEventsByNetworkType } = require("../helpers/atbtcEventsHelper");
 
-const { getAllChainConfig } = require("./network.chain.config");
 const { flagsBatch } = require("./batchFlags");
-const {
-  setBlockCursor,
-  getBlockCursor,
-} = require("./batchTime/lastScannedBlockHelper");
 
 const batchName = "Batch P RetrieveAndProcessPastNearEvents";
 
@@ -35,226 +25,179 @@ async function RetrieveAndProcessPastNearEvents(
   console.log(`${batchName} Start run ...`);
   flagsBatch.RetrieveAndProcessPastNearEventsRunning = true;
 
-  const { NETWORK_TYPE, DELIMITER } = getConstants();
-  const chainConfig = getAllChainConfig();
+  const { NETWORK_TYPE } = getConstants();
 
   try {
-    const nearChains = Object.values(chainConfig).filter(
-      (chain) => chain.networkType === NETWORK_TYPE.NEAR,
-    );
+    const events = await getUnprocessedEventsByNetworkType(NETWORK_TYPE.NEAR);
+    console.log("[getUnprocessedEventsByNetworkType] events:: ", events);
+    for (const event of events) {
 
-    for (const chain of nearChains) {
-      console.log(
-        `${batchName} Chain ID: ${chain.chainID}, aBTC: ${chain.aBTCAddress}, RPC URL: ${chain.chainRpcUrl}`,
-      );
-      if (isEnableSubquery()) {
-        const network = detectNetwork(chain.chainRpcUrl);
-        if (network) {
-          console.log(
-            `[SUBQUERY ${chain.chainID} ${network}] --------- ENABLED ---------`,
-          );
+      const parsedData = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
 
-          await doWithSubquery(
-            chain,
-            network,
-            near,
-            allDeposits,
-            allRedemptions,
-            allBridgings,
-          );
-          continue;
-        }
+      if (event.topics === "mint_bridge") {
+        console.log("[RetrieveAndProcessPastNearEvents] event.data:: ", parsedData);
+        await processMintBridgeEvent(
+          {
+            returnValues: parsedData,
+            transactionHash: event.transaction_hash,
+          },
+          near,
+          event.chain_id,
+          Number(event.block_timestamp)
+        );
+        
+      } else if (event.topics === "burn_bridging") {
+        await processBurnBridgeEvent(
+          {
+            returnValues: parsedData,
+            transactionHash: event.transaction_hash,
+          },
+          near,
+          event.chain_id,
+          Number(event.block_timestamp),
+        );
+      } else if (event.topics === "burn_redemption") {
+        await processBurnRedeemEvent(
+          {
+            returnValues: parsedData,
+            transactionHash: event.transaction_hash,
+          },
+          near,
+          event.chain_id,
+          Number(event.block_timestamp),
+        );
+      } else if (event.topics === "mint_deposit") {
+        await processMintDepositEvent(
+          {
+            returnValues: parsedData,
+            transactionHash: event.transaction_hash,
+          },
+          near,
+          event.chain_id,
+        );
       }
-
-      const endBlock = await near.getCurrentBlockNumber();
-      console.log(`${batchName} endBlock: ${endBlock}`);
-
-      const startBlock = await getBlockCursor(
-        "RetrieveAndProcessPastNearEventsRunning",
-        chain.chainID,
-        endBlock,
-      );
-      console.log(`${batchName} startBlock: ${startBlock}`);
-
-      // Get all events
-      const events = await near.getPastEventsInBatches(
-        startBlock,
-        endBlock,
-
-        // 188551586 - 10,
-        // 188551586 + 10,
-        chain.aBTCAddress,
-      );
-
-      console.log(`${batchName} Found ${events.length} total events`);
-
-      // Process all events in a single loop
-      for (const event of events) {
-        try {
-          const timestamp = event.timestamp;
-          console.log(event);
-          if (event.type === "mint_deposit") {
-            await processMintDepositEvent(event, near);
-          } else if (event.type === "burn_bridging") {
-            await processBurnBridgeEvent(
-              {
-                returnValues: {
-                  wallet: event.returnValues.wallet,
-                  destChainId: event.returnValues.destChainId,
-                  destChainAddress: event.returnValues.destChainAddress,
-                  amount: event.returnValues.amount,
-                  mintingFeeSat: event.returnValues.mintingFeeSat,
-                  bridgingFeeSat: event.returnValues.bridgingFeeSat,
-                },
-                transactionHash: event.transactionHash,
-              },
-              near,
-              chain.chainID,
-              timestamp,
-            );
-          } else if (event.type === "burn_redemption") {
-            // Check if amount is greater than 10000
-            if (Number(event.returnValues.amount) < 10000) {
-              console.log("Amount is less than 10000, skipping...");
-              continue;
-            }
-
-            await processBurnRedeemEvent(
-              {
-                returnValues: {
-                  wallet: event.returnValues.wallet,
-                  btcAddress: event.returnValues.btcAddress,
-                  amount: event.returnValues.amount,
-                },
-                transactionHash: event.transactionHash,
-              },
-              near,
-              chain.chainID,
-              DELIMITER,
-              timestamp,
-            );
-          } else if (event.type === "mint_bridge") {
-            await processMintBridgeEvent(
-              {
-                returnValues: { originTxnHash: event.originTxnHash },
-                transactionHash: event.transactionHash,
-              },
-              near,
-              timestamp,
-            );
-          }
-        } catch (error) {
-          console.error(
-            `${batchName} Error processing ${event.type} event:`,
-            error,
-          );
-        }
-      }
-
-      await setBlockCursor(
-        "RetrieveAndProcessPastNearEventsRunning",
-        chain.chainID,
-        endBlock,
-      );
     }
+
+    // for (const chain of nearChains) {
+    //   console.log(
+    //     `${batchName} Chain ID: ${chain.chainID}, aBTC: ${chain.aBTCAddress}, RPC URL: ${chain.chainRpcUrl}`,
+    //   );
+    //   if (isEnableSubquery()) {
+    //     const network = detectNetwork(chain.chainRpcUrl);
+    //     if (network) {
+    //       console.log(
+    //         `[SUBQUERY ${chain.chainID} ${network}] --------- ENABLED ---------`,
+    //       );
+
+    //       await doWithSubquery(
+    //         chain,
+    //         network,
+    //         near,
+    //         allDeposits,
+    //         allRedemptions,
+    //         allBridgings,
+    //       );
+    //       continue;
+    //     }
+    //   }
+
+    //   const endBlock = await near.getCurrentBlockNumber();
+    //   console.log(`${batchName} endBlock: ${endBlock}`);
+
+    //   const startBlock = await getBlockCursor(
+    //     "RetrieveAndProcessPastNearEventsRunning",
+    //     chain.chainID,
+    //     endBlock,
+    //   );
+    //   console.log(`${batchName} startBlock: ${startBlock}`);
+
+    //   // Get all events
+    //   const events = await near.getPastEventsInBatches(
+    //     startBlock,
+    //     endBlock,
+
+    //     // 188551586 - 10,
+    //     // 188551586 + 10,
+    //     chain.aBTCAddress,
+    //   );
+
+    //   console.log(`${batchName} Found ${events.length} total events`);
+
+    //   // Process all events in a single loop
+    //   for (const event of events) {
+    //     try {
+    //       const timestamp = event.timestamp;
+    //       console.log(event);
+    //       if (event.type === "mint_deposit") {
+    //         await processMintDepositEvent(event, near);
+    //       } else if (event.type === "burn_bridging") {
+    //         await processBurnBridgeEvent(
+    //           {
+    //             returnValues: {
+    //               wallet: event.returnValues.wallet,
+    //               destChainId: event.returnValues.destChainId,
+    //               destChainAddress: event.returnValues.destChainAddress,
+    //               amount: event.returnValues.amount,
+    //               mintingFeeSat: event.returnValues.mintingFeeSat,
+    //               bridgingFeeSat: event.returnValues.bridgingFeeSat,
+    //             },
+    //             transactionHash: event.transactionHash,
+    //           },
+    //           near,
+    //           chain.chainID,
+    //           timestamp,
+    //         );
+    //       } else if (event.type === "burn_redemption") {
+    //         // Check if amount is greater than 10000
+    //         if (Number(event.returnValues.amount) < 10000) {
+    //           console.log("Amount is less than 10000, skipping...");
+    //           continue;
+    //         }
+
+    //         await processBurnRedeemEvent(
+    //           {
+    //             returnValues: {
+    //               wallet: event.returnValues.wallet,
+    //               btcAddress: event.returnValues.btcAddress,
+    //               amount: event.returnValues.amount,
+    //             },
+    //             transactionHash: event.transactionHash,
+    //           },
+    //           near,
+    //           chain.chainID,
+    //           DELIMITER,
+    //           timestamp,
+    //         );
+    //       } else if (event.type === "mint_bridge") {
+    //         await processMintBridgeEvent(
+    //           {
+    //             returnValues: { originTxnHash: event.originTxnHash },
+    //             transactionHash: event.transactionHash,
+    //           },
+    //           near,
+    //           timestamp,
+    //         );
+    //       }
+    //     } catch (error) {
+    //       console.error(
+    //         `${batchName} Error processing ${event.type} event:`,
+    //         error,
+    //       );
+    //     }
+    //   }
+
+    //   await setBlockCursor(
+    //     "RetrieveAndProcessPastNearEventsRunning",
+    //     chain.chainID,
+    //     endBlock,
+    //   );
+    // }
   } catch (error) {
     console.error(`${batchName} ERROR: ${error.message} | ${error.stack}`);
   }
 
   console.log(`${batchName} completed successfully.`);
   flagsBatch.RetrieveAndProcessPastNearEventsRunning = false;
-}
-
-async function doWithSubquery(
-  chain,
-  network,
-  near,
-  allDeposits,
-  allRedemptions,
-  allBridgings,
-) {
-  await doWithSubqueryForDeposits(chain, network, near, allDeposits);
-  await doWithSubqueryForRedeems(chain, network, near, allRedemptions);
-}
-
-async function doWithSubqueryForDeposits(chain, network, near, allDeposits) {
-  const { DEPOSIT_STATUS } = getConstants();
-
-  // Filter deposits that need to be processed
-  const filteredTxns = allDeposits.filter(
-    (deposit) =>
-      deposit.status === DEPOSIT_STATUS.BTC_PENDING_MINTED_INTO_ABTC &&
-      deposit.minted_txn_hash === "" &&
-      deposit.remarks === "" &&
-      deposit.receiving_chain_id === chain.chainID,
-  );
-
-  const records = await getMintDepositEntities(
-    network,
-    filteredTxns.map((deposit) => deposit.btc_txn_hash),
-  );
-
-  const recordMaps = records.reduce(
-    (maps, record) => ({ ...maps, [record.btcTxnHash]: record }),
-    {},
-  );
-
-  for (let deposit of filteredTxns) {
-    if (recordMaps[deposit.btc_txn_hash]) {
-      const record = recordMaps[deposit.btc_txn_hash];
-      console.log(
-        `[SUBQUERY.DEPOSIT ${network} ${chain.chainID}] ${record.btcTxnHash} --> ${record.id}`,
-      );
-
-      try {
-        await near.updateDepositMintedTxnHash(record.btcTxnHash, record.id);
-      } catch (error) {
-        const remarks = `[${batchName}] ${deposit.btc_txn_hash}: ${error.message}`;
-        console.error(remarks);
-        await near.updateDepositRemarks(deposit.btc_txn_hash, remarks);
-      }
-    }
-  }
-}
-
-async function doWithSubqueryForRedeems(chain, network, near, allRedemptions) {
-  const { DELIMITER } = getConstants();
-
-  const ids = allRedemptions
-    .map((redeem) => {
-      const parts = redeem.txn_hash.split(",");
-      return parts.length > 1 ? parts[1] : null;
-    })
-    .filter(Boolean);
-  if (ids.length === 0) {
-    console.log(`[SUBQUERY.DEPOSIT ${network} ${chain.chainID}] NO_REDEEM_IDS`);
-    return;
-  }
-
-  const records = await getBurnRedeemEntities(network, ids);
-
-  for (let redeemp of records) {
-    const txhash = `${chain.chainID}${DELIMITER.COMMA}${redeemp.id}`;
-    const redemptionRecord = await near.getRedemptionByTxnHash(txhash);
-    const timestamp =
-      Number(redeemp.timestamp) || Math.round(Date.now() / 1000);
-
-    if (!redemptionRecord) {
-      await near.insertRedemptionAbtc(
-        txhash,
-        redeemp.accountAddress,
-        chain.chainID,
-        redeemp.btcAddress,
-        Number(redeemp.btcAmount),
-        timestamp,
-        timestamp,
-      );
-
-      console.log(
-        `[SUBQUERY.REDEEMP ${network} ${chain.chainID}] ${redeemp.btcAddress} --> ${redeemp.id}`,
-      );
-    }
-  }
 }
 
 module.exports = { RetrieveAndProcessPastNearEvents };

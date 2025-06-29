@@ -8,4 +8,6 @@ export interface GlobalParamsVersion {
   feeDepositPercentage: number;
   treasuryAddress: string;
   evmAtlasAddress: string;
+  atbtcMinRedemptionAmount: number;
+  atbtcMinBridgingAmount: number;
 }

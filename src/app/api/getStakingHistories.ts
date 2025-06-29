@@ -25,15 +25,16 @@ interface StakingAPI {
   timestamp: string;
   status: number;
   remarks: string;
-  yield_provider_gas_fee: number
-  protocol_fee: number
-  minting_fee: number
+  yield_provider_gas_fee: number;
+  protocol_fee: number;
+  minting_fee: number;
 }
 
 export const getStakingHistories = async (
   key: string,
   btcWalletAddress?: string,
 ): Promise<PaginatedStakingHistories> => {
+  console.log("getStakingHistories");
   if (!btcWalletAddress) {
     throw new Error("No BTC wallet address provided");
   }

@@ -1,8 +1,9 @@
 const { Web3 } = require("web3");
 const _ = require("lodash");
+const fs = require('fs');
+const path = require('path');
 
 const { getConstants } = require("../constants");
-const { Ethereum } = require("../services/ethereum");
 const {
   processMintDepositEvent,
   processBurnRedeemEvent,
@@ -10,19 +11,15 @@ const {
   processMintBridgeEvent,
 } = require("../helpers/eventProcessor");
 const {
-  detectNetwork,
   getMintDepositEntities,
-  isEnableSubquery,
   getBurnRedeemEntities,
 } = require("../services/subquery");
+const { getUnprocessedEventsByNetworkType } = require('../helpers/atbtcEventsHelper');
 
-const { getAllChainConfig } = require("./network.chain.config");
-const { flagsBatch, blockRange } = require("./batchFlags");
-const {
-  setBlockCursor,
-  getBlockCursor,
-} = require("./batchTime/lastScannedBlockHelper");
+// Read and parse ABI file explicitly
+const atBTCAbi = JSON.parse(fs.readFileSync(path.join(__dirname, '../../contract/artifacts/atBTC.abi'), 'utf8'));
 
+const { flagsBatch } = require("./batchFlags");
 
 const batchName = `Batch O RetrieveAndProcessPastEvmEvents`;
 
@@ -41,121 +38,76 @@ async function RetrieveAndProcessPastEvmEvents(
     console.log(`${batchName} Start run ...`);
     flagsBatch.RetrieveAndProcessPastEvmEventsRunning = true;
 
-    const { NETWORK_TYPE, DELIMITER } = getConstants();
-    const chainConfig = getAllChainConfig();
+    const { NETWORK_TYPE } = getConstants();
 
-    const evmChains = Object.values(chainConfig).filter(
-      (chain) => chain.networkType === NETWORK_TYPE.EVM,
-    );
+    const web3 = new Web3();
 
-    // Process each EVM chain in batches
-    for (const chain of evmChains) {
-      console.log(`${batchName} EVM: ${chain.chainID}`);
+    // Use the new helper to get unprocessed events
+    const events = await getUnprocessedEventsByNetworkType(NETWORK_TYPE.EVM);
 
-      if (isEnableSubquery()) {
-        const network = detectNetwork(chain.chainRpcUrl);
+    for (const event of events) {
+      const topicsArray = event.topics.split(',');
+      if (topicsArray[0] === '0x32dd79c076d214468c853220a3c326a3ba8b2d26491388e9f124955f05dee517') {
+        console.log(`${batchName} Processing BurnBridge event: ${event.transaction_hash}`);
+        const burnBridgeAbi = atBTCAbi.find(
+          (item) => item.type === 'event' && item.name === 'BurnBridge'
+        );
 
-        if (network) {
-          console.log(
-            `[SUBQUERY ${chain.chainID} ${network}] --------- ENABLED ---------`,
-          );
+        const decoded = web3.eth.abi.decodeLog(
+          burnBridgeAbi.inputs,
+          event.data,
+          topicsArray.slice(1)
+        );
 
-          await doWithSubquery(
-            chain,
-            network,
-            near,
-            allDeposits,
-            allRedemptions,
-            allBridgings,
-          );
-          continue;
-        }
+        const timestamp = Number(event.block_timestamp);
+
+        await processBurnBridgeEvent({ returnValues: decoded, transactionHash: event.transaction_hash }, near, event.chain_id, timestamp);
+        
       }
-
-      console.log(`[SUBQUERY ${chain.chainID}] --------- DISABLED ---------`);
-
-      const web3 = new Web3(chain.chainRpcUrl);
-      
-      const ethereum = new Ethereum(
-        chain.chainID,
-        chain.chainRpcUrl,
-        chain.gasLimit,
-        chain.aBTCAddress,
-        chain.abiPath,
-      );
-
-      try {
-        const endBlock = await ethereum.getCurrentBlockNumber();
-        const startBlock = await getBlockCursor(
-          "RetrieveAndProcessPastEvmEvents",
-          chain.chainID,
-          endBlock,
-        );
-  
-        console.log(
-          `${batchName} EVM: ${chain.chainID} startBlock: ${startBlock} endBlock: ${endBlock}`,
+      else if (topicsArray[0] === '0x0e41a555d3c09325f1748b91e03e382e89153d916d4d6789a41524e2746fd91d') {
+        const mintBridgeAbi = atBTCAbi.find(
+          (item) => item.type === 'event' && item.name === 'MintBridge'
         );
 
-        const events = await ethereum.getPastEventsInBatches(
-          startBlock,
-          endBlock,
-          blockRange(Number(chainConfig.batchSize)),
-          chain.aBTCAddress,
+        const decoded = web3.eth.abi.decodeLog(
+          mintBridgeAbi.inputs,
+          event.data,
+          topicsArray.slice(1)
         );
 
-        console.log(
-          `${batchName} ${chain.networkName}: Found ${events.length} total events`,
+        const timestamp = Number(event.block_timestamp);
+
+        await processMintBridgeEvent({ returnValues: decoded, transactionHash: event.transaction_hash}, near, event.chain_id, timestamp);
+      }
+      else if (topicsArray[0] === '0xb8bdadb84da719b84d72f39a7dabc240534c4575a5ed3fe75269c19caa11aaed') {
+        const mintBridgeAbi = atBTCAbi.find(
+          (item) => item.type === 'event' && item.name === 'BurnRedeem'
         );
 
-        for (const event of events) {
-          try {
-            const block = await web3.eth.getBlock(event.blockNumber);
-            const timestamp = Number(block.timestamp);
-
-            console.log(event);
-
-            if (event.event === "MintDeposit") {
-              await processMintDepositEvent(event, near);
-              continue;
-            }
-
-            if (event.event === "BurnRedeem") {
-              await processBurnRedeemEvent(
-                event,
-                near,
-                chain.chainID,
-                DELIMITER,
-                timestamp,
-              );
-              continue;
-            }
-
-            if (event.event === "BurnBridge") {
-              await processBurnBridgeEvent(
-                event,
-                near,
-                chain.chainID,
-                timestamp,
-              );
-              continue;
-            }
-
-            if (event.event === "MintBridge") {
-              await processMintBridgeEvent(event, near, timestamp);
-              continue;
-            }
-          } catch (error) {
-            console.error(`${batchName} Error processing event:`, error);
-          }
-        }
-
-        setBlockCursor(
-          "RetrieveAndProcessPastEvmEvents",
-          chain.chainID,
-          endBlock,
+        const decoded = web3.eth.abi.decodeLog(
+          mintBridgeAbi.inputs,
+          event.data,
+          topicsArray.slice(1)
         );
-      } catch (error) {
-        console.error(`${batchName} ${chain.chainID}: ${error.message}`);
+
+        const timestamp = Number(event.block_timestamp);
+        console.log("decoded:: ", decoded);
+
+        await processBurnRedeemEvent({ returnValues: decoded, transactionHash: event.transaction_hash}, near, event.chain_id, timestamp);
+      }
+      else if (topicsArray[0] === '0x5448dd0f4c23b4bed107869be9c14ffd7f38c6c3ded0eced40ef6ff7b8f3fc05') {
+        console.log(`${batchName} Processing MintDeposit event: ${event.transaction_hash}`);
+        const mintDepositAbi = atBTCAbi.find(
+          (item) => item.type === 'event' && item.name === 'MintDeposit'
+        );
+
+        const decoded = web3.eth.abi.decodeLog(
+          mintDepositAbi.inputs,
+          event.data,
+          topicsArray.slice(1)
+        );
+
+        await processMintDepositEvent({ returnValues: decoded, transactionHash: event.transaction_hash}, near, event.chain_id);
       }
     }
 
@@ -164,97 +116,6 @@ async function RetrieveAndProcessPastEvmEvents(
     console.error(`${batchName}: ${err.message} | ${err.stack}`);
   } finally {
     flagsBatch.RetrieveAndProcessPastEvmEventsRunning = false;
-  }
-}
-
-async function doWithSubquery(
-  chain,
-  network,
-  near,
-  allDeposits,
-  allRedemptions,
-  allBridgings,
-) {
-  await doWithSubqueryForDeposits(chain, network, near, allDeposits);
-  await doWithSubqueryForRedeems(chain, network, near, allRedemptions);
-}
-
-async function doWithSubqueryForDeposits(chain, network, near, allDeposits) {
-  const { DEPOSIT_STATUS } = getConstants();
-
-  // Filter deposits that need to be processed
-  const filteredTxns = allDeposits.filter(
-    (deposit) =>
-      deposit.status === DEPOSIT_STATUS.BTC_PENDING_MINTED_INTO_ABTC &&
-      deposit.minted_txn_hash === "" &&
-      deposit.remarks === "" &&
-      deposit.receiving_chain_id === chain.chainID,
-  );
-  const records = await getMintDepositEntities(
-    network,
-    filteredTxns.map((deposit) => deposit.btc_txn_hash),
-  );
-
-  const recordMaps = records.reduce(
-    (maps, record) => ({ ...maps, [record.btcTxnHash]: record }),
-    {},
-  );
-
-  for (let deposit of filteredTxns) {
-    if (recordMaps[deposit.btc_txn_hash]) {
-      const record = recordMaps[deposit.btc_txn_hash];
-      console.log(
-        `[SUBQUERY.DEPOSIT ${network} ${chain.chainID}] ${record.btcTxnHash} --> ${record.id}`,
-      );
-
-      try {
-        await near.updateDepositMintedTxnHash(record.btcTxnHash, record.id);
-      } catch (error) {
-        const remarks = `[${batchName}] ${deposit.btc_txn_hash}: ${error.message}`;
-        console.error(remarks);
-        await near.updateDepositRemarks(deposit.btc_txn_hash, remarks);
-      }
-    }
-  }
-}
-
-async function doWithSubqueryForRedeems(chain, network, near, allRedemptions) {
-  const { DELIMITER } = getConstants();
-
-  const ids = allRedemptions
-    .map((redeem) => {
-      const parts = redeem.txn_hash.split(",");
-      return parts.length > 1 ? parts[1] : null;
-    })
-    .filter(Boolean);
-  if (ids.length === 0) {
-    console.log(`[SUBQUERY.DEPOSIT ${network} ${chain.chainID}] NO_REDEEM_IDS`);
-    return;
-  }
-
-  const records = await getBurnRedeemEntities(network, ids);
-
-  for (let redeemp of records) {
-    const txhash = `${chain.chainID}${DELIMITER.COMMA}${redeemp.id}`;
-    const redemptionRecord = await near.getRedemptionByTxnHash(txhash);
-    const timestamp =
-      Number(redeemp.timestamp) || Math.round(Date.now() / 1000);
-
-    if (!redemptionRecord) {
-      await near.insertRedemptionAbtc(
-        txhash,
-        redeemp.accountAddress,
-        chain.chainID,
-        redeemp.btcAddress,
-        Number(redeemp.btcAmount),
-        timestamp,
-        timestamp,
-      );
-
-      console.log(
-        `[SUBQUERY.REDEEMP ${network} ${chain.chainID}] ${redeemp.btcAddress} --> ${redeemp.id}`,
-      );
-    }
   }
 }
 

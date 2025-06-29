@@ -84,8 +84,6 @@ export function RedeemPreview({
     actualReceived === "--" ||
     actualReceived <= 0;
 
-  console.log(atlasProtocolFee);
-
   return (
     <Dialog
       open={open}

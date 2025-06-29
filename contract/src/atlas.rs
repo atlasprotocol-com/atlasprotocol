@@ -21,6 +21,7 @@ impl Atlas {
         self.assert_admin();
         if let Some(mut redemption) = self.redemptions.get(&txn_hash).cloned() {
             redemption.status = status;
+            redemption.timestamp = env::block_timestamp() / 1_000_000_000;
             self.redemptions.insert(txn_hash, redemption);
         } else {
             env::panic_str("Redemption record not found");
@@ -31,6 +32,7 @@ impl Atlas {
         self.assert_admin();
         if let Some(mut deposit) = self.deposits.get(&btc_txn_hash).cloned() {
             deposit.status = status;
+            deposit.timestamp = env::block_timestamp() / 1_000_000_000;
             self.deposits.insert(btc_txn_hash, deposit);
         } else {
             env::panic_str("Deposit record not found");
