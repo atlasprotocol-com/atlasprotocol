@@ -1,9 +1,11 @@
 "use client";
 
 import { useConnectBTCWallet } from "@/hooks/useConnectBTCWallet";
+import { useEvmWallet } from "@/utils/evm_wallet/wallet_provider";
 import { NearContext } from "@/utils/near";
 import { useRouter } from "next/navigation";
 import { useContext, useEffect, useState } from "react";
+import { useDisconnect } from "wagmi";
 
 import { OnboardingLayout } from "./components/OnboardingLayout";
 import { StepOne } from "./components/StepOne";
@@ -33,14 +35,25 @@ export default function OnboardingPage() {
   const { signedAccountId: nearAddress, wallet: nearWallet } =
     useContext(NearContext);
 
+  // EVM wallet connection
+  const { evmAddress, isEvmWalletConnected, setIsManualConnected } =
+    useEvmWallet();
+  const { disconnect: disconnectEvm } = useDisconnect();
+
   // Get BTC address directly from wallet if useConnectBTCWallet doesn't provide it
   const btcWalletAddress =
     btcAddress ||
     (typeof window !== "undefined" && (window as any).unisat?.address);
 
-  // Use whichever wallet is connected (prioritize BTC for backward compatibility)
-  const walletAddress = btcWalletAddress || nearAddress;
-  const walletType = btcWalletAddress ? "BTC" : nearAddress ? "NEAR" : null;
+  // Use whichever wallet is connected (prioritize BTC for backward compatibility, then EVM, then Near)
+  const walletAddress = btcWalletAddress || evmAddress || nearAddress;
+  const walletType = btcWalletAddress
+    ? "BTC"
+    : evmAddress
+      ? "EVM"
+      : nearAddress
+        ? "NEAR"
+        : null;
 
   const {
     currentStep,
@@ -93,14 +106,33 @@ export default function OnboardingPage() {
     checkOnboardingStatus();
   }, [walletAddress, walletType, router]);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    console.log("Logout initiated for wallet type:", walletType);
+
     if (walletType === "BTC") {
       handleDisconnectBTC();
     } else if (walletType === "NEAR") {
       nearWallet?.signOut();
+    } else if (walletType === "EVM") {
+      // Disconnect EVM wallet and reset manual connection state
+      console.log("Disconnecting EVM wallet...");
+      try {
+        await disconnectEvm();
+      } catch (error) {
+        // disconnectEvm might not return a promise, so we handle both cases
+        console.log("Disconnect called (might be sync):", error);
+      }
+      setIsManualConnected(false);
+
+      // Small delay to ensure wagmi state updates are processed
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      console.log("EVM wallet disconnected, evmAddress should now be null");
     }
+
+    console.log("Calling handleWalletDisconnected...");
     handleWalletDisconnected();
     setStatusCheckError(null); // Clear any status check errors
+    console.log("Logout process completed");
   };
 
   const handleAccessAtlas = async () => {
@@ -120,13 +152,34 @@ export default function OnboardingPage() {
     }
   };
 
-  // Create a unified connect handler that can handle both wallet types
+  // Create a unified connect handler that can handle different wallet types
   const handleConnectWallet = (walletProvider: any) => {
-    // For BTC wallets, use the existing BTC connect handler
-    if (walletProvider.id !== "near-wallet") {
+    // Check if this is an EVM wallet by looking at wallet provider properties
+    const isEvmWallet =
+      walletProvider.id &&
+      (walletProvider.id === "injected" ||
+        walletProvider.id === "metaMask" ||
+        walletProvider.id === "walletConnect" ||
+        walletProvider.name?.toLowerCase().includes("metamask") ||
+        walletProvider.name?.toLowerCase().includes("wallet connect") ||
+        // Check if it has EVM-specific stub methods that throw EVM-related errors
+        (walletProvider.signPsbt &&
+          walletProvider.signPsbt
+            .toString()
+            .includes("PSBT signing not supported for EVM wallets")));
+
+    // Handle different wallet types
+    if (walletProvider.id === "near-wallet") {
+      // Near wallets are handled by the StepOne component directly
+      return;
+    } else if (isEvmWallet) {
+      // EVM wallets are already connected through wagmi in ConnectModal
+      // Just trigger the wallet connected callback
+      console.log("EVM wallet connected:", walletProvider.name);
+    } else {
+      // For BTC wallets, use the existing BTC connect handler
       handleConnectBTC(walletProvider);
     }
-    // For Near wallets, the connection is handled by the StepOne component directly
   };
 
   // Show loading while checking status
@@ -155,7 +208,7 @@ export default function OnboardingPage() {
           <StepOne
             onConnect={handleConnectWallet}
             onWalletConnected={handleWalletConnected}
-            connectDisabled={!!btcAddress}
+            connectDisabled={!!walletAddress}
             address={walletAddress}
           />
         );

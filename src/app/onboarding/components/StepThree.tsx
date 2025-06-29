@@ -14,7 +14,7 @@ interface StepThreeProps {
   loading: boolean;
   address?: string;
   onLogout: () => void;
-  walletType?: "BTC" | "NEAR" | null;
+  walletType?: "BTC" | "EVM" | "NEAR" | null;
 }
 
 export const StepThree: React.FC<StepThreeProps> = ({

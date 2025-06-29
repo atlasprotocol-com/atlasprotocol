@@ -7,7 +7,7 @@ interface OnboardingCompleteModalProps {
   open: boolean;
   onClose: () => void;
   onAccessAtlas: () => void;
-  walletType: "BTC" | "NEAR" | null;
+  walletType: "BTC" | "EVM" | "NEAR" | null;
   isLoading?: boolean;
 }
 
