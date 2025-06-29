@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import React, { Suspense, useEffect, useState } from "react";
+import React, { Suspense, useContext, useEffect, useState } from "react";
 import { ToastContainer } from "react-toastify";
 import Wallet from "sats-connect";
 
@@ -9,6 +9,8 @@ import { onboardingApi } from "@/app/onboarding/services/onboardingApi";
 import { network } from "@/config/network.config";
 import { useBreakpoint } from "@/hooks/useBreakpoint";
 import { useConnectBTCWallet } from "@/hooks/useConnectBTCWallet";
+import { useEvmWallet } from "@/utils/evm_wallet/wallet_provider";
+import { NearContext } from "@/utils/near";
 import { Network } from "@/utils/wallet/wallet_provider";
 
 import { Card } from "./components/Card";
@@ -77,8 +79,10 @@ const LazyBridgeHistory = React.lazy(() =>
 
 const Home: React.FC<HomeProps> = () => {
   const [connectModalOpen, setConnectModalOpen] = useState<boolean>(false);
+  const [lastRedirectTime, setLastRedirectTime] = useState<number>(0);
+
   const {
-    address,
+    address: btcAddress,
     publicKeyNoCoord,
     publicKeyHex,
     btcWallet,
@@ -95,6 +99,15 @@ const Home: React.FC<HomeProps> = () => {
       setConnectModalOpen(false);
     },
   });
+
+  // Add EVM and Near wallet support
+  const { evmAddress } = useEvmWallet();
+  const { signedAccountId: nearAddress } = useContext(NearContext);
+
+  // Create unified wallet address (same logic as onboarding page)
+  const btcWalletAddress =
+    btcAddress ||
+    (typeof window !== "undefined" && (window as any).unisat?.address);
 
   const { error, isErrorOpen, showError, hideError, retryErrorAction } =
     useError();
@@ -122,13 +135,13 @@ const Home: React.FC<HomeProps> = () => {
 
   useEffect(() => {
     let timer: ReturnType<typeof setInterval>;
-    if (address) {
+    if (btcWalletAddress) {
       timer = setInterval(() => {
         refetchBalance();
       }, 15000);
     }
     return () => clearInterval(timer);
-  }, [address, refetchBalance]);
+  }, [btcWalletAddress, refetchBalance]);
 
   const handleGetInfo = async () => {
     try {
@@ -145,44 +158,69 @@ const Home: React.FC<HomeProps> = () => {
 
   const router = useRouter();
 
-  // Check onboarding status when address changes
+  // Check onboarding status when any wallet address changes
   useEffect(() => {
     if (isConnecting) {
       return;
     }
 
     const checkOnboarding = async () => {
+      const walletAddress = btcWalletAddress || evmAddress || nearAddress;
+      // Prevent rapid redirects (max 1 redirect every 2 seconds)
+      const now = Date.now();
+      if (now - lastRedirectTime < 2000) {
+        console.log("Preventing rapid redirect, waiting...");
+        return;
+      }
+
       // If no wallet is connected, redirect to onboarding
-      if (!address) {
+      if (!walletAddress) {
+        console.log("No wallet connected, redirecting to onboarding");
+        setLastRedirectTime(now);
         router.push("/onboarding");
         return;
       }
 
       try {
         // Check if this address has completed onboarding
-        const status = await onboardingApi.checkOnboardingStatus(address);
+        console.log("Checking onboarding status for:", walletAddress);
+        const status = await onboardingApi.checkOnboardingStatus(walletAddress);
 
         if (!status.isCompleted) {
+          console.log("Onboarding not completed, redirecting to onboarding");
+          setLastRedirectTime(now);
           router.push("/onboarding");
+        } else {
+          console.log("Onboarding completed, staying on homepage");
         }
       } catch (error) {
         console.error("Error checking onboarding status:", error);
         // On error, assume onboarding is needed
+        setLastRedirectTime(now);
         router.push("/onboarding");
       }
     };
 
     if (!isConnecting) {
-      checkOnboarding();
+      // Add small delay to allow state to settle
+      const timeoutId = setTimeout(checkOnboarding, 100);
+      return () => clearTimeout(timeoutId);
     }
-  }, [address, router, isConnecting]);
+  }, [
+    router,
+    isConnecting,
+    lastRedirectTime,
+    btcWalletAddress,
+    evmAddress,
+    nearAddress,
+  ]);
 
   return (
     <AppContext.Provider
       value={{
         ...defaultAppContext,
         btcWallet,
-        btcAddress: address,
+        btcAddress: btcAddress,
         btcPublicKeyNoCoord: publicKeyNoCoord,
         btcPublicKeyHex: publicKeyHex,
         btcNetwork: btcWalletNetwork,
@@ -197,7 +235,7 @@ const Home: React.FC<HomeProps> = () => {
           <Header
             onConnect={handleConnectModal}
             onDisconnect={handleDisconnectBTC}
-            address={address}
+            address={btcWalletAddress}
             balanceSat={btcWalletBalanceSat}
           />
           <div className="container mx-auto flex justify-center py-6">
@@ -228,7 +266,7 @@ const Home: React.FC<HomeProps> = () => {
                         <Suspense fallback={<LoadingSection />}>
                           <TabsContent value="stake">
                             <RequireConnectWallet
-                              required={!address}
+                              required={!btcWalletAddress}
                               onConnect={handleConnectModal}
                               renderContent={
                                 <LazyStake
@@ -241,10 +279,10 @@ const Home: React.FC<HomeProps> = () => {
                           </TabsContent>
                           <TabsContent value="redeem">
                             <RequireConnectWallet
-                              required={!address}
+                              required={!btcWalletAddress}
                               onConnect={handleConnectModal}
                               renderContent={
-                                <LazyRedeem btcAddress={address} />
+                                <LazyRedeem btcAddress={btcAddress} />
                               }
                             />
                           </TabsContent>
@@ -254,7 +292,7 @@ const Home: React.FC<HomeProps> = () => {
                         </TabsContent>
                         <TabsContent value="reward">
                           <RequireConnectWallet
-                            required={!address}
+                            required={!btcWalletAddress}
                             onConnect={handleConnectModal}
                             renderContent={<LazyReward />}
                           />
@@ -289,7 +327,7 @@ const Home: React.FC<HomeProps> = () => {
             open={connectModalOpen}
             onClose={setConnectModalOpen}
             onConnect={handleConnectBTC}
-            connectDisabled={!!address}
+            connectDisabled={!!btcWalletAddress}
           />
           <ErrorModal
             open={isErrorOpen}
