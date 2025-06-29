@@ -40,7 +40,7 @@ export const getStats = async (): Promise<StakingStats> => {
   return {
     btcStaked: statsAPI.btc_staked || 0,
     tvl: statsAPI.tvl || 0,
-    atbtcMinted: statsAPI.btc_staked || 0,
+    atbtcMinted: statsAPI.atbtc_minted || 0,
     btcPriceUsd: statsAPI.metadata?.btc_price_usd || 0,
     ethPriceBtc: statsAPI.metadata?.eth_price_btc || 0,
     ethPriceUsd: statsAPI.metadata?.eth_price_usd || 0,
