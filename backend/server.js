@@ -146,7 +146,6 @@ const computeStats = async () => {
     near,
     deposits,
     redemptions,
-    btcAtlasDepositAddress,
   );
   //console.log("Computed Atlas Stats:", atlasStats);
 };

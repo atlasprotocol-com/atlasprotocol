@@ -9,19 +9,12 @@ function toNumber(v) {
   return Number(v || 0);
 }
 
-const getTransactionsAndComputeStats = async (
-  near,
-  deposits,
-  redemptions,
-  btcAtlasDepositAddress,
-) => {
+const getTransactionsAndComputeStats = async (near, deposits, redemptions) => {
   const { DEPOSIT_STATUS, REDEMPTION_STATUS } = getConstants();
 
   const depositedStats = deposits
-    .filter(
-      (deposit) =>
-        deposit.btc_sender_address !== btcAtlasDepositAddress &&
-        deposit.status != DEPOSIT_STATUS.BTC_PENDING_DEPOSIT_MEMPOOL,
+    .filter((deposit) =>
+      [DEPOSIT_STATUS.DEP_BTC_DEPOSITED_INTO_ATLAS].includes(deposit.status),
     )
     .reduce(
       (sum, deposit) =>
