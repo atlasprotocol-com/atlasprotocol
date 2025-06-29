@@ -88,7 +88,11 @@ export const ErrorModal: React.FC<ErrorModalProps> = ({
           <p className="text-center text-xs opacity-50">{formattedErrorTime}</p>
         </div>
         <div className="mt-4 flex gap-4">
-          <Button intent="outline" className="flex-1" onClick={() => onClose()}>
+          <Button
+            variant="outline"
+            className="flex-1"
+            onClick={() => onClose()}
+          >
             Cancel
           </Button>
           {onRetry && (
