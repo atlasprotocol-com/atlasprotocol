@@ -161,9 +161,9 @@ export function Holdings({ balanceSat }: { balanceSat: number }) {
         <Holding
           label="Balance"
           value={totalBalance}
-          address={trim(evmAddress || "", 12)}
+          address={!!evmAddress ? trim(evmAddress || "", 12) : ""}
           type="balance"
-          address2={nearAccountId}
+          address2={nearAccountId || ""}
         />
       </div>
       {/* <div className="mt-4 flex justify-center p-2">
