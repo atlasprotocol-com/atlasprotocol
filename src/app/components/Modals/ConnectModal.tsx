@@ -23,6 +23,7 @@ interface ConnectModalProps {
   onClose: (value: boolean) => void;
   onConnect: (walletProvider: WalletProvider) => void;
   connectDisabled: boolean;
+  showAll?: boolean;
 }
 
 type WalletType = "BTC" | "EVM" | "NEAR";
@@ -42,6 +43,7 @@ export const ConnectModal: React.FC<ConnectModalProps> = ({
   onClose,
   onConnect,
   connectDisabled,
+  showAll = false,
 }) => {
   const [selectedWallet, setSelectedWallet] = useState<string>("");
   const [selectedWalletType, setSelectedWalletType] =
@@ -366,8 +368,8 @@ export const ConnectModal: React.FC<ConnectModalProps> = ({
 
           <div className="max-h-[24rem] overflow-y-auto space-y-2">
             {renderWalletSection("Bitcoin Wallets", btcWallets)}
-            {renderWalletSection("EVM Wallets", evmWallets)}
-            {renderWalletSection("Near Wallets", nearWallets)}
+            {showAll && renderWalletSection("EVM Wallets", evmWallets)}
+            {showAll && renderWalletSection("Near Wallets", nearWallets)}
           </div>
 
           <p className="text-sm text-neutral-6 dark:text-neutral-4">
