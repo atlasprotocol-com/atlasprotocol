@@ -19,6 +19,7 @@ export default function OnboardingPage() {
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
   const [statusCheckError, setStatusCheckError] = useState<string | null>(null);
   const [isAccessAtlasLoading, setIsAccessAtlasLoading] = useState(false);
+  const [lastRedirectTime, setLastRedirectTime] = useState<number>(0);
 
   // BTC wallet connection
   const {
@@ -72,6 +73,13 @@ export default function OnboardingPage() {
     const checkOnboardingStatus = async () => {
       if (!walletAddress) return;
 
+      // Prevent rapid redirects (max 1 redirect every 2 seconds)
+      const now = Date.now();
+      if (now - lastRedirectTime < 2000) {
+        console.log("Preventing rapid redirect from onboarding, waiting...");
+        return;
+      }
+
       setIsCheckingStatus(true);
       setStatusCheckError(null);
 
@@ -89,6 +97,7 @@ export default function OnboardingPage() {
           console.log(
             "User has already completed onboarding, redirecting to homepage",
           );
+          setLastRedirectTime(now);
           router.replace("/");
           return;
         }
@@ -103,8 +112,10 @@ export default function OnboardingPage() {
       }
     };
 
-    checkOnboardingStatus();
-  }, [walletAddress, walletType, router]);
+    // Add small delay to allow state to settle
+    const timeoutId = setTimeout(checkOnboardingStatus, 100);
+    return () => clearTimeout(timeoutId);
+  }, [walletAddress, walletType, router, lastRedirectTime]);
 
   const handleLogout = async () => {
     console.log("Logout initiated for wallet type:", walletType);
