@@ -1,11 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import { FaDiscord, FaRetweet, FaTwitter } from "react-icons/fa";
 
 import { Button } from "@/app/components/Button";
 
 import { SocialTasks } from "../services/onboardingApi";
 
+import { OnboardingCompleteModal } from "./OnboardingCompleteModal";
 import { WalletDisplay } from "./WalletDisplay";
 
 interface StepTwoProps {
@@ -18,6 +20,7 @@ interface StepTwoProps {
   allTasksCompleted: boolean;
   address?: string;
   onLogout: () => void;
+  walletType?: "BTC" | "NEAR" | null;
 }
 
 interface SocialTaskProps {
@@ -110,7 +113,10 @@ export const StepTwo: React.FC<StepTwoProps> = ({
   allTasksCompleted,
   address,
   onLogout,
+  walletType = null,
 }) => {
+  const [showCompleteModal, setShowCompleteModal] = useState(false);
+
   const socialTasksConfig = [
     {
       key: "followedX" as keyof SocialTasks,
@@ -148,6 +154,15 @@ export const StepTwo: React.FC<StepTwoProps> = ({
   );
   const progressPercentage =
     (completedRequiredTasks.length / requiredTasks.length) * 100;
+
+  const handleAccessAtlasClick = () => {
+    setShowCompleteModal(true);
+  };
+
+  const handleModalAccessAtlas = async () => {
+    setShowCompleteModal(false);
+    await onAccessAtlas();
+  };
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -208,14 +223,22 @@ export const StepTwo: React.FC<StepTwoProps> = ({
           {loading ? "Processing..." : "Next"}
         </Button>
         <Button
-          onClick={onAccessAtlas}
+          onClick={handleAccessAtlasClick}
           disabled={!allTasksCompleted || loading || accessAtlasLoading}
           variant="outline"
           className="px-8"
         >
-          {accessAtlasLoading ? "Accessing Atlas..." : "Access Atlas"}
+          Access Atlas
         </Button>
       </div>
+
+      <OnboardingCompleteModal
+        open={showCompleteModal}
+        onClose={() => setShowCompleteModal(false)}
+        onAccessAtlas={handleModalAccessAtlas}
+        walletType={walletType}
+        isLoading={accessAtlasLoading}
+      />
     </div>
   );
 };

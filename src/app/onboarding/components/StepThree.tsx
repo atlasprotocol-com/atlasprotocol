@@ -6,6 +6,7 @@ import { Button } from "@/app/components/Button";
 import { Input } from "@/app/components/Input";
 
 import { onboardingApi } from "../services/onboardingApi";
+import { OnboardingCompleteModal } from "./OnboardingCompleteModal";
 import { WalletDisplay } from "./WalletDisplay";
 
 interface StepThreeProps {
@@ -13,6 +14,7 @@ interface StepThreeProps {
   loading: boolean;
   address?: string;
   onLogout: () => void;
+  walletType?: "BTC" | "NEAR" | null;
 }
 
 export const StepThree: React.FC<StepThreeProps> = ({
@@ -20,12 +22,14 @@ export const StepThree: React.FC<StepThreeProps> = ({
   loading,
   address,
   onLogout,
+  walletType = null,
 }) => {
   const [email, setEmail] = useState("");
   const [emailError, setEmailError] = useState("");
   const [inviteCode, setInviteCode] = useState(["", "", "", "", "", ""]);
   const [subscribeSuccess, setSubscribeSuccess] = useState(false);
   const [subscribeLoading, setSubscribeLoading] = useState(false);
+  const [showCompleteModal, setShowCompleteModal] = useState(false);
 
   const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -100,7 +104,12 @@ export const StepThree: React.FC<StepThreeProps> = ({
     }
   };
 
-  const handleAccessAtlas = () => {
+  const handleAccessAtlasClick = () => {
+    setShowCompleteModal(true);
+  };
+
+  const handleModalAccessAtlas = async () => {
+    setShowCompleteModal(false);
     // Complete onboarding without email (empty string)
     onComplete("");
   };
@@ -182,7 +191,7 @@ export const StepThree: React.FC<StepThreeProps> = ({
 
           <Button
             type="button"
-            onClick={handleAccessAtlas}
+            onClick={handleAccessAtlasClick}
             disabled={loading}
             className="w-full"
           >
@@ -190,6 +199,14 @@ export const StepThree: React.FC<StepThreeProps> = ({
           </Button>
         </div>
       </form>
+
+      <OnboardingCompleteModal
+        open={showCompleteModal}
+        onClose={() => setShowCompleteModal(false)}
+        onAccessAtlas={handleModalAccessAtlas}
+        walletType={walletType}
+        isLoading={loading}
+      />
     </div>
   );
 };
