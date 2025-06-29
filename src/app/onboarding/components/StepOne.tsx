@@ -213,6 +213,7 @@ export const StepOne: React.FC<StepOneProps> = ({
         onClose={setConnectModalOpen}
         onConnect={handleConnect}
         connectDisabled={connectDisabled}
+        showAll={true}
       />
 
       {/* Error Modal */}
