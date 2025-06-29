@@ -55,24 +55,27 @@ export const OnboardingCompleteModal: React.FC<
               </span>
               <div>
                 <p className="font-medium">Setup a BTC Wallet</p>
-                <div className="flex gap-2 mt-2">
-                  <a
-                    href="https://unisat.io/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary hover:text-primary/80 text-xs underline"
-                  >
-                    Download Unisat
-                  </a>
-                  <span className="text-neutral-4">•</span>
-                  <a
-                    href="https://www.xverse.app/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary hover:text-primary/80 text-xs underline"
-                  >
-                    Download Xverse
-                  </a>
+                <div className="space-y-1 mt-2">
+                  <div>
+                    <a
+                      href="https://unisat.io/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary hover:text-primary/80 text-xs underline"
+                    >
+                      Download Unisat
+                    </a>
+                  </div>
+                  <div>
+                    <a
+                      href="https://www.xverse.app/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary hover:text-primary/80 text-xs underline"
+                    >
+                      Download Xverse
+                    </a>
+                  </div>
                 </div>
               </div>
             </div>
