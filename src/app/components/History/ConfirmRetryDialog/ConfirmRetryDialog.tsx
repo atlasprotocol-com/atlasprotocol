@@ -30,7 +30,7 @@ export function ConfirmRetryDialog({
       <div className="mt-8 flex justify-around gap-4">
         <Button
           className="flex-1"
-          intent={onRetry ? "outline" : "fill"}
+          variant={onRetry ? "outline" : "fill"}
           onClick={() => onClose?.()}
           disabled={isPending}
         >
