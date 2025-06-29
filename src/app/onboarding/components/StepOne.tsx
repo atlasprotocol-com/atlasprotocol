@@ -7,6 +7,7 @@ import { Button } from "@/app/components/Button";
 import { ConnectModal } from "@/app/components/Modals/ConnectModal";
 import { ErrorModal } from "@/app/components/Modals/ErrorModal";
 import { useError } from "@/app/context/Error/ErrorContext";
+import { useEvmWallet } from "@/utils/evm_wallet/wallet_provider";
 import { NearContext } from "@/utils/near";
 import { WalletProvider } from "@/utils/wallet/wallet_provider";
 
@@ -26,6 +27,7 @@ export const StepOne: React.FC<StepOneProps> = ({
   const [connectModalOpen, setConnectModalOpen] = useState(false);
   const { error, isErrorOpen, hideError, retryErrorAction } = useError();
   const { signedAccountId: nearAccountId } = useContext(NearContext);
+  const { evmAddress, isEvmWalletConnected } = useEvmWallet();
 
   // Auto-trigger onWalletConnected if wallet is already connected
   useEffect(() => {
@@ -37,6 +39,51 @@ export const StepOne: React.FC<StepOneProps> = ({
       return () => clearTimeout(timer);
     }
   }, [address, connectDisabled, onWalletConnected]);
+
+  // Handle EVM wallet connections
+  useEffect(() => {
+    if (evmAddress && !address && !nearAccountId) {
+      // Create an EVM wallet wrapper when EVM wallet connects
+      const evmWalletWrapper = {
+        id: "evm-wallet",
+        name: "EVM Wallet",
+        connectWallet: async () => evmWalletWrapper,
+        getWalletProviderName: async () => "EVM Wallet",
+        getAddress: async () => evmAddress,
+        getPublicKeyHex: async () => "",
+        signPsbt: async () => {
+          throw new Error("PSBT signing not supported for EVM wallets");
+        },
+        signPsbts: async () => {
+          throw new Error("PSBT signing not supported for EVM wallets");
+        },
+        getNetwork: async () => {
+          throw new Error("Network not applicable for EVM wallets");
+        },
+        signMessageBIP322: async () => {
+          throw new Error("BIP322 not supported for EVM wallets");
+        },
+        on: () => {},
+        getBalance: async () => 0,
+        getNetworkFees: async () => ({
+          fastestFee: 0,
+          halfHourFee: 0,
+          hourFee: 0,
+          economyFee: 0,
+          minimumFee: 0,
+        }),
+        pushTx: async () => {
+          throw new Error("BTC transaction not supported for EVM wallets");
+        },
+        getUtxos: async () => [],
+        getBTCTipHeight: async () => 0,
+      } as WalletProvider;
+
+      // Call onConnect when EVM wallet is actually connected
+      onConnect(evmWalletWrapper);
+      onWalletConnected();
+    }
+  }, [evmAddress, address, nearAccountId, onConnect, onWalletConnected]);
 
   // Handle Near wallet connections
   useEffect(() => {
@@ -94,9 +141,10 @@ export const StepOne: React.FC<StepOneProps> = ({
   };
 
   // Show different content based on wallet connection status
-  // Check both BTC address and Near account ID
-  const isConnected = (address && connectDisabled) || nearAccountId;
-  const displayAddress = address || nearAccountId;
+  // Check both BTC address, EVM address, and Near account ID
+  const isConnected =
+    (address && connectDisabled) || nearAccountId || evmAddress;
+  const displayAddress = address || evmAddress || nearAccountId;
 
   if (isConnected && displayAddress) {
     return (
@@ -112,7 +160,11 @@ export const StepOne: React.FC<StepOneProps> = ({
               : displayAddress}
           </p>
           <p className="text-xs text-neutral-5 dark:text-neutral-5 mt-1">
-            {nearAccountId ? "Near Wallet" : "Bitcoin Wallet"}
+            {nearAccountId
+              ? "Near Wallet"
+              : evmAddress
+                ? "EVM Wallet"
+                : "Bitcoin Wallet"}
           </p>
         </div>
 

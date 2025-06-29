@@ -30,6 +30,19 @@ export const useOnboarding = ({ address }: UseOnboardingProps) => {
     }
   }, [address, currentStep]);
 
+  // Reset to step 1 when wallet becomes disconnected
+  useEffect(() => {
+    if (!address && currentStep !== 1) {
+      setCurrentStep(1);
+      // Also reset social tasks when wallet disconnects
+      setSocialTasks({
+        followedX: false,
+        joinedDiscord: false,
+        retweetedPost: false,
+      });
+    }
+  }, [address, currentStep]);
+
   const handleWalletConnected = useCallback(() => {
     setCurrentStep(2);
   }, []);

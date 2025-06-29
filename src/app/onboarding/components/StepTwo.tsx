@@ -20,7 +20,7 @@ interface StepTwoProps {
   allTasksCompleted: boolean;
   address?: string;
   onLogout: () => void;
-  walletType?: "BTC" | "NEAR" | null;
+  walletType?: "BTC" | "EVM" | "NEAR" | null;
 }
 
 interface SocialTaskProps {
