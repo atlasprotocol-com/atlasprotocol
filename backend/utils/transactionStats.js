@@ -12,9 +12,15 @@ function toNumber(v) {
 const getTransactionsAndComputeStats = async (near, deposits, redemptions) => {
   const { DEPOSIT_STATUS, REDEMPTION_STATUS } = getConstants();
 
-  const depositedStats = deposits
+  const btcStaked = deposits
     .filter((deposit) =>
-      [DEPOSIT_STATUS.DEP_BTC_DEPOSITED_INTO_ATLAS].includes(deposit.status),
+      [
+        DEPOSIT_STATUS.BTC_DEPOSITED_INTO_ATLAS,
+        DEPOSIT_STATUS.DEP_BTC_PENDING_YIELD_PROVIDER_DEPOSIT,
+        DEPOSIT_STATUS.DEP_BTC_YIELD_PROVIDER_DEPOSITED,
+        DEPOSIT_STATUS.DEP_BTC_PENDING_MINTED_INTO_ABTC,
+        DEPOSIT_STATUS.DEP_BTC_MINTED_INTO_ABTC,
+      ].includes(deposit.status),
     )
     .reduce(
       (sum, deposit) =>
@@ -22,13 +28,6 @@ const getTransactionsAndComputeStats = async (near, deposits, redemptions) => {
       0,
     );
 
-  const redeemedStats = redemptions
-    .filter((redemption) =>
-      [REDEMPTION_STATUS.BTC_REDEEMED_BACK_TO_USER].includes(redemption.status),
-    )
-    .reduce((sum, redemption) => sum + toNumber(redemption.abtc_amount), 0);
-
-  const btcStaked = depositedStats - redeemedStats;
   const btcPrice = await cache.wrap(getPrice)("bitcoin", "usd");
   const ethPriceBtc = await cache.wrap(getPrice)("ethereum", "btc");
   const ethPriceUsd = await cache.wrap(getPrice)("ethereum", "usd");
