@@ -1,3 +1,4 @@
+const _ = require("lodash");
 const { getConstants } = require("../constants");
 const { getPrice } = require("../coin");
 const { MemoryCache } = require("../cache");
@@ -9,6 +10,7 @@ function toNumber(v) {
 }
 
 const getTransactionsAndComputeStats = async (
+  near,
   deposits,
   redemptions,
   btcAtlasDepositAddress,
@@ -43,18 +45,12 @@ const getTransactionsAndComputeStats = async (
 
   const tvl = (btcPrice * btcStaked) / 1e8;
 
-  const atbtcMinted = deposits
-    .filter(
-      (deposit) =>
-        deposit.btc_sender_address === btcAtlasDepositAddress &&
-        [DEPOSIT_STATUS.BTC_MINTED_INTO_ABTC].includes(deposit.status),
-    )
-    .reduce((sum, deposit) => sum + deposit.btc_amount - deposit.protocol_fee - deposit.yield_provider_gas_fee, 0);
+  const balances = await near.getBalances();
 
   return {
     btc_staked: btcStaked,
     tvl: tvl,
-    atbtc_minted: atbtcMinted,
+    atbtc_minted: _.sum(Object.values(balances)),
     metadata: {
       btc_price_usd: btcPrice,
       eth_price_btc: ethPriceBtc,

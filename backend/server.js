@@ -143,6 +143,7 @@ let bithiveRecords = [];
 
 const computeStats = async () => {
   atlasStats = await getTransactionsAndComputeStats(
+    near,
     deposits,
     redemptions,
     btcAtlasDepositAddress,
@@ -480,7 +481,7 @@ app.get("/api/derived-address", async (req, res) => {
 app.post("/api/v1/process-new-deposit", async (req, res) => {
   try {
     const { btcTxnHash } = req.body;
-    
+
     if (!btcTxnHash) {
       return res
         .status(400)
@@ -1062,7 +1063,7 @@ app.listen(PORT, async () => {
   setInterval(async () => {
     await UpdateAtlasBtcTimeout(deposits, near);
   }, 10000);
-  
+
   setInterval(async () => {
     await WithdrawFailDeposits(deposits, near, bitcoin);
   }, 10000);

@@ -38,6 +38,7 @@ const viewMethods = [
   "get_bridging_by_txn_hash",
   "get_all_bridgings",
   "get_bridgings_count",
+  "get_balances",
 ];
 
 const changeMethods = [
@@ -105,7 +106,9 @@ class Near {
     this.pk = pk;
     this.network_id = network_id;
     this.keyStore = new InMemoryKeyStore();
-    this.provider = new providers.JsonRpcProvider({ url: this.chain_rpc_provider });
+    this.provider = new providers.JsonRpcProvider({
+      url: this.chain_rpc_provider,
+    });
     this.gas = gas;
     this.mpcContractId = mpcContractId;
     this.bitHiveContractId = bitHiveContractId;
@@ -125,21 +128,25 @@ class Near {
         atlas_account_id: config.atlas_account_id,
         contract_id: config.contract_id,
         viewMethods,
-        changeMethods
+        changeMethods,
       });
 
       // Store the key manager instance
       Near.keyManager = keyManager;
-      
+
       // Store the contracts from the key manager
       Near.initializedContracts = keyManager.contracts;
-      console.log(`[NearService] Initialized ${Near.initializedContracts.length} contracts`);
+      console.log(
+        `[NearService] Initialized ${Near.initializedContracts.length} contracts`,
+      );
     }
   }
 
   static async getNextContract() {
     if (!Near.keyManager) {
-      throw new Error('[NearService] Key manager not initialized. Call initializeConnections first.');
+      throw new Error(
+        "[NearService] Key manager not initialized. Call initializeConnections first.",
+      );
     }
     return Near.keyManager.getNextContract();
   }
@@ -152,7 +159,7 @@ class Near {
         chain_rpc: this.chain_rpc,
         pk: this.pk,
         atlas_account_id: this.atlas_account_id,
-        contract_id: this.contract_id
+        contract_id: this.contract_id,
       });
 
       // Get the first contract to initialize key manager
@@ -181,37 +188,47 @@ class Near {
 
   async makeNearRpcChangeCall(methodName, args) {
     if (!Near.keyManager) {
-      throw new Error("NEAR key manager is not initialized. Call init() first.");
+      throw new Error(
+        "NEAR key manager is not initialized. Call init() first.",
+      );
     }
 
     try {
       // Get next contract in rotation
       const contract = await Near.getNextContract();
-      
+
       const result = await contract[methodName]({
         args,
-        gas: this.gas
+        gas: this.gas,
       });
 
       console.log("result:", result);
-      
+
       return result;
     } catch (error) {
-      console.error(`[NearService] Change call failed for method ${methodName}:`, error);
+      console.error(
+        `[NearService] Change call failed for method ${methodName}:`,
+        error,
+      );
       throw error;
     }
   }
 
   async makeNearRpcViewCall(methodName, args) {
     if (!Near.keyManager) {
-      throw new Error("NEAR key manager is not initialized. Call init() first.");
+      throw new Error(
+        "NEAR key manager is not initialized. Call init() first.",
+      );
     }
     try {
       const contract = Near.keyManager.getViewContract();
       const result = await contract[methodName](args);
       return result;
     } catch (error) {
-      console.error(`[NearService] View call failed for method ${methodName}:`, error);
+      console.error(
+        `[NearService] View call failed for method ${methodName}:`,
+        error,
+      );
       throw error;
     }
   }
@@ -237,7 +254,7 @@ class Near {
   }
 
   // Function to get all redemptions from NEAR contract
-  async getAllRedemptions(fromIndex, limit ) {
+  async getAllRedemptions(fromIndex, limit) {
     return this.makeNearRpcViewCall("get_all_redemptions", {
       from_index: fromIndex,
       limit: limit,
@@ -248,7 +265,7 @@ class Near {
   async getAllBridgings(fromIndex = 0, limit = 1000) {
     return this.makeNearRpcViewCall("get_all_bridgings", {
       from_index: fromIndex,
-      limit: limit
+      limit: limit,
     });
   }
 
@@ -333,6 +350,7 @@ class Near {
       minted_txn_hash: mintedTxnHash,
     });
   }
+
   async updateDepositMinted(btcTxnHash, mintedTxnHash) {
     return this.makeNearRpcChangeCall("update_deposit_minted", {
       btc_txn_hash: btcTxnHash,
@@ -355,7 +373,6 @@ class Near {
     yieldProviderGasFee,
     yieldProviderTxnHash,
   ) {
-    
     while (retries > 0) {
       try {
         return await this.makeNearRpcChangeCall("insert_deposit_btc", {
@@ -376,8 +393,10 @@ class Near {
       } catch (error) {
         retries--;
         if (retries === 0) throw error;
-        console.log(`Error inserting deposit BTC, retrying... (${retries} attempts left)`);
-        await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 second before retrying
+        console.log(
+          `Error inserting deposit BTC, retrying... (${retries} attempts left)`,
+        );
+        await new Promise((resolve) => setTimeout(resolve, 5000)); // Wait 5 second before retrying
       }
     }
   }
@@ -402,11 +421,7 @@ class Near {
     });
   }
 
-  async updateRedemptionPendingBtcMempool(
-    txnHash,
-    btcTxnHash,
-  ) {
-
+  async updateRedemptionPendingBtcMempool(txnHash, btcTxnHash) {
     return this.makeNearRpcChangeCall("update_redemption_pending_btc_mempool", {
       txn_hash: txnHash,
       btc_txn_hash: btcTxnHash,
@@ -1117,7 +1132,7 @@ class Near {
 
   async updateBridgingBtcBridged(txnHash, timestamp) {
     return this.makeNearRpcChangeCall("update_bridging_btc_bridged", {
-      txn_hash: txnHash
+      txn_hash: txnHash,
     });
   }
 
@@ -1382,7 +1397,7 @@ class Near {
                                   returnValues: {
                                     amount: event.data[0].amount,
                                     wallet: memo.address,
-                                    btcAddress: memo.btcAddress
+                                    btcAddress: memo.btcAddress,
                                   },
                                   transactionHash,
                                   receiptId: receipt.id,
@@ -1415,7 +1430,7 @@ class Near {
                                     destChainId: memo.destChainId,
                                     destChainAddress: memo.destChainAddress,
                                     mintingFeeSat: memo.mintingFeeSat,
-                                    bridgingFeeSat: memo.bridgingFeeSat
+                                    bridgingFeeSat: memo.bridgingFeeSat,
                                   },
                                   transactionHash,
                                   receiptId: receipt.id,
@@ -1549,22 +1564,22 @@ class Near {
     console.log("Testing: Starting fetchEventByTxnHash");
     console.log("txnHash:", txnHash);
     console.log("this.contract_id:", this.contract_id);
-    
+
     try {
       // Get transaction result
       const txResult = await this.provider.txStatus(txnHash, this.contract_id);
-      
+
       // Get block info with finality parameter
       const block = await this.provider.block({
         blockId: txResult.transaction.block_hash,
-        finality: 'final'
+        finality: "final",
       });
-      
+
       const timestamp = Math.floor(block.header.timestamp / 1000000000);
 
       // Loop through all receipts to find matching event
       let eventJson = null;
-      let foundReceipt = null;  // Store the receipt that contains our event
+      let foundReceipt = null; // Store the receipt that contains our event
 
       for (const receipt of txResult.receipts_outcome) {
         // Check each log in the receipt
@@ -1573,7 +1588,7 @@ class Near {
             const parsedEvent = JSON.parse(log.replace("EVENT_JSON:", ""));
             if (parsedEvent.event === eventName) {
               eventJson = parsedEvent;
-              foundReceipt = receipt;  // Store the receipt when we find the event
+              foundReceipt = receipt; // Store the receipt when we find the event
               break;
             }
           } catch (e) {
@@ -1599,8 +1614,8 @@ class Near {
           processedEvent = {
             type: "mint_deposit",
             btcTxnHash: mintMemo.btc_txn_hash,
-            receiptId: foundReceipt.id,  // Use foundReceipt instead of receipt
-            transactionHash: txnHash
+            receiptId: foundReceipt.id, // Use foundReceipt instead of receipt
+            transactionHash: txnHash,
           };
           break;
 
@@ -1615,27 +1630,30 @@ class Near {
               originTxnHash: bridgeMemo.originTxnHash,
             },
             transactionHash: txnHash,
-            receiptId: foundReceipt.id,  // Use foundReceipt instead of receipt
-            timestamp
+            receiptId: foundReceipt.id, // Use foundReceipt instead of receipt
+            timestamp,
           };
           break;
 
         case "ft_burn_redeem":
           const redeemMemo = JSON.parse(eventJson.data[0].memo);
           console.log("Testing: Processing ft_burn_redeem event");
-          console.log("Testing: redeemMemo:", JSON.stringify(redeemMemo, null, 2));
+          console.log(
+            "Testing: redeemMemo:",
+            JSON.stringify(redeemMemo, null, 2),
+          );
           processedEvent = {
             type: "burn_redemption",
             returnValues: {
               amount: eventJson.data[0].amount,
               address: redeemMemo.address,
-              btcAddress: redeemMemo.btcAddress
+              btcAddress: redeemMemo.btcAddress,
             },
             transactionHash: txnHash,
-            receiptId: foundReceipt.id,  // Use foundReceipt instead of receipt
+            receiptId: foundReceipt.id, // Use foundReceipt instead of receipt
             blockNumber: txResult.transaction.block_height,
             timestamp,
-            status: true
+            status: true,
           };
           break;
 
@@ -1649,19 +1667,18 @@ class Near {
               destChainId: burnBridgeMemo.destChainId,
               destChainAddress: burnBridgeMemo.destChainAddress,
               mintingFeeSat: burnBridgeMemo.mintingFeeSat,
-              bridgingFeeSat: burnBridgeMemo.bridgingFeeSat
+              bridgingFeeSat: burnBridgeMemo.bridgingFeeSat,
             },
             transactionHash: txnHash,
-            receiptId: foundReceipt.id,  // Use foundReceipt instead of receipt
+            receiptId: foundReceipt.id, // Use foundReceipt instead of receipt
             blockNumber: txResult.transaction.block_height,
             timestamp,
-            status: true
+            status: true,
           };
           break;
       }
 
       return processedEvent;
-
     } catch (error) {
       console.error("Error fetching event by transaction hash:", error);
       throw error;
@@ -1679,7 +1696,7 @@ class Near {
   async getTotalRedemptionsCount() {
     return this.makeNearRpcViewCall("get_redemptions_count", {});
   }
-  
+
   async getValidatorsByTxnHash(txnHash) {
     return this.makeNearRpcViewCall("get_validators_by_txn_hash", {
       txn_hash: txnHash,
@@ -1700,40 +1717,33 @@ class Near {
 
   // Add a new key to the atlas account
   async addNewKey() {
-    const keyPair = KeyPair.fromRandom('ed25519');
+    const keyPair = KeyPair.fromRandom("ed25519");
     const publicKey = keyPair.getPublicKey();
-    
+
     // Add the new key to the atlas account
     const account = await this.nearContract.account;
-    await account.addKey(
-      publicKey,
-      this.contract_id,
-      this.gas,
-      '1'
-    );
-    
+    await account.addKey(publicKey, this.contract_id, this.gas, "1");
+
     return {
       public_key: publicKey.toString(),
-      secret_key: keyPair.toString()
+      secret_key: keyPair.toString(),
     };
   }
 
   // Remove a key from the atlas account
   async removeKey(publicKey) {
     const account = await this.nearContract.account;
-    await account.deleteKey(
-      KeyPair.fromString(publicKey).getPublicKey()
-    );
+    await account.deleteKey(KeyPair.fromString(publicKey).getPublicKey());
   }
 
   // Rotate keys for the atlas account
   async rotateKeys(oldPublicKey) {
     // Add new key
     const newKey = await this.addNewKey();
-    
+
     // Remove old key
     await this.removeKey(oldPublicKey);
-    
+
     return newKey;
   }
 
@@ -1741,6 +1751,11 @@ class Near {
   async getAccessKeys() {
     const account = await this.nearContract.account;
     return account.getAccessKeys();
+  }
+
+  async getBalances() {
+    const tuples = await this.makeNearRpcChangeCall("get_balances", {});
+    return tuples.reduce((m, [key, value]) => ({ ...m, [key]: value }), {});
   }
 }
 
