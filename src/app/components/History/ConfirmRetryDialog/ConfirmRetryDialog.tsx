@@ -37,7 +37,13 @@ export function ConfirmRetryDialog({
           Close
         </Button>
         {onRetry && (
-          <Button className="flex-1" onClick={onRetry} disabled={isPending}>
+          <Button 
+            className="flex-1" 
+            onClick={onRetry} 
+            disabled={isPending}
+            isLoading={isPending}
+            loadingText="Processing..."
+          >
             Retry
           </Button>
         )}

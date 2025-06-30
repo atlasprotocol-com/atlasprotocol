@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { BsExclamationDiamondFill, BsInfoCircleFill } from "react-icons/bs";
 import InfiniteScroll from "react-infinite-scroll-component";
 import { useLocalStorage } from "usehooks-ts";
@@ -74,6 +74,7 @@ export function StakeHistory() {
     fetchNextPage: fetchNextStakingHistoriesPage,
     hasNextPage: hasNextStakingHistoriesPage,
     isFetchingNextPage: isFetchingNextStakingHistoriesPage,
+    refetch: refetchStakingHistory,
   } = useGetStakingHistory({
     address: btcAddress,
     publicKeyNoCoord: btcPublicKeyNoCoord,
@@ -158,8 +159,18 @@ export function StakeHistory() {
 
   const [retryDialogOpen, setRetryDialogOpen] = useState<Stakes | undefined>();
 
-  const retryTransaction = useRetryTransaction(() =>
-    setRetryDialogOpen(undefined),
+  const retryTransaction = useRetryTransaction(async () => {
+    // This will be called after the mutation is successful
+    await new Promise((resolve) => setTimeout(resolve, 5000));
+    await refetchStakingHistory();
+    setRetryDialogOpen(undefined);
+  });
+
+  const handleRetry = useCallback(
+    (stakingHistory: Stakes) => {
+      retryTransaction.mutate(stakingHistory);
+    },
+    [retryTransaction],
   );
 
   return (
@@ -169,7 +180,7 @@ export function StakeHistory() {
         onClose={() => setRetryDialogOpen(undefined)}
         onRetry={() => {
           if (!retryDialogOpen) return;
-          retryTransaction.mutate(retryDialogOpen);
+          handleRetry(retryDialogOpen);
         }}
         isPending={retryTransaction.isPending}
       />
