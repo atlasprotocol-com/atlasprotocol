@@ -230,7 +230,7 @@ impl Atlas {
             {
                 // All conditions are met, proceed to update the deposit status
                 deposit.status = DEP_BTC_DEPOSITED_INTO_ATLAS;
-                deposit.timestamp = timestamp;
+                deposit.timestamp = timestamp; // Using the provided timestamp parameter
                 self.deposits.insert(btc_txn_hash.clone(), deposit);
                 log!(
                     "Deposit status updated to DEP_BTC_DEPOSITED_INTO_ATLAS for btc_txn_hash: {}",
@@ -1052,6 +1052,7 @@ impl Atlas {
             {
                 deposit.status = DEP_BTC_PENDING_YIELD_PROVIDER_DEPOSIT;
                 deposit.yield_provider_txn_hash = yield_provider_txn_hash;
+                deposit.timestamp = env::block_timestamp() / 1_000_000_000;
                 self.deposits.insert(btc_txn_hash.clone(), deposit);
                 log!(
                     "Yield provider transaction hash updated for btc_txn_hash: {}",
@@ -1172,6 +1173,7 @@ impl Atlas {
                 && deposit.retry_count >= max_retry_count
             {
                 deposit.status = DEP_BTC_REFUNDING;
+                deposit.timestamp = env::block_timestamp() / 1_000_000_000;
                 self.deposits.insert(btc_txn_hash, deposit.clone());
 
                 let mut total_input = 0u64;
@@ -1282,6 +1284,7 @@ impl Atlas {
         if let Some(mut deposit) = self.deposits.get(&btc_txn_hash.clone()).cloned() {
             if deposit.status == DEP_BTC_REFUNDING && !deposit.refund_txn_id.is_empty() {
                 deposit.status = DEP_BTC_REFUNDED;
+                deposit.timestamp = env::block_timestamp() / 1_000_000_000;
                 self.deposits.insert(btc_txn_hash.clone(), deposit);
             } else {
                 env::panic_str("Deposit is not in invalid conditions.");
@@ -1306,6 +1309,7 @@ impl Atlas {
         if let Some(mut deposit) = self.deposits.get(&btc_txn_hash.clone()).cloned() {
             if deposit.status == DEP_BTC_REFUNDING && deposit.refund_txn_id.is_empty() {
                 deposit.refund_txn_id = refund_txn_id.clone();
+                deposit.timestamp = env::block_timestamp() / 1_000_000_000;
                 self.deposits.insert(btc_txn_hash.clone(), deposit);
             } else {
                 env::panic_str("Deposit is not in invalid conditions.");

@@ -158,7 +158,9 @@ export function StakeHistory() {
 
   const [retryDialogOpen, setRetryDialogOpen] = useState<Stakes | undefined>();
 
-  const retryTransaction = useRetryTransaction();
+  const retryTransaction = useRetryTransaction(() =>
+    setRetryDialogOpen(undefined),
+  );
 
   return (
     <Card>

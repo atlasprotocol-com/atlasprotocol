@@ -121,7 +121,7 @@ export function useGetBridgeHistory({ address }: { address?: string }) {
   });
 }
 
-export function useRetryTransaction() {
+export function useRetryTransaction(cb: () => void) {
   const { btcWallet } = useAppContext();
 
   async function withDrawFailedDeposit(stakingHistory: Stakes) {
@@ -146,9 +146,11 @@ export function useRetryTransaction() {
       await retryTransaction(data);
     },
     onSuccess: () => {
+      cb();
       toast.success("Transaction retried");
     },
     onError: (error) => {
+      cb();
       toast.error("Transaction retry failed");
       console.error(error);
     },
