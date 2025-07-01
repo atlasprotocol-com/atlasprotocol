@@ -13,7 +13,6 @@ import { WalletDisplay } from "./WalletDisplay";
 interface StepTwoProps {
   socialTasks: SocialTasks;
   onUpdateTask: (task: keyof SocialTasks, completed: boolean) => void;
-  onNext: () => void;
   onAccessAtlas: () => void;
   loading: boolean;
   accessAtlasLoading: boolean;
@@ -106,7 +105,6 @@ const SocialTask: React.FC<SocialTaskProps> = ({
 export const StepTwo: React.FC<StepTwoProps> = ({
   socialTasks,
   onUpdateTask,
-  onNext,
   onAccessAtlas,
   loading,
   accessAtlasLoading,
@@ -170,7 +168,7 @@ export const StepTwo: React.FC<StepTwoProps> = ({
         <h2 className="text-2xl font-bold mb-4">Connect social</h2>
         {address && <WalletDisplay address={address} onLogout={onLogout} />}
         <p className="text-neutral-6 dark:text-neutral-4 mb-4">
-          Complete the first two tasks to continue. The retweet task is
+          Complete the first two tasks to access Atlas. The retweet task is
           optional.
         </p>
 
@@ -191,7 +189,7 @@ export const StepTwo: React.FC<StepTwoProps> = ({
           </div>
           {allTasksCompleted && (
             <p className="text-green-600 dark:text-green-400 text-sm mt-2 font-medium">
-              ✓ Ready to proceed to next step!
+              ✓ Ready to access Atlas!
             </p>
           )}
         </div>
@@ -214,21 +212,13 @@ export const StepTwo: React.FC<StepTwoProps> = ({
         ))}
       </div>
 
-      <div className="flex justify-center gap-4">
-        <Button
-          onClick={onNext}
-          disabled={!allTasksCompleted || loading || accessAtlasLoading}
-          className="px-8"
-        >
-          {loading ? "Processing..." : "Next"}
-        </Button>
+      <div className="flex justify-center">
         <Button
           onClick={handleAccessAtlasClick}
           disabled={!allTasksCompleted || loading || accessAtlasLoading}
-          variant="outline"
           className="px-8"
         >
-          Access Atlas
+          {accessAtlasLoading ? "Accessing Atlas..." : "Access Atlas"}
         </Button>
       </div>
 

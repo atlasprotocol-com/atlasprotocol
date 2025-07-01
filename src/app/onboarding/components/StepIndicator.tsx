@@ -12,7 +12,6 @@ export const StepIndicator: React.FC<StepIndicatorProps> = ({
   const steps = [
     { number: 1, label: "Connect\nWallet", key: "wallet" },
     { number: 2, label: "Connect\nSocials", key: "socials" },
-    { number: 3, label: "Referral Code", key: "referral" },
   ];
 
   const getStepClasses = (stepNumber: number) => {

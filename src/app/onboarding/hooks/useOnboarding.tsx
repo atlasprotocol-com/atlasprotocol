@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { onboardingApi, SocialTasks } from "../services/onboardingApi";
 
-export type OnboardingStep = 1 | 2 | 3;
+export type OnboardingStep = 1 | 2;
 
 interface UseOnboardingProps {
   address?: string;
@@ -83,32 +83,34 @@ export const useOnboarding = ({ address }: UseOnboardingProps) => {
     [address],
   );
 
-  const handleSocialTasksComplete = useCallback(() => {
-    setCurrentStep(3);
-  }, []);
+  const handleSocialTasksComplete = useCallback(async () => {
+    if (!address) {
+      console.error("No address available for onboarding completion");
+      return;
+    }
 
+    setLoading(true);
+    try {
+      // Complete onboarding without email (step 3 removed)
+      await onboardingApi.completeOnboarding(address, "");
+
+      // Navigate to home page
+      router.replace("/");
+    } catch (error) {
+      console.error("Failed to complete onboarding:", error);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  }, [address, router]);
+
+  // Legacy function - kept for compatibility but now does the same as handleSocialTasksComplete
   const handleCompleteOnboarding = useCallback(
     async (email: string) => {
-      if (!address) {
-        console.error("No address available for onboarding completion");
-        return;
-      }
-
-      setLoading(true);
-      try {
-        // Call the actual API service to complete onboarding
-        await onboardingApi.completeOnboarding(address, email);
-
-        // Navigate to home page
-        router.replace("/");
-      } catch (error) {
-        console.error("Failed to complete onboarding:", error);
-        throw error;
-      } finally {
-        setLoading(false);
-      }
+      // Since step 3 is removed, this is now the same as handleSocialTasksComplete
+      await handleSocialTasksComplete();
     },
-    [address, router],
+    [handleSocialTasksComplete],
   );
 
   // Only require the first two tasks to be completed (Follow X and Join Discord)
