@@ -13,9 +13,9 @@ interface UseOnboardingProps {
 
 export const useOnboarding = ({ address }: UseOnboardingProps) => {
   const router = useRouter();
-  const [currentStep, setCurrentStep] = useState<OnboardingStep>(
-    address ? 2 : 1,
-  );
+  // Always initialize to step 1 to prevent hydration mismatch
+  // The useEffect will handle advancing to step 2 after mount
+  const [currentStep, setCurrentStep] = useState<OnboardingStep>(1);
   const [loading, setLoading] = useState(false);
   const [socialTasks, setSocialTasks] = useState<SocialTasks>({
     followedX: false,
