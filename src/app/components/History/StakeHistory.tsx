@@ -160,8 +160,6 @@ export function StakeHistory() {
   const [retryDialogOpen, setRetryDialogOpen] = useState<Stakes | undefined>();
 
   const retryTransaction = useRetryTransaction(async () => {
-    // This will be called after the mutation is successful
-    await new Promise((resolve) => setTimeout(resolve, 5000));
     await refetchStakingHistory();
     setRetryDialogOpen(undefined);
   });

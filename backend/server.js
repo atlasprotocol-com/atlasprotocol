@@ -886,7 +886,17 @@ app.post("/api/v1/check-minted-txn", async (req, res) => {
   }
 });
 
-app.use("/api/v1/deposits", useDepositAPIs(near, bitcoin));
+app.use(
+  "/api/v1/deposits",
+  useDepositAPIs(near, (updatedDeposit) => {
+    const index = deposits.find(
+      (deposit) => deposit.btc_txn_hash === updatedDeposit.btc_txn_hash,
+    );
+    if (index < 0) return;
+
+    deposits[index] = updatedDeposit;
+  }),
+);
 
 app.use((err, req, res, next) => {
   console.error(err.stack);
