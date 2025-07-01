@@ -9,7 +9,6 @@ import { useDisconnect } from "wagmi";
 
 import { OnboardingLayout } from "./components/OnboardingLayout";
 import { StepOne } from "./components/StepOne";
-import { StepThree } from "./components/StepThree";
 import { StepTwo } from "./components/StepTwo";
 import { useOnboarding } from "./hooks/useOnboarding";
 import { onboardingApi } from "./services/onboardingApi";
@@ -246,21 +245,10 @@ export default function OnboardingPage() {
           <StepTwo
             socialTasks={socialTasks}
             onUpdateTask={updateSocialTask}
-            onNext={handleSocialTasksComplete}
             onAccessAtlas={handleAccessAtlas}
             loading={loading}
             accessAtlasLoading={isAccessAtlasLoading}
             allTasksCompleted={allSocialTasksCompleted}
-            address={walletAddress}
-            onLogout={handleLogout}
-            walletType={walletType}
-          />
-        );
-      case 3:
-        return (
-          <StepThree
-            onComplete={handleCompleteOnboarding}
-            loading={loading}
             address={walletAddress}
             onLogout={handleLogout}
             walletType={walletType}
