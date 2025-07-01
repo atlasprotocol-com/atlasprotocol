@@ -114,11 +114,8 @@ export default function OnboardingPage() {
           onboardingApi.setRedirectInProgress(true);
           router.replace("/");
           return;
-        } else if (status.status === "api_error") {
-          setStatusCheckError(
-            "Unable to verify onboarding status. Continuing with onboarding flow.",
-          );
         }
+        // If API error, silently continue with onboarding flow (no error message to user)
       } catch (error) {
         console.error("Failed to check onboarding status:", error);
         setStatusCheckError(
