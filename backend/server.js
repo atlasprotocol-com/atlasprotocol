@@ -889,7 +889,7 @@ app.post("/api/v1/check-minted-txn", async (req, res) => {
 app.use(
   "/api/v1/deposits",
   useDepositAPIs(near, (updatedDeposit) => {
-    const index = deposits.find(
+    const index = deposits.findIndex(
       (deposit) => deposit.btc_txn_hash === updatedDeposit.btc_txn_hash,
     );
     if (index < 0) return;
