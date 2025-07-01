@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { apiWrapper } from "@/app/api/apiWrapper";
 import { useError } from "@/app/context/Error/ErrorContext";
+import { onboardingApi } from "@/app/onboarding/services/onboardingApi";
 import { ErrorState } from "@/app/types/errors";
 import { satoshiToBtc } from "@/utils/btcConversions";
 import { maxDecimals } from "@/utils/maxDecimals";
@@ -116,6 +117,9 @@ export function useConnectBTCWallet({
     setPublicKeyNoCoord("");
     setAddress("");
     localStorage.removeItem("ATLAS_CONNECTED_WALLET");
+
+    // Clear redirect state to prevent stale redirects
+    onboardingApi.clearAllRedirectState();
   }, []);
 
   useEffect(() => {
