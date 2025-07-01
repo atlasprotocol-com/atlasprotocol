@@ -28,7 +28,7 @@ function Providers({ children }: React.PropsWithChildren) {
   return (
     <NearContext.Provider value={{ wallet, signedAccountId }}>
       <WagmiProvider config={wagmiConfig}>
-        <ThemeProvider defaultTheme="light" attribute="data-theme">
+        <ThemeProvider defaultTheme="dark" attribute="data-theme">
           <QueryClientProvider client={client}>
             <TermsProvider>
               <ErrorProvider>

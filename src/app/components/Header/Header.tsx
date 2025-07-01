@@ -1,7 +1,6 @@
 import Link from "next/link";
 
 import { ConnectSmall } from "../Connect/ConnectSmall";
-import { ThemeToggle } from "../ThemeToggle/ThemeToggle";
 
 import { Logo } from "./Logo";
 
@@ -33,7 +32,7 @@ export const Header: React.FC<HeaderProps> = ({
               onDisconnect={onDisconnect}
             />
           </div>
-          <ThemeToggle />
+          {/* <ThemeToggle /> */}
         </div>
       </div>
       <div className="md:hidden flex justify-center mt-3">

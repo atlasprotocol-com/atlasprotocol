@@ -3,7 +3,6 @@
 import { ReactNode } from "react";
 
 import { Logo } from "@/app/components/Header/Logo";
-import { ThemeToggle } from "@/app/components/ThemeToggle/ThemeToggle";
 import { network } from "@/config/network.config";
 import { Network } from "@/utils/wallet/wallet_provider";
 
@@ -34,7 +33,7 @@ export const OnboardingLayout: React.FC<OnboardingLayoutProps> = ({
             <div className="text-sm text-neutral-6 dark:text-neutral-4">
               Welcome to Atlas
             </div>
-            <ThemeToggle />
+            {/* <ThemeToggle /> */}
           </div>
         </div>
       </nav>
