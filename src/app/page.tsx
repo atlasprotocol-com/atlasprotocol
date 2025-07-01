@@ -79,7 +79,6 @@ const LazyBridgeHistory = React.lazy(() =>
 
 const Home: React.FC<HomeProps> = () => {
   const [connectModalOpen, setConnectModalOpen] = useState<boolean>(false);
-  const [lastRedirectTime, setLastRedirectTime] = useState<number>(0);
 
   const {
     address: btcAddress,
@@ -158,6 +157,17 @@ const Home: React.FC<HomeProps> = () => {
 
   const router = useRouter();
 
+  // Handle browser navigation (back/forward buttons) to reset redirect state
+  useEffect(() => {
+    const handlePopState = () => {
+      console.log("Browser navigation detected, resetting redirect state");
+      onboardingApi.resetRedirectController();
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
   // Check onboarding status when any wallet address changes
   useEffect(() => {
     if (isConnecting) {
@@ -166,54 +176,53 @@ const Home: React.FC<HomeProps> = () => {
 
     const checkOnboarding = async () => {
       const walletAddress = btcWalletAddress || evmAddress || nearAddress;
-      // Prevent rapid redirects (max 1 redirect every 2 seconds)
-      const now = Date.now();
-      if (now - lastRedirectTime < 2000) {
-        console.log("Preventing rapid redirect, waiting...");
-        return;
-      }
 
       // If no wallet is connected, redirect to onboarding
       if (!walletAddress) {
         console.log("No wallet connected, redirecting to onboarding");
-        setLastRedirectTime(now);
-        router.push("/onboarding");
+        if (onboardingApi.canPerformRedirect()) {
+          onboardingApi.setRedirectInProgress(true);
+          router.replace("/onboarding");
+        }
+        return;
+      }
+
+      // Check if we can perform a redirect (prevents rapid redirects)
+      if (!onboardingApi.canPerformRedirect()) {
+        console.log("Redirect throttled, skipping onboarding check");
         return;
       }
 
       try {
         // Check if this address has completed onboarding
         console.log("Checking onboarding status for:", walletAddress);
-        const status = await onboardingApi.checkOnboardingStatus(walletAddress);
+        const status = await onboardingApi.checkOnboardingStatus(
+          walletAddress,
+          "home",
+        );
 
-        if (!status.isCompleted) {
+        if (!status.isCompleted && status.status !== "api_error") {
           console.log("Onboarding not completed, redirecting to onboarding");
-          setLastRedirectTime(now);
-          router.push("/onboarding");
+          onboardingApi.setRedirectInProgress(true);
+          router.replace("/onboarding");
         } else {
-          console.log("Onboarding completed, staying on homepage");
+          console.log(
+            "Onboarding completed or API error (staying on homepage)",
+          );
         }
       } catch (error) {
         console.error("Error checking onboarding status:", error);
-        // On error, assume onboarding is needed
-        setLastRedirectTime(now);
-        router.push("/onboarding");
+        // On error, stay on homepage (don't force redirect)
+        console.log("API error - staying on homepage");
       }
     };
 
     if (!isConnecting) {
       // Add small delay to allow state to settle
-      const timeoutId = setTimeout(checkOnboarding, 100);
+      const timeoutId = setTimeout(checkOnboarding, 150);
       return () => clearTimeout(timeoutId);
     }
-  }, [
-    router,
-    isConnecting,
-    lastRedirectTime,
-    btcWalletAddress,
-    evmAddress,
-    nearAddress,
-  ]);
+  }, [router, isConnecting, btcWalletAddress, evmAddress, nearAddress]);
 
   return (
     <AppContext.Provider

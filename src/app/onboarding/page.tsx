@@ -19,7 +19,6 @@ export default function OnboardingPage() {
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
   const [statusCheckError, setStatusCheckError] = useState<string | null>(null);
   const [isAccessAtlasLoading, setIsAccessAtlasLoading] = useState(false);
-  const [lastRedirectTime, setLastRedirectTime] = useState<number>(0);
 
   // BTC wallet connection
   const {
@@ -68,15 +67,27 @@ export default function OnboardingPage() {
     handleWalletDisconnected,
   } = useOnboarding({ address: walletAddress });
 
+  // Handle browser navigation (back/forward buttons) to reset redirect state
+  useEffect(() => {
+    const handlePopState = () => {
+      console.log(
+        "Browser navigation detected on onboarding, resetting redirect state",
+      );
+      onboardingApi.resetRedirectController();
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
   // Check if user has already completed onboarding when wallet is connected
   useEffect(() => {
     const checkOnboardingStatus = async () => {
       if (!walletAddress) return;
 
-      // Prevent rapid redirects (max 1 redirect every 2 seconds)
-      const now = Date.now();
-      if (now - lastRedirectTime < 2000) {
-        console.log("Preventing rapid redirect from onboarding, waiting...");
+      // Check if we can perform a redirect (prevents rapid redirects)
+      if (!onboardingApi.canPerformRedirect()) {
+        console.log("Redirect throttled, skipping onboarding status check");
         return;
       }
 
@@ -90,16 +101,23 @@ export default function OnboardingPage() {
           "Type:",
           walletType,
         );
-        const status = await onboardingApi.checkOnboardingStatus(walletAddress);
+        const status = await onboardingApi.checkOnboardingStatus(
+          walletAddress,
+          "onboarding",
+        );
         console.log("Onboarding status check result:", status);
 
-        if (status.isCompleted) {
+        if (status.isCompleted && status.status !== "api_error") {
           console.log(
             "User has already completed onboarding, redirecting to homepage",
           );
-          setLastRedirectTime(now);
+          onboardingApi.setRedirectInProgress(true);
           router.replace("/");
           return;
+        } else if (status.status === "api_error") {
+          setStatusCheckError(
+            "Unable to verify onboarding status. Continuing with onboarding flow.",
+          );
         }
       } catch (error) {
         console.error("Failed to check onboarding status:", error);
@@ -113,9 +131,9 @@ export default function OnboardingPage() {
     };
 
     // Add small delay to allow state to settle
-    const timeoutId = setTimeout(checkOnboardingStatus, 100);
+    const timeoutId = setTimeout(checkOnboardingStatus, 150);
     return () => clearTimeout(timeoutId);
-  }, [walletAddress, walletType, router, lastRedirectTime]);
+  }, [walletAddress, walletType, router]);
 
   const handleLogout = async () => {
     console.log("Logout initiated for wallet type:", walletType);
@@ -143,6 +161,9 @@ export default function OnboardingPage() {
     console.log("Calling handleWalletDisconnected...");
     handleWalletDisconnected();
     setStatusCheckError(null); // Clear any status check errors
+
+    // Clear redirect state to prevent stale redirects after logout
+    onboardingApi.clearAllRedirectState();
     console.log("Logout process completed");
   };
 
