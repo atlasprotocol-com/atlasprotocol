@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useState } from "react";
+
 import { OnboardingStep } from "../hooks/useOnboarding";
 
 interface StepIndicatorProps {
@@ -9,12 +11,24 @@ interface StepIndicatorProps {
 export const StepIndicator: React.FC<StepIndicatorProps> = ({
   currentStep,
 }) => {
+  const [mounted, setMounted] = useState(false);
+
+  // Prevent hydration mismatch by only showing dynamic content after mount
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const steps = [
     { number: 1, label: "Connect\nWallet", key: "wallet" },
     { number: 2, label: "Connect\nSocials", key: "socials" },
   ];
 
   const getStepClasses = (stepNumber: number) => {
+    if (!mounted) {
+      // Show neutral state during SSR to match initial client render
+      return "bg-neutral-3 dark:bg-neutral-10 text-neutral-6 dark:text-neutral-4 border-neutral-5 dark:border-neutral-8";
+    }
+
     const isActive = stepNumber === currentStep;
     const isCompleted = stepNumber < currentStep;
 
@@ -28,6 +42,11 @@ export const StepIndicator: React.FC<StepIndicatorProps> = ({
   };
 
   const getConnectorClasses = (stepNumber: number) => {
+    if (!mounted) {
+      // Show neutral state during SSR to match initial client render
+      return "bg-neutral-5 dark:bg-neutral-8";
+    }
+
     const isCompleted = stepNumber < currentStep;
     return isCompleted ? "bg-primary" : "bg-neutral-5 dark:bg-neutral-8";
   };
