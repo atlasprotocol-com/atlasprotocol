@@ -131,7 +131,7 @@ export const StepTwo: React.FC<StepTwoProps> = ({
       title: "Join our Atlas Protocol Discord Community",
       actionText: "Join Discord",
       doneText: "Done",
-      actionUrl: "https://discord.com/invite/atlasprotocol",
+      actionUrl: "https://discord.gg/BeeCRcMMZr",
       required: true,
     },
     {
