@@ -294,6 +294,8 @@ app.get("/api/v1/global-params", async (req, res) => {
           min_staking_amount: globalParams.minStakingAmount,
           atlas_address: btcAtlasDepositAddress,
           deposit_fee_percentage: globalParams.atlasDepositFeePercentage,
+          redemption_fee_percentage: globalParams.atlasRedemptionFeePercentage,
+          bridging_fee_percentage: globalParams.atlasBridgingFeePercentage,
           treasury_address: globalParams.atlasTreasuryAddress,
           evm_address: evmAtlasAddress,
           atbtc_min_redemption_amount: globalParams.atbtcMinRedemptionAmount,

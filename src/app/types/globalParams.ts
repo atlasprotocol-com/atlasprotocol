@@ -6,6 +6,8 @@ export interface GlobalParamsVersion {
   formattedMinStakingAmount: number;
   formattedMaxStakingAmount: number;
   feeDepositPercentage: number;
+  feeRedemptionPercentage: number;
+  feeBridgingPercentage: number;
   treasuryAddress: string;
   evmAtlasAddress: string;
   atbtcMinRedemptionAmount: number;

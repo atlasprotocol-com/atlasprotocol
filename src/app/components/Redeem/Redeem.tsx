@@ -6,7 +6,7 @@ import { Controller, useForm } from "react-hook-form";
 import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
 
-import { ATLAS_BTC_TOKEN, useAppContext } from "@/app/context/app";
+import { useAppContext } from "@/app/context/app";
 import {
   useEstGasAtlasBurn,
   useEVMAbtcBurnRedeem,
@@ -33,7 +33,6 @@ import { ConnectEvmWalletModal } from "../Modals/ConnectEvmWalletModal";
 import { SelectField } from "../SelectField";
 
 import { RedeemPreview } from "./RedeemPreview";
-
 
 const redeemFormSchema = z.object({
   amount: z.coerce.number().positive().nonnegative(),
@@ -89,7 +88,8 @@ export function Redeem({ btcAddress }: RedeemProps) {
 
   const params = useGetGlobalParams();
   const { data: chainConfigs = {} } = useGetChainConfig();
-  const MIN_REDEEM_AMOUNT = (params.data?.atbtcMinRedemptionAmount || 0) / 100000000;
+  const MIN_REDEEM_AMOUNT =
+    (params.data?.atbtcMinRedemptionAmount || 0) / 100000000;
   const filteredChainConfigs = useMemo(() => {
     return Object.values(chainConfigs || {}).filter(
       (chainConfig) =>
@@ -159,6 +159,16 @@ export function Redeem({ btcAddress }: RedeemProps) {
   });
 
   const redemptionFee = gasEstimate?.gasLimit;
+  const protocolFee =
+    params?.data?.feeRedemptionPercentage === 0
+      ? 0
+      : Math.floor(
+          Math.max(
+            Number(process.env.NEXT_PUBLIC_DUST_LIMIT),
+            (params?.data?.feeRedemptionPercentage || 0) *
+              (previewData?.amountSat || 0),
+          ),
+        );
 
   const addressLabel =
     selectedChain?.networkType === "EVM" ? "EVM address" : "Near address";
@@ -189,7 +199,7 @@ export function Redeem({ btcAddress }: RedeemProps) {
       status: RedemptionStatus.ABTC_BURNT,
       remarks: "",
       btcTxnHash: "",
-      protocolFee: redeemFee?.atlasProtocolFee || 0,
+      protocolFee: protocolFee || 0,
       yieldProviderGasFee: 0,
       btcRedemptionFee: 0,
     };
@@ -441,7 +451,7 @@ export function Redeem({ btcAddress }: RedeemProps) {
         redeemChain={selectedChain?.networkName}
         transactionFee={redemptionFee}
         feeRate={gasEstimate?.gasPrice}
-        atlasProtocolFee={redeemFee?.atlasProtocolFee}
+        atlasProtocolFee={protocolFee}
         btcRedemptionFee={redeemFee?.estimatedRedemptionFee}
         onConfirm={onConfirm}
         networkType={selectedChain?.networkType}

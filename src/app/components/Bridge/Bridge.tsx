@@ -76,7 +76,7 @@ export function Bridge() {
         amountSat: number;
         transactionFee?: number;
         bridgingFeeSat?: number;
-        atlasProtocolFee?: number;
+        protocolFee?: number;
         mintingFeeSat?: number;
       })
     | undefined
@@ -258,13 +258,23 @@ export function Bridge() {
 
       if (!fees) throw new Error("Failed to get bridging fees");
 
-      const { estimatedBridgingFee, atlasProtocolFee } = fees;
+      const { estimatedBridgingFee } = fees;
+      const protocolFee =
+        params?.data?.feeBridgingPercentage === 0
+          ? 0
+          : Math.floor(
+              Math.max(
+                Number(process.env.NEXT_PUBLIC_DUST_LIMIT),
+                (params?.data?.feeBridgingPercentage || 0) *
+                  (previewData?.amountSat || 0),
+              ),
+            );
 
       // Update bridging fees
       setReviewData((prev) => ({
         ...prev!,
         bridgingFeeSat: estimatedBridgingFee,
-        atlasProtocolFee,
+        protocolFee,
       }));
 
       // Load minting fee using the hook
@@ -354,7 +364,7 @@ export function Bridge() {
         date_created: Math.floor(Date.now() / 1000),
         verified_count: 0,
         minting_fee_sat: previewData.mintingFeeSat || 0,
-        protocol_fee: previewData.atlasProtocolFee || 0,
+        protocol_fee: previewData.protocolFee || 0,
         bridging_gas_fee_sat: previewData.bridgingFeeSat || 0,
       };
 
@@ -563,7 +573,7 @@ export function Bridge() {
         toAddress={previewData?.address}
         transactionFee={previewData?.transactionFee}
         bridgingFeeSat={previewData?.bridgingFeeSat}
-        atlasProtocolFee={previewData?.atlasProtocolFee}
+        atlasProtocolFee={previewData?.protocolFee}
         mintingFeeSat={previewData?.mintingFeeSat}
         onConfirm={onConfirm}
         networkType={selectedChain?.networkType}
