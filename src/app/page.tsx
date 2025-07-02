@@ -269,7 +269,7 @@ const Home: React.FC<HomeProps> = () => {
                           <TabsTrigger value="stake">Stake</TabsTrigger>
                           <TabsTrigger value="redeem">Redeem</TabsTrigger>
                           <TabsTrigger value="bridging">Bridge</TabsTrigger>
-                          <TabsTrigger value="reward">Reward</TabsTrigger>
+                          <TabsTrigger value="reward">Rewards</TabsTrigger>
                           {/* <TabsTrigger value="points">Points</TabsTrigger> */}
                         </TabsList>
                         <Suspense fallback={<LoadingSection />}>
