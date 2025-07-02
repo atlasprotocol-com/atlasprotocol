@@ -25,9 +25,15 @@ export const StepOne: React.FC<StepOneProps> = ({
   address,
 }) => {
   const [connectModalOpen, setConnectModalOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const { error, isErrorOpen, hideError, retryErrorAction } = useError();
   const { signedAccountId: nearAccountId } = useContext(NearContext);
   const { evmAddress, isEvmWalletConnected } = useEvmWallet();
+
+  // Set mounted state after hydration
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Auto-trigger onWalletConnected if wallet is already connected
   useEffect(() => {
@@ -140,52 +146,8 @@ export const StepOne: React.FC<StepOneProps> = ({
     setConnectModalOpen(true);
   };
 
-  // Show different content based on wallet connection status
-  // Check both BTC address, EVM address, and Near account ID
-  const isConnected =
-    (address && connectDisabled) || nearAccountId || evmAddress;
-  const displayAddress = address || evmAddress || nearAccountId;
-
-  if (isConnected && displayAddress) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] text-center">
-        <div className="mb-8">
-          <h2 className="text-2xl font-bold mb-4">Wallet Connected!</h2>
-          <p className="text-green-600 dark:text-green-400 mb-2">
-            ✓ Successfully connected
-          </p>
-          <p className="text-sm text-neutral-6 dark:text-neutral-4 font-mono">
-            {displayAddress.length > 24
-              ? `${displayAddress.slice(0, 8)}...${displayAddress.slice(-8)}`
-              : displayAddress}
-          </p>
-          <p className="text-xs text-neutral-5 dark:text-neutral-5 mt-1">
-            {nearAccountId
-              ? "Near Wallet"
-              : evmAddress
-                ? "EVM Wallet"
-                : "Bitcoin Wallet"}
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2 text-neutral-6 dark:text-neutral-4">
-          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
-          <span>Proceeding to next step...</span>
-        </div>
-
-        {/* Error Modal */}
-        <ErrorModal
-          open={isErrorOpen}
-          errorMessage={error.message}
-          errorState={error.errorState}
-          errorTime={error.errorTime}
-          onClose={hideError}
-          onRetry={retryErrorAction}
-        />
-      </div>
-    );
-  }
-
+  // Always show the "Welcome to Atlas" state during onboarding
+  // The parent component handles the flow logic
   return (
     <div className="flex flex-col items-center justify-center min-h-[400px] text-center">
       <div className="mb-8">

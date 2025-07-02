@@ -18,6 +18,8 @@ export default function OnboardingPage() {
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
   const [statusCheckError, setStatusCheckError] = useState<string | null>(null);
   const [isAccessAtlasLoading, setIsAccessAtlasLoading] = useState(false);
+  const [hasCheckedInitialStatus, setHasCheckedInitialStatus] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
 
   // BTC wallet connection
   const {
@@ -54,6 +56,7 @@ export default function OnboardingPage() {
         ? "NEAR"
         : null;
 
+  // Only pass address to useOnboarding after we've checked status to prevent auto-advancement
   const {
     currentStep,
     loading,
@@ -64,7 +67,20 @@ export default function OnboardingPage() {
     handleSocialTasksComplete,
     handleCompleteOnboarding,
     handleWalletDisconnected,
-  } = useOnboarding({ address: walletAddress });
+  } = useOnboarding({
+    address: hasCheckedInitialStatus ? walletAddress : undefined,
+  });
+
+  // Initialize mounting state and handle initial wallet detection
+  useEffect(() => {
+    const initializeApp = async () => {
+      // Give a small delay to allow wallet providers to initialize
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      setIsMounted(true);
+    };
+
+    initializeApp();
+  }, []);
 
   // Handle browser navigation (back/forward buttons) to reset redirect state
   useEffect(() => {
@@ -79,14 +95,27 @@ export default function OnboardingPage() {
     return () => window.removeEventListener("popstate", handlePopState);
   }, []);
 
-  // Check if user has already completed onboarding when wallet is connected
+  // Check onboarding status when app is mounted and we have wallet info
   useEffect(() => {
+    if (!isMounted) return;
+
     const checkOnboardingStatus = async () => {
-      if (!walletAddress) return;
+      if (!walletAddress) {
+        // No wallet connected - allow immediate step 1 display
+        setHasCheckedInitialStatus(true);
+        return;
+      }
+
+      // Wallet is connected - check status before proceeding
+      if (hasCheckedInitialStatus) {
+        // Already checked for this wallet connection
+        return;
+      }
 
       // Check if we can perform a redirect (prevents rapid redirects)
       if (!onboardingApi.canPerformRedirect()) {
         console.log("Redirect throttled, skipping onboarding status check");
+        setHasCheckedInitialStatus(true);
         return;
       }
 
@@ -100,10 +129,13 @@ export default function OnboardingPage() {
           "Type:",
           walletType,
         );
-        const status = await onboardingApi.checkOnboardingStatus(
-          walletAddress,
-          "onboarding",
-        );
+
+        // Add minimum loading time for better UX (prevent flashing)
+        const [status] = await Promise.all([
+          onboardingApi.checkOnboardingStatus(walletAddress, "onboarding"),
+          new Promise((resolve) => setTimeout(resolve, 1000)), // Minimum 1 second display
+        ]);
+
         console.log("Onboarding status check result:", status);
 
         if (status.isCompleted && status.status !== "api_error") {
@@ -120,16 +152,27 @@ export default function OnboardingPage() {
         setStatusCheckError(
           "Failed to check onboarding status. Continuing with onboarding flow.",
         );
-        // Continue with onboarding flow on error
+        // Still show minimum loading time even on error
+        await new Promise((resolve) => setTimeout(resolve, 500));
       } finally {
         setIsCheckingStatus(false);
+        setHasCheckedInitialStatus(true);
       }
     };
 
     // Add small delay to allow state to settle
-    const timeoutId = setTimeout(checkOnboardingStatus, 150);
+    const timeoutId = setTimeout(checkOnboardingStatus, 50);
     return () => clearTimeout(timeoutId);
-  }, [walletAddress, walletType, router]);
+  }, [walletAddress, walletType, router, hasCheckedInitialStatus, isMounted]);
+
+  // Reset check status when wallet disconnects
+  useEffect(() => {
+    if (!walletAddress) {
+      setHasCheckedInitialStatus(false);
+      setIsCheckingStatus(false);
+      setStatusCheckError(null);
+    }
+  }, [walletAddress]);
 
   const handleLogout = async () => {
     console.log("Logout initiated for wallet type:", walletType);
@@ -210,16 +253,21 @@ export default function OnboardingPage() {
     }
   };
 
-  // Show loading while checking status
-  if (isCheckingStatus) {
+  // Show loading while app is initializing or checking status
+  // Also show loading if wallet is connected but we haven't checked status yet
+  if (
+    !isMounted ||
+    isCheckingStatus ||
+    (walletAddress && !hasCheckedInitialStatus)
+  ) {
     return (
-      <OnboardingLayout currentStep={currentStep}>
+      <OnboardingLayout currentStep={1}>
         <div className="max-w-md mx-auto text-center">
           <div className="mb-4">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
           </div>
           <p className="text-neutral-6 dark:text-neutral-4">
-            Checking onboarding status...
+            {!isMounted ? "Initializing..." : "Checking onboarding status..."}
           </p>
           {statusCheckError && (
             <p className="text-yellow-500 text-sm mt-2">{statusCheckError}</p>
