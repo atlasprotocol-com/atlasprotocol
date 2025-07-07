@@ -1071,9 +1071,9 @@ app.listen(PORT, async () => {
     );
   }, 10000);
 
-  // setInterval(async () => {
-  //   await UpdateAtlasBtcTimeout(deposits, near);
-  // }, 10000);
+  setInterval(async () => {
+    await UpdateAtlasBtcTimeout(deposits, near);
+  }, 10000);
 
   setInterval(async () => {
     await WithdrawFailDeposits(deposits, near, bitcoin);
