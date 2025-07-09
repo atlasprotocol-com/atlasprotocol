@@ -1098,6 +1098,7 @@ app.post("/api/v1/onboarding/submit-email", async (req, res) => {
       message: result
         ? "Email registered successfully"
         : "Email already registered",
+      ...result,
     });
   } catch (error) {
     console.error("Error submitting email:", error);
@@ -1117,10 +1118,11 @@ app.post("/api/v1/onboarding/update-status", async (req, res) => {
         .json({ error: "Wallet address and status are required" });
     }
 
-    await db.updateOnboardingStatus(walletAddress, status);
+    const r = await db.updateOnboardingStatus(walletAddress, status);
     res.json({
       success: true,
       message: "Onboarding status updated successfully",
+      ...r,
     });
   } catch (error) {
     console.error("Error updating onboarding status:", error);
