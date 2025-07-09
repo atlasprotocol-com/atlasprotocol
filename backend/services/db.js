@@ -73,7 +73,10 @@ class DatabaseService {
     `;
 
     try {
-      const result = await this.pool.query(query, [walletAddress, status]);
+      const result = await this.pool.query(query, [
+        walletAddress.toLowerCase(),
+        status,
+      ]);
       return result.rows[0];
     } catch (error) {
       console.error("Error updating onboarding status:", error);
@@ -90,7 +93,9 @@ class DatabaseService {
     `;
 
     try {
-      const result = await this.pool.query(query, [walletAddress]);
+      const result = await this.pool.query(query, [
+        walletAddress.toLowerCase(),
+      ]);
       return result.rows[0] || null;
     } catch (error) {
       console.error("Error getting onboarding status:", error);
