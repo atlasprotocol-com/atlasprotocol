@@ -1,5 +1,6 @@
-const { Pool } = require("pg");
 require("dotenv").config();
+const { Pool } = require("pg");
+const _ = require("lodash");
 
 class DatabaseService {
   constructor() {
@@ -53,6 +54,27 @@ class DatabaseService {
         )
       `);
 
+      // Create table if not exists
+      await this.pool.query(`
+        CREATE TABLE IF NOT EXISTS ${this.schemaName}.wallet_maps (
+          ref_id TEXT NOT NULL,
+          wallet_address TEXT NOT NULL,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (ref_id, wallet_address)
+        )
+      `);
+
+      // Create index if not exists
+      await this.pool.query(`
+        CREATE INDEX IF NOT EXISTS idx_wallet_address ON ${this.schemaName}.wallet_maps (wallet_address); 
+      `);
+
+      // Create index if not exists
+      await this.pool.query(`
+        CREATE INDEX IF NOT EXISTS idx_ref_id ON ${this.schemaName}.wallet_maps (ref_id); 
+      `);
+
       this.initialized = true;
     } catch (error) {
       console.error("Failed to initialize database:", error);
@@ -101,6 +123,74 @@ class DatabaseService {
       console.error("Error getting onboarding status:", error);
       throw error;
     }
+  }
+
+  async updateLinkWallet(refId, walletAddress) {
+    await this.init();
+    const query = `
+      INSERT INTO ${this.schemaName}.wallet_maps (ref_id, wallet_address, updated_at)
+      VALUES ($1, $2, CURRENT_TIMESTAMP)
+      ON CONFLICT (ref_id, wallet_address) 
+      DO UPDATE SET 
+        updated_at = EXCLUDED.updated_at
+      RETURNING *;
+    `;
+
+    try {
+      const result = await this.pool.query(query, [
+        refId.toLowerCase(),
+        walletAddress.toLowerCase(),
+      ]);
+      return result.rows[0];
+    } catch (error) {
+      console.error("Error updating link wallet:", error);
+      throw error;
+    }
+  }
+
+  async getLinkWalletByWalletAddress(walletAddress) {
+    await this.init();
+    const query = `
+    SELECT * FROM ${this.schemaName}.wallet_maps WHERE ref_id IN (
+      SELECT DISTINCT ref_id FROM ${this.schemaName}.wallet_maps WHERE wallet_address = $1
+    )
+    `;
+
+    try {
+      const result = await this.pool.query(query, [
+        walletAddress.toLowerCase(),
+      ]);
+      return result.rows;
+    } catch (error) {
+      console.error("Error getting onboarding status:", error);
+      throw error;
+    }
+  }
+
+  async getLinkWalletByRefId(refId) {
+    await this.init();
+    const query = `
+    SELECT * FROM ${this.schemaName}.wallet_maps WHERE wallet_address IN (
+      SELECT DISTINCT wallet_address FROM ${this.schemaName}.wallet_maps WHERE ref_id = $1
+    )
+    `;
+
+    try {
+      const result = await this.pool.query(query, [refId.toLowerCase()]);
+      return result.rows;
+    } catch (error) {
+      console.error("Error getting onboarding status:", error);
+      throw error;
+    }
+  }
+
+  async getLinkWallets(q) {
+    await this.init();
+    const recordsByWalletAddress = await this.getLinkWalletByWalletAddress(q);
+    const recordsByRefId = await this.getLinkWalletByRefId(q);
+
+    const records = [...recordsByWalletAddress, ...recordsByRefId];
+    return _.uniq(records.map((r) => r.wallet_address));
   }
 }
 
