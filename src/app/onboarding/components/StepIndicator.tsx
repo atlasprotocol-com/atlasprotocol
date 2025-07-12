@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-import { OnboardingStep } from "../hooks/useOnboarding";
+import { OnboardingStep } from "../context/OnboardingContext";
 
 interface StepIndicatorProps {
   currentStep: OnboardingStep;
