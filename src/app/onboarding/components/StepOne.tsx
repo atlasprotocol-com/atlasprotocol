@@ -1,18 +1,16 @@
 "use client";
 
-import { useContext, useEffect, useState } from "react";
+import { useState } from "react";
 import { PiWalletBold } from "react-icons/pi";
 
 import { Button } from "@/app/components/Button";
 import { ConnectModal } from "@/app/components/Modals/ConnectModal";
 import { ErrorModal } from "@/app/components/Modals/ErrorModal";
 import { useError } from "@/app/context/Error/ErrorContext";
-import { useEvmWallet } from "@/utils/evm_wallet/wallet_provider";
-import { NearContext } from "@/utils/near";
 import { WalletProvider } from "@/utils/wallet/wallet_provider";
 
 interface StepOneProps {
-  onConnect: (walletProvider: WalletProvider) => void;
+  onConnect: (walletProvider: WalletProvider) => Promise<void>;
   onWalletConnected: () => void;
   connectDisabled: boolean;
   address?: string;
@@ -25,121 +23,18 @@ export const StepOne: React.FC<StepOneProps> = ({
   address,
 }) => {
   const [connectModalOpen, setConnectModalOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
   const { error, isErrorOpen, hideError, retryErrorAction } = useError();
-  const { signedAccountId: nearAccountId } = useContext(NearContext);
-  const { evmAddress, isEvmWalletConnected } = useEvmWallet();
 
-  // Set mounted state after hydration
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
-  // Auto-trigger onWalletConnected if wallet is already connected
-  useEffect(() => {
-    if (address && connectDisabled) {
-      // Small delay to allow the auto-advance useEffect to trigger
-      const timer = setTimeout(() => {
-        onWalletConnected();
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-  }, [address, connectDisabled, onWalletConnected]);
-
-  // Handle EVM wallet connections
-  useEffect(() => {
-    if (evmAddress && !address && !nearAccountId) {
-      // Create an EVM wallet wrapper when EVM wallet connects
-      const evmWalletWrapper = {
-        id: "evm-wallet",
-        name: "EVM Wallet",
-        connectWallet: async () => evmWalletWrapper,
-        getWalletProviderName: async () => "EVM Wallet",
-        getAddress: async () => evmAddress,
-        getPublicKeyHex: async () => "",
-        signPsbt: async () => {
-          throw new Error("PSBT signing not supported for EVM wallets");
-        },
-        signPsbts: async () => {
-          throw new Error("PSBT signing not supported for EVM wallets");
-        },
-        getNetwork: async () => {
-          throw new Error("Network not applicable for EVM wallets");
-        },
-        signMessageBIP322: async () => {
-          throw new Error("BIP322 not supported for EVM wallets");
-        },
-        on: () => {},
-        getBalance: async () => 0,
-        getNetworkFees: async () => ({
-          fastestFee: 0,
-          halfHourFee: 0,
-          hourFee: 0,
-          economyFee: 0,
-          minimumFee: 0,
-        }),
-        pushTx: async () => {
-          throw new Error("BTC transaction not supported for EVM wallets");
-        },
-        getUtxos: async () => [],
-        getBTCTipHeight: async () => 0,
-      } as WalletProvider;
-
-      // Call onConnect when EVM wallet is actually connected
-      onConnect(evmWalletWrapper);
+  const handleConnect = async (walletProvider: WalletProvider) => {
+    try {
+      await onConnect(walletProvider);
+      setConnectModalOpen(false);
       onWalletConnected();
+    } catch (error) {
+      console.error("Failed to connect wallet:", error);
+      // Error will be handled by the context
     }
-  }, [evmAddress, address, nearAccountId, onConnect, onWalletConnected]);
-
-  // Handle Near wallet connections
-  useEffect(() => {
-    if (nearAccountId && !address) {
-      // Create a Near wallet wrapper when Near wallet connects
-      const nearWalletWrapper = {
-        id: "near-wallet",
-        name: "Near Wallet",
-        connectWallet: async () => nearWalletWrapper,
-        getWalletProviderName: async () => "Near Wallet",
-        getAddress: async () => nearAccountId,
-        getPublicKeyHex: async () => "",
-        signPsbt: async () => {
-          throw new Error("PSBT signing not supported for Near wallets");
-        },
-        signPsbts: async () => {
-          throw new Error("PSBT signing not supported for Near wallets");
-        },
-        getNetwork: async () => {
-          throw new Error("Network not applicable for Near wallets");
-        },
-        signMessageBIP322: async () => {
-          throw new Error("BIP322 not supported for Near wallets");
-        },
-        on: () => {},
-        getBalance: async () => 0,
-        getNetworkFees: async () => ({
-          fastestFee: 0,
-          halfHourFee: 0,
-          hourFee: 0,
-          economyFee: 0,
-          minimumFee: 0,
-        }),
-        pushTx: async () => {
-          throw new Error("BTC transaction not supported for Near wallets");
-        },
-        getUtxos: async () => [],
-        getBTCTipHeight: async () => 0,
-      } as WalletProvider;
-
-      // Call onConnect when Near wallet is actually connected
-      onConnect(nearWalletWrapper);
-      onWalletConnected();
-    }
-  }, [nearAccountId, address, onConnect, onWalletConnected]);
-
-  const handleConnect = (walletProvider: WalletProvider) => {
-    onConnect(walletProvider);
-    setConnectModalOpen(false);
-    onWalletConnected();
   };
 
   const handleConnectModal = () => {
@@ -172,7 +67,7 @@ export const StepOne: React.FC<StepOneProps> = ({
 
       <ConnectModal
         open={connectModalOpen}
-        onClose={setConnectModalOpen}
+        onClose={() => setConnectModalOpen(false)}
         onConnect={handleConnect}
         connectDisabled={connectDisabled}
         showAll={true}

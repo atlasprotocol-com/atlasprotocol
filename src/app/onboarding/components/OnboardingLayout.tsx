@@ -6,7 +6,7 @@ import { Logo } from "@/app/components/Header/Logo";
 import { network } from "@/config/network.config";
 import { Network } from "@/utils/wallet/wallet_provider";
 
-import { OnboardingStep } from "../hooks/useOnboarding";
+import { OnboardingStep } from "../context/OnboardingContext";
 
 import { StepIndicator } from "./StepIndicator";
 
