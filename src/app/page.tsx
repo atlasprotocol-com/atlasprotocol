@@ -6,6 +6,7 @@ import { ToastContainer } from "react-toastify";
 import Wallet from "sats-connect";
 
 import { onboardingApi } from "@/app/onboarding/services/onboardingApi";
+import { uuidService } from "@/app/onboarding/services/uuidService";
 import { network } from "@/config/network.config";
 import { useBreakpoint } from "@/hooks/useBreakpoint";
 import { useConnectBTCWallet } from "@/hooks/useConnectBTCWallet";
@@ -107,6 +108,18 @@ const Home: React.FC<HomeProps> = () => {
   const btcWalletAddress =
     btcAddress ||
     (typeof window !== "undefined" && (window as any).unisat?.address);
+    
+  // Debug wallet connection state
+  useEffect(() => {
+    console.log(`🔍 [Homepage] Wallet state debug:`, {
+      btcAddress,
+      unisatAddress: typeof window !== "undefined" ? (window as any).unisat?.address : null,
+      btcWalletAddress,
+      evmAddress,
+      nearAddress,
+      isConnecting
+    });
+  }, [btcAddress, btcWalletAddress, evmAddress, nearAddress, isConnecting]);
 
   const { error, isErrorOpen, showError, hideError, retryErrorAction } =
     useError();
@@ -168,18 +181,93 @@ const Home: React.FC<HomeProps> = () => {
     return () => window.removeEventListener("popstate", handlePopState);
   }, []);
 
-  // Check onboarding status when any wallet address changes
+  // Track wallet initialization state
+  const [hasInitializedWalletCheck, setHasInitializedWalletCheck] = useState(false);
+  const [isFromOnboardingRedirect, setIsFromOnboardingRedirect] = useState(false);
+
+  // Check if we're coming from onboarding redirect
   useEffect(() => {
-    if (isConnecting) {
+    // Check if there was a recent redirect from onboarding
+    const redirectInProgress = typeof window !== 'undefined' && 
+      sessionStorage.getItem('onboarding_redirect_timestamp');
+    
+    if (redirectInProgress) {
+      const timestamp = parseInt(redirectInProgress, 10);
+      const timeSinceRedirect = Date.now() - timestamp;
+      
+      // If redirect was within last 2 seconds, we're likely coming from onboarding
+      if (timeSinceRedirect < 2000) {
+        console.log('🚀 [Homepage] Detected recent onboarding redirect, allowing extra wallet detection time');
+        setIsFromOnboardingRedirect(true);
+        // Clear the flag after use
+        sessionStorage.removeItem('onboarding_redirect_timestamp');
+      }
+    }
+  }, []);
+
+  // Allow wallet providers to initialize before checking onboarding
+  useEffect(() => {
+    const initDelay = isFromOnboardingRedirect ? 1000 : 500; // More time if from redirect
+    
+    const timer = setTimeout(() => {
+      setHasInitializedWalletCheck(true);
+    }, initDelay);
+    
+    return () => clearTimeout(timer);
+  }, [isFromOnboardingRedirect]);
+
+  // Check onboarding status when any wallet address changes (UUID-aware)
+  useEffect(() => {
+    // Don't check until wallet providers have had time to initialize
+    if (isConnecting || !hasInitializedWalletCheck) {
       return;
     }
 
     const checkOnboarding = async () => {
-      const walletAddress = btcWalletAddress || evmAddress || nearAddress;
+      // Get wallet address with same priority as onboarding: BTC → NEAR → EVM
+      const walletAddress = btcWalletAddress || nearAddress || evmAddress;
 
-      // If no wallet is connected, redirect to onboarding
+      console.log(`🔍 [Homepage] Wallet detection - BTC: ${!!btcWalletAddress}, NEAR: ${!!nearAddress}, EVM: ${!!evmAddress}`);
+      console.log(`🔍 [Homepage] Selected wallet: ${walletAddress || 'none'}`);
+
+      // If no wallet is connected, check UUID first before redirecting
       if (!walletAddress) {
-        console.log("No wallet connected, redirecting to onboarding");
+        try {
+          // Check if UUID has completed onboarding (handles redirect from onboarding page)
+          const uuid = uuidService.getCurrentUUID();
+          if (uuid) {
+            console.log(`🔗 [Homepage] No wallet detected, checking UUID: ${uuid}`);
+            const hasCompletedOnboarding = await uuidService.hasCompletedOnboarding(uuid);
+            
+            if (hasCompletedOnboarding) {
+              console.log(`✅ [Homepage] UUID has completed onboarding, staying on homepage (wallet will connect soon)`);
+              
+              // Try to detect and reconnect BTC wallet if it exists but isn't connected
+              if (typeof window !== "undefined" && (window as any).unisat?.address) {
+                console.log(`🔗 [Homepage] Detected Unisat wallet, attempting to reconnect...`);
+                
+                // Check if we have the wallet name in localStorage, if not set it
+                const connectedWallet = localStorage.getItem("ATLAS_CONNECTED_WALLET");
+                if (!connectedWallet) {
+                  localStorage.setItem("ATLAS_CONNECTED_WALLET", "Unisat");
+                  console.log(`🔗 [Homepage] Set ATLAS_CONNECTED_WALLET for existing Unisat connection`);
+                  
+                  // Force a page refresh to let useConnectBTCWallet pick up the localStorage
+                  setTimeout(() => {
+                    window.location.reload();
+                  }, 100);
+                  return;
+                }
+              }
+              
+              return; // Stay on homepage, wallet detection will trigger soon
+            }
+          }
+        } catch (uuidError) {
+          console.warn("⚠️ [Homepage] Failed to check UUID:", uuidError);
+        }
+
+        console.log("👤 [Homepage] No wallet connected and no completed UUID, redirecting to onboarding");
         if (onboardingApi.canPerformRedirect()) {
           onboardingApi.setRedirectInProgress(true);
           router.replace("/onboarding");
@@ -189,40 +277,63 @@ const Home: React.FC<HomeProps> = () => {
 
       // Check if we can perform a redirect (prevents rapid redirects)
       if (!onboardingApi.canPerformRedirect()) {
-        console.log("Redirect throttled, skipping onboarding check");
+        console.log("⚠️ [Homepage] Redirect throttled, skipping onboarding check");
         return;
       }
 
       try {
-        // Check if this address has completed onboarding
-        console.log("Checking onboarding status for:", walletAddress);
+        console.log(`🔍 [Homepage] Checking onboarding status for: ${walletAddress}`);
+        
+        // Check current wallet's onboarding status
         const status = await onboardingApi.checkOnboardingStatus(
           walletAddress,
           "home",
         );
+        
+        console.log(`📊 [Homepage] Onboarding status:`, status);
 
-        if (!status.isCompleted && status.status !== "api_error") {
-          console.log("Onboarding not completed, redirecting to onboarding");
+        // If current wallet has completed onboarding, allow access
+        if (status.isCompleted && status.status !== "api_error") {
+          console.log(`✅ [Homepage] Current wallet completed onboarding, staying on homepage`);
+          return;
+        }
+
+        // Check UUID-linked wallets for completed onboarding
+        try {
+          const uuid = uuidService.getCurrentUUID();
+          if (uuid) {
+            console.log(`🔗 [Homepage] Checking linked wallets for UUID: ${uuid}`);
+            const hasCompletedOnboarding = await uuidService.hasCompletedOnboarding(uuid);
+            
+            if (hasCompletedOnboarding) {
+              console.log(`✅ [Homepage] Linked wallet has completed onboarding, staying on homepage`);
+              return;
+            }
+          }
+        } catch (uuidError) {
+          console.warn("⚠️ [Homepage] Failed to check UUID linked wallets:", uuidError);
+          // Continue with fallback logic
+        }
+
+        // If no completed onboarding found and no API error, redirect to onboarding
+        if (status.status !== "api_error") {
+          console.log("❌ [Homepage] No completed onboarding found, redirecting to onboarding");
           onboardingApi.setRedirectInProgress(true);
           router.replace("/onboarding");
         } else {
-          console.log(
-            "Onboarding completed or API error (staying on homepage)",
-          );
+          console.log("⚠️ [Homepage] API error - staying on homepage as fallback");
         }
       } catch (error) {
-        console.error("Error checking onboarding status:", error);
+        console.error("❌ [Homepage] Error checking onboarding status:", error);
         // On error, stay on homepage (don't force redirect)
-        console.log("API error - staying on homepage");
+        console.log("⚠️ [Homepage] API error - staying on homepage");
       }
     };
 
-    if (!isConnecting) {
-      // Add small delay to allow state to settle
-      const timeoutId = setTimeout(checkOnboarding, 150);
-      return () => clearTimeout(timeoutId);
-    }
-  }, [router, isConnecting, btcWalletAddress, evmAddress, nearAddress]);
+    // Add delay to allow wallet state to settle after initialization
+    const timeoutId = setTimeout(checkOnboarding, 200);
+    return () => clearTimeout(timeoutId);
+  }, [router, isConnecting, btcWalletAddress, evmAddress, nearAddress, hasInitializedWalletCheck]);
 
   return (
     <AppContext.Provider
