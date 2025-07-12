@@ -145,6 +145,18 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({ children
       const currentWallet = getCurrentWalletInfo();
       
       if (currentWallet) {
+        // If it's a BTC wallet, ensure localStorage is set for homepage detection
+        if (currentWallet.type === "BTC" && typeof window !== "undefined") {
+          const existingWallet = localStorage.getItem("ATLAS_CONNECTED_WALLET");
+          if (!existingWallet) {
+            // Detect which BTC wallet is connected and set localStorage
+            if ((window as any).unisat?.address) {
+              localStorage.setItem("ATLAS_CONNECTED_WALLET", "Unisat");
+              console.log(`🔗 Detected existing Unisat connection, set ATLAS_CONNECTED_WALLET`);
+            }
+          }
+        }
+        
         // Set connected wallet state, but keep on step 1 until status check completes
         setState(prev => ({
           ...prev,
@@ -254,6 +266,11 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({ children
         if (status.isCompleted && status.status !== "api_error") {
           console.log(`✅ Wallet ${state.connectedWallet} has completed onboarding, redirecting to home`);
           
+          // Set flag for homepage to detect onboarding redirect
+          if (typeof window !== 'undefined') {
+            sessionStorage.setItem('onboarding_redirect_timestamp', Date.now().toString());
+          }
+          
           // Always try to redirect when onboarding is complete
           onboardingApi.setRedirectInProgress(true);
           router.replace("/");
@@ -284,6 +301,12 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({ children
         
         if (anyLinkedWalletCompleted) {
           console.log(`✅ Another linked wallet has completed onboarding, redirecting to home`);
+          
+          // Set flag for homepage to detect onboarding redirect
+          if (typeof window !== 'undefined') {
+            sessionStorage.setItem('onboarding_redirect_timestamp', Date.now().toString());
+          }
+          
           onboardingApi.setRedirectInProgress(true);
           router.replace("/");
           return; // Exit early, don't proceed with onboarding
@@ -333,6 +356,12 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({ children
       } else {
         // BTC wallets
         await handleConnectBTC(walletProvider);
+        
+        // IMPORTANT: Set localStorage key for homepage useConnectBTCWallet to detect
+        if (walletProvider.name) {
+          localStorage.setItem("ATLAS_CONNECTED_WALLET", walletProvider.name);
+          console.log(`🔗 Set ATLAS_CONNECTED_WALLET to: ${walletProvider.name}`);
+        }
       }
     } catch (error) {
       console.error("Failed to connect wallet:", error);
