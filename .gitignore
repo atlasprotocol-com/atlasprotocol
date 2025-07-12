@@ -268,3 +268,5 @@ package-lock.json
 ecosystem.config.js
 
 .cursor
+.claude
+CLAUDE.local.md
