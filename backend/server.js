@@ -294,6 +294,8 @@ app.get("/api/v1/global-params", async (req, res) => {
           min_staking_amount: globalParams.minStakingAmount,
           atlas_address: btcAtlasDepositAddress,
           deposit_fee_percentage: globalParams.atlasDepositFeePercentage,
+          redemption_fee_percentage: globalParams.atlasRedemptionFeePercentage,
+          bridging_fee_percentage: globalParams.atlasBridgingFeePercentage,
           treasury_address: globalParams.atlasTreasuryAddress,
           evm_address: evmAtlasAddress,
           atbtc_min_redemption_amount: globalParams.atbtcMinRedemptionAmount,
@@ -886,7 +888,17 @@ app.post("/api/v1/check-minted-txn", async (req, res) => {
   }
 });
 
-app.use("/api/v1/deposits", useDepositAPIs(near, bitcoin));
+app.use(
+  "/api/v1/deposits",
+  useDepositAPIs(near, (updatedDeposit) => {
+    const index = deposits.findIndex(
+      (deposit) => deposit.btc_txn_hash === updatedDeposit.btc_txn_hash,
+    );
+    if (index < 0) return;
+
+    deposits[index] = updatedDeposit;
+  }),
+);
 
 app.use((err, req, res, next) => {
   console.error(err.stack);
@@ -906,6 +918,7 @@ app.listen(PORT, async () => {
   console.log(
     `Server is running on port ${PORT} | ${process.env.NEAR_CONTRACT_ID}`,
   );
+  return;
 
   setInterval(async () => {
     if (!flagsBatch.RetrieveAndProcessPastEventsRunning) {
@@ -1086,6 +1099,7 @@ app.post("/api/v1/onboarding/submit-email", async (req, res) => {
       message: result
         ? "Email registered successfully"
         : "Email already registered",
+      ...result,
     });
   } catch (error) {
     console.error("Error submitting email:", error);
@@ -1105,10 +1119,11 @@ app.post("/api/v1/onboarding/update-status", async (req, res) => {
         .json({ error: "Wallet address and status are required" });
     }
 
-    await db.updateOnboardingStatus(walletAddress, status);
+    const r = await db.updateOnboardingStatus(walletAddress, status);
     res.json({
       success: true,
       message: "Onboarding status updated successfully",
+      ...r,
     });
   } catch (error) {
     console.error("Error updating onboarding status:", error);
@@ -1137,6 +1152,46 @@ app.get("/api/v1/onboarding/status", async (req, res) => {
     console.error("Error getting onboarding status:", error);
     res.status(500).json({
       error: "Failed to get onboarding status",
+      details: error.message,
+    });
+  }
+});
+
+app.post("/api/v1/wallet/maps/:refId", async (req, res) => {
+  try {
+    const refId = req.params.refId;
+    const { walletAddress } = req.body;
+
+    if (!walletAddress || !refId) {
+      return res
+        .status(400)
+        .json({ error: "Wallet address and refId are required" });
+    }
+
+    const r = await db.updateLinkWallet(refId, walletAddress);
+    res.json({
+      success: true,
+      message: "Link wallet updated successfully",
+      ...r,
+    });
+  } catch (error) {
+    console.error("Error updating link wallet:", error);
+    res.status(500).json({
+      error: "Failed to update link wallet",
+      details: error.message,
+    });
+  }
+});
+
+app.get("/api/v1/wallet/maps", async (req, res) => {
+  try {
+    const q = req.query.q;
+    const wallets = await db.getLinkWallets(q);
+    res.json({ wallets });
+  } catch (error) {
+    console.error("Error getting link wallets:", error);
+    res.status(500).json({
+      error: "Failed to get link wallets",
       details: error.message,
     });
   }

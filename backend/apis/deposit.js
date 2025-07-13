@@ -2,7 +2,7 @@ const { Router } = require("express");
 const verifySignature = require("../utils/verifySignature");
 const { getConstants } = require("../constants");
 
-module.exports = (near, bitcoin) => {
+module.exports = (near, updateDeposits) => {
   const router = Router();
 
   router.post("/retry", async (req, res, next) => {
@@ -47,7 +47,9 @@ module.exports = (near, bitcoin) => {
       await near.rollbackDepositStatusByBtcTxnHash({
         btc_txn_hash: data.btcTxnHash,
       });
+
       const updated = await near.getDepositByBtcTxnHash(data.btcTxnHash);
+      updateDeposits(updated);
       return res.status(200).json(updated);
     } catch (error) {
       next(error);

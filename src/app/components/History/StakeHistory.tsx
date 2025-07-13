@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { BsExclamationDiamondFill, BsInfoCircleFill } from "react-icons/bs";
 import InfiniteScroll from "react-infinite-scroll-component";
 import { useLocalStorage } from "usehooks-ts";
@@ -54,6 +54,10 @@ const getStatusTooltipContent = (status: any) => {
       return `Your ${ATLAS_BTC_TOKEN} is being minted on the destination chain.`;
     case DepositStatus.BTC_MINTED_INTO_ABTC:
       return `Your ${ATLAS_BTC_TOKEN} can now be found in your destination wallet.`;
+    case DepositStatus.BTC_REFUNDING:
+      return `Your ${ATLAS_BTC_TOKEN} is refunding.`;
+    case DepositStatus.BTC_REFUNDED:
+      return `Your ${ATLAS_BTC_TOKEN} has refunded.`;
     default:
       return "";
   }
@@ -70,6 +74,7 @@ export function StakeHistory() {
     fetchNextPage: fetchNextStakingHistoriesPage,
     hasNextPage: hasNextStakingHistoriesPage,
     isFetchingNextPage: isFetchingNextStakingHistoriesPage,
+    refetch: refetchStakingHistory,
   } = useGetStakingHistory({
     address: btcAddress,
     publicKeyNoCoord: btcPublicKeyNoCoord,
@@ -154,7 +159,17 @@ export function StakeHistory() {
 
   const [retryDialogOpen, setRetryDialogOpen] = useState<Stakes | undefined>();
 
-  const retryTransaction = useRetryTransaction();
+  const retryTransaction = useRetryTransaction(async () => {
+    await refetchStakingHistory();
+    setRetryDialogOpen(undefined);
+  });
+
+  const handleRetry = useCallback(
+    (stakingHistory: Stakes) => {
+      retryTransaction.mutate(stakingHistory);
+    },
+    [retryTransaction],
+  );
 
   return (
     <Card>
@@ -163,7 +178,7 @@ export function StakeHistory() {
         onClose={() => setRetryDialogOpen(undefined)}
         onRetry={() => {
           if (!retryDialogOpen) return;
-          retryTransaction.mutate(retryDialogOpen);
+          handleRetry(retryDialogOpen);
         }}
         isPending={retryTransaction.isPending}
       />
