@@ -10,4 +10,3 @@ pub mod signer;
 pub mod structs;
 pub mod utils;
 pub mod validation;
-pub mod migrate_23062025;
