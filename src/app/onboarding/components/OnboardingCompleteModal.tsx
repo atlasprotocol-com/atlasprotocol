@@ -86,7 +86,7 @@ export const OnboardingCompleteModal: React.FC<
               <div>
                 <p className="font-medium">Claim testnet BTC</p>
                 <a
-                  href="https://coinfaucet.eu/en/btc-testnet/"
+                  href="https://mempool.space/testnet4/faucet"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-primary hover:text-primary/80 text-xs underline mt-1 inline-block"
