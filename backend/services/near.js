@@ -1278,11 +1278,6 @@ class Near {
 
     console.log(`[NEAR] Using NEAR Data Server: ${baseUrl}`);
 
-    // Extend scan range to capture receipt outcomes that appear in future blocks
-    // NEAR transactions can have receipt outcomes that span 3-5 blocks after the transaction
-    const originalEndBlock = endBlock;
-    const extendedEndBlock = endBlock + 5;
-
     while (startBlock <= endBlock) {
       try {
         await new Promise(resolve => setTimeout(resolve, 1000));

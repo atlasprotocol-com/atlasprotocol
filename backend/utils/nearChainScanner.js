@@ -25,7 +25,7 @@ async function nearChainScanner(
   const { NETWORK_TYPE } = getConstants();
   const chainConfig = getAllChainConfig();
 
-  const batchSize = 100;
+  const batchSize = 80;
 
   try {
     const chain = Object.values(chainConfig).find(
