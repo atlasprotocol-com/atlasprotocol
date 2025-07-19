@@ -25,7 +25,7 @@ async function nearChainScanner(
   const { NETWORK_TYPE } = getConstants();
   const chainConfig = getAllChainConfig();
 
-  const batchSize = 50;
+  const batchSize = 100;
 
   try {
     const chain = Object.values(chainConfig).find(
@@ -40,13 +40,19 @@ async function nearChainScanner(
       `${batchName} Chain ID: ${chain.chainID}, aBTC: ${chain.aBTCAddress}, RPC URL: ${chain.chainRpcUrl}`,
     );
 
-    const endBlock = await near.getCurrentBlockNumber();
+    const endBlock = await near.getLatestBlockHeightFromDataServer();
     
     const startBlock = await getBlockCursor(
       "NearChainScanner",
       chain.chainID + "_NearChainScanner",
       endBlock,
     );
+
+
+    // const startBlock = 203822201;
+    // const endBlock = 203822201;
+
+    console.log(startBlock, endBlock);
     const toBlock = Math.min(startBlock + batchSize, endBlock);
     
     // Diagnostic logging for block range
