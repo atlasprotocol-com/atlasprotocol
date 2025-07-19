@@ -11,24 +11,63 @@ const abi = JSON.parse(
 );
 const iface = new ethers.Interface(abi);
 
-const log = (data) => {
-  try {
-    const { amount } = JSON.parse(data);
-    return { amount: amount.toString() };
-  } catch {
+const MULTIPLIER_MAP = {
+  "0x5448dd0f4c23b4bed107869be9c14ffd7f38c6c3ded0eced40ef6ff7b8f3fc05": 1,
+  "0xb8bdadb84da719b84d72f39a7dabc240534c4575a5ed3fe75269c19caa11aaed": -1,
+  mint_deposit: 1,
+  burn_redemption: -1,
+};
+
+const multiply = (topics) => {
+  const parts = topics
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  for (const part of parts) {
+    if (MULTIPLIER_MAP[part]) {
+      return MULTIPLIER_MAP[part];
+    }
+  }
+
+  return 0;
+};
+
+const log = (topics, data) => {
+  if (
+    topics.includes(
+      "0x5448dd0f4c23b4bed107869be9c14ffd7f38c6c3ded0eced40ef6ff7b8f3fc05",
+    )
+  ) {
     const decoded = iface.decodeEventLog("MintDeposit", data);
     return {
       amount: decoded.amount.toString(),
     };
   }
+  if (
+    topics.includes(
+      "0xb8bdadb84da719b84d72f39a7dabc240534c4575a5ed3fe75269c19caa11aaed",
+    )
+  ) {
+    const decoded = iface.decodeEventLog("BurnRedeem", data);
+    return {
+      amount: decoded.amount.toString(),
+    };
+  }
+
+  if (topics.includes("mint_deposit") || topics.includes("burn_redemption")) {
+    const { amount } = JSON.parse(data);
+    return { amount: amount.toString() };
+  }
+
+  return { amount: "0" };
 };
 
-// const chainIds = (conf) =>
-//   Object.values(conf)
-//     .filter((x) => ["near", "evm"].includes(x.networkType.toLowerCase()))
-//     .map((x) => x.chainId);
-
-const chainIds = (conf) => ["11155111", "NEAR_TESTNET", "11155420"];
+const chainIds = (conf) =>
+  Object.values(conf)
+    .filter((x) => ["near", "evm"].includes(x.networkType.toLowerCase()))
+    .map((x) => x.chainID)
+    .filter(Boolean);
 
 const bucketFromRange = (start, end) => {
   const from = start ? bucket2date(start) : subHours(new Date(), 25);
@@ -70,4 +109,11 @@ const ts2bucket = (ts) => {
   return format(new Date(ts), "yyyyMMddHH0000");
 };
 
-module.exports = { log, chainIds, bucket2date, bucketFromRange, ts2bucket };
+module.exports = {
+  log,
+  chainIds,
+  bucket2date,
+  bucketFromRange,
+  ts2bucket,
+  multiply,
+};

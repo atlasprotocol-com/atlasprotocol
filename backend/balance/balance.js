@@ -102,7 +102,7 @@ async function calculate(bucket) {
     const { chain_id, wallet_address, data, topics } = event;
 
     // Parse the balance from the "data" column (assuming it's hex-encoded)
-    const { amount } = parser.log(data);
+    const { amount } = parser.log(topics, data);
 
     const key = `${wallet_address}-${chain_id}`;
     if (!balances[key]) {
@@ -115,7 +115,7 @@ async function calculate(bucket) {
     }
     balances[key].balance = balances[key].balance.plus(amount);
 
-    const mul = getMultiplier(topics);
+    const mul = parser.multiply(topics);
     histories.push({
       transaction_hash: event.transaction_hash,
       wallet_address,
@@ -182,21 +182,6 @@ async function inserHistory(histories) {
                ON CONFLICT (transaction_hash) DO NOTHING;`;
 
   await client.query(sql, values.flat());
-}
-
-function getMultiplier(topics) {
-  const parts = topics
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-
-  for (const part of parts) {
-    if (MULTIPLIER_MAP[part]) {
-      return MULTIPLIER_MAP[part];
-    }
-  }
-
-  return 0;
 }
 
 module.exports = main;
