@@ -14,8 +14,12 @@ const iface = new ethers.Interface(abi);
 const MULTIPLIER_MAP = {
   "0x5448dd0f4c23b4bed107869be9c14ffd7f38c6c3ded0eced40ef6ff7b8f3fc05": 1,
   "0xb8bdadb84da719b84d72f39a7dabc240534c4575a5ed3fe75269c19caa11aaed": -1,
+  "0x0e41a555d3c09325f1748b91e03e382e89153d916d4d6789a41524e2746fd91d": 1,
+  "0x32dd79c076d214468c853220a3c326a3ba8b2d26491388e9f124955f05dee517": -1,
   mint_deposit: 1,
   burn_redemption: -1,
+  mint_bridge: 1,
+  burn_bridge: -1,
 };
 
 const multiply = (topics) => {
@@ -44,6 +48,7 @@ const log = (topics, data) => {
       amount: decoded.amount.toString(),
     };
   }
+
   if (
     topics.includes(
       "0xb8bdadb84da719b84d72f39a7dabc240534c4575a5ed3fe75269c19caa11aaed",
@@ -55,7 +60,34 @@ const log = (topics, data) => {
     };
   }
 
-  if (topics.includes("mint_deposit") || topics.includes("burn_redemption")) {
+  if (
+    topics.includes(
+      "0x0e41a555d3c09325f1748b91e03e382e89153d916d4d6789a41524e2746fd91d",
+    )
+  ) {
+    const decoded = iface.decodeEventLog("MintBridge", data);
+    return {
+      amount: decoded.amount.toString(),
+    };
+  }
+
+  if (
+    topics.includes(
+      "0x32dd79c076d214468c853220a3c326a3ba8b2d26491388e9f124955f05dee517",
+    )
+  ) {
+    const decoded = iface.decodeEventLog("BurnBridge", data);
+    return {
+      amount: decoded.amount.toString(),
+    };
+  }
+
+  if (
+    topics.includes("mint_deposit") ||
+    topics.includes("burn_redemption") ||
+    topics.includes("mint_bridge") ||
+    topics.includes("burn_bridge")
+  ) {
     const { amount } = JSON.parse(data);
     return { amount: amount.toString() };
   }
