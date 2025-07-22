@@ -10,7 +10,7 @@ const pointsql = `CREATE TABLE IF NOT EXISTS ${client.schema}.point (
   wallet_address TEXT NOT NULL,
   start_ts BIGINT NOT NULL,
   end_ts BIGINT NOT NULL,
-  points DECIMAL(20,2) NOT NULL DEFAULT 0,
+  points DECIMAL(20,12) NOT NULL DEFAULT 0,
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
   PRIMARY KEY (bucket, wallet_address)
 );`;
