@@ -90,6 +90,12 @@ async function calculate(bucket) {
   );
 
   if (events.length === 0) {
+    await client.query(
+      `UPDATE atlas_uat.balance_bucket
+     SET tx_count = $1, status = 2
+     WHERE bucket = $2 AND chain_id = $3;`,
+      [0, bucket.bucket, bucket.chain_id],
+    );
     console.log(
       `[${bucket.bucket} - ${bucket.from_ts} : ${bucket.to_ts}] ${bucket.chain_id}: No events found`,
     );
