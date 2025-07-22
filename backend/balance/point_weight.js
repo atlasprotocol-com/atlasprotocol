@@ -118,8 +118,9 @@ async function distribute(start, end) {
     }
 
     await client.query(
-      `UPDATE ${client.schema}.point_snapshot SET distribution_status = 2, distributed_at = NOW(), distribution = $1`,
-      [JSON.stringify({ weights })],
+      `UPDATE ${client.schema}.point_snapshot SET distribution_status = 2, distributed_at = NOW(), distribution = $1
+       WHERE bucket = $2;`,
+      [JSON.stringify({ weights }), bucket.bucket],
     );
   }
 }
