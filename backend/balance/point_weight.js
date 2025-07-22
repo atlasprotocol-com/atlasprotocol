@@ -19,7 +19,6 @@ async function distribute(start, end) {
   const { buckets } = parser.bucketFromRange(start, end);
 
   for (let bucket of buckets) {
-    if (bucket.bucket !== "20250604210000") continue;
     const { rows: snapshots } = await client.query(
       `UPDATE ${client.schema}.point_snapshot SET distribution_status = 1
         WHERE distribution_status = 0 AND distributed_at IS NULL AND bucket = $1
