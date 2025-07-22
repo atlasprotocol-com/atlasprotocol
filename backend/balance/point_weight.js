@@ -26,12 +26,6 @@ async function distribute(start, end) {
       [bucket.bucket],
     );
 
-    if (bucket.bucket === "20250628090000") {
-      console.log(
-        `[${bucket.bucket}] ------------ ${JSON.stringify(snapshots)}`,
-      );
-    }
-
     if (snapshots.length === 0) {
       console.log(`[${bucket.bucket}] No snapshots found`);
       continue;

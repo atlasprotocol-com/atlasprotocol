@@ -7,7 +7,7 @@ const pointsnapshotsql = `CREATE TABLE IF NOT EXISTS ${client.schema}.point_snap
   bucket TEXT NOT NULL,
   start_ts BIGINT NOT NULL,
   end_ts BIGINT NOT NULL,
-  points DECIMAL(20,2) NOT NULL DEFAULT 0,
+  points DECIMAL(20,12) NOT NULL DEFAULT 0,
   distributed_at TIMESTAMP WITH TIME ZONE,
   distribution JSONB,
   distribution_status SMALLINT DEFAULT 0,
