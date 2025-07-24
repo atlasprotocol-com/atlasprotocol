@@ -105,10 +105,10 @@ async function calculate(bucket) {
   const balances = {};
   const histories = [];
   for (const event of events) {
-    const { chain_id, wallet_address, data, topics } = event;
+    const { chain_id, data, topics } = event;
 
     // Parse the balance from the "data" column (assuming it's hex-encoded)
-    const { amount } = parser.log(topics, data);
+    const { amount, wallet_address } = parser.log(topics, data);
 
     const key = `${wallet_address}-${chain_id}`;
     if (!balances[key]) {

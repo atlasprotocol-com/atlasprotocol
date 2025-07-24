@@ -3,8 +3,14 @@ const parser = require("./parser");
 const PostgresClient = require("../db/PostgresClient");
 const client = new PostgresClient();
 
+const POINT_TYPE = {
+  ATLAS: 0,
+  BITHIVE: 1,
+};
+
 const pointsnapshotsql = `CREATE TABLE IF NOT EXISTS ${client.schema}.point_snapshot (
   bucket TEXT NOT NULL,
+  type SMALLINT NOT NULL DEFAULT 0,
   start_ts BIGINT NOT NULL,
   end_ts BIGINT NOT NULL,
   points DECIMAL(20,12) NOT NULL DEFAULT 0,
@@ -20,11 +26,12 @@ async function genSnapshot(start, end) {
   for (let bucket of buckets) {
     const points = await getPoints(bucket.from_ts, bucket.to_ts);
 
-    const query = `INSERT INTO ${client.schema}.point_snapshot (bucket, start_ts, end_ts, points, created_at)
+    const query = `INSERT INTO ${client.schema}.point_snapshot (bucket, type, start_ts, end_ts, points, created_at)
                    VALUES ($1, $2, $3, $4, NOW())
                    ON CONFLICT (bucket) DO UPDATE SET points = EXCLUDED.points;`;
     await client.query(query, [
       bucket.bucket,
+      POINT_TYPE.BITHIVE,
       bucket.from_ts,
       bucket.to_ts,
       points,

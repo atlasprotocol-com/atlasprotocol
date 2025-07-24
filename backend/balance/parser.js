@@ -43,9 +43,10 @@ const log = (topics, data) => {
       "0x5448dd0f4c23b4bed107869be9c14ffd7f38c6c3ded0eced40ef6ff7b8f3fc05",
     )
   ) {
-    const decoded = iface.decodeEventLog("MintDeposit", data);
+    const decoded = iface.parseLog({ topics: topics.split(","), data });
     return {
-      amount: decoded.amount.toString(),
+      wallet_address: decoded.args[0].toLowerCase(),
+      amount: decoded.args[2].toString(),
     };
   }
 
@@ -54,9 +55,10 @@ const log = (topics, data) => {
       "0xb8bdadb84da719b84d72f39a7dabc240534c4575a5ed3fe75269c19caa11aaed",
     )
   ) {
-    const decoded = iface.decodeEventLog("BurnRedeem", data);
+    const decoded = iface.parseLog({ topics: topics.split(","), data });
     return {
-      amount: decoded.amount.toString(),
+      wallet_address: decoded.args[0].toLowerCase(),
+      amount: decoded.args[2].toString(),
     };
   }
 
@@ -65,9 +67,10 @@ const log = (topics, data) => {
       "0x0e41a555d3c09325f1748b91e03e382e89153d916d4d6789a41524e2746fd91d",
     )
   ) {
-    const decoded = iface.decodeEventLog("MintBridge", data);
+    const decoded = iface.parseLog({ topics: topics.split(","), data });
     return {
-      amount: decoded.amount.toString(),
+      wallet_address: decoded.args[0].toLowerCase(),
+      amount: decoded.args[2].toString(),
     };
   }
 
@@ -76,9 +79,10 @@ const log = (topics, data) => {
       "0x32dd79c076d214468c853220a3c326a3ba8b2d26491388e9f124955f05dee517",
     )
   ) {
-    const decoded = iface.decodeEventLog("BurnBridge", data);
+    const decoded = iface.parseLog({ topics: topics.split(","), data });
     return {
-      amount: decoded.amount.toString(),
+      wallet_address: decoded.args[0].toLowerCase(),
+      amount: decoded.args[3].toString(),
     };
   }
 
@@ -88,11 +92,12 @@ const log = (topics, data) => {
     topics.includes("mint_bridge") ||
     topics.includes("burn_bridge")
   ) {
-    const { amount } = JSON.parse(data);
-    return { amount: amount.toString() };
+    const { amount, wallet, address } = JSON.parse(data);
+    return {
+      amount: amount.toString(),
+      wallet_address: (wallet || address).toLowerCase(),
+    };
   }
-
-  return { amount: "0" };
 };
 
 const chainIds = (conf) =>
