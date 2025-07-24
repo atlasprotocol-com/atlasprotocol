@@ -19,7 +19,7 @@ const MULTIPLIER_MAP = {
   mint_deposit: 1,
   burn_redemption: -1,
   mint_bridge: 1,
-  burn_bridge: -1,
+  burn_bridging: -1,
 };
 
 const multiply = (topics) => {
@@ -90,7 +90,7 @@ const log = (topics, data) => {
     topics.includes("mint_deposit") ||
     topics.includes("burn_redemption") ||
     topics.includes("mint_bridge") ||
-    topics.includes("burn_bridge")
+    topics.includes("burn_bridging")
   ) {
     const { amount, wallet, address } = JSON.parse(data);
     return {
