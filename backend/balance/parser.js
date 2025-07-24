@@ -70,7 +70,7 @@ const log = (topics, data) => {
     const decoded = iface.parseLog({ topics: topics.split(","), data });
     return {
       wallet_address: decoded.args[0].toLowerCase(),
-      amount: decoded.args[2].toString(),
+      amount: decoded.args[3].toString(),
     };
   }
 
