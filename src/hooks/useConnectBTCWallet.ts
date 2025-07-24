@@ -32,9 +32,10 @@ export function useConnectBTCWallet({
     networks.Network | undefined
   >();
   const [publicKeyNoCoord, setPublicKeyNoCoord] = useState<string>("");
-
+  const [publicKeyHex, setPublicKeyHex] = useState<string>("");
   const [address, setAddress] = useState<string>("");
   const { showError } = useError();
+  const [isConnecting, setIsConnecting] = useState<boolean>(true);
 
   const currentBalance = useMemo(() => {
     return btcManualMinusBalance ? btcManualMinusBalance : btcWalletBalanceSat;
@@ -42,7 +43,7 @@ export function useConnectBTCWallet({
 
   const handleConnectBTC = useCallback(
     async (walletProvider: WalletProvider) => {
-      console.log("walletProvider", walletProvider);
+      setIsConnecting(true);
       try {
         await walletProvider.connectWallet();
         const address = await walletProvider.getAddress();
@@ -64,7 +65,7 @@ export function useConnectBTCWallet({
         setBTCWalletNetwork(toNetwork(await walletProvider.getNetwork()));
         setAddress(address);
         setPublicKeyNoCoord(publicKeyNoCoord.toString("hex"));
-
+        setPublicKeyHex(publicHeyHex);
         // Call the API to insert BTC public key
         try {
           await apiWrapper(
@@ -101,6 +102,8 @@ export function useConnectBTCWallet({
           },
           retryAction: () => handleConnectBTC(walletProvider),
         });
+      } finally {
+        setIsConnecting(false);
       }
     },
     [onSuccessfulConnectRef, showError],
@@ -123,6 +126,8 @@ export function useConnectBTCWallet({
       );
       if (connectedWallet && wallet) {
         handleConnectBTC(new wallet.wallet());
+      } else {
+        setIsConnecting(false);
       }
     } catch (error) {
       console.error(error);
@@ -174,6 +179,7 @@ export function useConnectBTCWallet({
     btcWalletBalanceSat: currentBalance,
     btcWalletNetwork,
     publicKeyNoCoord,
+    publicKeyHex,
     address,
     handleConnectBTC,
     handleDisconnectBTC,
@@ -181,5 +187,6 @@ export function useConnectBTCWallet({
     refetchBalance,
     btcManualMinusBalance,
     manualMinusBalance,
+    isConnecting,
   };
 }

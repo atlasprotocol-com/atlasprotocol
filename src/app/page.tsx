@@ -1,9 +1,11 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import React, { Suspense, useEffect, useState } from "react";
 import { ToastContainer } from "react-toastify";
 import Wallet from "sats-connect";
 
+import { onboardingApi } from "@/app/onboarding/services/onboardingApi";
 import { network } from "@/config/network.config";
 import { useBreakpoint } from "@/hooks/useBreakpoint";
 import { useConnectBTCWallet } from "@/hooks/useConnectBTCWallet";
@@ -53,6 +55,10 @@ const LazyBridge = React.lazy(() =>
 //   import("./components/Points").then((mod) => ({ default: mod.Points })),
 // );
 
+const LazyReward = React.lazy(() =>
+  import("./components/Reward").then((mod) => ({ default: mod.Reward })),
+);
+
 const LazyStakeHistory = React.lazy(() =>
   import("./components/History").then((mod) => ({ default: mod.StakeHistory })),
 );
@@ -74,6 +80,7 @@ const Home: React.FC<HomeProps> = () => {
   const {
     address,
     publicKeyNoCoord,
+    publicKeyHex,
     btcWallet,
     btcWalletBalanceSat,
     btcWalletNetwork,
@@ -82,6 +89,7 @@ const Home: React.FC<HomeProps> = () => {
     formattedBalance,
     refetchBalance,
     manualMinusBalance,
+    isConnecting,
   } = useConnectBTCWallet({
     onSuccessfulConnect: () => {
       setConnectModalOpen(false);
@@ -135,6 +143,40 @@ const Home: React.FC<HomeProps> = () => {
     }
   };
 
+  const router = useRouter();
+
+  // Check onboarding status when address changes
+  useEffect(() => {
+    if (isConnecting) {
+      return;
+    }
+
+    const checkOnboarding = async () => {
+      // If no wallet is connected, redirect to onboarding
+      if (!address) {
+        router.push("/onboarding");
+        return;
+      }
+
+      try {
+        // Check if this address has completed onboarding
+        const status = await onboardingApi.checkOnboardingStatus(address);
+
+        if (!status.isCompleted) {
+          router.push("/onboarding");
+        }
+      } catch (error) {
+        console.error("Error checking onboarding status:", error);
+        // On error, assume onboarding is needed
+        router.push("/onboarding");
+      }
+    };
+
+    if (!isConnecting) {
+      checkOnboarding();
+    }
+  }, [address, router, isConnecting]);
+
   return (
     <AppContext.Provider
       value={{
@@ -142,6 +184,7 @@ const Home: React.FC<HomeProps> = () => {
         btcWallet,
         btcAddress: address,
         btcPublicKeyNoCoord: publicKeyNoCoord,
+        btcPublicKeyHex: publicKeyHex,
         btcNetwork: btcWalletNetwork,
         btcRefreshBalance: refetchBalance,
         btcManualMinusBalance: manualMinusBalance,
@@ -179,6 +222,7 @@ const Home: React.FC<HomeProps> = () => {
                           <TabsTrigger value="stake">Stake</TabsTrigger>
                           <TabsTrigger value="redeem">Redeem</TabsTrigger>
                           <TabsTrigger value="bridging">Bridge</TabsTrigger>
+                          <TabsTrigger value="reward">Reward</TabsTrigger>
                           {/* <TabsTrigger value="points">Points</TabsTrigger> */}
                         </TabsList>
                         <Suspense fallback={<LoadingSection />}>
@@ -207,6 +251,13 @@ const Home: React.FC<HomeProps> = () => {
                         </Suspense>
                         <TabsContent value="bridging">
                           <LazyBridge />
+                        </TabsContent>
+                        <TabsContent value="reward">
+                          <RequireConnectWallet
+                            required={!address}
+                            onConnect={handleConnectModal}
+                            renderContent={<LazyReward />}
+                          />
                         </TabsContent>
                         {/* <TabsContent value="points">
                         <LazyPoints />

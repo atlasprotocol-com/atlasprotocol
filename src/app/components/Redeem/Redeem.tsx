@@ -1,5 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { SelectValue } from "@radix-ui/react-select";
+import { useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { useLocalStorage } from "usehooks-ts";
@@ -32,7 +33,6 @@ import { ConnectEvmWalletModal } from "../Modals/ConnectEvmWalletModal";
 import { SelectField } from "../SelectField";
 
 import { RedeemPreview } from "./RedeemPreview";
-
 const MIN_REDEEM_AMOUNT = 0.0001;
 
 const redeemFormSchema = z.object({
@@ -221,6 +221,8 @@ export function Redeem({ btcAddress }: RedeemProps) {
     previewToggle.setTrue();
   };
 
+  const queryClient = useQueryClient();
+
   const onConfirm = async () => {
     try {
       if (!fromAddress) {
@@ -292,6 +294,7 @@ export function Redeem({ btcAddress }: RedeemProps) {
       setValue("amount", 0);
       previewToggle.toggle();
       setReviewData(undefined);
+      queryClient.invalidateQueries({ queryKey: ["stats"] });
     } catch (error: Error | any) {
       console.error(error);
       addFeedback({

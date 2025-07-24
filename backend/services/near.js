@@ -1714,6 +1714,8 @@ class Near {
 
       // Loop through all receipts to find matching event
       let eventJson = null;
+      let foundReceipt = null;  // Store the receipt that contains our event
+
       for (const receipt of txResult.receipts_outcome) {
         // Check each log in the receipt
         for (const log of receipt.outcome.logs) {
@@ -1721,6 +1723,7 @@ class Near {
             const parsedEvent = JSON.parse(log.replace("EVENT_JSON:", ""));
             if (parsedEvent.event === eventName) {
               eventJson = parsedEvent;
+              foundReceipt = receipt;  // Store the receipt when we find the event
               break;
             }
           } catch (e) {
@@ -1746,7 +1749,7 @@ class Near {
           processedEvent = {
             type: "mint_deposit",
             btcTxnHash: mintMemo.btc_txn_hash,
-            receiptId: receipt.id,
+            receiptId: foundReceipt.id,  // Use foundReceipt instead of receipt
             transactionHash: txnHash
           };
           break;
@@ -1760,7 +1763,7 @@ class Near {
             originChainAddress: bridgeMemo.originChainAddress,
             originTxnHash: bridgeMemo.originTxnHash,
             transactionHash: txnHash,
-            receiptId: receipt.id,
+            receiptId: foundReceipt.id,  // Use foundReceipt instead of receipt
             timestamp
           };
           break;
@@ -1777,12 +1780,11 @@ class Near {
               btcAddress: redeemMemo.btcAddress
             },
             transactionHash: txnHash,
-            receiptId: receipt.id,
+            receiptId: foundReceipt.id,  // Use foundReceipt instead of receipt
             blockNumber: txResult.transaction.block_height,
             timestamp,
             status: true
           };
-         
           break;
 
         case "ft_burn_bridge":
@@ -1798,7 +1800,7 @@ class Near {
               bridgingFeeSat: burnBridgeMemo.bridgingFeeSat
             },
             transactionHash: txnHash,
-            receiptId: receipt.id,
+            receiptId: foundReceipt.id,  // Use foundReceipt instead of receipt
             blockNumber: txResult.transaction.block_height,
             timestamp,
             status: true

@@ -1,4 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { useLocalStorage } from "usehooks-ts";
@@ -239,6 +240,8 @@ export function Stake({ formattedBalance }: StakeProps) {
     }
   };
 
+  const queryClient = useQueryClient();
+
   const handleConfirm = async () => {
     try {
       if (!previewData) {
@@ -324,6 +327,7 @@ export function Stake({ formattedBalance }: StakeProps) {
       refetchAccountUTXOs();
       refetchMempoolFeeRates();
       btcRefreshBalance();
+      queryClient.invalidateQueries({ queryKey: ["stats"] });
     } catch (error: Error | any) {
       console.error(error);
       addFeedback({
