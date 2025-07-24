@@ -1,5 +1,7 @@
 const { getConstants } = require("../constants");
-const { insertNearEventToAtbtcEvents } = require("../helpers/atbtcEventsHelper");
+const {
+  insertNearEventToAtbtcEvents,
+} = require("../helpers/atbtcEventsHelper");
 
 const { flagsBatch } = require("./batchFlags");
 const { getAllChainConfig } = require("./network.chain.config");
@@ -10,10 +12,7 @@ const {
 
 const batchName = "Batch X NearChainScanner";
 
-
-async function nearChainScanner(
-  near
-) {
+async function nearChainScanner(near) {
   if (flagsBatch.NearChainScanner) {
     console.log(`${batchName} is not completed yet. Will skip this run.`);
     return;
@@ -29,11 +28,11 @@ async function nearChainScanner(
 
   try {
     const chain = Object.values(chainConfig).find(
-      (chain) => chain.networkType === NETWORK_TYPE.NEAR
+      (chain) => chain.networkType === NETWORK_TYPE.NEAR,
     );
 
     if (!chain) {
-      throw new Error('No NEAR chain configuration found');
+      throw new Error("No NEAR chain configuration found");
     }
 
     console.log(
@@ -41,25 +40,28 @@ async function nearChainScanner(
     );
 
     const endBlock = await near.getLatestBlockHeightFromDataServer();
-    
+
     const startBlock = await getBlockCursor(
       "NearChainScanner",
       chain.chainID + "_NearChainScanner",
       endBlock,
     );
 
-
-    // const startBlock = 203822201;
-    // const endBlock = 203822201;
+    // const startBlock = 203788930;
+    // const endBlock = 203788940;
 
     console.log(startBlock, endBlock);
     const toBlock = Math.min(startBlock + batchSize, endBlock);
-    
+
     // Diagnostic logging for block range
     const blocksBehind = endBlock - startBlock;
     const percentageFromLatest = ((startBlock / endBlock) * 100).toFixed(4);
-    console.log(`${batchName} Block Range Details: Current block: ${endBlock}, Start block: ${startBlock}, To block: ${toBlock}, Block range size: ${toBlock - startBlock}`);
-    console.log(`${batchName} Progress: ${blocksBehind} blocks behind (${percentageFromLatest}% of latest block)`);
+    console.log(
+      `${batchName} Block Range Details: Current block: ${endBlock}, Start block: ${startBlock}, To block: ${toBlock}, Block range size: ${toBlock - startBlock}`,
+    );
+    console.log(
+      `${batchName} Progress: ${blocksBehind} blocks behind (${percentageFromLatest}% of latest block)`,
+    );
 
     // Get all events
     const events = await near.getPastEventsInBatches(
@@ -68,12 +70,12 @@ async function nearChainScanner(
       chain.aBTCAddress,
     );
 
+    console.log(
+      `${batchName} Found ${events.length} total events in block: ${startBlock}`,
+    );
 
-    console.log(`${batchName} Found ${events.length} total events in block: ${startBlock}`);
-    
     // Process all events in a single loop
     for (const event of events) {
-      
       event.chainID = chain.chainID;
       event.networkType = chain.networkType;
       event.address = chain.aBTCAddress;

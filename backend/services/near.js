@@ -1264,9 +1264,10 @@ class Near {
 
     // Determine the correct NEAR Data Server endpoint based on network
     const networkId = this.network_id || "testnet";
-    const baseUrl = networkId === "mainnet" 
-      ? "https://mainnet.neardata.xyz" 
-      : "https://testnet.neardata.xyz";
+    const baseUrl =
+      networkId === "mainnet"
+        ? "https://mainnet.neardata.xyz"
+        : "https://testnet.neardata.xyz";
 
     const batchSize = 5;
     let block_count = 0;
@@ -1280,7 +1281,7 @@ class Near {
 
     while (startBlock <= endBlock) {
       try {
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise((resolve) => setTimeout(resolve, 1000));
         // Define the end block for the current batch
         const batchEndBlock = Math.min(startBlock + batchSize - 1, endBlock);
 
@@ -1289,90 +1290,81 @@ class Near {
         );
 
         // Create an array of promises for fetching blocks using NEAR Data Server
-        const blockPromises = [];
         for (
           let blockHeight = startBlock;
           blockHeight <= batchEndBlock;
           blockHeight++
         ) {
-          blockPromises.push(
-            this._fetchBlockFromDataServer(baseUrl, blockHeight)
-              .then(async (blockData) => {
-                if (!blockData) {
-                  console.log(`Block ${blockHeight} not found or invalid`);
-                  return;
-                }
-
-                try {
-                  // Collect all transactions and receipt outcomes from all shards
-                  const allTransactions = [];
-                  const allReceiptOutcomes = [];
-                  
-                  if (blockData.shards && Array.isArray(blockData.shards)) {
-                    for (const shard of blockData.shards) {
-                      // Collect transactions from this shard
-                      if (shard.chunk && shard.chunk.transactions) {
-                        const transactions = shard.chunk.transactions;
-                        allTransactions.push(...transactions);
-                      }
-                      
-                      // Collect receipt execution outcomes from this shard
-                      if (shard.receipt_execution_outcomes) {
-                        const receiptOutcomes = shard.receipt_execution_outcomes;
-                        allReceiptOutcomes.push(...receiptOutcomes);
-                      }
-                    }
-                  }
-                  
-
-
-                  // Collect relevant transactions into buffer (only from original range, not extended range)
-                  if (blockHeight <= endBlock) {
-                    for (const txData of allTransactions) {
-                      // Extract transaction details from the nested structure
-                      const tx = txData.transaction || txData;
-                      const txHash = tx.hash;
-                      const receiverId = tx.receiver_id;
-                      
-                      if (
-                        receiverId === targetContractId ||
-                        receiverId === atBtcContractId
-                      ) {
-
-                        pendingTransactions.set(txHash, {
-                          txData,
-                          tx,
-                          txHash,
-                          receiverId,
-                          blockHeight,
-                          blockData
-                        });
-                      }
-                    }
-                  }
-
-                  // Collect all receipt outcomes into buffer (store as arrays to handle multiple receipts per tx)
-                  for (const receiptOutcome of allReceiptOutcomes) {
-                    if (receiptOutcome.tx_hash) {
-                      const existingOutcomes = receiptOutcomeBuffer.get(receiptOutcome.tx_hash) || [];
-                      existingOutcomes.push(receiptOutcome);
-                      receiptOutcomeBuffer.set(receiptOutcome.tx_hash, existingOutcomes);
-                    }
-                  }
-                  block_count++;
-                } catch (err) {
-                  console.error(`Error processing block ${blockHeight}: ${err}`);
-                }
-              })
-              .catch((err) => {
-                console.error(`Error fetching block ${blockHeight}: ${err}`);
-                return null;
-              }),
+          const blockData = await this._fetchBlockFromDataServer(
+            baseUrl,
+            blockHeight,
           );
-        }
+          if (!blockData) continue;
 
-        // Wait for all block fetch promises in the current batch to resolve
-        await Promise.all(blockPromises);
+          try {
+            // Collect all transactions and receipt outcomes from all shards
+            const allTransactions = [];
+            const allReceiptOutcomes = [];
+
+            if (blockData.shards && Array.isArray(blockData.shards)) {
+              for (const shard of blockData.shards) {
+                // Collect transactions from this shard
+                if (shard.chunk && shard.chunk.transactions) {
+                  const transactions = shard.chunk.transactions;
+                  allTransactions.push(...transactions);
+                }
+
+                // Collect receipt execution outcomes from this shard
+                if (shard.receipt_execution_outcomes) {
+                  const receiptOutcomes = shard.receipt_execution_outcomes;
+                  allReceiptOutcomes.push(...receiptOutcomes);
+                }
+              }
+            }
+
+            // Collect relevant transactions into buffer (only from original range, not extended range)
+            if (blockHeight <= endBlock) {
+              for (const txData of allTransactions) {
+                // Extract transaction details from the nested structure
+                const tx = txData.transaction || txData;
+                const txHash = tx.hash;
+                const receiverId = tx.receiver_id;
+
+                if (
+                  receiverId === targetContractId ||
+                  receiverId === atBtcContractId
+                ) {
+                  pendingTransactions.set(txHash, {
+                    txData,
+                    tx,
+                    txHash,
+                    receiverId,
+                    blockHeight,
+                    blockData,
+                  });
+                }
+              }
+            }
+
+            // Collect all receipt outcomes into buffer (store as arrays to handle multiple receipts per tx)
+            for (const receiptOutcome of allReceiptOutcomes) {
+              if (receiptOutcome.tx_hash) {
+                const existingOutcomes =
+                  receiptOutcomeBuffer.get(receiptOutcome.tx_hash) || [];
+                existingOutcomes.push(receiptOutcome);
+                receiptOutcomeBuffer.set(
+                  receiptOutcome.tx_hash,
+                  existingOutcomes,
+                );
+              }
+            }
+            block_count++;
+          } catch (err) {
+            console.error(`Error processing block ${blockHeight}: ${err}`);
+          }
+
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+        }
 
         // Update start block for next batch
         startBlock = batchEndBlock + 1;
@@ -1383,160 +1375,165 @@ class Near {
     }
 
     // After processing all blocks, match transactions with receipt outcomes
-    
+
     for (const [txHash, txInfo] of pendingTransactions) {
       const receiptOutcomes = receiptOutcomeBuffer.get(txHash);
-      
+
       if (!receiptOutcomes || receiptOutcomes.length === 0) {
         continue;
       }
 
       // Process ALL receipt outcomes for this transaction
-      for (let receiptIndex = 0; receiptIndex < receiptOutcomes.length; receiptIndex++) {
+      for (
+        let receiptIndex = 0;
+        receiptIndex < receiptOutcomes.length;
+        receiptIndex++
+      ) {
         const receiptOutcome = receiptOutcomes[receiptIndex];
 
         // Check execution status (handle both possible structures)
-        const executionOutcome = receiptOutcome.execution_outcome || receiptOutcome;
-        const status = executionOutcome.outcome?.status || receiptOutcome.outcome?.status;
-        
+        const executionOutcome =
+          receiptOutcome.execution_outcome || receiptOutcome;
+        const status =
+          executionOutcome.outcome?.status || receiptOutcome.outcome?.status;
+
         if (status && status.Failure) {
           continue;
         }
 
-        const logs = executionOutcome.outcome?.logs || receiptOutcome.outcome?.logs || [];
-      
-      for (const log of logs) {
-        try {
-          if (!log.startsWith("EVENT_JSON:")) continue;
+        const logs =
+          executionOutcome.outcome?.logs || receiptOutcome.outcome?.logs || [];
 
-          const eventJson = JSON.parse(
-            log.replace("EVENT_JSON:", ""),
-          );
-          const eventName = eventJson.event;
+        for (const log of logs) {
+          try {
+            if (!log.startsWith("EVENT_JSON:")) continue;
 
-          // Filter by event type if specified
-          if (eventType !== "all") {
-            const eventMap = {
-              mint: "ft_mint",
-              mint_bridge: "ft_mint_bridge",
-              redemption: "ft_burn_redeem",
-              bridging: "ft_burn_bridge",
-            };
-            if (eventName !== eventMap[eventType]) continue;
+            const eventJson = JSON.parse(log.replace("EVENT_JSON:", ""));
+            const eventName = eventJson.event;
+
+            // Filter by event type if specified
+            if (eventType !== "all") {
+              const eventMap = {
+                mint: "ft_mint",
+                mint_bridge: "ft_mint_bridge",
+                redemption: "ft_burn_redeem",
+                bridging: "ft_burn_bridge",
+              };
+              if (eventName !== eventMap[eventType]) continue;
+            }
+
+            const event = JSON.parse(log.replace("EVENT_JSON:", ""));
+            const memo = JSON.parse(event.data[0].memo);
+            const transactionHash = txHash;
+            const timestamp = Math.floor(
+              txInfo.blockData.block.header.timestamp / 1000000000,
+            );
+
+            let processedEvent = null;
+
+            switch (eventName) {
+              case "ft_mint":
+                processedEvent = {
+                  type: "mint_deposit",
+                  returnValues: {
+                    amount: event.data[0].amount,
+                    address: memo.address,
+                    btcTxnHash: memo.btc_txn_hash,
+                  },
+                  transactionHash,
+                  receiptId:
+                    receiptOutcome.receipt?.receipt_id ||
+                    receiptOutcome.execution_outcome?.id,
+                  blockNumber: txInfo.blockHeight,
+                  timestamp,
+                  status: true,
+                };
+                break;
+
+              case "ft_mint_bridge":
+                processedEvent = {
+                  type: "mint_bridge",
+                  returnValues: {
+                    amount: event.data[0].amount,
+                    wallet: memo.address,
+                    originChainId: memo.originChainId,
+                    originChainAddress: memo.originChainAddress,
+                    originTxnHash: memo.originTxnHash,
+                  },
+                  transactionHash,
+                  receiptId:
+                    receiptOutcome.receipt?.receipt_id ||
+                    receiptOutcome.execution_outcome?.id,
+                  blockNumber: txInfo.blockHeight,
+                  timestamp,
+                  status: true,
+                };
+                break;
+
+              case "ft_burn_redeem":
+                if (!address.isValidBTCAddress(memo.btcAddress)) {
+                  console.error(
+                    `[${transactionHash}] Invalid BTC address: ${memo.btcAddress} in block ${txInfo.blockHeight}`,
+                  );
+                  continue;
+                }
+                processedEvent = {
+                  type: "burn_redemption",
+                  returnValues: {
+                    amount: event.data[0].amount,
+                    wallet: memo.address,
+                    btcAddress: memo.btcAddress,
+                  },
+                  transactionHash,
+                  receiptId:
+                    receiptOutcome.receipt?.receipt_id ||
+                    receiptOutcome.execution_outcome?.id,
+                  blockNumber: txInfo.blockHeight,
+                  timestamp,
+                  status: true,
+                };
+                break;
+
+              case "ft_burn_bridge":
+                const isValidAddress =
+                  address.isValidEthereumAddress(memo.destChainAddress) ||
+                  address.isValidNearAddress(memo.destChainAddress);
+
+                if (!isValidAddress) {
+                  console.error(
+                    `[${transactionHash}] Invalid destination address: ${memo.destChainAddress} in block ${txInfo.blockHeight}`,
+                  );
+                  continue;
+                }
+                processedEvent = {
+                  type: "burn_bridging",
+                  returnValues: {
+                    amount: event.data[0].amount,
+                    wallet: memo.address,
+                    destChainId: memo.destChainId,
+                    destChainAddress: memo.destChainAddress,
+                    mintingFeeSat: memo.mintingFeeSat,
+                    bridgingFeeSat: memo.bridgingFeeSat,
+                  },
+                  transactionHash,
+                  receiptId:
+                    receiptOutcome.receipt?.receipt_id ||
+                    receiptOutcome.execution_outcome?.id,
+                  blockNumber: txInfo.blockHeight,
+                  timestamp,
+                  status: true,
+                };
+                break;
+            }
+
+            if (processedEvent) {
+              events.push(processedEvent);
+            }
+          } catch (e) {
+            console.error(`Error processing log: ${e}`);
+            continue;
           }
-
-          const event = JSON.parse(
-            log.replace("EVENT_JSON:", ""),
-          );
-          const memo = JSON.parse(event.data[0].memo);
-          const transactionHash = txHash;
-          const timestamp = Math.floor(
-            txInfo.blockData.block.header.timestamp / 1000000000,
-          );
-
-          let processedEvent = null;
-
-          switch (eventName) {
-            case "ft_mint":
-              processedEvent = {
-                type: "mint_deposit",
-                returnValues: {
-                  amount: event.data[0].amount,
-                  address: memo.address,
-                  btcTxnHash: memo.btc_txn_hash,
-                },
-                transactionHash,
-                receiptId: receiptOutcome.receipt?.receipt_id || receiptOutcome.execution_outcome?.id,
-                blockNumber: txInfo.blockHeight,
-                timestamp,
-                status: true,
-              };
-              break;
-
-            case "ft_mint_bridge":
-              processedEvent = {
-                type: "mint_bridge",
-                returnValues: {
-                  amount: event.data[0].amount,
-                  wallet: memo.address,
-                  originChainId: memo.originChainId,
-                  originChainAddress: memo.originChainAddress,
-                  originTxnHash: memo.originTxnHash,
-                },
-                transactionHash,
-                receiptId: receiptOutcome.receipt?.receipt_id || receiptOutcome.execution_outcome?.id,
-                blockNumber: txInfo.blockHeight,
-                timestamp,
-                status: true,
-              };
-              break;
-
-            case "ft_burn_redeem":
-              if (
-                !address.isValidBTCAddress(memo.btcAddress)
-              ) {
-                console.error(
-                  `[${transactionHash}] Invalid BTC address: ${memo.btcAddress} in block ${txInfo.blockHeight}`,
-                );
-                continue;
-              }
-              processedEvent = {
-                type: "burn_redemption",
-                returnValues: {
-                  amount: event.data[0].amount,
-                  wallet: memo.address,
-                  btcAddress: memo.btcAddress,
-                },
-                transactionHash,
-                receiptId: receiptOutcome.receipt?.receipt_id || receiptOutcome.execution_outcome?.id,
-                blockNumber: txInfo.blockHeight,
-                timestamp,
-                status: true,
-              };
-              break;
-
-            case "ft_burn_bridge":
-              const isValidAddress =
-                address.isValidEthereumAddress(
-                  memo.destChainAddress,
-                ) ||
-                address.isValidNearAddress(
-                  memo.destChainAddress,
-                );
-
-              if (!isValidAddress) {
-                console.error(
-                  `[${transactionHash}] Invalid destination address: ${memo.destChainAddress} in block ${txInfo.blockHeight}`,
-                );
-                continue;
-              }
-              processedEvent = {
-                type: "burn_bridging",
-                returnValues: {
-                  amount: event.data[0].amount,
-                  wallet: memo.address,
-                  destChainId: memo.destChainId,
-                  destChainAddress: memo.destChainAddress,
-                  mintingFeeSat: memo.mintingFeeSat,
-                  bridgingFeeSat: memo.bridgingFeeSat,
-                },
-                transactionHash,
-                receiptId: receiptOutcome.receipt?.receipt_id || receiptOutcome.execution_outcome?.id,
-                blockNumber: txInfo.blockHeight,
-                timestamp,
-                status: true,
-              };
-              break;
-          }
-
-          if (processedEvent) {
-            events.push(processedEvent);
-          }
-        } catch (e) {
-          console.error(`Error processing log: ${e}`);
-          continue;
         }
-      }
       } // Close receipt outcome processing loop
     } // Close transaction processing loop
 
@@ -1548,21 +1545,22 @@ class Near {
   async getLatestBlockHeightFromDataServer() {
     // Determine the correct NEAR Data Server endpoint based on network
     const networkId = this.network_id || "testnet";
-    const baseUrl = networkId === "mainnet" 
-      ? "https://mainnet.neardata.xyz" 
-      : "https://testnet.neardata.xyz";
+    const baseUrl =
+      networkId === "mainnet"
+        ? "https://mainnet.neardata.xyz"
+        : "https://testnet.neardata.xyz";
 
     try {
       // Get the latest finalized block using the /v0/last_block/final endpoint
       const url = `${baseUrl}/v0/last_block/final`;
       const response = await axios.get(url, {
         headers: {
-          'Accept': 'application/json',
+          Accept: "application/json",
         },
         timeout: 10000, // 10 second timeout
         validateStatus: function (status) {
           return status < 500;
-        }
+        },
       });
 
       if (response.status !== 200) {
@@ -1570,78 +1568,96 @@ class Near {
       }
 
       const blockData = response.data;
-      
+
       // Validate that we got a proper block structure with height
-      if (!blockData || !blockData.block || !blockData.block.header || !blockData.block.header.height) {
-        throw new Error('Invalid block data structure - missing height');
+      if (
+        !blockData ||
+        !blockData.block ||
+        !blockData.block.header ||
+        !blockData.block.header.height
+      ) {
+        throw new Error("Invalid block data structure - missing height");
       }
 
       const latestHeight = blockData.block.header.height;
-      console.log(`[NEAR Data Server] Latest finalized block height: ${latestHeight}`);
-      
-      return latestHeight;
+      console.log(
+        `[NEAR Data Server] Latest finalized block height: ${latestHeight}`,
+      );
 
+      return latestHeight;
     } catch (error) {
-      console.error(`Error fetching latest block height from NEAR Data Server:`, error.message);
-      
+      console.error(
+        `Error fetching latest block height from NEAR Data Server:`,
+        error.message,
+      );
+
       // Fallback to traditional RPC method if Data Server fails
-      console.log(`[NEAR] Falling back to RPC method for latest block height...`);
+      console.log(
+        `[NEAR] Falling back to RPC method for latest block height...`,
+      );
       try {
         const status = await this.connection.provider.status();
         const fallbackHeight = status.sync_info.latest_block_height;
         console.log(`[NEAR RPC] Latest block height: ${fallbackHeight}`);
         return fallbackHeight;
       } catch (rpcError) {
-        console.error(`Error fetching latest block height from RPC:`, rpcError.message);
-        throw new Error(`Failed to get latest block height from both Data Server and RPC`);
+        console.error(
+          `Error fetching latest block height from RPC:`,
+          rpcError.message,
+        );
+        throw new Error(
+          `Failed to get latest block height from both Data Server and RPC`,
+        );
       }
     }
   }
 
   // Helper method to fetch block data from NEAR Data Server
   async _fetchBlockFromDataServer(baseUrl, blockHeight) {
-    try {
-      const url = `${baseUrl}/v0/block/${blockHeight}`;
-      const response = await axios.get(url, {
-        headers: {
-          'Accept': 'application/json',
-        },
-        timeout: 10000, // 10 second timeout
-        validateStatus: function (status) {
-          // Accept both successful responses and 404s
-          return status < 500;
+    return pRetry(
+      async (count) => {
+        console.log(`EVM _fetchBlockFromDataServer - retries: ${count}`);
+        const url = `${baseUrl}/v0/block/${blockHeight}`;
+
+        const response = await axios.get(url, {
+          headers: {
+            Accept: "application/json",
+          },
+          timeout: 10000, // 10 second timeout
+          validateStatus: function (status) {
+            // Accept both successful responses and 404s
+            return status < 500;
+          },
+        });
+
+        if (response.status === 404) {
+          // Block doesn't exist yet
+          return null;
         }
-      });
 
-      if (response.status === 404) {
-        // Block doesn't exist yet
-        return null;
-      }
+        if (response.status === 429) {
+          await new Promise((resolve) => setTimeout(resolve, 1000 * 60 * 5));
+        }
 
-      if (response.status !== 200) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
+        if (response.status !== 200) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
 
-      const blockData = response.data;
-      
-      // Validate that we got a proper block structure
-      if (!blockData || !blockData.block || !blockData.shards) {
-        console.warn(`Invalid block data structure for block ${blockHeight}`);
-        return null;
-      }
+        const blockData = response.data;
 
-      return blockData;
-    } catch (error) {
-      if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
-        console.error(`Network error fetching block ${blockHeight} from NEAR Data Server:`, error.message);
-      } else if (error.response && error.response.status === 404) {
-        // Block doesn't exist yet
-        return null;
-      } else {
-        console.error(`Error fetching block ${blockHeight} from NEAR Data Server:`, error.message);
-      }
-      return null;
-    }
+        // Validate that we got a proper block structure
+        if (!blockData || !blockData.block || !blockData.shards) {
+          console.warn(`Invalid block data structure for block ${blockHeight}`);
+          return null;
+        }
+
+        console.log(
+          `Fetched block ${blockHeight} with ${blockData.shards.length} shards`,
+        );
+        return blockData;
+      },
+      { retries: 10, factor: 5 },
+    );
   }
 
   async getLastUnstakingTime() {
