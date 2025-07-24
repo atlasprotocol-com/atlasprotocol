@@ -91,6 +91,7 @@ const {
 const { UpdateAtlasBtcTimeout } = require("./utils/updateAtlasBtcTimeout");
 
 const useDepositAPIs = require("./apis/deposit");
+const useBalanceAPIs = require("./apis/balance");
 
 const express = require("express");
 const cors = require("cors");
@@ -899,6 +900,8 @@ app.use(
     deposits[index] = updatedDeposit;
   }),
 );
+
+app.use("/api/v1/balance", useBalanceAPIs());
 
 app.use((err, req, res, next) => {
   console.error(err.stack);

@@ -24,13 +24,6 @@ const balancehistorysql = `CREATE TABLE IF NOT EXISTS ${client.schema}.balance_h
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );`;
 
-const MULTIPLIER_MAP = {
-  "0x5448dd0f4c23b4bed107869be9c14ffd7f38c6c3ded0eced40ef6ff7b8f3fc05": 1,
-  "0xb8bdadb84da719b84d72f39a7dabc240534c4575a5ed3fe75269c19caa11aaed": -1,
-  mint_deposit: 1,
-  burn_redemption: -1,
-};
-
 async function main(start, end) {
   try {
     await client.connect();
