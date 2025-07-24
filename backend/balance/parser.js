@@ -114,7 +114,7 @@ const bucketFromRange = (start, end) => {
 
   const buckets = [];
   for (let cur = from; cur <= to; cur = addHours(cur, 1)) {
-    const xfrom = cur.getTime() - offset;
+    const xfrom = cur.getTime() + offset;
     const xto = xfrom + 3600000; // 1 hour in milliseconds
     const xbucket = format(xfrom, "yyyyMMddHH0000");
     buckets.push({ bucket: xbucket, from_ts: xfrom, to_ts: xto });
@@ -143,7 +143,10 @@ const bucket2date = (bucket) => {
 
 const ts2bucket = (ts) => {
   if (ts.toString().length === 10) ts = Number(ts) * 1000;
-  return format(new Date(ts), "yyyyMMddHH0000");
+  const time = new Date(ts);
+  const offset = time.getTimezoneOffset() * 60 * 1000;
+
+  return format(new Date(time.getTime() + offset), "yyyyMMddHH0000");
 };
 
 module.exports = {

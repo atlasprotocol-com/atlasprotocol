@@ -27,7 +27,7 @@ async function genSnapshot(start, end) {
     const points = await getPoints(bucket.from_ts, bucket.to_ts);
 
     const query = `INSERT INTO ${client.schema}.point_snapshot (bucket, type, start_ts, end_ts, points, created_at)
-                   VALUES ($1, $2, $3, $4, NOW())
+                   VALUES ($1, $2, $3, $4, $5, NOW())
                    ON CONFLICT (bucket) DO UPDATE SET points = EXCLUDED.points;`;
     await client.query(query, [
       bucket.bucket,

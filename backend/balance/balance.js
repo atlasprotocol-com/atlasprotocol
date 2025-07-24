@@ -128,7 +128,7 @@ async function calculate(bucket) {
       chain_id,
       amount: new BigNumber(mul).times(new BigNumber(amount)).toString(),
       block_timestamp: event.block_timestamp,
-      bucket: parser.ts2bucket(event.block_timestamp),
+      bucket: bucket.bucket,
     });
   }
 
