@@ -5,7 +5,8 @@ import { ChainConfig } from "@/app/types/chainConfig";
 import { useGetChainConfig } from "@/hooks";
 import { useGetUserPoints } from "@/hooks/points";
 
-import { RequireConnectWallet } from "../RequireConnectWallet";
+import { useBool } from "@/hooks/useBool";
+import { ConnectEvmWalletModal } from "../Modals/ConnectEvmWalletModal";
 import {
   Table,
   TableBody,
@@ -16,28 +17,45 @@ import {
 } from "../Table";
 
 export function Points() {
+  const evmWalletModal = useBool();
   const { data: chainConfigs = {} } = useGetChainConfig();
 
-  const selectedChain = useMemo(() => {
+  const nearChain = useMemo(() => {
     return Object.values(chainConfigs || {}).find(
       (chainConfig) => chainConfig.networkType === "NEAR",
     ) as ChainConfig | undefined;
   }, [chainConfigs]);
-
   const {
-    address: fromAddress,
-    connect,
-    disconnectAsync,
+    address: nearWallet,
+    connect: connectNearWallet,
+    disconnectAsync: disconnectNearWallet,
   } = useConnectMultiChain({
-    selectedChain,
+    selectedChain: nearChain,
     lazyConnect: true,
   });
-  const handleConnectModal = () => {
-    connect();
-  };
+
+  const evmChain = useMemo(() => {
+    return Object.values(chainConfigs || {}).find(
+      (chainConfig) => chainConfig.networkType === "EVM",
+    ) as ChainConfig | undefined;
+  }, [chainConfigs]);
+  const {
+    address: evmWallet,
+    connect: connectEvmWallet,
+    disconnectAsync: disconnectEvmWallet,
+  } = useConnectMultiChain({
+    selectedChain: evmChain,
+    lazyConnect: true,
+    onRequireEvmWallet: () => {
+      evmWalletModal.setTrue();
+    },
+  });
 
   const { data, isLoading } = useGetUserPoints({
-    address: fromAddress || undefined,
+    address: [nearWallet, evmWallet]
+      .filter(Boolean)
+      .map((s) => s?.toLowerCase())
+      .join(","),
   });
 
   const points = data || {};
@@ -48,47 +66,122 @@ export function Points() {
   });
 
   return (
-    <RequireConnectWallet
-      required={!fromAddress}
-      onConnect={handleConnectModal}
-      description="Please connect your NEAR wallet to check your points."
-      renderContent={
-        <div className="flex flex-col items-center justify-center gap-4">
-          <div className="mt-2 flex items-center gap-2">
-            <p className="text-[13px] text-caption">
-              Near address: <strong>{fromAddress}</strong>
-            </p>
-            <button
-              className="font-semibold text-primary text-[13px]"
-              onClick={() => disconnectAsync()}
-            >
-              Disconnect
-            </button>
+    <>
+      <ConnectEvmWalletModal
+        isOpen={evmWalletModal.value}
+        onClose={evmWalletModal.setFalse}
+        selectedChain={evmChain?.networkName || null}
+        selectedChainID={evmChain?.chainID || null}
+      />
+      <div className="flex flex-col w-full max-w-4xl mx-auto p-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
+          <div className="bg-card p-4 rounded-lg border border-border">
+            <h3 className="font-medium mb-3">NEAR Wallet</h3>
+            {!nearWallet ? (
+              <button
+                onClick={() => connectNearWallet()}
+                className="w-full bg-primary text-white py-2 px-4 rounded-md hover:bg-primary/90 transition-colors"
+              >
+                Connect NEAR Wallet
+              </button>
+            ) : (
+              <div className="space-y-1">
+                <p
+                  className="text-sm text-foreground truncate max-w-full"
+                  title={nearWallet}
+                >
+                  {nearWallet}
+                </p>
+                <p className="text-sm">
+                  <strong>{points[nearWallet] || 0} points</strong>
+                </p>
+                <button
+                  onClick={() => disconnectNearWallet()}
+                  className="text-sm text-primary hover:underline"
+                >
+                  Disconnect
+                </button>
+              </div>
+            )}
           </div>
-          {!isLoading && (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[100px]">No.</TableHead>
-                  <TableHead>Address</TableHead>
-                  <TableHead className="text-right">Total Points</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {addresses.map((address, index) => (
-                  <TableRow key={address}>
-                    <TableCell className="font-medium">{index + 1}</TableCell>
-                    <TableCell>{address}</TableCell>
-                    <TableCell className="text-right">
-                      {points[address]}
-                    </TableCell>
+          <div className="bg-card p-4 rounded-lg border border-border">
+            <h3 className="font-medium mb-3">EVM Wallet</h3>
+            {!evmWallet ? (
+              <button
+                onClick={() => connectEvmWallet()}
+                className="w-full bg-primary text-white py-2 px-4 rounded-md hover:bg-primary/90 transition-colors"
+              >
+                Connect EVM Wallet
+              </button>
+            ) : (
+              <div className="space-y-1">
+                <p
+                  className="text-sm text-foreground truncate max-w-full"
+                  title={evmWallet}
+                >
+                  {evmWallet}
+                </p>
+                <p className="text-sm">
+                  <strong>{points[evmWallet.toLowerCase()] || 0} points</strong>
+                </p>
+                <button
+                  onClick={() => disconnectEvmWallet()}
+                  className="text-sm text-primary hover:underline"
+                >
+                  Disconnect
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="w-full">
+          <h2 className="text-xl font-semibold mb-4">Leaderboard</h2>
+          {isLoading ? (
+            <div className="flex justify-center items-center h-32">
+              <p>Loading leaderboard data...</p>
+            </div>
+          ) : (
+            <div className="border rounded-lg overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/50">
+                    <TableHead className="w-[80px]">Rank</TableHead>
+                    <TableHead>Address</TableHead>
+                    <TableHead className="text-right">Total Points</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {addresses.length > 0 ? (
+                    addresses.map((address, index) => (
+                      <TableRow key={address} className="hover:bg-muted/50">
+                        <TableCell className="font-medium">
+                          #{index + 1}
+                        </TableCell>
+                        <TableCell className="font-mono text-sm">
+                          {address}
+                        </TableCell>
+                        <TableCell className="text-right font-medium">
+                          {points[address].toLocaleString()}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell
+                        colSpan={3}
+                        className="text-center py-8 text-muted-foreground"
+                      >
+                        No data available
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </div>
-      }
-    />
+      </div>
+    </>
   );
 }
