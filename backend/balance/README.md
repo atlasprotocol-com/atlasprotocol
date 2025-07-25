@@ -47,3 +47,7 @@ graph TD
 3. `balance_bucket`: Defines time buckets for balance calculation
 4. `point_snapshot`: Manages Atlas point snapshots from BitHive
 5. `point`: Stores point distribution for each wallet per bucket
+
+## Bucket generation
+
+We will use `date-fns` format function to generate bucket name. For example, if we want to generate bucket for 2025-07-25 00:25:00, we will use `format(new Date(2025, 6, 25), 'yyyyMMddHH0000')`. And it will produce `202507250000`

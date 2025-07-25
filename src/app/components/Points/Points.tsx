@@ -3,7 +3,7 @@ import { useMemo } from "react";
 import { useConnectMultiChain } from "@/app/hooks/useConnectMultiChain";
 import { ChainConfig } from "@/app/types/chainConfig";
 import { useGetChainConfig } from "@/hooks";
-import { useGetUserPoints } from "@/hooks/points";
+import { useGetUserPoints, useGetUserPointsLeaderboard } from "@/hooks/points";
 
 import { useBool } from "@/hooks/useBool";
 import { ConnectEvmWalletModal } from "../Modals/ConnectEvmWalletModal";
@@ -51,19 +51,18 @@ export function Points() {
     },
   });
 
-  const { data, isLoading } = useGetUserPoints({
-    address: [nearWallet, evmWallet]
-      .filter(Boolean)
-      .map((s) => s?.toLowerCase())
-      .join(","),
-  });
+  const { data: leaderboardData, isLoading: leaderboardLoading } =
+    useGetUserPointsLeaderboard();
+  const leaderboard = leaderboardData || [];
 
-  const points = data || {};
-  const addresses = Object.keys(points).toSorted((a, b) => {
-    if (a > b) return 1;
-    if (a < b) return -1;
-    return 0;
-  });
+  const { data: userPointsData, isLoading: userPointsLoading } =
+    useGetUserPoints({
+      address: [nearWallet, evmWallet]
+        .filter(Boolean)
+        .map((s) => s?.toLowerCase())
+        .join(","),
+    });
+  const userPoints = userPointsData || {};
 
   return (
     <>
@@ -79,10 +78,13 @@ export function Points() {
             <h3 className="font-medium mb-3">NEAR Wallet</h3>
             {!nearWallet ? (
               <button
+                disabled={userPointsLoading}
                 onClick={() => connectNearWallet()}
                 className="w-full bg-primary text-white py-2 px-4 rounded-md hover:bg-primary/90 transition-colors"
               >
-                Connect NEAR Wallet
+                {userPointsLoading
+                  ? "Connecting NEAR Wallet..."
+                  : "Connect NEAR Wallet"}
               </button>
             ) : (
               <div className="space-y-1">
@@ -93,7 +95,7 @@ export function Points() {
                   {nearWallet}
                 </p>
                 <p className="text-sm">
-                  <strong>{points[nearWallet] || 0} points</strong>
+                  <strong>{userPoints[nearWallet] || 0} points</strong>
                 </p>
                 <button
                   onClick={() => disconnectNearWallet()}
@@ -108,10 +110,13 @@ export function Points() {
             <h3 className="font-medium mb-3">EVM Wallet</h3>
             {!evmWallet ? (
               <button
+                disabled={userPointsLoading}
                 onClick={() => connectEvmWallet()}
                 className="w-full bg-primary text-white py-2 px-4 rounded-md hover:bg-primary/90 transition-colors"
               >
-                Connect EVM Wallet
+                {userPointsLoading
+                  ? "Connecting EVM Wallet..."
+                  : "Connect EVM Wallet"}
               </button>
             ) : (
               <div className="space-y-1">
@@ -122,7 +127,9 @@ export function Points() {
                   {evmWallet}
                 </p>
                 <p className="text-sm">
-                  <strong>{points[evmWallet.toLowerCase()] || 0} points</strong>
+                  <strong>
+                    {userPoints[evmWallet.toLowerCase()] || 0} points
+                  </strong>
                 </p>
                 <button
                   onClick={() => disconnectEvmWallet()}
@@ -137,7 +144,7 @@ export function Points() {
 
         <div className="w-full">
           <h2 className="text-xl font-semibold mb-4">Leaderboard</h2>
-          {isLoading ? (
+          {leaderboardLoading ? (
             <div className="flex justify-center items-center h-32">
               <p>Loading leaderboard data...</p>
             </div>
@@ -152,17 +159,20 @@ export function Points() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {addresses.length > 0 ? (
-                    addresses.map((address, index) => (
-                      <TableRow key={address} className="hover:bg-muted/50">
+                  {leaderboard?.length > 0 ? (
+                    leaderboard.map((item, index) => (
+                      <TableRow
+                        key={item.wallet_address}
+                        className="hover:bg-muted/50"
+                      >
                         <TableCell className="font-medium">
                           #{index + 1}
                         </TableCell>
                         <TableCell className="font-mono text-sm">
-                          {address}
+                          {item.wallet_address}
                         </TableCell>
                         <TableCell className="text-right font-medium">
-                          {points[address].toLocaleString()}
+                          {item.points.toLocaleString()}
                         </TableCell>
                       </TableRow>
                     ))

@@ -5,6 +5,7 @@ const client = new PostgresClient();
 
 module.exports = () => {
   const router = Router();
+  client.connect();
 
   router.get("/points", async (req, res) => {
     const { address } = req.query;
@@ -27,6 +28,17 @@ module.exports = () => {
     }
 
     res.json({ data: returning });
+  });
+
+  router.get("/points/leaderboard", async (req, res) => {
+    const limit = Math.min(Number(req.query.limit) || 10, 20);
+
+    const { rows } = await client.query(
+      `SELECT wallet_address, SUM(points) AS points FROM ${client.schema}.point GROUP BY wallet_address ORDER BY points DESC LIMIT $1`,
+      [limit],
+    );
+
+    res.json({ data: rows });
   });
 
   return router;
