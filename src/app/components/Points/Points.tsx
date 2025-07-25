@@ -4,8 +4,8 @@ import { useConnectMultiChain } from "@/app/hooks/useConnectMultiChain";
 import { ChainConfig } from "@/app/types/chainConfig";
 import { useGetChainConfig } from "@/hooks";
 import { useGetUserPoints, useGetUserPointsLeaderboard } from "@/hooks/points";
-
 import { useBool } from "@/hooks/useBool";
+
 import { ConnectEvmWalletModal } from "../Modals/ConnectEvmWalletModal";
 import {
   Table,

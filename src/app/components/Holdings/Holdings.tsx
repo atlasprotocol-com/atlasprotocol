@@ -117,7 +117,7 @@ export function Holdings({ balanceSat }: { balanceSat: number }) {
         8,
       ),
     };
-  }, [stakingHistories, redemptionHistories, balanceSat]);
+  }, [stakingHistories, redemptionHistories]);
 
   const { chainId, address: evmAddress } = useAccount();
 
