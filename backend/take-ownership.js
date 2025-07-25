@@ -78,7 +78,6 @@ async function main() {
       chainConfig.abtc_address,
       chainConfig.abi_path,
     );
-
     const derivationPath = chainConfig.network_type;
 
     const sender = await ethereum.deriveEthAddress(
@@ -86,6 +85,9 @@ async function main() {
       near.contract_id,
       derivationPath,
     );
+
+    console.log(`------------------------------> sender:${sender}`);
+
     const signedTransaction = await ethereum.createAcceptOwnershipTx(
       near,
       sender,
@@ -95,8 +97,7 @@ async function main() {
       .map((byte) => byte.toString(16).padStart(2, "0"))
       .join("");
 
-    console.log(`------------------------------> sender:${sender}`);
-    console.log(hexcode);
+    console.log("`------------------------------>hexcode:", hexcode);
 
     const { txnHash, status } = await ethereum.relayTransaction(
       null,

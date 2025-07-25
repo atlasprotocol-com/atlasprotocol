@@ -921,7 +921,6 @@ app.listen(PORT, async () => {
   console.log(
     `Server is running on port ${PORT} | ${process.env.NEAR_CONTRACT_ID}`,
   );
-
   setInterval(async () => {
     if (!flagsBatch.RetrieveAndProcessPastEventsRunning) {
       flagsBatch.RetrieveAndProcessPastEventsRunning = true;

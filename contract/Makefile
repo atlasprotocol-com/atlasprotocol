@@ -1,6 +1,5 @@
-CONTRACT_ID ?= atlas_testnet4_20250628
-FT_CONTRACT_ID ?= atbtc_testnet4_20250628
-
+CONTRACT_ID ?= atlas_testnet4_20250725
+FT_CONTRACT_ID ?= atbtc_testnet4_20250725
 
 migrate: 
 	./build.sh
