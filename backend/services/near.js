@@ -203,7 +203,9 @@ class Near {
         gas: this.gas,
       });
 
-      console.log("result:", result);
+      console.log(
+        `makeNearRpcChangeCall - ${methodName} - result: ${JSON.stringify(result)}`,
+      );
 
       return result;
     } catch (error) {
@@ -476,7 +478,9 @@ class Near {
   }
 
   async createMintaBtcSignedTx(payloadHeader) {
-    console.log(payloadHeader);
+    console.log(
+      `createMintaBtcSignedTx - payloadHeader: ${JSON.stringify(payloadHeader)}`,
+    );
     return this.makeNearRpcChangeCall("create_mint_abtc_signed_tx", {
       btc_txn_hash: payloadHeader.btc_txn_hash,
       nonce: payloadHeader.nonce,
