@@ -59,6 +59,13 @@ async function withdrawBtcFromYieldProvider(
         return;
       }
 
+      if (accountInfo.queue_withdrawal_amount == 0) {
+        console.log(
+          "[WithdrawBtcFromYieldProvider] No unstaked amount to withdraw",
+        );
+        return;
+      }
+
       // Check if there's a pending withdrawal
       if (accountInfo.queue_withdrawal_amount > 0) {
         totalUnstakedAmount = accountInfo.queue_withdrawal_amount;

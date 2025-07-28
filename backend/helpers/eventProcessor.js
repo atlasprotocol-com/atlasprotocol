@@ -44,6 +44,7 @@ async function processEventsForChain(
         error,
       );
       await logErrorToFile(record.txn_hash, "", error, 'ProcessEventsForChain');
+      throw error;
     }
   }
 }

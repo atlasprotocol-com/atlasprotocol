@@ -24,7 +24,7 @@ async function nearChainScanner(near) {
   const { NETWORK_TYPE } = getConstants();
   const chainConfig = getAllChainConfig();
 
-  const batchSize = 80;
+  const batchSize = 20;
 
   try {
     const chain = Object.values(chainConfig).find(
@@ -87,6 +87,8 @@ async function nearChainScanner(near) {
       chain.chainID + "_NearChainScanner",
       toBlock,
     );
+
+    await new Promise((resolve) => setTimeout(resolve, 4000));
   } catch (error) {
     console.error(`${batchName} ERROR: ${error.message} | ${error.stack}`);
   }

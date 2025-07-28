@@ -202,7 +202,6 @@ class Near {
         args,
         gas: this.gas,
       });
-
       console.log(
         `makeNearRpcChangeCall - ${methodName} - result: ${JSON.stringify(result)}`,
       );
@@ -1273,7 +1272,7 @@ class Near {
         ? "https://mainnet.neardata.xyz"
         : "https://testnet.neardata.xyz";
 
-    const batchSize = 5;
+   
     let block_count = 0;
 
     // Buffer to collect receipt outcomes from multiple blocks
@@ -1283,99 +1282,84 @@ class Near {
 
     console.log(`[NEAR] Using NEAR Data Server: ${baseUrl}`);
 
-    while (startBlock <= endBlock) {
+    const blockPromises = [];
+    for (
+      let blockHeight = startBlock;
+      blockHeight <= endBlock;
+      blockHeight++
+    ) {
+      // Fetch all blocks in parallel for better performance
+      blockPromises.push(
+        this._fetchBlockFromDataServer(baseUrl, blockHeight)
+      );
+    }
+    const fetchedBlocks = await Promise.all(blockPromises);
+        
+    for (const blockData of fetchedBlocks) {
+      if (!blockData) continue;
       try {
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-        // Define the end block for the current batch
-        const batchEndBlock = Math.min(startBlock + batchSize - 1, endBlock);
+        
+        // Collect all transactions and receipt outcomes from all shards
+        const allTransactions = [];
+        const allReceiptOutcomes = [];
 
-        console.log(
-          `[NEAR] Processing batch from ${startBlock} to ${batchEndBlock} using NEAR Data Server`,
-        );
-
-        // Create an array of promises for fetching blocks using NEAR Data Server
-        for (
-          let blockHeight = startBlock;
-          blockHeight <= batchEndBlock;
-          blockHeight++
-        ) {
-          const blockData = await this._fetchBlockFromDataServer(
-            baseUrl,
-            blockHeight,
-          );
-          if (!blockData) continue;
-
-          try {
-            // Collect all transactions and receipt outcomes from all shards
-            const allTransactions = [];
-            const allReceiptOutcomes = [];
-
-            if (blockData.shards && Array.isArray(blockData.shards)) {
-              for (const shard of blockData.shards) {
-                // Collect transactions from this shard
-                if (shard.chunk && shard.chunk.transactions) {
-                  const transactions = shard.chunk.transactions;
-                  allTransactions.push(...transactions);
-                }
-
-                // Collect receipt execution outcomes from this shard
-                if (shard.receipt_execution_outcomes) {
-                  const receiptOutcomes = shard.receipt_execution_outcomes;
-                  allReceiptOutcomes.push(...receiptOutcomes);
-                }
-              }
+        if (blockData.shards && Array.isArray(blockData.shards)) {
+          for (const shard of blockData.shards) {
+            // Collect transactions from this shard
+            if (shard.chunk && shard.chunk.transactions) {
+              const transactions = shard.chunk.transactions;
+              allTransactions.push(...transactions);
             }
 
-            // Collect relevant transactions into buffer (only from original range, not extended range)
-            if (blockHeight <= endBlock) {
-              for (const txData of allTransactions) {
-                // Extract transaction details from the nested structure
-                const tx = txData.transaction || txData;
-                const txHash = tx.hash;
-                const receiverId = tx.receiver_id;
-
-                if (
-                  receiverId === targetContractId ||
-                  receiverId === atBtcContractId
-                ) {
-                  pendingTransactions.set(txHash, {
-                    txData,
-                    tx,
-                    txHash,
-                    receiverId,
-                    blockHeight,
-                    blockData,
-                  });
-                }
-              }
+            // Collect receipt execution outcomes from this shard
+            if (shard.receipt_execution_outcomes) {
+              const receiptOutcomes = shard.receipt_execution_outcomes;
+              allReceiptOutcomes.push(...receiptOutcomes);
             }
-
-            // Collect all receipt outcomes into buffer (store as arrays to handle multiple receipts per tx)
-            for (const receiptOutcome of allReceiptOutcomes) {
-              if (receiptOutcome.tx_hash) {
-                const existingOutcomes =
-                  receiptOutcomeBuffer.get(receiptOutcome.tx_hash) || [];
-                existingOutcomes.push(receiptOutcome);
-                receiptOutcomeBuffer.set(
-                  receiptOutcome.tx_hash,
-                  existingOutcomes,
-                );
-              }
-            }
-            block_count++;
-          } catch (err) {
-            console.error(`Error processing block ${blockHeight}: ${err}`);
           }
-
-          await new Promise((resolve) => setTimeout(resolve, 1000));
         }
 
-        // Update start block for next batch
-        startBlock = batchEndBlock + 1;
+        
+          for (const txData of allTransactions) {
+            // Extract transaction details from the nested structure
+            const tx = txData.transaction || txData;
+            const txHash = tx.hash;
+            const receiverId = tx.receiver_id;
+
+            if (
+              receiverId === targetContractId ||
+              receiverId === atBtcContractId
+            ) {
+              pendingTransactions.set(txHash, {
+                txData,
+                tx,
+                txHash,
+                receiverId,
+                blockHeight: blockData.block.header.height,  
+                blockData,
+              });
+            }
+          }
+        
+
+        // Collect all receipt outcomes into buffer (store as arrays to handle multiple receipts per tx)
+        for (const receiptOutcome of allReceiptOutcomes) {
+          if (receiptOutcome.tx_hash) {
+            const existingOutcomes =
+              receiptOutcomeBuffer.get(receiptOutcome.tx_hash) || [];
+            existingOutcomes.push(receiptOutcome);
+            receiptOutcomeBuffer.set(
+              receiptOutcome.tx_hash,
+              existingOutcomes,
+            );
+          }
+        }
+        block_count++;
       } catch (err) {
-        console.error(`Batch processing error: ${err}`);
-        continue;
+        console.error(`Error processing block ${blockData.block.header.height}: ${err}`);
       }
+
+      //await new Promise((resolve) => setTimeout(resolve, 500));
     }
 
     // After processing all blocks, match transactions with receipt outcomes
@@ -1620,7 +1604,7 @@ class Near {
   async _fetchBlockFromDataServer(baseUrl, blockHeight) {
     return pRetry(
       async (count) => {
-        console.log(`EVM _fetchBlockFromDataServer - retries: ${count}`);
+        console.log(`NEAR _fetchBlockFromDataServer - retries: ${count}`);
         const url = `${baseUrl}/v0/block/${blockHeight}`;
 
         const response = await axios.get(url, {
@@ -1640,7 +1624,9 @@ class Near {
         }
 
         if (response.status === 429) {
-          await new Promise((resolve) => setTimeout(resolve, 1000 * 60 * 5));
+          //await new Promise((resolve) => setTimeout(resolve, 1000 * 60 * 5));
+          console.log("429: Waiting for 3 seconds");
+          await new Promise((resolve) => setTimeout(resolve, 3000));
         }
 
         if (response.status !== 200) {
@@ -1937,6 +1923,7 @@ class Near {
 
   async getBalances() {
     const tuples = await this.makeNearRpcChangeCall("get_balances", {});
+    
     return tuples.reduce((m, [key, value]) => ({ ...m, [key]: value }), {});
   }
 }
