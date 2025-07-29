@@ -22,7 +22,7 @@ export interface SocialTasks {
   retweetedPost: boolean;
 }
 
-const ONBOARDING_API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+const ONBOARDING_API_BASE_URL = `${process.env.NEXT_PUBLIC_API_URL}/api/v1`;
 
 // Shared redirect control to prevent infinite loops
 class RedirectController {

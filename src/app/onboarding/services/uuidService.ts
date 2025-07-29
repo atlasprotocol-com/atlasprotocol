@@ -11,7 +11,7 @@ interface WalletMappingResponse {
   wallets: string[];
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+const API_BASE_URL = `${process.env.NEXT_PUBLIC_API_URL}/api/v1`;
 const UUID_STORAGE_KEY = "atlas_user_uuid";
 const UUID_EXPIRY_KEY = "atlas_uuid_expiry";
 
