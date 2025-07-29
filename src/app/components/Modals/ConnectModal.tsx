@@ -283,7 +283,8 @@ export const ConnectModal: React.FC<ConnectModalProps> = ({
                     <div className="flex flex-1 items-center gap-3">
                       <div className="flex h-10 w-10 items-center justify-center rounded-full bg-neutral-1 dark:bg-white p-2">
                         {typeof wallet.icon === "string" &&
-                        wallet.icon.startsWith("/") ? (
+                        (wallet.icon.startsWith("/") ||
+                          wallet.icon.startsWith("data:")) ? (
                           <img
                             src={wallet.icon}
                             alt={wallet.name}
@@ -331,12 +332,24 @@ export const ConnectModal: React.FC<ConnectModalProps> = ({
                   >
                     <div className="flex flex-1 items-center gap-3">
                       <div className="flex h-10 w-10 items-center justify-center rounded-full bg-neutral-1 dark:bg-white p-2">
-                        <Image
-                          src={wallet.icon}
-                          alt={wallet.name}
-                          width={24}
-                          height={24}
-                        />
+                        {typeof wallet.icon === "string" &&
+                        (wallet.icon.startsWith("/") ||
+                          wallet.icon.startsWith("data:")) ? (
+                          <img
+                            src={wallet.icon}
+                            alt={wallet.name}
+                            width={24}
+                            height={24}
+                            className="rounded-full"
+                          />
+                        ) : (
+                          <Image
+                            src={wallet.icon}
+                            alt={wallet.name}
+                            width={24}
+                            height={24}
+                          />
+                        )}
                       </div>
                       <div className="flex flex-col items-start">
                         <p className="font-medium">{wallet.name}</p>

@@ -1,10 +1,13 @@
 "use client";
 
-import { OnboardingLayout } from "./components/OnboardingLayout";
 import { OnboardingErrorBoundary } from "./components/OnboardingErrorBoundary";
+import { OnboardingLayout } from "./components/OnboardingLayout";
 import { StepOne } from "./components/StepOne";
 import { StepTwo } from "./components/StepTwo";
-import { OnboardingProvider, useOnboardingContext } from "./context/OnboardingContext";
+import {
+  OnboardingProvider,
+  useOnboardingContext,
+} from "./context/OnboardingContext";
 
 const OnboardingPageContent: React.FC = () => {
   const {
@@ -26,25 +29,28 @@ const OnboardingPageContent: React.FC = () => {
   } = useOnboardingContext();
 
   // Show loading while initializing or checking status
-  if (!isInitialized || isCheckingStatus || (!hasCheckedInitialStatus && connectedWallet)) {
-    const loadingMessage = !isInitialized 
+  if (
+    !isInitialized ||
+    isCheckingStatus ||
+    (!hasCheckedInitialStatus && connectedWallet)
+  ) {
+    const loadingMessage = !isInitialized
       ? "Initializing onboarding..."
-      : isCheckingStatus 
+      : isCheckingStatus
         ? "Verifying wallet onboarding status..."
         : "Processing wallet connection...";
-        
+
     return (
       <OnboardingLayout currentStep={1}>
         <div className="max-w-md mx-auto text-center">
           <div className="mb-4">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
           </div>
-          <p className="text-neutral-6 dark:text-neutral-4">
-            {loadingMessage}
-          </p>
+          <p className="text-neutral-6 dark:text-neutral-4">{loadingMessage}</p>
           {connectedWallet && (
             <p className="text-neutral-5 dark:text-neutral-5 text-sm mt-2">
-              Wallet: {connectedWallet.slice(0, 8)}...{connectedWallet.slice(-6)}
+              Wallet: {connectedWallet.slice(0, 8)}...
+              {connectedWallet.slice(-6)}
             </p>
           )}
           {isCheckingStatus && (
@@ -52,15 +58,10 @@ const OnboardingPageContent: React.FC = () => {
               ⚙️ Checking if onboarding is already complete...
             </p>
           )}
-          {statusCheckError && (
-            <p className="text-yellow-500 text-sm mt-2">{statusCheckError}</p>
-          )}
         </div>
       </OnboardingLayout>
     );
   }
-
-
 
   const renderCurrentStep = () => {
     switch (currentStep) {
