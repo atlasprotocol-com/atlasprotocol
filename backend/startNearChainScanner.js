@@ -30,7 +30,7 @@ async function main() {
     console.log("Running near chain scanner");
     while (true) {
         await nearChainScanner(near);
-        await new Promise(resolve => setTimeout(resolve, 5000));
+        //await new Promise(resolve => setTimeout(resolve, 500));
     }
 }
 
