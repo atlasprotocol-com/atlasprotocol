@@ -236,6 +236,10 @@ class Near {
     }
   }
 
+  async makeNearFunctionCall(methodName, args) {
+    const contract = await Near.getNextContract();
+  }
+
   // Function to get deposit by BTC sender address from NEAR contract
   async getDepositByBtcAddress(btcWalletAddress) {
     return this.makeNearRpcViewCall("get_deposits_by_btc_sender_address", {
@@ -477,17 +481,46 @@ class Near {
     });
   }
 
-  async createMintaBtcSignedTx(payloadHeader) {
-    console.log(
-      `createMintaBtcSignedTx - payloadHeader: ${JSON.stringify(payloadHeader)}`,
-    );
-    return this.makeNearRpcChangeCall("create_mint_abtc_signed_tx", {
-      btc_txn_hash: payloadHeader.btc_txn_hash,
-      nonce: payloadHeader.nonce,
-      gas: payloadHeader.gas,
-      max_fee_per_gas: payloadHeader.max_fee_per_gas,
-      max_priority_fee_per_gas: payloadHeader.max_priority_fee_per_gas,
-    });
+  async createMintaBtcSignedTx(args) {
+    console.log(`create_mint_abtc_signed_tx - args: ${JSON.stringify(args)}`);
+    try {
+      const contract = await Near.getNextContract();
+      const result = await contract.account.functionCall({
+        contractId: contract.contractId,
+        methodName: "create_mint_abtc_signed_tx",
+        args,
+        gas: "30000000000000", // optional
+      });
+      if (!result.transaction || !result.transaction.hash) {
+        throw new Error(
+          `no transaction hash. Result: ${JSON.stringify(result)}`,
+        );
+      }
+
+      const txHash = result.transaction.hash;
+      const tx = await pRetry(
+        async (count) => {
+          console.log(
+            `create_mint_abtc_signed_tx retries: ${count} | ${txHash}`,
+          );
+          return this.provider.txStatus(txHash, this.contract_id, "FINAL");
+        },
+        { retries: 5 },
+      );
+      if (!tx || !tx.status || !tx.status.SuccessValue) {
+        const failure = JSON.stringify(tx && tx.status);
+        console.log(`tx failure: ${failure}`);
+        throw new Error(failure);
+      }
+
+      const value = Buffer.from(tx.status.SuccessValue, "base64").toString(
+        "utf-8",
+      );
+      return JSON.parse(value);
+    } catch (err) {
+      console.error(`create_mint_abtc_signed_tx - error: ${err}`);
+      throw err;
+    }
   }
 
   async createRedeemAbtcTransaction(payloadHeader) {
