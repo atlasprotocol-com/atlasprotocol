@@ -1240,15 +1240,48 @@ class Near {
     );
   }
 
-  async createMintBridgeABtcSignedTx(payloadHeader) {
-    console.log("payloadHeader:", payloadHeader);
-    return this.makeNearRpcChangeCall("create_bridging_abtc_signed_tx", {
-      txn_hash: payloadHeader.txn_hash,
-      nonce: payloadHeader.nonce,
-      gas: payloadHeader.gas,
-      max_fee_per_gas: payloadHeader.max_fee_per_gas,
-      max_priority_fee_per_gas: payloadHeader.max_priority_fee_per_gas,
-    });
+  async createMintBridgeABtcSignedTx(args) {
+    console.log(
+      `create_bridging_abtc_signed_tx - args: ${JSON.stringify(args)}`,
+    );
+    try {
+      const contract = await Near.getNextContract();
+      const result = await contract.account.functionCall({
+        contractId: contract.contractId,
+        methodName: "create_bridging_abtc_signed_tx",
+        args,
+        gas: "30000000000000", // optional
+      });
+      if (!result.transaction || !result.transaction.hash) {
+        throw new Error(
+          `no transaction hash. Result: ${JSON.stringify(result)}`,
+        );
+      }
+
+      const txHash = result.transaction.hash;
+      const tx = await pRetry(
+        async (count) => {
+          console.log(
+            `create_bridging_abtc_signed_tx retries: ${count} | ${txHash}`,
+          );
+          return this.provider.txStatus(txHash, this.contract_id, "FINAL");
+        },
+        { retries: 5 },
+      );
+      if (!tx || !tx.status || !tx.status.SuccessValue) {
+        const failure = JSON.stringify(tx && tx.status);
+        console.log(`tx failure: ${failure}`);
+        throw new Error(failure);
+      }
+
+      const value = Buffer.from(tx.status.SuccessValue, "base64").toString(
+        "utf-8",
+      );
+      return JSON.parse(value);
+    } catch (err) {
+      console.error(`create_bridging_abtc_signed_tx - error: ${err}`);
+      throw err;
+    }
   }
 
   async updateYieldProviderTxnHash(btcTxnHash, yieldProviderTxnHash) {
@@ -1305,7 +1338,6 @@ class Near {
         ? "https://mainnet.neardata.xyz"
         : "https://testnet.neardata.xyz";
 
-   
     let block_count = 0;
 
     // Buffer to collect receipt outcomes from multiple blocks
@@ -1316,22 +1348,15 @@ class Near {
     console.log(`[NEAR] Using NEAR Data Server: ${baseUrl}`);
 
     const blockPromises = [];
-    for (
-      let blockHeight = startBlock;
-      blockHeight <= endBlock;
-      blockHeight++
-    ) {
+    for (let blockHeight = startBlock; blockHeight <= endBlock; blockHeight++) {
       // Fetch all blocks in parallel for better performance
-      blockPromises.push(
-        this._fetchBlockFromDataServer(baseUrl, blockHeight)
-      );
+      blockPromises.push(this._fetchBlockFromDataServer(baseUrl, blockHeight));
     }
     const fetchedBlocks = await Promise.all(blockPromises);
-        
+
     for (const blockData of fetchedBlocks) {
       if (!blockData) continue;
       try {
-        
         // Collect all transactions and receipt outcomes from all shards
         const allTransactions = [];
         const allReceiptOutcomes = [];
@@ -1352,28 +1377,26 @@ class Near {
           }
         }
 
-        
-          for (const txData of allTransactions) {
-            // Extract transaction details from the nested structure
-            const tx = txData.transaction || txData;
-            const txHash = tx.hash;
-            const receiverId = tx.receiver_id;
+        for (const txData of allTransactions) {
+          // Extract transaction details from the nested structure
+          const tx = txData.transaction || txData;
+          const txHash = tx.hash;
+          const receiverId = tx.receiver_id;
 
-            if (
-              receiverId === targetContractId ||
-              receiverId === atBtcContractId
-            ) {
-              pendingTransactions.set(txHash, {
-                txData,
-                tx,
-                txHash,
-                receiverId,
-                blockHeight: blockData.block.header.height,  
-                blockData,
-              });
-            }
+          if (
+            receiverId === targetContractId ||
+            receiverId === atBtcContractId
+          ) {
+            pendingTransactions.set(txHash, {
+              txData,
+              tx,
+              txHash,
+              receiverId,
+              blockHeight: blockData.block.header.height,
+              blockData,
+            });
           }
-        
+        }
 
         // Collect all receipt outcomes into buffer (store as arrays to handle multiple receipts per tx)
         for (const receiptOutcome of allReceiptOutcomes) {
@@ -1381,15 +1404,14 @@ class Near {
             const existingOutcomes =
               receiptOutcomeBuffer.get(receiptOutcome.tx_hash) || [];
             existingOutcomes.push(receiptOutcome);
-            receiptOutcomeBuffer.set(
-              receiptOutcome.tx_hash,
-              existingOutcomes,
-            );
+            receiptOutcomeBuffer.set(receiptOutcome.tx_hash, existingOutcomes);
           }
         }
         block_count++;
       } catch (err) {
-        console.error(`Error processing block ${blockData.block.header.height}: ${err}`);
+        console.error(
+          `Error processing block ${blockData.block.header.height}: ${err}`,
+        );
       }
 
       //await new Promise((resolve) => setTimeout(resolve, 500));
@@ -1956,7 +1978,7 @@ class Near {
 
   async getBalances() {
     const tuples = await this.makeNearRpcChangeCall("get_balances", {});
-    
+
     return tuples.reduce((m, [key, value]) => ({ ...m, [key]: value }), {});
   }
 }
