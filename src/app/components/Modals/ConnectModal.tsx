@@ -284,7 +284,7 @@ export const ConnectModal: React.FC<ConnectModalProps> = ({
                       <div className="flex h-10 w-10 items-center justify-center rounded-full bg-neutral-1 dark:bg-white p-2">
                         {typeof wallet.icon === "string" &&
                         (wallet.icon.startsWith("/") ||
-                          wallet.icon.startsWith("data:")) ? (
+                          wallet.icon.includes("data:")) ? (
                           <img
                             src={wallet.icon}
                             alt={wallet.name}
@@ -334,7 +334,7 @@ export const ConnectModal: React.FC<ConnectModalProps> = ({
                       <div className="flex h-10 w-10 items-center justify-center rounded-full bg-neutral-1 dark:bg-white p-2">
                         {typeof wallet.icon === "string" &&
                         (wallet.icon.startsWith("/") ||
-                          wallet.icon.startsWith("data:")) ? (
+                          wallet.icon.includes("data:")) ? (
                           <img
                             src={wallet.icon}
                             alt={wallet.name}
