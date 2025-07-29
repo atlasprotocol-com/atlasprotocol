@@ -11,14 +11,14 @@ interface WalletMappingResponse {
   wallets: string[];
 }
 
-const API_BASE_URL = "https://api-uat.atlasprotocol.com/api/v1";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 const UUID_STORAGE_KEY = "atlas_user_uuid";
 const UUID_EXPIRY_KEY = "atlas_uuid_expiry";
 
 class UUIDService {
   private static instance: UUIDService;
   private currentUUID: string | null = null;
-  
+
   static getInstance(): UUIDService {
     if (!UUIDService.instance) {
       UUIDService.instance = new UUIDService();
@@ -39,7 +39,7 @@ class UUIDService {
   private isUUIDValid(): boolean {
     const expiry = localStorage.getItem(UUID_EXPIRY_KEY);
     if (!expiry) return false;
-    
+
     const expiryTime = parseInt(expiry, 10);
     return Date.now() < expiryTime;
   }
@@ -48,7 +48,7 @@ class UUIDService {
    * Store UUID with expiry (7 days)
    */
   private storeUUID(uuid: string): void {
-    const expiryTime = Date.now() + (7 * 24 * 60 * 60 * 1000); // 7 days
+    const expiryTime = Date.now() + 7 * 24 * 60 * 60 * 1000; // 7 days
     localStorage.setItem(UUID_STORAGE_KEY, uuid);
     localStorage.setItem(UUID_EXPIRY_KEY, expiryTime.toString());
     this.currentUUID = uuid;
@@ -72,7 +72,7 @@ class UUIDService {
 
     // Try to get existing UUID from storage
     const storedUUID = localStorage.getItem(UUID_STORAGE_KEY);
-    
+
     if (storedUUID && this.isUUIDValid()) {
       console.log("Using existing UUID:", storedUUID);
       this.currentUUID = storedUUID;
@@ -120,21 +120,21 @@ class UUIDService {
   async linkWalletToUUID(uuid: string, walletAddress: string): Promise<void> {
     try {
       console.log(`Linking wallet ${walletAddress} to UUID ${uuid}`);
-      
+
       const response = await axios.post(
         `${API_BASE_URL}/wallet/maps/${uuid}`,
         { walletAddress },
         {
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
           },
-        }
+        },
       );
 
       console.log("Wallet linked successfully:", response.data);
     } catch (error) {
       console.error("Failed to link wallet to UUID:", error);
-      
+
       if (axios.isAxiosError(error)) {
         const message = error?.response?.data?.message || error.message;
         throw new Error(`Failed to link wallet: ${message}`);
@@ -150,15 +150,15 @@ class UUIDService {
   async getLinkedWallets(uuid: string): Promise<LinkedWallet[]> {
     try {
       console.log(`Getting linked wallets for UUID ${uuid}`);
-      
+
       const response = await axios.get<WalletMappingResponse>(
         `${API_BASE_URL}/wallet/maps`,
         {
           params: { q: uuid },
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
           },
-        }
+        },
       );
 
       const wallets = response.data.wallets || [];
@@ -167,20 +167,31 @@ class UUIDService {
       // Convert wallet addresses to LinkedWallet objects
       // We'll need to check onboarding status for each wallet
       const linkedWallets: LinkedWallet[] = [];
-      
+
       for (const walletAddress of wallets) {
         try {
           // Import here to avoid circular dependency
           const { onboardingApi } = await import("./onboardingApi");
-          const status = await onboardingApi.checkOnboardingStatus(walletAddress, "onboarding");
-          
+          const status = await onboardingApi.checkOnboardingStatus(
+            walletAddress,
+            "onboarding",
+          );
+
           // Determine wallet type based on address format
           let walletType: "BTC" | "NEAR" | "EVM" = "EVM";
-          if (walletAddress.endsWith(".near") || walletAddress.endsWith(".testnet")) {
+          if (
+            walletAddress.endsWith(".near") ||
+            walletAddress.endsWith(".testnet")
+          ) {
             walletType = "NEAR";
-          } else if (walletAddress.length >= 26 && walletAddress.length <= 35 && 
-                     (walletAddress.startsWith("1") || walletAddress.startsWith("3") || 
-                      walletAddress.startsWith("bc1") || walletAddress.startsWith("tb1"))) {
+          } else if (
+            walletAddress.length >= 26 &&
+            walletAddress.length <= 35 &&
+            (walletAddress.startsWith("1") ||
+              walletAddress.startsWith("3") ||
+              walletAddress.startsWith("bc1") ||
+              walletAddress.startsWith("tb1"))
+          ) {
             walletType = "BTC";
           }
 
@@ -190,7 +201,10 @@ class UUIDService {
             isOnboardingComplete: status.isCompleted,
           });
         } catch (error) {
-          console.error(`Failed to check status for wallet ${walletAddress}:`, error);
+          console.error(
+            `Failed to check status for wallet ${walletAddress}:`,
+            error,
+          );
           // Still add the wallet but assume onboarding is not complete
           linkedWallets.push({
             address: walletAddress,
@@ -203,7 +217,7 @@ class UUIDService {
       return linkedWallets;
     } catch (error) {
       console.error("Failed to get linked wallets:", error);
-      
+
       if (axios.isAxiosError(error)) {
         const message = error?.response?.data?.message || error.message;
         throw new Error(`Failed to get linked wallets: ${message}`);
@@ -220,7 +234,8 @@ class UUIDService {
     try {
       const linkedWallets = await this.getLinkedWallets(uuid);
       return linkedWallets.some(
-        wallet => wallet.address.toLowerCase() === walletAddress.toLowerCase()
+        (wallet) =>
+          wallet.address.toLowerCase() === walletAddress.toLowerCase(),
       );
     } catch (error) {
       console.error("Failed to check if wallet is linked:", error);
@@ -234,7 +249,7 @@ class UUIDService {
   async hasCompletedOnboarding(uuid: string): Promise<boolean> {
     try {
       const linkedWallets = await this.getLinkedWallets(uuid);
-      return linkedWallets.some(wallet => wallet.isOnboardingComplete);
+      return linkedWallets.some((wallet) => wallet.isOnboardingComplete);
     } catch (error) {
       console.error("Failed to check onboarding completion:", error);
       return false;
@@ -247,17 +262,17 @@ class UUIDService {
   async getPriorityWallet(uuid: string): Promise<LinkedWallet | null> {
     try {
       const linkedWallets = await this.getLinkedWallets(uuid);
-      
+
       if (linkedWallets.length === 0) return null;
 
       // Priority order: BTC → NEAR → EVM
-      const btcWallet = linkedWallets.find(wallet => wallet.type === "BTC");
+      const btcWallet = linkedWallets.find((wallet) => wallet.type === "BTC");
       if (btcWallet) return btcWallet;
 
-      const nearWallet = linkedWallets.find(wallet => wallet.type === "NEAR");
+      const nearWallet = linkedWallets.find((wallet) => wallet.type === "NEAR");
       if (nearWallet) return nearWallet;
 
-      const evmWallet = linkedWallets.find(wallet => wallet.type === "EVM");
+      const evmWallet = linkedWallets.find((wallet) => wallet.type === "EVM");
       if (evmWallet) return evmWallet;
 
       // Fallback to first wallet
@@ -274,8 +289,14 @@ class UUIDService {
   debugInfo(): void {
     console.log("UUID Service Debug Info:", {
       currentUUID: this.currentUUID,
-      storedUUID: typeof window !== "undefined" ? localStorage.getItem(UUID_STORAGE_KEY) : null,
-      expiry: typeof window !== "undefined" ? localStorage.getItem(UUID_EXPIRY_KEY) : null,
+      storedUUID:
+        typeof window !== "undefined"
+          ? localStorage.getItem(UUID_STORAGE_KEY)
+          : null,
+      expiry:
+        typeof window !== "undefined"
+          ? localStorage.getItem(UUID_EXPIRY_KEY)
+          : null,
       isValid: this.isUUIDValid(),
     });
   }

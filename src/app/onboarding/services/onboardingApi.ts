@@ -13,7 +13,7 @@ export interface OnboardingStatus {
   };
   email?: string;
   completedAt?: string;
-  status?: string; // API response status
+  status?: "complete" | "incomplete" | "api_error" | "not_found" | string; // API response status
 }
 
 export interface SocialTasks {
@@ -22,7 +22,7 @@ export interface SocialTasks {
   retweetedPost: boolean;
 }
 
-const ONBOARDING_API_BASE_URL = "https://api-uat.atlasprotocol.com/api/v1";
+const ONBOARDING_API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
 // Shared redirect control to prevent infinite loops
 class RedirectController {
@@ -104,12 +104,9 @@ class OnboardingApiService {
       const response = await axios(config);
       return response;
     } catch (error) {
-      if (axios.isAxiosError(error)) {
-        const message = error?.response?.data?.message || error.message;
-        throw new Error(message);
-      } else {
-        throw new Error("API request failed");
-      }
+      // Re-throw the original axios error to preserve response information
+      // This allows callers to check status codes and response data
+      throw error;
     }
   }
 
@@ -182,6 +179,33 @@ class OnboardingApiService {
         error,
       );
 
+      // Check if this is a 404 "Wallet address not found" error
+      const isAxiosError = axios.isAxiosError(error);
+      const is404NotFound =
+        isAxiosError &&
+        error.response?.status === 404 &&
+        error.response?.data?.error === "Wallet address not found";
+
+      if (is404NotFound) {
+        console.log(
+          `📍 Wallet ${address} not found (404) - wallet has not completed onboarding yet`,
+        );
+
+        // For both HOME and ONBOARDING pages: 404 means onboarding is not complete
+        // HOME page will redirect to onboarding, ONBOARDING page will continue flow
+        return {
+          address,
+          isCompleted: false,
+          completedSteps: {
+            walletConnected: true,
+            socialTasksCompleted: false,
+            emailSubmitted: false,
+          },
+          status: "not_found", // Special status to indicate wallet not found
+        };
+      }
+
+      // For other API errors (network, server errors, etc.)
       // For the HOME page: if API fails, assume user can stay (don't force redirect)
       // For the ONBOARDING page: if API fails, continue with onboarding flow
       const fallbackCompleted = fromPage === "home" ? true : false;
