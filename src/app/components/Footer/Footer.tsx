@@ -8,7 +8,7 @@ import { useTerms } from "@/app/context/Terms/TermsContext";
 const iconLinks = [
   {
     name: "Website",
-    url: "/",
+    url: "https://atlasprotocol.com",
     Icon: GoHome,
   },
   {
