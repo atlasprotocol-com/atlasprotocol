@@ -1,7 +1,6 @@
-import atbtcImage from "@/app/assets/atbtc.png";
-import Image from "next/image";
 import { BsTelegram } from "react-icons/bs";
 import { FaXTwitter } from "react-icons/fa6";
+import { GoHome } from "react-icons/go";
 import { IoMdBook } from "react-icons/io";
 
 import { useTerms } from "@/app/context/Terms/TermsContext";
@@ -10,7 +9,7 @@ const iconLinks = [
   {
     name: "Website",
     url: "https://atlasprotocol.com",
-    Icon: AtBTCIcon,
+    Icon: GoHome,
   },
   {
     name: "X",
@@ -90,9 +89,3 @@ export const Footer: React.FC<FooterProps> = () => {
     </div>
   );
 };
-
-function AtBTCIcon({ size }: { size: number }) {
-  return (
-    <Image src={atbtcImage} alt="Atlas Protocol" width={size} height={size} />
-  );
-}

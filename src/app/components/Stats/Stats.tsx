@@ -1,3 +1,5 @@
+import atbtcImage from "@/app/assets/atbtc.png";
+import Image from "next/image";
 import { useMemo } from "react";
 
 import { useAppContext } from "@/app/context/app";
@@ -8,7 +10,6 @@ import { maxDecimals } from "@/utils/maxDecimals";
 import { Card } from "../Card";
 
 import { LockIcon } from "./icons/Lock";
-import { MintIcon } from "./icons/Mint";
 import { StakeIcon } from "./icons/Stake";
 
 function CardStat({
@@ -75,11 +76,15 @@ export const Stats: React.FC = () => {
       <CardStat
         icon={<LockIcon />}
         title="Total TVL"
-        value={statsValue?.totalTVL ? Number(statsValue.totalTVL.toFixed(2)).toLocaleString() : "--"}
+        value={
+          statsValue?.totalTVL
+            ? Number(statsValue.totalTVL.toFixed(2)).toLocaleString()
+            : "--"
+        }
         valueUnit={"USD"}
       />
       <CardStat
-        icon={<MintIcon />}
+        icon={<AtBTCIcon size={30} />}
         title={`${ATLAS_BTC_TOKEN} Minted`}
         value={statsValue?.totalAtBtcMinted.toString() ?? "--"}
         valueUnit={ATLAS_BTC_TOKEN}
@@ -87,3 +92,9 @@ export const Stats: React.FC = () => {
     </div>
   );
 };
+
+function AtBTCIcon({ size }: { size: number }) {
+  return (
+    <Image src={atbtcImage} alt="Atlas Protocol" width={size} height={size} />
+  );
+}
