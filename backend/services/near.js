@@ -15,7 +15,7 @@ const { MemoryCache } = require("../cache");
 const NearKeyManager = require("./nearKeyManager");
 const address = require("./address");
 
-const retries = 3;
+let retries = 3;
 const cache = new MemoryCache();
 
 debugBridgeMint = require("debug")("bridge:getPastMintBridgeEventsInBatches");
