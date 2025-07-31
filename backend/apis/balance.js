@@ -13,7 +13,10 @@ module.exports = () => {
       return res.status(400).json({ error: "Wallet address is required" });
     }
 
-    const values = address.split(",").filter(Boolean);
+    const values = address
+      .split(",")
+      .filter(Boolean)
+      .map((s) => s.toLowerCase());
     const placeholders = values.map((_, i) => `$${i + 1}`).join(", ");
 
     const { rows } = await client.query(
