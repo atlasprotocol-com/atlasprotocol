@@ -215,10 +215,20 @@ export function StakePreview({
       <Button
         className="mt-4 w-full"
         onClick={onConfirm}
-        disabled={!isUTXOsReady || actualAtBTCReceived <= 0.0001}
+        disabled={
+          !isUTXOsReady ||
+          (actualAtBTCReceived <= 0.0001 &&
+            isNumber(mintingFee) &&
+            Number(mintingFee || 0) >= 0)
+        }
       >
         Stake
       </Button>
     </Dialog>
   );
+}
+function isNumber(v: any) {
+  const value = Number(v || 0);
+  console.log("protocolFee", value, value * 1e8);
+  return typeof value === "number" && !isNaN(value);
 }

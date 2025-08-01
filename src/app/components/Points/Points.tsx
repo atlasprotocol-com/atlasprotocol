@@ -95,7 +95,7 @@ export function Points() {
                   {nearWallet}
                 </p>
                 <p className="text-sm">
-                  <strong>{userPoints[nearWallet] || 0} points</strong>
+                  <strong>{format(userPoints[nearWallet] || 0)} points</strong>
                 </p>
                 <button
                   onClick={() => disconnectNearWallet()}
@@ -128,7 +128,7 @@ export function Points() {
                 </p>
                 <p className="text-sm">
                   <strong>
-                    {userPoints[evmWallet.toLowerCase()] || 0} points
+                    {format(userPoints[evmWallet.toLowerCase()] || 0)} points
                   </strong>
                 </p>
                 <button
@@ -172,7 +172,7 @@ export function Points() {
                           {item.wallet_address}
                         </TableCell>
                         <TableCell className="text-right font-medium">
-                          {item.points.toLocaleString()}
+                          {format(item.points)}
                         </TableCell>
                       </TableRow>
                     ))
@@ -194,4 +194,10 @@ export function Points() {
       </div>
     </>
   );
+}
+function format(v: any) {
+  const value = Number(v || 0);
+  if (typeof value === "number" && !isNaN(value)) {
+    return Number(value.toFixed(2)).toLocaleString("en-US");
+  }
 }
