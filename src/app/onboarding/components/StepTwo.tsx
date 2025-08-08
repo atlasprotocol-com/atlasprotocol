@@ -140,7 +140,7 @@ export const StepTwo: React.FC<StepTwoProps> = ({
       title: "Retweet our Testnet Annoucement [Optional]",
       actionText: "Retweet",
       doneText: "Done",
-      actionUrl: "https://x.com/_atlasprotocol/status/1950859013299802463",
+      actionUrl: "https://x.com/_atlasprotocol/status/1953396962348466628",
       required: false,
     },
   ];
